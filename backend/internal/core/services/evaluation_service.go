@@ -8,16 +8,17 @@ import (
 )
 
 type EvaluationService struct {
-	exerciseRepo    domain.ExerciseRepository
-	astAnalyzer     domain.ASTAnalyzer
-	codeScanner     domain.CodeScanner
-	runner          domain.EvaluationRunner
-	metrics         RunMetricsRecorder
-	formatValidator FormatValidator
-	moduleRepo      domain.CourseModuleRepository
-	scriptRunner    domain.ScriptSandboxRunner
-	adminGovRepo    domain.AdminGovernanceRepository
-	snapshotRepo    domain.GeneratedCaseSnapshotRepository
+	exerciseRepo      domain.ExerciseRepository
+	astAnalyzer       domain.ASTAnalyzer
+	codeScanner       domain.CodeScanner
+	runner            domain.EvaluationRunner
+	metrics           RunMetricsRecorder
+	formatValidator   FormatValidator
+	moduleRepo        domain.CourseModuleRepository
+	scriptRunner      domain.ScriptSandboxRunner
+	adminGovRepo      domain.AdminGovernanceRepository
+	snapshotRepo      domain.GeneratedCaseSnapshotRepository
+	workspaceProjects *WorkspaceProjectService
 }
 
 func (s *EvaluationService) SetAdminGovernanceRepository(repo domain.AdminGovernanceRepository) {
@@ -28,6 +29,12 @@ func (s *EvaluationService) SetAdminGovernanceRepository(repo domain.AdminGovern
 // autoritativo de los casos generados por semilla.
 func (s *EvaluationService) SetGeneratedCaseSnapshotRepository(repo domain.GeneratedCaseSnapshotRepository) {
 	s.snapshotRepo = repo
+}
+
+// SetWorkspaceProjectService permite que la actualización de ejercicios
+// respete el espejo gestionado por la publicación de proyectos.
+func (s *EvaluationService) SetWorkspaceProjectService(service *WorkspaceProjectService) {
+	s.workspaceProjects = service
 }
 
 // RunMetricsRecorder persiste la telemetria por caso (tabla run_metrics,

@@ -250,6 +250,25 @@ func (s *EvaluationService) UpdateExercise(ctx context.Context, ex *domain.Exerc
 			return err
 		}
 	}
+
+	// El espejo de un ejercicio con proyecto no se puede reemplazar por la vía
+	// genérica de edición: la base publicada y las entregas deben coincidir.
+	if s.workspaceProjects != nil {
+		hasProject, err := s.workspaceProjects.HasProject(ctx, ex.TenantID, ex.ID)
+		if err != nil {
+			return err
+		}
+		if hasProject {
+			current, err := s.exerciseRepo.GetByIDAndTenant(ctx, ex.ID, ex.TenantID)
+			if err != nil {
+				return err
+			}
+			if current != nil && ex.Boilerplate != current.Boilerplate {
+				return domain.ErrWorkspaceProjectManagedBoilerplate
+			}
+		}
+	}
+
 	return s.exerciseRepo.Update(ctx, ex)
 }
 

@@ -245,6 +245,32 @@ describe('StudentExerciseSolverComponent', () => {
     openSpy.mockRestore();
   });
 
+  it('muestra el mensaje real del backend cuando el entorno no se puede sembrar', async () => {
+    const fakeTab = {
+      opener: null,
+      location: { href: '' },
+      close: vi.fn()
+    } as unknown as Window;
+    const openSpy = vi.spyOn(window, 'open').mockReturnValue(fakeTab);
+    const startSpy = vi.spyOn(mockStudentService, 'startEnvironment').mockRejectedValueOnce({
+      error: { message: 'El entorno ya contiene archivos y no se volverá a sembrar' }
+    });
+
+    component.exercise.set({
+      ...component.exercise()!,
+      type: 'project',
+      environment_type: 'IDE_PERSISTENTE'
+    });
+    fixture.detectChanges();
+
+    await component.openEnvironment();
+
+    expect(component.environmentError()).toBe('El entorno ya contiene archivos y no se volverá a sembrar');
+    expect(fakeTab.close).toHaveBeenCalled();
+    startSpy.mockRestore();
+    openSpy.mockRestore();
+  });
+
   it('should load public exercise without hidden test cases and submit solution through the judge', async () => {
     expect(component).toBeTruthy();
     expect(component.exercise()?.title).toBe('Suma de Enteros');

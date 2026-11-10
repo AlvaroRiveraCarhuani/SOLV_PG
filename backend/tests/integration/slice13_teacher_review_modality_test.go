@@ -2,8 +2,10 @@ package integration
 
 import (
 	"context"
+	"crypto/sha256"
 	"database/sql"
 	"errors"
+	"fmt"
 	"os"
 	"testing"
 	"time"
@@ -39,13 +41,25 @@ func TestSlice13_TeacherReviewModalityAndRubricClosure(t *testing.T) {
 	rubricID := uuid.NewString()
 
 	var templateID string
+	createdTemplate := false
 	err = db.GetDB().Get(&templateID, `
 		SELECT id FROM lab_templates
-		WHERE target_environment = 'IDE_PERSISTENTE' AND status = 'approved'
+		WHERE target_environment = 'IDE_PERSISTENTE' AND status IN ('approved','APROBADA')
 		LIMIT 1
 	`)
 	if err != nil {
-		t.Skipf("Skipping integration test: no hay plantilla IDE en la base de test: %v", err)
+		// La prueba no depende de que otra prueba haya sembrado una plantilla:
+		// crea la suya para ejercitar el contrato también en una base limpia.
+		if err := db.GetDB().QueryRow(`
+			INSERT INTO lab_templates (
+				tenant_id, name, docker_image, base_ram_mb, target_environment, status, created_at, updated_at
+			)
+			VALUES ($1, $2, 'node:20-bookworm-slim', 512, 'IDE_PERSISTENTE', 'approved', NOW(), NOW())
+			RETURNING id
+		`, tenantID, "Plantilla IDE Modalidad "+teacherID[:8]).Scan(&templateID); err != nil {
+			t.Fatalf("no se pudo sembrar la plantilla IDE: %v", err)
+		}
+		createdTemplate = true
 	}
 
 	cleanup := func() {
@@ -53,10 +67,15 @@ func TestSlice13_TeacherReviewModalityAndRubricClosure(t *testing.T) {
 		_, _ = db.GetDB().Exec(`DELETE FROM submission_comments WHERE submission_id = $1`, submissionID)
 		_, _ = db.GetDB().Exec(`DELETE FROM rubrics WHERE exercise_id = $1`, exerciseID)
 		_, _ = db.GetDB().Exec(`DELETE FROM submissions WHERE id = $1`, submissionID)
+		_, _ = db.GetDB().Exec(`DELETE FROM workspace_project_versions WHERE exercise_id = $1`, exerciseID)
+		_, _ = db.GetDB().Exec(`DELETE FROM workspace_projects WHERE exercise_id = $1`, exerciseID)
 		_, _ = db.GetDB().Exec(`DELETE FROM exercises WHERE id = $1`, exerciseID)
 		_, _ = db.GetDB().Exec(`DELETE FROM enrollments WHERE subject_id = $1`, subjectID)
 		_, _ = db.GetDB().Exec(`DELETE FROM subjects WHERE id = $1`, subjectID)
 		_, _ = db.GetDB().Exec(`DELETE FROM users WHERE id IN ($1, $2)`, teacherID, studentID)
+		if createdTemplate {
+			_, _ = db.GetDB().Exec(`DELETE FROM lab_templates WHERE id = $1`, templateID)
+		}
 	}
 	defer cleanup()
 
@@ -84,6 +103,7 @@ func TestSlice13_TeacherReviewModalityAndRubricClosure(t *testing.T) {
 		t.Fatalf("no se pudo inscribir al alumno: %v", err)
 	}
 
+	boilerplate := "# === FILE: app.js ===\nimport express from \"express\";\n"
 	if _, err := db.GetDB().Exec(`
 		INSERT INTO exercises (
 			id, subject_id, title, description, type, status, config,
@@ -91,8 +111,30 @@ func TestSlice13_TeacherReviewModalityAndRubricClosure(t *testing.T) {
 		)
 		VALUES ($1, $2, 'Práctica IDE con snapshot', 'Proyecto de prueba',
 		        'project', 'published', '{}'::jsonb, $3, $4, 'IDE_PERSISTENTE', 'javascript', $5)
-	`, exerciseID, subjectID, tenantID, templateID, "# === FILE: app.js ===\nimport express from \"express\";\n"); err != nil {
+	`, exerciseID, subjectID, tenantID, templateID, boilerplate); err != nil {
 		t.Fatalf("no se pudo sembrar el ejercicio IDE: %v", err)
+	}
+
+	// La base de comparación es la versión publicada del proyecto inicial
+	// (ADR-068). Una entrega sin versión exacta no inventa diff.
+	var projectID, versionID string
+	if err := db.GetDB().QueryRow(`
+		INSERT INTO workspace_projects (tenant_id, exercise_id, created_by)
+		VALUES ($1, $2, $3)
+		RETURNING id
+	`, tenantID, exerciseID, teacherID).Scan(&projectID); err != nil {
+		t.Fatalf("no se pudo sembrar el proyecto inicial: %v", err)
+	}
+	contentHash := fmt.Sprintf("%x", sha256.Sum256([]byte(boilerplate)))
+	if err := db.GetDB().QueryRow(`
+		INSERT INTO workspace_project_versions (
+			tenant_id, project_id, exercise_id, version_number, text_snapshot,
+			manifest, content_sha256, file_count, total_bytes, created_by
+		)
+		VALUES ($1, $2, $3, 1, $4, '[]'::jsonb, $5, 1, $6, $7)
+		RETURNING id
+	`, tenantID, projectID, exerciseID, boilerplate, contentHash, len(boilerplate), teacherID).Scan(&versionID); err != nil {
+		t.Fatalf("no se pudo sembrar la versión publicada: %v", err)
 	}
 
 	code := "# === FILE: app.js ===\n" +
@@ -104,11 +146,12 @@ func TestSlice13_TeacherReviewModalityAndRubricClosure(t *testing.T) {
 	if _, err := db.GetDB().Exec(`
 		INSERT INTO submissions (
 			id, tenant_id, exercise_id, student_id, code, verdict, review_status,
-			ast_result, generated_cases, complexity_analysis, submitted_at
+			ast_result, generated_cases, complexity_analysis, base_status,
+			workspace_project_version_id, submitted_at
 		)
 		VALUES ($1, $2, $3, $4, $5, NULL, 'pending',
-		        '{}'::jsonb, '{}'::jsonb, '{}'::jsonb, NOW())
-	`, submissionID, tenantID, exerciseID, studentID, code); err != nil {
+		        '{}'::jsonb, '{}'::jsonb, '{}'::jsonb, 'version', $6, NOW())
+	`, submissionID, tenantID, exerciseID, studentID, code, versionID); err != nil {
 		t.Fatalf("no se pudo sembrar la entrega IDE: %v", err)
 	}
 

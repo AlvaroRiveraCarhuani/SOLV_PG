@@ -1,0 +1,655 @@
+<section
+  class="project-card"
+  [class.is-drag-over]="dropActive()"
+  (dragover)="onDragOver($event)"
+  (dragleave)="onDragLeave($event)"
+  (drop)="onDrop($event)"
+>
+  <header class="project-header">
+    <div class="project-heading">
+      <span class="heading-icon" aria-hidden="true">
+        <svg lucideFolder></svg>
+      </span>
+      <div>
+        <h3 class="project-title">Proyecto inicial</h3>
+        <p class="project-subtitle">
+          Archivos con los que el estudiante abre el Entorno de Desarrollo. Se importan como
+          borrador y no se publican solos.
+        </p>
+      </div>
+    </div>
+
+    <div class="project-actions">
+      <button
+        type="button"
+        class="btn-outline project-action"
+        [disabled]="!exerciseId() || importing() || aiGenerating()"
+        (click)="openAiGenerator()"
+        title="Describir el proyecto y recibir una propuesta de archivos"
+      >
+        @if (aiGenerating()) {
+          <svg lucideLoader2 class="action-icon motion-spin"></svg>
+        } @else {
+          <svg lucideSparkles class="action-icon"></svg>
+        }
+        <span>Generar con IA</span>
+      </button>
+      <button
+        type="button"
+        class="btn-outline project-action"
+        [disabled]="!exerciseId() || importing()"
+        (click)="openFolderPicker(folderInput)"
+        title="Seleccionar una carpeta de tu equipo"
+      >
+        @if (importing()) {
+          <svg lucideLoader2 class="action-icon motion-spin"></svg>
+        } @else {
+          <svg lucideUploadCloud class="action-icon"></svg>
+        }
+        <span>Importar carpeta</span>
+      </button>
+      <button
+        type="button"
+        class="btn-outline project-action"
+        [disabled]="!exerciseId() || importing()"
+        (click)="zipInput.click()"
+        title="Seleccionar un archivo ZIP de hasta 10 MiB"
+      >
+        <svg lucideFileArchive class="action-icon"></svg>
+        <span>Importar ZIP</span>
+      </button>
+    </div>
+  </header>
+
+  <input
+    #folderInput
+    type="file"
+    webkitdirectory
+    multiple
+    hidden
+    (change)="onFolderInput($event)"
+  />
+  <input #zipInput type="file" accept=".zip,application/zip" hidden (change)="onZipInput($event)" />
+
+  @if (!exerciseId()) {
+    <field-message
+      variant="info"
+      message="Guarda primero la práctica para habilitar el proyecto inicial."
+    />
+  } @else if (loading()) {
+    <div class="loading-row" role="status">
+      <svg lucideLoader2 class="action-icon motion-spin"></svg>
+      <span>Cargando el proyecto inicial...</span>
+    </div>
+  } @else {
+    <div class="project-status" aria-label="Estado del proyecto inicial">
+      <div class="status-cell">
+        <span class="status-label">Borrador</span>
+        @if (draft(); as currentDraft) {
+          <strong class="status-value" machineData>Revisión {{ currentDraft.revision }}</strong>
+          <time class="status-hint" [attr.datetime]="currentDraft.updated_at">{{
+            currentDraft.updated_at | dateText: 'datetime'
+          }}</time>
+        } @else {
+          <strong class="status-value">Sin borrador</strong>
+          <span class="status-hint">La importación crea el primero</span>
+        }
+      </div>
+      <div class="status-cell">
+        <span class="status-label">Versión publicada</span>
+        @if (publishedVersion(); as version) {
+          <strong class="status-value" machineData>v{{ version.version_number }}</strong>
+          <time class="status-hint" [attr.datetime]="version.published_at">{{
+            version.published_at | dateText: 'datetime'
+          }}</time>
+        } @else {
+          <strong class="status-value">Sin publicar</strong>
+          <span class="status-hint">El borrador aún no tiene versión</span>
+        }
+      </div>
+      <div class="status-cell">
+        <span class="status-label">Archivos</span>
+        <strong class="status-value" machineData>{{ files().length }} / {{ maxFiles }}</strong>
+        <span class="status-hint" machineData>{{ formatBytes(totalBytes()) }}</span>
+      </div>
+      <div class="status-cell">
+        <span class="status-label">Publicación</span>
+        @if (publishingEnabled()) {
+          <strong class="status-value status-enabled">Habilitada</strong>
+          <span class="status-hint">Requiere confirmación docente</span>
+        } @else {
+          <strong class="status-value status-disabled">Deshabilitada</strong>
+          <span class="status-hint">Configuración del servidor</span>
+        }
+      </div>
+    </div>
+
+    @if (errorMessage()) {
+      <field-message variant="error" [message]="errorMessage() || ''" />
+    }
+    @if (files().length > 0 && snapshotError(); as snapshotProblem) {
+      <field-message variant="error" [message]="snapshotProblem" />
+    }
+    @if (conflict()) {
+      <field-message
+        variant="warning"
+        message="Otra persona guardó una revisión más nueva. No se sobrescribió el borrador."
+        actionLabel="Recargar borrador"
+        (actionClicked)="reloadAfterConflict()"
+      />
+    }
+    @if (aiOpen()) {
+      <section class="ai-panel" aria-label="Generación asistida del proyecto inicial">
+        <header class="ai-panel-header">
+          <div class="project-heading">
+            <span class="heading-icon" aria-hidden="true">
+              <svg lucideSparkles></svg>
+            </span>
+            <div>
+              <h4 class="ai-panel-title">Generar proyecto con IA</h4>
+              <p class="project-subtitle">
+                La propuesta es una sugerencia: nada se guarda ni se publica hasta que la incorpores
+                y guardes el borrador.
+              </p>
+            </div>
+          </div>
+          <button
+            type="button"
+            class="btn-outline btn-small"
+            [disabled]="aiGenerating()"
+            (click)="closeAiGenerator()"
+          >
+            Cerrar
+          </button>
+        </header>
+
+        @if (aiError()) {
+          <field-message variant="error" [message]="aiError() || ''" />
+        }
+
+        @if (aiGenerating()) {
+          <div class="loading-row" role="status">
+            <svg lucideLoader2 class="action-icon motion-spin"></svg>
+            <span>Generando la propuesta con el proveedor configurado...</span>
+            <button type="button" class="btn-outline btn-small" (click)="cancelAiGeneration()">
+              Cancelar
+            </button>
+          </div>
+        }
+
+        @if (aiProposal(); as proposal) {
+          <p class="ai-summary">{{ proposal.summary }}</p>
+          <div class="ai-proposal">
+            <ul class="ai-file-list" aria-label="Archivos propuestos">
+              @for (file of proposal.files; track file.path) {
+                <li>
+                  <button
+                    type="button"
+                    class="ai-file-button"
+                    [class.is-selected]="aiPreviewFile()?.path === file.path"
+                    (click)="selectAiFile(file.path)"
+                  >
+                    <code machineData>{{ file.path }}</code>
+                    <span class="file-meta" machineData>{{
+                      formatBytes(contentBytes(file.content))
+                    }}</span>
+                  </button>
+                </li>
+              }
+            </ul>
+            @if (aiPreviewFile(); as preview) {
+              <div class="ai-preview">
+                <div class="file-editor-header">
+                  <div class="file-path">
+                    <svg lucideFileCode class="file-icon" aria-hidden="true"></svg>
+                    <code machineData>{{ preview.path }}</code>
+                  </div>
+                  <span class="file-meta">Solo lectura</span>
+                </div>
+                <pre class="version-snapshot">{{ preview.content }}</pre>
+              </div>
+            }
+          </div>
+          <div class="ai-actions">
+            <button
+              type="button"
+              class="btn-outline btn-small"
+              [disabled]="aiGenerating()"
+              (click)="generateProposal()"
+            >
+              Generar otra propuesta
+            </button>
+            <button type="button" class="btn-outline btn-small" (click)="discardProposal()">
+              Descartar
+            </button>
+            <button type="button" class="btn-primary btn-small" (click)="requestApplyProposal()">
+              Usar esta propuesta
+            </button>
+          </div>
+        } @else if (!aiGenerating()) {
+          <div class="ai-form">
+            <label class="ai-field" for="ai-project-description">
+              <span class="inline-label">Qué proyecto necesitás</span>
+              <textarea
+                id="ai-project-description"
+                class="form-input"
+                rows="3"
+                placeholder="Una API en Python con dos endpoints y su README"
+                [value]="aiForm().description"
+                (input)="onAiFieldInput($event, 'description')"
+              ></textarea>
+            </label>
+            <label class="ai-field" for="ai-project-purpose">
+              <span class="inline-label">Qué debe hacer</span>
+              <textarea
+                id="ai-project-purpose"
+                class="form-input"
+                rows="2"
+                placeholder="Leer un archivo de entrada y devolver un resumen"
+                [value]="aiForm().purpose"
+                (input)="onAiFieldInput($event, 'purpose')"
+              ></textarea>
+            </label>
+            <div class="ai-form-row">
+              <label class="ai-field" for="ai-project-technology">
+                <span class="inline-label">Lenguaje o tecnología</span>
+                <input
+                  id="ai-project-technology"
+                  class="form-input"
+                  type="text"
+                  placeholder="Python 3.12"
+                  [value]="aiForm().technology"
+                  (input)="onAiFieldInput($event, 'technology')"
+                />
+              </label>
+              <label class="ai-field" for="ai-project-requirements">
+                <span class="inline-label">Requisitos de los archivos</span>
+                <input
+                  id="ai-project-requirements"
+                  class="form-input"
+                  type="text"
+                  placeholder="Incluir README y pruebas de ejemplo"
+                  [value]="aiForm().requirements"
+                  (input)="onAiFieldInput($event, 'requirements')"
+                />
+              </label>
+            </div>
+          </div>
+          <div class="ai-actions">
+            <button type="button" class="btn-outline btn-small" (click)="closeAiGenerator()">
+              Cancelar
+            </button>
+            <button type="button" class="btn-primary btn-small" (click)="generateProposal()">
+              Generar propuesta
+            </button>
+          </div>
+        }
+      </section>
+    }
+
+    @if (pendingProposal(); as proposal) {
+      <div class="replace-confirm" role="status">
+        <svg lucideAlertTriangle class="confirm-icon" aria-hidden="true"></svg>
+        <span>
+          Se reemplazará el contenido del editor con la propuesta de IA de
+          {{ proposal.file_count }} archivos. Los cambios sin guardar se perderán.
+        </span>
+        <div class="confirm-actions">
+          <button type="button" class="btn-outline btn-small" (click)="cancelReplaceProposal()">
+            Cancelar
+          </button>
+          <button type="button" class="btn-primary btn-small" (click)="confirmReplaceProposal()">
+            Reemplazar
+          </button>
+        </div>
+      </div>
+    }
+    @if (notice()) {
+      <field-message variant="success" [message]="notice() || ''" />
+    }
+    @if (view()?.legacy && !project()) {
+      <field-message
+        variant="info"
+        message="Este ejercicio conserva una referencia histórica de su proyecto anterior. Importá una carpeta o ZIP para crear el proyecto versionado."
+      />
+    }
+
+    @if (pendingImport(); as pending) {
+      <div class="replace-confirm" role="status">
+        <svg lucideAlertTriangle class="confirm-icon" aria-hidden="true"></svg>
+        <span>
+          Se reemplazará el contenido del borrador con
+          {{ pending.kind === 'folder' ? 'la carpeta seleccionada' : 'el ZIP seleccionado' }}. Los
+          cambios sin guardar se perderán.
+        </span>
+        <div class="confirm-actions">
+          <button type="button" class="btn-outline btn-small" (click)="cancelReplaceImport()">
+            Cancelar
+          </button>
+          <button type="button" class="btn-primary btn-small" (click)="confirmReplaceImport()">
+            Reemplazar
+          </button>
+        </div>
+      </div>
+    }
+
+    @if (files().length === 0) {
+      <div class="empty-project">
+        <svg lucideUploadCloud class="empty-icon" aria-hidden="true"></svg>
+        <h4>Importa el proyecto con el que empezará el estudiante</h4>
+        <p>
+          Podés seleccionar una carpeta, un ZIP o arrastrarlo aquí. Se conservan las rutas
+          relativas; el contenido debe ser texto UTF-8 y no superar 1 MiB en total.
+        </p>
+        <button
+          type="button"
+          class="btn-primary"
+          [disabled]="importing()"
+          (click)="openFolderPicker(folderInput)"
+        >
+          <svg lucideFolder class="action-icon"></svg>
+          <span>Seleccionar carpeta</span>
+        </button>
+      </div>
+    } @else {
+      <div class="project-workbench">
+        <div class="tree-pane">
+          <review-file-tree
+            class="project-tree"
+            [files]="fileTree()"
+            [selectedPath]="selectedPath()"
+            heading="Proyecto"
+            ariaLabel="Archivos del proyecto inicial"
+            [showCollapse]="false"
+            (fileSelected)="selectFile($event)"
+          />
+          <div class="tree-actions">
+            <button type="button" class="btn-outline btn-small" (click)="openAddFile()">
+              <svg lucidePlus class="action-icon"></svg>
+              <span>Archivo</span>
+            </button>
+            @if (selectedFile()) {
+              <button type="button" class="btn-outline btn-small" (click)="startRename()">
+                <svg lucidePencil class="action-icon"></svg>
+                <span>Renombrar</span>
+              </button>
+              <button
+                type="button"
+                class="btn-outline btn-small btn-danger-text"
+                (click)="deleteConfirm.set(true)"
+              >
+                <svg lucideTrash2 class="action-icon"></svg>
+                <span>Eliminar</span>
+              </button>
+            }
+          </div>
+
+          @if (addFileOpen()) {
+            <div class="inline-editor">
+              <label class="inline-label" for="new-project-file">Ruta del archivo nuevo</label>
+              <input
+                id="new-project-file"
+                class="form-input"
+                type="text"
+                placeholder="src/archivo.py"
+                [value]="newFilePath()"
+                (input)="onTextInput($event, 'new')"
+                (keydown.enter)="addFile()"
+              />
+              <div class="inline-actions">
+                <button
+                  type="button"
+                  class="btn-outline btn-small"
+                  (click)="addFileOpen.set(false)"
+                >
+                  Cancelar
+                </button>
+                <button type="button" class="btn-primary btn-small" (click)="addFile()">
+                  Añadir
+                </button>
+              </div>
+            </div>
+          }
+
+          @if (renameOpen()) {
+            <div class="inline-editor">
+              <label class="inline-label" for="rename-project-file"
+                >Nueva ruta (podés moverla con /)</label
+              >
+              <input
+                id="rename-project-file"
+                class="form-input"
+                type="text"
+                [value]="renamePath()"
+                (input)="onTextInput($event, 'rename')"
+                (keydown.enter)="renameFile()"
+              />
+              <div class="inline-actions">
+                <button type="button" class="btn-outline btn-small" (click)="renameOpen.set(false)">
+                  Cancelar
+                </button>
+                <button type="button" class="btn-primary btn-small" (click)="renameFile()">
+                  Guardar ruta
+                </button>
+              </div>
+            </div>
+          }
+
+          @if (deleteConfirm()) {
+            <div class="inline-confirm">
+              <span
+                >¿Eliminar <code>{{ selectedPath() }}</code> del borrador?</span
+              >
+              <div class="inline-actions">
+                <button
+                  type="button"
+                  class="btn-outline btn-small"
+                  (click)="deleteConfirm.set(false)"
+                >
+                  Cancelar
+                </button>
+                <button type="button" class="btn-primary btn-small" (click)="confirmDeleteFile()">
+                  Eliminar
+                </button>
+              </div>
+            </div>
+          }
+        </div>
+
+        <div class="editor-pane">
+          @if (selectedFile(); as file) {
+            <div class="file-editor-header">
+              <div class="file-path">
+                <svg lucideFileCode class="file-icon" aria-hidden="true"></svg>
+                <code machineData>{{ file.path }}</code>
+              </div>
+              <span class="file-meta" machineData
+                >{{ file.content.split('\n').length }} líneas</span
+              >
+            </div>
+            <code-editor
+              [value]="file.content"
+              [language]="languageForProjectPath(file.path)"
+              minHeight="360px"
+              maxHeight="520px"
+              (valueChange)="onFileContentChange($event)"
+            />
+          } @else {
+            <div class="editor-empty">
+              <svg lucideFileCode class="empty-icon" aria-hidden="true"></svg>
+              <p>Selecciona un archivo del árbol para revisar o editar su contenido.</p>
+            </div>
+          }
+        </div>
+      </div>
+
+      <div class="save-bar">
+        <div class="save-status">
+          @if (dirty()) {
+            <span class="dirty-text">Cambios sin guardar</span>
+          } @else {
+            <span class="saved-text"
+              ><svg lucideCheck class="action-icon"></svg> Sin cambios pendientes</span
+            >
+          }
+          <span class="save-hint"
+            >Revisión <span machineData>{{ revision() }}</span></span
+          >
+        </div>
+        <div class="save-actions">
+          @if (!dirty() && draft()) {
+            <span class="saved-state">Borrador sincronizado</span>
+          }
+          <button
+            type="button"
+            class="btn-primary"
+            [disabled]="!canSave()"
+            (click)="saveDraft()"
+            title="Guardar el borrador sin publicar"
+          >
+            @if (saving()) {
+              <svg lucideLoader2 class="action-icon motion-spin"></svg>
+              <span>Guardando...</span>
+            } @else {
+              <svg lucideSave class="action-icon"></svg>
+              <span>Guardar borrador</span>
+            }
+          </button>
+          @if (publishingEnabled()) {
+            <button
+              type="button"
+              class="btn-outline"
+              [disabled]="!canPublish()"
+              (click)="openPublish()"
+              [title]="
+                dirty()
+                  ? 'Guarda el borrador antes de publicar'
+                  : 'Publicar una versión inmutable del borrador'
+              "
+            >
+              <svg lucideGlobe class="action-icon"></svg>
+              <span>Publicar versión</span>
+            </button>
+          }
+        </div>
+      </div>
+    }
+
+    @if (versions().length > 0) {
+      <details class="history-panel">
+        <summary class="history-summary">
+          <span class="history-title">
+            <svg lucideHistory class="action-icon"></svg>
+            Historial de versiones
+          </span>
+          <span class="history-count" machineData>{{ versions().length }}</span>
+        </summary>
+        <ul class="version-list">
+          @for (version of versions(); track version.id) {
+            <li class="version-row">
+              <div class="version-main">
+                <strong class="version-number" machineData>v{{ version.version_number }}</strong>
+                <span class="version-meta">
+                  <span machineData>{{ version.file_count }} archivos</span>
+                  <span aria-hidden="true">·</span>
+                  <span machineData>{{ formatBytes(version.total_bytes) }}</span>
+                </span>
+                <time class="version-date" [attr.datetime]="version.published_at">{{
+                  version.published_at | dateText: 'datetime'
+                }}</time>
+              </div>
+              <button
+                type="button"
+                class="btn-outline btn-small"
+                (click)="toggleVersionPreview(version)"
+              >
+                {{ versionPreview()?.id === version.id ? 'Ocultar' : 'Ver snapshot' }}
+              </button>
+            </li>
+          }
+        </ul>
+      </details>
+
+      @if (versionPreview(); as version) {
+        <div class="version-preview">
+          <header class="version-preview-header">
+            <span
+              >Snapshot de la versión
+              <strong machineData>v{{ version.version_number }}</strong></span
+            >
+            <button type="button" class="btn-outline btn-small" (click)="closeVersionPreview()">
+              Cerrar
+            </button>
+          </header>
+          <pre class="version-snapshot">{{ version.text_snapshot }}</pre>
+        </div>
+      }
+    }
+
+    @if (publishingEnabled() && !draft()) {
+      <p class="publish-note">
+        La publicación está habilitada. Importá o guardá un borrador para poder publicar una
+        versión.
+      </p>
+    } @else if (!publishingEnabled()) {
+      <p class="publish-note publish-note-disabled">
+        La publicación de proyectos está deshabilitada en este servidor. El borrador y el historial
+        siguen disponibles.
+      </p>
+    }
+  }
+
+  @if (publishModal()) {
+    <modal-shell
+      title="Publicar proyecto inicial"
+      subtitle="La versión será inmutable y quedará como base de las entregas."
+      intent="warning"
+      (close)="closePublish()"
+    >
+      <svg modal-icon lucideGlobe class="icon"></svg>
+      <div class="publish-preview">
+        <p>
+          Se publicará la versión <strong machineData>v{{ nextVersionNumber() }}</strong> con
+          <strong machineData>{{ files().length }} archivos</strong> y
+          <strong machineData>{{ formatBytes(totalBytes()) }}</strong> de contenido.
+        </p>
+        @if (publishedVersion()) {
+          <p class="publish-change-summary">
+            Respecto de la versión publicada:
+            <span machineData>{{ changeSummary().added.length }}</span> agregados,
+            <span machineData>{{ changeSummary().modified.length }}</span> modificados,
+            <span machineData>{{ changeSummary().removed.length }}</span> eliminados.
+          </p>
+        } @else {
+          <p class="publish-change-summary">Será la primera versión publicada.</p>
+        }
+        @if (publishError()) {
+          <field-message variant="error" [message]="publishError() || ''" />
+        }
+      </div>
+      <ng-container modal-footer>
+        <button
+          type="button"
+          class="btn-outline"
+          [disabled]="publishing()"
+          (click)="closePublish()"
+        >
+          Cancelar
+        </button>
+        <button
+          type="button"
+          class="btn-primary"
+          [disabled]="publishing()"
+          (click)="confirmPublish()"
+        >
+          @if (publishing()) {
+            <svg lucideLoader2 class="action-icon motion-spin"></svg>
+            <span>Publicando...</span>
+          } @else {
+            <span>Confirmar publicación</span>
+          }
+        </button>
+      </ng-container>
+    </modal-shell>
+  }
+</section>

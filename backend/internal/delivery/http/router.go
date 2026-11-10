@@ -35,6 +35,7 @@ type Handlers struct {
 	WebSocketHandler              *WebSocketHandler
 	EnvTestHandler                *EnvTestHandler
 	EnvironmentRequestHandler     *EnvironmentRequestHandler
+	WorkspaceProjectHandler       *WorkspaceProjectHandler
 	LanguageProfileHandler        *LanguageProfileHandler
 	CourseModuleHandler           *CourseModuleHandler
 	RubricHandler                 *RubricHandler
@@ -62,6 +63,7 @@ func SetupRoutes(mux *http.ServeMux, deps *Handlers) {
 	registerStudentRoutes(mux, deps)
 	registerTeacherRoutes(mux, deps)
 	registerEnvironmentRequestRoutes(mux, deps)
+	registerWorkspaceProjectRoutes(mux, deps)
 	registerClassSessionRoutes(mux, deps)
 	registerClassAdvanceRoutes(mux, deps)
 	registerCourseModuleRoutes(mux, deps)
@@ -495,6 +497,29 @@ func registerEvaluationRoutes(mux *http.ServeMux, h *EvaluationHandler, tenantMi
 	mux.Handle("GET /api/v1/dry-run/jobs/{jobId}", tm(http.HandlerFunc(h.GetDryRunJob)))
 	mux.Handle("POST /api/v1/teacher/courses/{courseId}/exercises/import", am(tm(http.HandlerFunc(h.ImportExercises))))
 	mux.Handle("POST /api/v1/teacher/exercises/{exerciseId}/generate-from-script", am(tm(http.HandlerFunc(h.GenerateCasesFromScript))))
+}
+
+func registerWorkspaceProjectRoutes(mux *http.ServeMux, deps *Handlers) {
+	if deps.WorkspaceProjectHandler == nil {
+		return
+	}
+	tm := deps.TenantMiddleware
+	if tm == nil {
+		tm = func(next http.Handler) http.Handler { return WithAuth(next) }
+	}
+	am := deps.AuditMiddleware
+	if am == nil {
+		am = func(next http.Handler) http.Handler { return next }
+	}
+
+	mux.Handle("GET /api/v1/teacher/exercises/{id}/project", tm(http.HandlerFunc(deps.WorkspaceProjectHandler.GetProject)))
+	mux.Handle("PUT /api/v1/teacher/exercises/{id}/project/draft", am(tm(http.HandlerFunc(deps.WorkspaceProjectHandler.SaveDraft))))
+	mux.Handle("POST /api/v1/teacher/exercises/{id}/project/import/folder", am(tm(http.HandlerFunc(deps.WorkspaceProjectHandler.ImportFolder))))
+	mux.Handle("POST /api/v1/teacher/exercises/{id}/project/import/zip", am(tm(http.HandlerFunc(deps.WorkspaceProjectHandler.ImportZip))))
+	// La generación con IA vive junto al proyecto del ejercicio: devuelve una
+	// propuesta validada y nunca escribe borrador ni publica por su cuenta.
+	mux.Handle("POST /api/v1/teacher/exercises/{id}/project/generate", am(tm(http.HandlerFunc(deps.WorkspaceProjectHandler.GenerateProject))))
+	mux.Handle("POST /api/v1/teacher/exercises/{id}/project/publish", am(tm(http.HandlerFunc(deps.WorkspaceProjectHandler.Publish))))
 }
 
 func registerLanguageProfileRoutes(mux *http.ServeMux, deps *Handlers) {

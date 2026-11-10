@@ -153,12 +153,19 @@ func (r *PostgresTeacherRepository) GetExerciseSubmissionsForPlagiarism(ctx cont
 			u.email AS student_email,
 			COALESCE(ex.language, 'python') AS language,
 			sub.code AS code,
-			COALESCE(ex.boilerplate, '') AS boilerplate,
+			CASE WHEN ex.environment_type = 'IDE_PERSISTENTE'
+			     THEN COALESCE(v.text_snapshot, '')
+			     ELSE COALESCE(ex.boilerplate, '') END AS boilerplate,
+			COALESCE(sub.base_status, '') AS base_status,
 			COALESCE(ex.environment_type, 'JUEZ_EFIMERO') AS environment_type,
 			COALESCE(sub.verdict, '') AS verdict,
 			sub.submitted_at
 		FROM submissions sub
 		JOIN exercises ex ON sub.exercise_id = ex.id
+		LEFT JOIN workspace_project_versions v
+		       ON v.id = sub.workspace_project_version_id
+		      AND v.tenant_id = sub.tenant_id
+		      AND v.exercise_id = sub.exercise_id
 		JOIN users u ON sub.student_id = u.id
 		WHERE ex.subject_id = $1 AND sub.tenant_id = $2
 		  AND ($3 = '' OR sub.exercise_id::text = $3)
@@ -202,7 +209,10 @@ func (r *PostgresTeacherRepository) GetPlagiarismPairSubmissions(ctx context.Con
 		       COALESCE(ex.environment_type, 'JUEZ_EFIMERO') AS environment_type,
 		       COALESCE(ex.language, 'python') AS language,
 		       COALESCE(sub.code, '') AS code,
-		       COALESCE(ex.boilerplate, '') AS boilerplate,
+		       CASE WHEN ex.environment_type = 'IDE_PERSISTENTE'
+		            THEN COALESCE(v.text_snapshot, '')
+		            ELSE COALESCE(ex.boilerplate, '') END AS boilerplate,
+		       COALESCE(sub.base_status, '') AS base_status,
 		       COALESCE(sub.verdict, '') AS verdict,
 		       COALESCE(sub.execution_time_ms, 0) AS execution_time_ms,
 		       COALESCE(sub.memory_used_mb, 0) AS memory_used_mb,
@@ -211,6 +221,10 @@ func (r *PostgresTeacherRepository) GetPlagiarismPairSubmissions(ctx context.Con
 		       sub.submitted_at
 		FROM submissions sub
 		JOIN exercises ex ON sub.exercise_id = ex.id
+		LEFT JOIN workspace_project_versions v
+		       ON v.id = sub.workspace_project_version_id
+		      AND v.tenant_id = sub.tenant_id
+		      AND v.exercise_id = sub.exercise_id
 		JOIN subjects s ON ex.subject_id = s.id
 		JOIN users u ON sub.student_id = u.id
 		WHERE sub.tenant_id = $1
@@ -231,6 +245,7 @@ func (r *PostgresTeacherRepository) GetPlagiarismPairSubmissions(ctx context.Con
 		Language           string    `db:"language"`
 		Code               string    `db:"code"`
 		Boilerplate        string    `db:"boilerplate"`
+		BaseStatus         string    `db:"base_status"`
 		Verdict            string    `db:"verdict"`
 		ExecutionTimeMS    int       `db:"execution_time_ms"`
 		MemoryUsedMB       int       `db:"memory_used_mb"`
@@ -258,6 +273,7 @@ func (r *PostgresTeacherRepository) GetPlagiarismPairSubmissions(ctx context.Con
 			Language:           row.Language,
 			Code:               row.Code,
 			Boilerplate:        row.Boilerplate,
+			BaseStatus:         row.BaseStatus,
 			Verdict:            row.Verdict,
 			ExecutionTimeMS:    row.ExecutionTimeMS,
 			MemoryUsedMB:       row.MemoryUsedMB,

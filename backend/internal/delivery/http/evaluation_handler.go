@@ -257,7 +257,7 @@ func (h *EvaluationHandler) UpdateExercise(w http.ResponseWriter, r *http.Reques
 	}
 
 	if err := h.service.UpdateExercise(r.Context(), &ex); err != nil {
-		if isValidationError(err) {
+		if isValidationError(err) || errors.Is(err, domain.ErrWorkspaceProjectManagedBoilerplate) {
 			SendError(w, http.StatusUnprocessableEntity, err.Error(), err.Error())
 			return
 		}

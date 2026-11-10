@@ -3,7 +3,9 @@ package httpdelivery
 import (
 	"encoding/json"
 	"errors"
+	"io"
 	"net/http"
+	"path"
 	"strings"
 
 	"github.com/go-playground/validator/v10"
@@ -118,6 +120,26 @@ func (h *PracticeEnvironmentHandler) StartPracticeEnvironment(w http.ResponseWri
 		}
 		if errors.Is(err, domain.ErrPracticeEnvironmentFrozen) {
 			SendError(w, http.StatusConflict, err.Error(), "El examen terminó: tu entorno quedó en solo lectura")
+			return
+		}
+		if errors.Is(err, domain.ErrWorkspaceSeedVolumeUnavailable) {
+			SendError(w, http.StatusServiceUnavailable, "workspace_seed_unavailable", "No se pudo preparar el proyecto inicial; el entorno no se abrió para no dejarlo vacío")
+			return
+		}
+		if errors.Is(err, domain.ErrWorkspaceSeedVolumeNotEmpty) {
+			SendError(w, http.StatusConflict, "workspace_seed_volume_not_empty", "El entorno ya contiene archivos y no se volverá a sembrar")
+			return
+		}
+		if errors.Is(err, domain.ErrWorkspaceSeedVolumeConflict) {
+			SendError(w, http.StatusConflict, "workspace_seed_conflict", "El entorno pertenece a otra versión del proyecto; se conserva sin cambios")
+			return
+		}
+		if errors.Is(err, domain.ErrWorkspaceSeedVolumeAmbiguous) {
+			SendError(w, http.StatusConflict, "workspace_seed_quarantined", "El estado del entorno requiere revisión y no se modificó")
+			return
+		}
+		if errors.Is(err, domain.ErrWorkspaceSeedVersionInvalid) {
+			SendError(w, http.StatusConflict, "workspace_seed_version_invalid", "La versión inicial asignada ya no es válida; no se abrió el entorno")
 			return
 		}
 		SendError(w, http.StatusInternalServerError, err.Error(), "Error al iniciar el entorno de desarrollo interactivo")
@@ -325,6 +347,97 @@ type SubmitPracticeEnvironmentRequest struct {
 	Files      map[string]string `json:"files"`
 }
 
+var (
+	errSubmitPayloadTooLarge = errors.New("submit payload too large")
+	errInvalidSubmitFile     = errors.New("invalid submit file")
+)
+
+// readSubmitPracticeEnvironmentRequest acepta multipart para las carpetas del
+// IDE y conserva JSON para el cliente legado pequeno. El cuerpo multipart tiene
+// una cota propia y el JSON legado no puede superar 512 KiB.
+func readSubmitPracticeEnvironmentRequest(w http.ResponseWriter, r *http.Request) (SubmitPracticeEnvironmentRequest, error) {
+	contentType := strings.ToLower(strings.TrimSpace(r.Header.Get("Content-Type")))
+	if strings.HasPrefix(contentType, "multipart/form-data") {
+		const maxMultipartBody = 8 * 1024 * 1024
+		r.Body = http.MaxBytesReader(w, r.Body, maxMultipartBody)
+		if err := r.ParseMultipartForm(maxMultipartBody); err != nil {
+			return SubmitPracticeEnvironmentRequest{}, errSubmitPayloadTooLarge
+		}
+		if r.MultipartForm != nil {
+			defer func() { _ = r.MultipartForm.RemoveAll() }()
+		}
+
+		req := SubmitPracticeEnvironmentRequest{
+			ExerciseID: strings.TrimSpace(r.FormValue("exercise_id")),
+			Files:      make(map[string]string),
+		}
+		if r.MultipartForm == nil {
+			return req, nil
+		}
+		headers := r.MultipartForm.File["files"]
+		if len(headers) == 0 {
+			headers = r.MultipartForm.File["file"]
+		}
+		total := 0
+		for _, header := range headers {
+			clean, err := cleanSubmittedFilePath(header.Filename)
+			if err != nil {
+				return SubmitPracticeEnvironmentRequest{}, err
+			}
+			if _, exists := req.Files[clean]; exists {
+				return SubmitPracticeEnvironmentRequest{}, errInvalidSubmitFile
+			}
+			file, err := header.Open()
+			if err != nil {
+				return SubmitPracticeEnvironmentRequest{}, err
+			}
+			content, readErr := io.ReadAll(io.LimitReader(file, 1024*1024+1))
+			_ = file.Close()
+			if readErr != nil {
+				return SubmitPracticeEnvironmentRequest{}, readErr
+			}
+			if len(content) > 1024*1024 {
+				return SubmitPracticeEnvironmentRequest{}, errSubmitPayloadTooLarge
+			}
+			total += len(content)
+			if total > 4*1024*1024 {
+				return SubmitPracticeEnvironmentRequest{}, errSubmitPayloadTooLarge
+			}
+			req.Files[clean] = string(content)
+		}
+		return req, nil
+	}
+
+	// JSON legado: solo para cuerpos pequenos. La carpeta completa usa multipart.
+	r.Body = http.MaxBytesReader(w, r.Body, 512*1024)
+	var req SubmitPracticeEnvironmentRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		var maxErr *http.MaxBytesError
+		if errors.As(err, &maxErr) {
+			return SubmitPracticeEnvironmentRequest{}, errSubmitPayloadTooLarge
+		}
+		return SubmitPracticeEnvironmentRequest{}, err
+	}
+	return req, nil
+}
+
+func cleanSubmittedFilePath(raw string) (string, error) {
+	candidate := strings.TrimSpace(strings.ReplaceAll(raw, "\\", "/"))
+	if candidate == "" || strings.HasPrefix(candidate, "/") {
+		return "", errInvalidSubmitFile
+	}
+	clean := path.Clean(candidate)
+	if clean == "." || strings.HasPrefix(clean, "../") || clean == ".." {
+		return "", errInvalidSubmitFile
+	}
+	for _, segment := range strings.Split(clean, "/") {
+		if segment == ".." || segment == "" {
+			return "", errInvalidSubmitFile
+		}
+	}
+	return clean, nil
+}
+
 // SubmitPracticeEnvironmentProject entrega el proyecto del IDE Persistente a SpeedGrader
 // como una submission con el snapshot de archivos del volumen.
 func (h *PracticeEnvironmentHandler) SubmitPracticeEnvironmentProject(w http.ResponseWriter, r *http.Request) {
@@ -334,9 +447,16 @@ func (h *PracticeEnvironmentHandler) SubmitPracticeEnvironmentProject(w http.Res
 		return
 	}
 
-	var req SubmitPracticeEnvironmentRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		SendError(w, http.StatusBadRequest, "Invalid JSON payload", "Cuerpo de la petición JSON inválido")
+	req, err := readSubmitPracticeEnvironmentRequest(w, r)
+	if err != nil {
+		switch {
+		case errors.Is(err, errSubmitPayloadTooLarge):
+			SendError(w, http.StatusRequestEntityTooLarge, "submission_too_large", "La entrega excede el tamaño permitido")
+		case errors.Is(err, errInvalidSubmitFile):
+			SendError(w, http.StatusUnprocessableEntity, "invalid_project_file", err.Error())
+		default:
+			SendError(w, http.StatusBadRequest, "invalid_submission_payload", "Cuerpo de la entrega inválido")
+		}
 		return
 	}
 	if err := h.validate.Struct(req); err != nil {

@@ -9,9 +9,9 @@ import (
 const (
 	// MaxProjectSnapshotBytes acota el snapshot que SpeedGrader estructura en
 	// archivos. Por encima de este límite se usa el visor plano.
-	MaxProjectSnapshotBytes = 2 * 1024 * 1024
+	MaxProjectSnapshotBytes = 4 * 1024 * 1024
 	// MaxProjectSnapshotFiles acota la cantidad de archivos del árbol.
-	MaxProjectSnapshotFiles = 500
+	MaxProjectSnapshotFiles = 800
 
 	projectSnapshotHeaderPrefix = "# === FILE: "
 	projectSnapshotHeaderSuffix = " ==="
@@ -33,6 +33,35 @@ type snapshotHeader struct {
 	path         string
 	lineStart    int
 	contentStart int
+}
+
+// EncodeProjectSnapshot reconstruye el formato de cabeceras que comparten las
+// entregas IDE, los proyectos base y el SpeedGrader. Ordena por ruta y deja una
+// línea en blanco entre archivos, igual que el writer de las entregas.
+func EncodeProjectSnapshot(files []ProjectFile) string {
+	if len(files) == 0 {
+		return ""
+	}
+
+	sorted := make([]ProjectFile, len(files))
+	copy(sorted, files)
+	sort.Slice(sorted, func(i, j int) bool { return sorted[i].Path < sorted[j].Path })
+
+	var builder strings.Builder
+	for _, file := range sorted {
+		if builder.Len() > 0 {
+			builder.WriteString("\n")
+		}
+		builder.WriteString(projectSnapshotHeaderPrefix)
+		builder.WriteString(file.Path)
+		builder.WriteString(projectSnapshotHeaderSuffix)
+		builder.WriteString("\n")
+		builder.WriteString(file.Content)
+		if !strings.HasSuffix(file.Content, "\n") {
+			builder.WriteString("\n")
+		}
+	}
+	return builder.String()
 }
 
 // ParseProjectSnapshot separa el snapshot que escribe buildProjectSnapshot en

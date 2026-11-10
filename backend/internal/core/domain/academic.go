@@ -55,7 +55,11 @@ type Submission struct {
 	OverrideReason     string          `db:"override_reason" json:"override_reason"`
 	Score              *int            `db:"score" json:"score"`
 	GradedBy           *string         `db:"graded_by" json:"graded_by,omitempty"`
-	SubmittedAt        time.Time       `db:"submitted_at" json:"submitted_at"`
+	// BaseStatus clasifica la base de comparación de una entrega IDE:
+	// version, no_base o legacy_unknown. El juez la deja nula.
+	BaseStatus                string    `db:"base_status" json:"base_status,omitempty"`
+	WorkspaceProjectVersionID *string   `db:"workspace_project_version_id" json:"workspace_project_version_id,omitempty"`
+	SubmittedAt               time.Time `db:"submitted_at" json:"submitted_at"`
 }
 
 type TeacherInvitation struct {

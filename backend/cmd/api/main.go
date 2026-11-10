@@ -59,9 +59,16 @@ func main() {
 	hostMonitor := system.NewGopsutilHostMonitor(15.0)
 
 	exerciseRepo := postgres.NewPostgresExerciseRepository(db.GetDB())
+	workspaceProjectRepo := postgres.NewPostgresWorkspaceProjectRepository(db.GetDB())
+	workspaceProjectService := services.NewWorkspaceProjectService(
+		workspaceProjectRepo,
+		os.Getenv("WORKSPACE_PROJECTS_PUBLISH_ENABLED") == "true",
+	)
+	workspaceProjectHandler := httpdelivery.NewWorkspaceProjectHandler(workspaceProjectService)
 	environmentRepo := postgres.NewPostgresPracticeEnvironmentRepository(db.GetDB())
 	tenantRepo := postgres.NewPostgresTenantRepository(db.GetDB())
 	subjectRepo := postgres.NewPostgresSubjectRepository(db.GetDB())
+	workspaceProjectService.SetAccessRepositories(exerciseRepo, subjectRepo)
 	submissionRepo := postgres.NewPostgresSubmissionRepository(db.GetDB())
 	teacherInvRepo := postgres.NewPostgresTeacherInvitationRepository(db.GetDB())
 	teacherRepo := postgres.NewPostgresTeacherRepository(db.GetDB())
@@ -75,6 +82,7 @@ func main() {
 	dockerRunner := docker.NewDockerEvaluationRunner(cli)
 	semgrepWorker := services.NewSemgrepWorker(environmentRepo, dockerClient, "internal/infrastructure/semgrep/rules")
 	evaluationService := services.NewEvaluationService(exerciseRepo, astAnalyzer, semgrepWorker, dockerRunner)
+	evaluationService.SetWorkspaceProjectService(workspaceProjectService)
 	generatedCaseSnapshotRepo := postgres.NewPostgresGeneratedCaseSnapshotRepository(db.GetDB())
 	evaluationService.SetGeneratedCaseSnapshotRepository(generatedCaseSnapshotRepo)
 	scriptSandboxRunner := docker.NewDockerScriptSandboxRunner(cli)
@@ -82,7 +90,8 @@ func main() {
 	templateRepo := postgres.NewPostgresTemplateRepository(db.GetDB())
 	environmentService := services.NewPracticeEnvironmentService(environmentRepo, dockerClient, hostMonitor).
 		WithProvisioning(subjectRepo, templateRepo).
-		WithExerciseSubmission(exerciseRepo, submissionRepo)
+		WithExerciseSubmission(exerciseRepo, submissionRepo).
+		SetWorkspaceProjects(workspaceProjectRepo)
 	subjectService := services.NewSubjectService(subjectRepo)
 	keystrokeRepo := postgres.NewPostgresKeystrokeRepository(db.GetDB())
 	submissionService := services.NewSubmissionService(submissionRepo)
@@ -183,6 +192,9 @@ func main() {
 	// cifrado AES-256-GCM de la API Key, escudo anti-SSRF y cuota horaria por usuario.
 	aiSettingsService := services.NewAISettingsService(tenantRepo)
 	aiSettingsHandler := httpdelivery.NewAISettingsHandler(aiSettingsService)
+	// La generación de proyectos iniciales usa el mismo proveedor, cifrado,
+	// cuota y presupuesto de tiempo que el resto de la IA institucional.
+	workspaceProjectService.SetAISettingsService(aiSettingsService)
 	// Slice 14: Periodos Académicos, Modo Mantenimiento, Reasignación y Estudiantes
 	govRepo := postgres.NewPostgresAdminGovernanceRepository(db.GetDB())
 	// Directorio de estudiantes para mostrar identidades reales (nombre/correo)
@@ -433,6 +445,7 @@ func main() {
 		WebSocketHandler:              wsHandler,
 		EnvTestHandler:                envTestHandler,
 		EnvironmentRequestHandler:     environmentRequestHandler,
+		WorkspaceProjectHandler:       workspaceProjectHandler,
 		TenantMiddleware:              tenantMiddleware,
 		MaintenanceMiddleware:         maintenanceMiddleware,
 		LoginRateLimitMiddleware:      middleware.EndpointRateLimitMiddleware(loginLimiter, "login"),

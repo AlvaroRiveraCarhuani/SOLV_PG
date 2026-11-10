@@ -2402,3 +2402,218 @@ El reporte dejó de comparar el código completo: el motor resta `exercises.boil
 | --- | --- |
 | `/teacher/cursos/:courseId/practicas/:exerciseId/similitud` | Auditoría de esa práctica en tres columnas, sin selector de materia |
 | `/teacher/anti-plagio` | Redirección a `/teacher/por-calificar`; no conserva el listado global |
+
+---
+
+## Proyecto inicial del Entorno de Desarrollo — generación asistida (ADR-068)
+
+El docente describe el proyecto que necesita y el servidor pide una propuesta de archivos al proveedor de IA ya configurado por la institución. La respuesta es **contenido no confiable**: se valida con las mismas reglas que una carpeta o un ZIP y se devuelve para revisión. La generación no crea proyecto, no guarda borrador y no publica una versión.
+
+### `POST /api/v1/teacher/exercises/{id}/project/generate`
+
+- **Headers Requeridos:** `X-User-Id`, `X-Tenant-Id`; rol `teacher` o `admin`.
+- **Autorización:** el ejercicio se resuelve desde el contexto autenticado. Tiene que pertenecer al tenant y ser `IDE_PERSISTENTE`; el docente solo opera materias que tiene asignadas y el administrador, dentro de su institución. Un ejercicio de otro tenant no se revela (`404`) y `JUEZ_EFIMERO` se rechaza (`422 workspace_project_not_ide`).
+- **Proveedor:** el institucional vigente (`AISettingsService.CompleteJSON`, acción `generate-workspace-project`). Hereda cifrado de la API Key, credencial personal BYOK, cuota horaria, `response_format: json_object`, escudo anti-SSRF y presupuesto de tiempo por perfil de motor. La petición no puede elegir proveedor, modelo, URL ni credencial.
+
+#### Payload de Entrada
+
+```json
+{
+  "description": "Una API en Python con dos endpoints y su README",
+  "purpose": "Leer un archivo de entrada y devolver un resumen",
+  "technology": "Python 3.12",
+  "requirements": "Incluir README y una prueba de ejemplo"
+}
+```
+
+> `description` es obligatoria (máximo 2000 caracteres); `purpose` llega a 500, `technology` a 300 y `requirements` a 1200. Los cuatro campos juntos no superan 4 KiB y el cuerpo HTTP se corta en 16 KiB. Un campo desconocido invalida la petición (`400 invalid_json`).
+
+#### Ejemplo de Respuesta (`200 OK`)
+
+```json
+{
+  "data": {
+    "files": [
+      { "path": "README.md", "content": "# Proyecto\n\nDescripción del proyecto.\n" },
+      { "path": "src/main.py", "content": "print('hola')\n" }
+    ],
+    "summary": "Proyecto mínimo en Python con su README.",
+    "file_count": 2,
+    "total_bytes": 52
+  },
+  "error": "",
+  "message": "Propuesta generada para revisar"
+}
+```
+
+- Los archivos vienen ordenados por ruta, con rutas relativas normalizadas (NFC), contenido UTF-8 con saltos LF y un único salto final. Un archivo vacío viaja con `content` vacío.
+- Del motor se acepta únicamente `{ "files": [{ "path", "content" }], "summary" }`. `summary` es obligatorio y no supera 500 caracteres; campos adicionales o contenido fuera del objeto descartan la respuesta. El contrato no tiene campos para imágenes Docker, runtimes, capacidades, variables de infraestructura ni comandos, así que la IA no puede declararlos.
+- La propuesta completa se valida con el normalizador de la importación: rutas absolutas, `..`, separadores ambiguos, segmentos repetidos, duplicados o colisiones Unicode, binarios, UTF-8 inválido y archivos que excedan los topes descartan **toda** la propuesta con `422 ai_response_invalid`.
+- **Topes:** 1 MiB de contenido normalizado, 300 archivos y 512 KiB por archivo. La respuesta cruda del proveedor se corta en 2 MiB.
+
+#### Propuesta no persistida
+
+- La ruta no escribe en `workspace_projects`, `workspace_project_drafts` ni `workspace_project_versions`, no crea volúmenes y no ejecuta, compila ni prueba el código generado.
+- Aplicar la propuesta ocurre en el editor: los archivos reemplazan lo que hay en pantalla y nada queda guardado hasta `PUT .../project/draft`, que conserva la revisión optimista. Si el borrador del servidor cambió, el guardado responde `409 draft_revision_conflict` y no sobrescribe.
+- La publicación sigue siendo `POST .../project/publish`, con `WORKSPACE_PROJECTS_PUBLISH_ENABLED=true` y confirmación docente. Generar nunca publica.
+- El historial de versiones, las entregas existentes y los entornos ya sembrados no cambian. `JUEZ_EFIMERO` conserva su comportamiento y su estado `not_required`.
+- No se registran API keys ni el prompt completo; los errores no exponen credenciales del proveedor.
+
+### Errores
+
+| Código | `error` | Cuándo |
+| --- | --- | --- |
+| `400` | `invalid_json` | Cuerpo mal formado o con campos no declarados. |
+| `400` | `generation_description_required` | `description` vacía o solo espacios. |
+| `400` | `generation_input_too_large` | Algún campo o el total de 4 KiB exceden el límite. |
+| `400` | `ai_provider_unavailable` | El servidor arrancó sin el servicio de IA conectado; no se simula una generación. |
+| `403` | `teacher_role_required` | Rol `student` en la ruta. |
+| `403` | `workspace_project_forbidden` | El docente no tiene asignada la materia del ejercicio. |
+| `404` | `project_not_found` | El ejercicio no existe o pertenece a otro tenant. |
+| `409` | `ai_disabled` | La institución tiene la IA deshabilitada y el usuario no opera con credencial personal. |
+| `413` | `generation_input_too_large` | El cuerpo HTTP supera los 16 KiB. |
+| `422` | `workspace_project_not_ide` | El ejercicio no es `IDE_PERSISTENTE`. |
+| `422` | `ai_response_invalid` | Respuesta vacía, JSON inválido, campos no permitidos, `summary` inválido o archivos que no pasan la normalización. |
+| `429` | `ai_quota_exceeded` | Se agotó la cuota horaria del usuario. |
+| `504` | `ai_timeout` | El motor superó el tiempo máximo de espera resuelto para la acción. |
+| `500` | `workspace_project_error` | Fallo interno sin detalles sensibles. |
+
+El panel **Generar con IA** de `ide-project-initial` muestra cada uno de estos códigos con su mensaje, permite cancelar la espera y ofrece descartar o usar la propuesta; con cambios sin guardar pide confirmación y con un conflicto de revisión bloquea la aplicación hasta recargar.
+
+### `GET /api/v1/teacher/exercises/{id}/project`
+
+Sin cuerpo. Devuelve el proyecto estable del ejercicio, su único borrador editable, el historial de versiones publicadas y la referencia histórica si existe.
+
+```json
+{
+  "data": {
+    "project": {
+      "id": "uuid",
+      "exercise_id": "uuid",
+      "current_published_version_id": "uuid",
+      "created_at": "2026-11-10T10:00:00Z",
+      "updated_at": "2026-11-10T10:15:00Z"
+    },
+    "draft": {
+      "id": "uuid",
+      "project_id": "uuid",
+      "base_version_id": "uuid",
+      "text_snapshot": "# === FILE: src/main.py ===\nprint('hola')\n",
+      "content_sha256": "hash",
+      "revision": 3,
+      "updated_at": "2026-11-10T10:15:00Z"
+    },
+    "versions": [
+      {
+        "id": "uuid",
+        "version_number": 1,
+        "text_snapshot": "# === FILE: src/main.py ===\nprint('hola')\n",
+        "content_sha256": "hash",
+        "file_count": 1,
+        "total_bytes": 20,
+        "published_at": "2026-11-10T10:05:00Z"
+      }
+    ],
+    "legacy": null,
+    "publishing_enabled": true
+  },
+  "error": "",
+  "message": "Proyecto consultado"
+}
+```
+
+- Un ejercicio `IDE_PERSISTENTE` que todavía no tiene proyecto **no** es un error: responde `200` con `project: null`, `versions: []` y el flag de publicación, para que la interfaz ofrezca la importación o la generación.
+- `legacy` aparece solo cuando existe `workspace_legacy_project_references` y ya no hay proyecto versionado. No se reinterpreta como versión ni se enlaza a entregas.
+- `versions` viene del más nuevo al más antiguo (`version_number DESC`) e incluye `manifest` con la lista de archivos de cada versión.
+- `publishing_enabled` refleja `WORKSPACE_PROJECTS_PUBLISH_ENABLED`; no autoriza por sí mismo, solo evita ofrecer una acción que el backend rechazará.
+
+### `PUT /api/v1/teacher/exercises/{id}/project/draft`
+
+Guarda el borrador con revisión optimista. Cuerpo máximo 1 MiB más 64 KiB de margen HTTP.
+
+```json
+{
+  "text_snapshot": "# === FILE: src/main.py ===\nprint('hola')\n",
+  "expected_revision": 3,
+  "base_version_id": "uuid"
+}
+```
+
+- `text_snapshot` usa el formato `# === FILE: <ruta> ===` que consumen SpeedGrader, antiplagio y timeline; debe contener al menos un archivo, hasta 1 MiB, 300 archivos y 512 KiB por archivo.
+- `expected_revision: 0` crea el primer borrador y falla con `409` si ya existe uno. Un valor mayor actualiza solo si coincide con la revisión vigente; en caso contrario responde `409 draft_revision_conflict` y no sobrescribe.
+- `base_version_id` es opcional: sin valor se usa la versión publicada vigente del proyecto.
+
+```json
+{ "data": { "id": "uuid", "project_id": "uuid", "base_version_id": "uuid", "text_snapshot": "# === FILE: src/main.py ===\nprint('hola')\n", "content_sha256": "hash", "revision": 4, "updated_at": "2026-11-10T10:20:00Z" }, "error": "", "message": "Borrador guardado" }
+```
+
+Guardar no publica: la versión publicada y las entregas existentes siguen intactas.
+
+### `POST /api/v1/teacher/exercises/{id}/project/import/folder`
+
+Importa una carpeta del equipo del docente y reemplaza el contenido del borrador. `multipart/form-data` con un campo `manifest` y un archivo por entrada.
+
+```json
+{
+  "files": [
+    { "path": "src/main.py", "field": "file_0", "size": 14 },
+    { "path": "README.md", "field": "file_1", "size": 38 }
+  ]
+}
+```
+
+- El manifiesto relaciona la ruta relativa con el nombre del campo; el nombre del campo nunca se interpreta como ruta. `size`, cuando se envía, tiene que coincidir con el archivo recibido.
+- Se envía también `expected_revision` como campo del formulario, con la misma semántica del guardado; sin valor equivale a `0`.
+- Cuerpo HTTP máximo 4 MiB y hasta 300 entradas por manifiesto. Un archivo del formulario que no esté declarado invalida la importación completa.
+- El resultado es el mismo snapshot normalizado del guardado, así que la importación crea o actualiza el borrador y no publica.
+
+```json
+{ "data": { "draft": { "id": "uuid", "revision": 4, "text_snapshot": "# === FILE: README.md ===\n# Proyecto\n", "content_sha256": "hash" }, "file_count": 2, "total_bytes": 52 }, "error": "", "message": "Carpeta importada al borrador" }
+```
+
+### `POST /api/v1/teacher/exercises/{id}/project/import/zip`
+
+Igual que la carpeta, pero recibe un único `archive` en `multipart/form-data` junto a `expected_revision`.
+
+- ZIP comprimido máximo 10 MiB (cuerpo HTTP 11 MiB), 1000 entradas, 20 MiB expandidos y 2 MiB por entrada antes de aplicar los topes del proyecto.
+- Se rechazan entradas cifradas, symlinks, entradas especiales, rutas con Zip Slip y tamaños declarados que no coinciden con el contenido. El extractor no escribe en el sistema de archivos.
+- Los topes finales son los del proyecto: 1 MiB, 300 archivos y 512 KiB por archivo. Devuelve `201` con el mismo cuerpo que la importación de carpeta.
+
+### `POST /api/v1/teacher/exercises/{id}/project/publish`
+
+Sin cuerpo. Publica el borrador vigente como una versión inmutable y mueve el puntero del proyecto en la misma transacción.
+
+```json
+{ "data": { "id": "uuid", "project_id": "uuid", "exercise_id": "uuid", "version_number": 2, "text_snapshot": "# === FILE: src/main.py ===\nprint('hola')\n", "manifest": [], "content_sha256": "hash", "file_count": 1, "total_bytes": 20, "published_at": "2026-11-10T10:30:00Z" }, "error": "", "message": "Proyecto publicado" }
+```
+
+- Exige `WORKSPACE_PROJECTS_PUBLISH_ENABLED=true`; apagado responde `403 workspace_publishing_disabled` y la interfaz solo muestra el estado.
+- Requiere un borrador válido y consistente con el snapshot. La versión se numera de forma creciente y no se puede editar ni borrar después.
+- No escribe en el volumen de ningún alumno: los entornos ya sembrados conservan su versión asignada y los nuevos reciben la publicada. `JUEZ_EFIMERO` no recorre este camino.
+
+### Errores de la familia de proyecto
+
+| Código | `error` | Cuándo |
+| --- | --- | --- |
+| `400` | `exercise_id_required` | Falta el identificador del ejercicio en la ruta. |
+| `400` | `invalid_json` | Cuerpo del guardado mal formado. |
+| `403` | `teacher_role_required` | Rol `student` en cualquiera de las rutas. |
+| `403` | `workspace_project_forbidden` | El docente no tiene asignada la materia del ejercicio. |
+| `403` | `workspace_publishing_disabled` | Se intenta publicar con el flag apagado. |
+| `404` | `project_not_found` | El ejercicio no existe, es de otro tenant o no hay proyecto para publicar. |
+| `409` | `draft_revision_conflict` | La revisión esperada no coincide con la vigente del borrador. |
+| `413` | `project_too_large` | El cuerpo del guardado supera 1 MiB más margen. |
+| `413` | `project_import_too_large` | La carpeta, el ZIP, su cuerpo HTTP, la cantidad de archivos o el resultado normalizado exceden los topes. |
+| `415` | `multipart_required` | La importación no viene como `multipart/form-data`. |
+| `422` | `workspace_project_not_ide` | El ejercicio no es `IDE_PERSISTENTE`. |
+| `422` | `invalid_project` | Snapshot vacío, inválido o identificador de ejercicio mal formado. |
+| `422` | `invalid_project_import` | Una entrada no pasa la normalización (ruta absoluta, `..`, separadores ambiguos, duplicado, binario, UTF-8 inválido) o el ZIP es corrupto, cifrado, contiene symlinks o entradas especiales. |
+| `422` | `invalid_expected_revision` | `expected_revision` no es un entero no negativo. |
+| `422` | `invalid_import_manifest` | Manifiesto ausente, ilegible, sin ruta/campo o con un campo repetido. |
+| `422` | `empty_import_manifest` | El manifiesto no declara archivos. |
+| `422` | `import_size_mismatch` | El tamaño declarado no coincide con el archivo recibido. |
+| `422` | `unexpected_import_file` | El formulario trae archivos que el manifiesto no declara. |
+| `422` | `invalid_import_file` | Falta el archivo de un campo, viene duplicado o no se pudo leer completo. |
+| `500` | `workspace_project_error` | Fallo interno sin detalles sensibles. |
+
+Los cinco endpoints responden con el sobre `{ data, error, message }` y el mismo mensaje en español que muestra el editor. La consulta y el guardado son de lectura y escritura del borrador; solo la publicación crea una versión y solo el arranque de un entorno escribe el volumen del alumno.

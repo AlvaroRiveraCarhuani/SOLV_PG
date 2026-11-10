@@ -378,9 +378,14 @@ export class StudentExerciseSolverComponent implements OnInit {
       } else {
         window.open(url, '_blank');
       }
-    } catch {
+    } catch (error) {
       tab?.close();
-      this.environmentError.set('No se pudo abrir tu entorno. Intentá de nuevo en unos segundos.');
+      const backendMessage = (error as { error?: { message?: unknown } } | null)?.error?.message;
+      this.environmentError.set(
+        typeof backendMessage === 'string' && backendMessage.trim()
+          ? backendMessage
+          : 'No se pudo abrir tu entorno. Intentá de nuevo en unos segundos.'
+      );
     } finally {
       this.isStartingEnvironment.set(false);
     }

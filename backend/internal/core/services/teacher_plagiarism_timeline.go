@@ -95,7 +95,9 @@ func (s *TeacherService) GetPlagiarismPair(ctx context.Context, tenantID, teache
 		EnvironmentType:    sideA.EnvironmentType,
 		ExpectedComplexity: sideA.ExpectedComplexity,
 	}
-	if strings.EqualFold(sideA.EnvironmentType, string(domain.EnvironmentTypeIDEPersistente)) {
+	hasBase := sideA.BaseStatus == domain.BaseStatusVersion ||
+		(sideA.BaseStatus == "" && strings.TrimSpace(sideA.Boilerplate) != "")
+	if strings.EqualFold(sideA.EnvironmentType, string(domain.EnvironmentTypeIDEPersistente)) && hasBase {
 		if baseFiles, ok := domain.ParseProjectSnapshot(sideA.Boilerplate, sideA.Language); ok {
 			exercise.BaseFiles = baseFiles
 			exercise.BaseFilesAvailable = true
@@ -123,6 +125,7 @@ func plagiarismSource(sub *domain.PlagiarismPairSubmission) *domain.SubmissionFo
 		Language:        sub.Language,
 		Code:            sub.Code,
 		Boilerplate:     sub.Boilerplate,
+		BaseStatus:      sub.BaseStatus,
 		EnvironmentType: sub.EnvironmentType,
 		Verdict:         sub.Verdict,
 		SubmittedAt:     sub.SubmittedAt,
@@ -332,8 +335,17 @@ func (s *TeacherService) GetSubmissionTimeline(ctx context.Context, tenantID, te
 		}
 	}
 
+	base := ""
+	if strings.EqualFold(review.EnvironmentType, string(domain.EnvironmentTypeIDEPersistente)) {
+		if review.BaseStatus == domain.BaseStatusVersion ||
+			(review.BaseStatus == "" && strings.TrimSpace(review.Boilerplate) != "") {
+			base = review.Boilerplate
+		}
+	} else {
+		base = review.Boilerplate
+	}
 	engine := NewTimelineEngine()
-	timeline := engine.GenerateTimeline(submissionID, review.StudentID, review.StudentName, review.Code, "")
+	timeline := engine.GenerateTimeline(submissionID, review.StudentID, review.StudentName, review.Code, base)
 
 	return timeline, nil
 }

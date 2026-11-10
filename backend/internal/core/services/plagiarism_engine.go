@@ -473,20 +473,31 @@ func (e *ASTPlagiarismEngine) prepareTokens(sub *domain.SubmissionForPlagiarism)
 	if strings.EqualFold(strings.TrimSpace(sub.EnvironmentType), string(domain.EnvironmentTypeIDEPersistente)) {
 		files, filesOK := domain.ParseProjectSnapshot(sub.Code, sub.Language)
 		if filesOK {
-			baseFiles, baseOK := domain.ParseProjectSnapshot(sub.Boilerplate, sub.Language)
+			// Solo una entrega con versión exacta tiene base publicada. Las
+			// históricas y las que nacieron sin proyecto no se comparan contra
+			// el espejo actual del ejercicio.
+			// Compatibilidad con llamadas internas que ya traían el proyecto
+			// base sin clasificación: solo se resta si hay texto base.
+			hasBase := sub.BaseStatus == domain.BaseStatusVersion ||
+				(sub.BaseStatus == "" && strings.TrimSpace(sub.Boilerplate) != "")
+			var baseFiles []domain.ProjectFile
+			baseOK := false
 			var baseGlobal []Token
-			if !baseOK {
-				baseGlobal = e.Tokenize(sub.Boilerplate, sub.Language)
+			if hasBase {
+				baseFiles, baseOK = domain.ParseProjectSnapshot(sub.Boilerplate, sub.Language)
+				if !baseOK {
+					baseGlobal = e.Tokenize(sub.Boilerplate, sub.Language)
+				}
 			}
 
 			tokens := make([]Token, 0)
 			for _, file := range files {
 				fileTokens := e.Tokenize(file.Content, file.Language)
-				if baseOK {
+				if hasBase && baseOK {
 					if baseFile := domain.ProjectFileByPath(baseFiles, file.Path); baseFile != nil {
 						fileTokens = e.subtractBase(fileTokens, e.Tokenize(baseFile.Content, baseFile.Language))
 					}
-				} else {
+				} else if hasBase {
 					fileTokens = e.subtractBase(fileTokens, baseGlobal)
 				}
 				// ParseProjectSnapshot cuenta las líneas desde el inicio de Code; el
@@ -501,6 +512,11 @@ func (e *ASTPlagiarismEngine) prepareTokens(sub *domain.SubmissionForPlagiarism)
 	}
 
 	codeTokens := e.Tokenize(sub.Code, sub.Language)
+	if strings.EqualFold(strings.TrimSpace(sub.EnvironmentType), string(domain.EnvironmentTypeIDEPersistente)) &&
+		sub.BaseStatus != domain.BaseStatusVersion &&
+		(sub.BaseStatus != "" || strings.TrimSpace(sub.Boilerplate) == "") {
+		return codeTokens, nil
+	}
 	return e.subtractBase(codeTokens, e.Tokenize(sub.Boilerplate, sub.Language)), nil
 }
 

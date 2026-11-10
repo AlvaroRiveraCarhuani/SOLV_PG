@@ -1,22 +1,24 @@
-<aside class="file-tree-panel" aria-label="Archivos de la entrega">
+<aside class="file-tree-panel" [attr.aria-label]="ariaLabel()">
   <header class="tree-header">
-    <span class="tree-title">Archivos</span>
+    <span class="tree-title">{{ heading() }}</span>
     <span class="tree-count font-mono" machineData>{{ files().length }}</span>
-    <button
-      type="button"
-      class="tree-collapse"
-      (click)="collapse.emit()"
-      title="Ocultar el árbol de archivos"
-      aria-label="Ocultar el árbol de archivos"
-    >
-      <svg lucidePanelLeftClose class="tree-icon"></svg>
-    </button>
+    @if (showCollapse()) {
+      <button
+        type="button"
+        class="tree-collapse"
+        (click)="collapse.emit()"
+        title="Ocultar el árbol de archivos"
+        aria-label="Ocultar el árbol de archivos"
+      >
+        <svg lucidePanelLeftClose class="tree-icon"></svg>
+      </button>
+    }
   </header>
 
   <div
     class="tree-scroll"
     role="tree"
-    aria-label="Archivos del proyecto"
+    [attr.aria-label]="ariaLabel()"
     (keydown)="onKeydown($event)"
   >
     @if (visibleNodes().length === 0) {

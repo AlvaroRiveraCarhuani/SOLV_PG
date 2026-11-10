@@ -103,6 +103,9 @@ function flattenEntries(
 export class ReviewFileTreeComponent {
   readonly files = input.required<ProjectFile[]>();
   readonly selectedPath = input<string | null>(null);
+  readonly heading = input<string>('Archivos');
+  readonly ariaLabel = input<string>('Archivos de la entrega');
+  readonly showCollapse = input<boolean>(true);
 
   readonly fileSelected = output<string>();
   readonly collapse = output<void>();

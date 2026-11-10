@@ -16,7 +16,9 @@ import (
 
 const (
 	// maxProjectSnapshotBytes acota el snapshot entregado a SpeedGrader.
-	maxProjectSnapshotBytes = 512 * 1024
+	maxProjectSnapshotBytes    = 4 * 1024 * 1024
+	maxSubmissionFileBytes     = 1024 * 1024
+	maxSubmissionSnapshotFiles = 800
 )
 
 var (
@@ -87,10 +89,21 @@ func (s *PracticeEnvironmentService) SubmitPracticeEnvironmentProject(ctx contex
 		return nil, fmt.Errorf("failed to snapshot environment volume: %w", err)
 	}
 
+	if len(volumeFiles) > maxSubmissionSnapshotFiles {
+		return nil, fmt.Errorf("environment %s has more than %d files to submit", environmentID, maxSubmissionSnapshotFiles)
+	}
+	for _, file := range volumeFiles {
+		if len(file.Content) > maxSubmissionFileBytes {
+			return nil, fmt.Errorf("environment %s has a file larger than %d bytes: %s", environmentID, maxSubmissionFileBytes, file.Path)
+		}
+	}
+
 	snapshot := buildProjectSnapshot(volumeFiles)
 	if strings.TrimSpace(snapshot) == "" {
 		return nil, fmt.Errorf("environment %s has no code files to submit", environmentID)
 	}
+
+	baseStatus := classifyIDEBaseStatus(environment)
 
 	submission := &domain.Submission{
 		ID:            uuid.NewString(),
@@ -100,11 +113,13 @@ func (s *PracticeEnvironmentService) SubmitPracticeEnvironmentProject(ctx contex
 		EnvironmentID: &environment.ID, Code: snapshot,
 		// Un proyecto de IDE no lo evalúa el juez: no tiene veredicto. La
 		// ausencia se guarda como ausencia y el trabajo queda en revisión.
-		Verdict:            "",
-		ReviewStatus:       string(domain.ReviewPending),
-		ASTResult:          json.RawMessage("{}"),
-		GeneratedCases:     json.RawMessage("{}"),
-		ComplexityAnalysis: json.RawMessage("{}"),
+		Verdict:                   "",
+		ReviewStatus:              string(domain.ReviewPending),
+		ASTResult:                 json.RawMessage("{}"),
+		GeneratedCases:            json.RawMessage("{}"),
+		ComplexityAnalysis:        json.RawMessage("{}"),
+		BaseStatus:                baseStatus,
+		WorkspaceProjectVersionID: environment.WorkspaceProjectVersionID,
 	}
 
 	if err := s.submissionRepo.Create(ctx, submission); err != nil {
@@ -143,6 +158,26 @@ func (s *PracticeEnvironmentService) isExamExercise(ctx context.Context, exercis
 		return *exercise.SubjectID == subjectID
 	}
 	return true
+}
+
+// classifyIDEBaseStatus traduce el estado de siembra del entorno a la
+// clasificación persistida de la entrega. Un entorno legacy o sin datos de
+// siembra no puede pretender una versión exacta.
+func classifyIDEBaseStatus(environment *domain.PracticeEnvironment) string {
+	if environment == nil {
+		return domain.BaseStatusLegacyUnknown
+	}
+	switch environment.WorkspaceSeedMode {
+	case domain.WorkspaceSeedModeNone:
+		return domain.BaseStatusNoBase
+	case domain.WorkspaceSeedModeProject:
+		if environment.WorkspaceProjectVersionID != nil {
+			return domain.BaseStatusVersion
+		}
+		return domain.BaseStatusLegacyUnknown
+	default:
+		return domain.BaseStatusLegacyUnknown
+	}
 }
 
 // buildProjectSnapshot arma el snapshot estructurado con cabeceras

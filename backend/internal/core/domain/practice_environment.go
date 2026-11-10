@@ -61,9 +61,14 @@ type PracticeEnvironment struct {
 	ExerciseID *string `db:"exercise_id" json:"exercise_id,omitempty"`
 	// FrozenAt es la hora en que el examen se cerró y el volumen pasó a solo
 	// lectura. Nulo mientras el alumno puede editar.
-	FrozenAt  *time.Time `db:"frozen_at" json:"frozen_at,omitempty"`
-	CreatedAt time.Time  `db:"created_at" json:"created_at"`
-	UpdatedAt time.Time  `db:"updated_at" json:"updated_at"`
+	FrozenAt *time.Time `db:"frozen_at" json:"frozen_at,omitempty"`
+	// WorkspaceProjectVersionID es la versión exacta sembrada en el volumen.
+	// Solo existe cuando WorkspaceSeedMode=project.
+	WorkspaceProjectVersionID *string   `db:"workspace_project_version_id" json:"workspace_project_version_id,omitempty"`
+	WorkspaceSeedMode         string    `db:"workspace_seed_mode" json:"workspace_seed_mode"`
+	WorkspaceInitStatus       string    `db:"workspace_init_status" json:"workspace_init_status"`
+	CreatedAt                 time.Time `db:"created_at" json:"created_at"`
+	UpdatedAt                 time.Time `db:"updated_at" json:"updated_at"`
 }
 
 // PracticeEnvironmentVolumeName arma el volumen nombrado de un entorno. Todo entorno se

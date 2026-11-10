@@ -38,6 +38,10 @@ type PracticeEnvironmentService struct {
 	exerciseRepo    domain.ExerciseRepository
 	submissionRepo  domain.SubmissionRepository
 	policiesService *ServerPoliciesService
+	// workspaceProjects es la fuente de la versión publicada que se asigna al
+	// entorno. Sin este repositorio el ciclo anterior sigue funcionando, pero no
+	// se siembra ningún proyecto.
+	workspaceProjects domain.WorkspaceProjectRepository
 	// sessionLinker deja constancia de en qué aula nació el entorno. Es opcional:
 	// sin él el ciclo de vida del contenedor funciona igual.
 	sessionLinker domain.ClassSessionPracticeEnvironmentLinker
@@ -50,14 +54,21 @@ type PracticeEnvironmentService struct {
 	// el hueco entre el aprovisionamiento y el registro del laboratorio como activo.
 	satelliteUseMu   sync.Mutex
 	satelliteLastUse map[string]time.Time
+
+	// workspaceSeedMu protege el mapa de bloqueos; workspaceSeedLocks serializa
+	// la apertura de un mismo entorno dentro del proceso. La exclusión durable
+	// entre procesos queda respaldada por el estado persistido del entorno.
+	workspaceSeedMu    sync.Mutex
+	workspaceSeedLocks map[string]*sync.Mutex
 }
 
 func NewPracticeEnvironmentService(repo domain.PracticeEnvironmentRepository, docker domain.PracticeEnvironmentOrchestrator, hostMonitor domain.HostMonitor) *PracticeEnvironmentService {
 	return &PracticeEnvironmentService{
-		repo:             repo,
-		docker:           docker,
-		hostMonitor:      hostMonitor,
-		satelliteLastUse: make(map[string]time.Time),
+		repo:               repo,
+		docker:             docker,
+		hostMonitor:        hostMonitor,
+		satelliteLastUse:   make(map[string]time.Time),
+		workspaceSeedLocks: make(map[string]*sync.Mutex),
 	}
 }
 
@@ -75,6 +86,17 @@ func (s *PracticeEnvironmentService) WithProvisioning(subjectRepo domain.Subject
 func (s *PracticeEnvironmentService) WithExerciseSubmission(exerciseRepo domain.ExerciseRepository, submissionRepo domain.SubmissionRepository) *PracticeEnvironmentService {
 	s.exerciseRepo = exerciseRepo
 	s.submissionRepo = submissionRepo
+	return s
+}
+
+// SetWorkspaceProjects inyecta la fuente de versiones publicadas. Es opcional
+// para no romper los dobles de las fases anteriores; en producción se conecta
+// al mismo repositorio que usa el editor docente.
+func (s *PracticeEnvironmentService) SetWorkspaceProjects(repo domain.WorkspaceProjectRepository) *PracticeEnvironmentService {
+	if s == nil {
+		return s
+	}
+	s.workspaceProjects = repo
 	return s
 }
 
@@ -426,6 +448,12 @@ func (s *PracticeEnvironmentService) startPracticeEnvironment(ctx context.Contex
 	}
 	exerciseIDPtr := &trimmedExerciseID
 
+	// El lock se toma después de normalizar materia y práctica: dos llamadas
+	// equivalentes deben compartir la misma clave aunque una llegue sin
+	// subject_id y la otra con el valor que resuelve el ejercicio.
+	unlock := s.lockWorkspaceStart(tenantID, userID, subjectID, trimmedExerciseID)
+	defer unlock()
+
 	// 0. Resolución de plantilla: el ejercicio manda sobre la materia.
 	template := s.resolveTemplateForPracticeEnvironment(ctx, subjectID, exercise)
 
@@ -491,6 +519,10 @@ func (s *PracticeEnvironmentService) startPracticeEnvironment(ctx context.Contex
 		if dbErr != nil {
 			return nil, dbErr
 		}
+		if seedErr := s.ensureExistingWorkspaceSeed(ctx, existing); seedErr != nil {
+			_ = s.repo.UpdateStatus(ctx, existing.ID, domain.PracticeEnvironmentStatusFailed)
+			return nil, seedErr
+		}
 
 		if existing.Status == domain.PracticeEnvironmentStatusRunning {
 			// El registro puede sobrevivir al contenedor (limpieza de Docker,
@@ -554,19 +586,35 @@ func (s *PracticeEnvironmentService) startPracticeEnvironment(ctx context.Contex
 	volumeName := domain.PracticeEnvironmentVolumeName(userID, subjectID, exerciseIDPtr)
 	networkName := "solv-traefik-net"
 
+	seedVersion, err := s.resolveWorkspaceSeed(ctx, tenantID, exercise)
+	if err != nil {
+		return nil, err
+	}
+	seedMode := domain.WorkspaceSeedModeNone
+	seedStatus := domain.WorkspaceInitStatusNotRequired
+	var seedVersionID *string
+	if seedVersion != nil {
+		seedMode = domain.WorkspaceSeedModeProject
+		seedStatus = domain.WorkspaceInitStatusPending
+		seedVersionID = &seedVersion.ID
+	}
+
 	instance := &domain.PracticeEnvironment{
-		ID:              environmentID,
-		TenantID:        tenantID,
-		StudentID:       userID,
-		SubjectID:       subjectID,
-		TemplateID:      templateIDStr,
-		ExerciseID:      exerciseIDPtr,
-		Status:          domain.PracticeEnvironmentStatusPending,
-		AccessURL:       accessURL,
-		MemoryLimitMB:   ramLimitMB,
-		LastHeartbeatAt: time.Now(),
-		CreatedAt:       time.Now(),
-		UpdatedAt:       time.Now(),
+		ID:                        environmentID,
+		TenantID:                  tenantID,
+		StudentID:                 userID,
+		SubjectID:                 subjectID,
+		TemplateID:                templateIDStr,
+		ExerciseID:                exerciseIDPtr,
+		Status:                    domain.PracticeEnvironmentStatusPending,
+		AccessURL:                 accessURL,
+		MemoryLimitMB:             ramLimitMB,
+		LastHeartbeatAt:           time.Now(),
+		WorkspaceProjectVersionID: seedVersionID,
+		WorkspaceSeedMode:         seedMode,
+		WorkspaceInitStatus:       seedStatus,
+		CreatedAt:                 time.Now(),
+		UpdatedAt:                 time.Now(),
 	}
 
 	// 4. Crear registro pendiente en PostgreSQL mediante sqlx
@@ -578,6 +626,22 @@ func (s *PracticeEnvironmentService) startPracticeEnvironment(ctx context.Contex
 	if err := s.docker.EnsureVolumeExists(ctx, volumeName); err != nil {
 		_ = s.repo.UpdateStatus(ctx, environmentID, domain.PracticeEnvironmentStatusFailed)
 		return nil, fmt.Errorf("failed to ensure named volume %s: %w", volumeName, err)
+	}
+
+	// El proyecto se escribe antes de arrancar el IDE. Si la inicialización no
+	// termina, no se entrega un contenedor vacío: el entorno queda fallido y el
+	// volumen conserva lo que haya para una revisión segura.
+	if seedVersion != nil {
+		seed, seedErr := workspaceSeedFromVersion(seedVersion)
+		if seedErr != nil {
+			_ = s.setWorkspaceInitStatus(ctx, instance, domain.WorkspaceInitStatusQuarantined)
+			_ = s.repo.UpdateStatus(ctx, environmentID, domain.PracticeEnvironmentStatusFailed)
+			return nil, seedErr
+		}
+		if seedErr := s.seedWorkspaceVolume(ctx, instance, seed); seedErr != nil {
+			_ = s.repo.UpdateStatus(ctx, environmentID, domain.PracticeEnvironmentStatusFailed)
+			return nil, seedErr
+		}
 	}
 
 	// 6. Asegurar la existencia de la red Docker compartida con Traefik deshabilitando ICC (enable_icc=false)

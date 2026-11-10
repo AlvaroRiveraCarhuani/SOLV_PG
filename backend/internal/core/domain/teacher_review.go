@@ -78,6 +78,7 @@ type TeacherSubmissionReviewDTO struct {
 	EnvironmentType    string              `json:"environment_type" db:"environment_type"`
 	Language           string              `json:"language" db:"language"`
 	Boilerplate        string              `json:"boilerplate,omitempty" db:"boilerplate"`
+	BaseStatus         string              `json:"base_status,omitempty" db:"base_status"`
 	Code               string              `json:"code,omitempty" db:"code"`
 	Verdict            string              `json:"verdict" db:"verdict"`
 	VerdictOrigin      string              `json:"verdict_origin,omitempty" db:"verdict_origin"`
@@ -99,12 +100,13 @@ type TeacherSubmissionReviewDTO struct {
 	// BaseFiles es el proyecto base del ejercicio (IDE) derivado de
 	// `exercises.boilerplate` con el mismo parser del snapshot. Es lo que usa
 	// el diff por archivo; no se persiste ni se toca el disco.
-	BaseFiles          []ProjectFile       `json:"base_files"`
-	BaseFilesAvailable bool                `json:"base_files_available"`
-	Comments           []SubmissionComment `json:"comments"`
-	NextSubmissionID   *string             `json:"next_submission_id,omitempty"`
-	PrevSubmissionID   *string             `json:"prev_submission_id,omitempty"`
-	SubmittedAt        time.Time           `json:"submitted_at" db:"submitted_at"`
+	BaseFiles                 []ProjectFile       `json:"base_files"`
+	BaseFilesAvailable        bool                `json:"base_files_available"`
+	WorkspaceProjectVersionID *string             `json:"workspace_project_version_id,omitempty"`
+	Comments                  []SubmissionComment `json:"comments"`
+	NextSubmissionID          *string             `json:"next_submission_id,omitempty"`
+	PrevSubmissionID          *string             `json:"prev_submission_id,omitempty"`
+	SubmittedAt               time.Time           `json:"submitted_at" db:"submitted_at"`
 }
 
 // OverrideRequestDTO payload para anular o convalidar manualmente una calificación.
@@ -203,6 +205,7 @@ type SubmissionForPlagiarism struct {
 	Language        string    `json:"language" db:"language"`
 	Code            string    `json:"code" db:"code"`
 	Boilerplate     string    `json:"boilerplate" db:"boilerplate"`
+	BaseStatus      string    `json:"base_status,omitempty" db:"base_status"`
 	EnvironmentType string    `json:"environment_type" db:"environment_type"`
 	Verdict         string    `json:"verdict" db:"verdict"`
 	SubmittedAt     time.Time `json:"submitted_at" db:"submitted_at"`
@@ -272,6 +275,7 @@ type PlagiarismPairSubmission struct {
 	Language           string              `db:"language"`
 	Code               string              `db:"code"`
 	Boilerplate        string              `db:"boilerplate"`
+	BaseStatus         string              `db:"base_status"`
 	Verdict            string              `db:"verdict"`
 	ExecutionTimeMS    int                 `db:"execution_time_ms"`
 	MemoryUsedMB       int                 `db:"memory_used_mb"`

@@ -7,6 +7,7 @@ import { IdeTemplateSelectorComponent } from './components/ide-template-selector
 import { IdeDbInitScriptComponent } from './components/ide-db-init-script/ide-db-init-script.component';
 import { IdeDeliveryConfigComponent } from './components/ide-delivery-config/ide-delivery-config.component';
 import { IdeRubricEditorComponent } from './components/ide-rubric-editor/ide-rubric-editor.component';
+import { IdeProjectInitialComponent } from '../../workspace-project/ide-project-initial.component';
 import { StatementEditorComponent } from '../step-identity/statement-editor.component';
 import { ResolvableStackConfig } from '@features/admin/templates/template-tech-detector.utils';
 
@@ -42,6 +43,7 @@ export interface ApprovedTemplate {
     StatementEditorComponent,
     IdeDeliveryConfigComponent,
     IdeRubricEditorComponent,
+    IdeProjectInitialComponent,
     TemplateRequestModalComponent
   ],
   template: `
@@ -57,7 +59,12 @@ export interface ApprovedTemplate {
         />
       </section>
 
-      <!-- 2. Script de Base de Datos Satélite (si aplica) -->
+      <!-- 2. Proyecto inicial importado como borrador (solo IDE_PERSISTENTE) -->
+      <section class="form-section">
+        <ide-project-initial />
+      </section>
+
+      <!-- 3. Script de Base de Datos Satélite (si aplica) -->
       @if (hasDatabaseService()) {
         <section class="form-section">
           <ide-db-init-script
@@ -68,12 +75,12 @@ export interface ApprovedTemplate {
         </section>
       }
 
-      <!-- 3. Consigna Pedagógica (Enunciado sobre el entorno ya seleccionado) -->
+      <!-- 4. Consigna Pedagógica (Enunciado sobre el entorno ya seleccionado) -->
       <section class="form-section">
         <statement-editor />
       </section>
 
-      <!-- 4. Parámetros de Entrega y Sincronización -->
+      <!-- 5. Parámetros de Entrega y Sincronización -->
       <section class="form-section">
         <ide-delivery-config
           [dueDate]="store.metadata().due_date || ''"
@@ -85,7 +92,7 @@ export interface ApprovedTemplate {
         />
       </section>
 
-      <!-- 5. Rúbrica Pedagógica de Evaluación -->
+      <!-- 6. Rúbrica Pedagógica de Evaluación -->
       <section class="form-section">
         <ide-rubric-editor
           [rubric]="store.rubric()"

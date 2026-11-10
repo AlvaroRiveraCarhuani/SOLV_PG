@@ -104,33 +104,35 @@ func (r *PostgresTeacherRepository) GetTeacherSubmissionReview(ctx context.Conte
 	}
 
 	type subDetailRow struct {
-		ID                 string         `db:"id"`
-		ExerciseID         string         `db:"exercise_id"`
-		ExerciseTitle      string         `db:"exercise_title"`
-		ExerciseConfig     []byte         `db:"exercise_config"`
-		SubjectID          string         `db:"subject_id"`
-		SubjectName        string         `db:"subject_name"`
-		StudentID          string         `db:"student_id"`
-		StudentName        string         `db:"student_name"`
-		StudentEmail       string         `db:"student_email"`
-		EnvironmentType    string         `db:"environment_type"`
-		Language           string         `db:"language"`
-		Boilerplate        string         `db:"boilerplate"`
-		Code               string         `db:"code"`
-		Verdict            string         `db:"verdict"`
-		VerdictOrigin      string         `db:"verdict_origin"`
-		Score              sql.NullInt64  `db:"score"`
-		ManualOverride     sql.NullBool   `db:"manual_override"`
-		OverrideReason     sql.NullString `db:"override_reason"`
-		GradedBy           sql.NullString `db:"graded_by"`
-		GradedByName       sql.NullString `db:"graded_by_name"`
-		ExecutionTimeMS    int            `db:"execution_time_ms"`
-		MemoryUsedMB       int            `db:"memory_used_mb"`
-		ASTResult          []byte         `db:"ast_result"`
-		GeneratedCases     []byte         `db:"generated_cases"`
-		ExpectedComplexity sql.NullString `db:"expected_complexity"`
-		ComplexityAnalysis []byte         `db:"complexity_analysis"`
-		SubmittedAt        time.Time      `db:"submitted_at"`
+		ID                        string         `db:"id"`
+		ExerciseID                string         `db:"exercise_id"`
+		ExerciseTitle             string         `db:"exercise_title"`
+		ExerciseConfig            []byte         `db:"exercise_config"`
+		SubjectID                 string         `db:"subject_id"`
+		SubjectName               string         `db:"subject_name"`
+		StudentID                 string         `db:"student_id"`
+		StudentName               string         `db:"student_name"`
+		StudentEmail              string         `db:"student_email"`
+		EnvironmentType           string         `db:"environment_type"`
+		Language                  string         `db:"language"`
+		Boilerplate               string         `db:"boilerplate"`
+		BaseStatus                string         `db:"base_status"`
+		WorkspaceProjectVersionID sql.NullString `db:"workspace_project_version_id"`
+		Code                      string         `db:"code"`
+		Verdict                   string         `db:"verdict"`
+		VerdictOrigin             string         `db:"verdict_origin"`
+		Score                     sql.NullInt64  `db:"score"`
+		ManualOverride            sql.NullBool   `db:"manual_override"`
+		OverrideReason            sql.NullString `db:"override_reason"`
+		GradedBy                  sql.NullString `db:"graded_by"`
+		GradedByName              sql.NullString `db:"graded_by_name"`
+		ExecutionTimeMS           int            `db:"execution_time_ms"`
+		MemoryUsedMB              int            `db:"memory_used_mb"`
+		ASTResult                 []byte         `db:"ast_result"`
+		GeneratedCases            []byte         `db:"generated_cases"`
+		ExpectedComplexity        sql.NullString `db:"expected_complexity"`
+		ComplexityAnalysis        []byte         `db:"complexity_analysis"`
+		SubmittedAt               time.Time      `db:"submitted_at"`
 	}
 
 	query := `
@@ -140,7 +142,11 @@ func (r *PostgresTeacherRepository) GetTeacherSubmissionReview(ctx context.Conte
 		       COALESCE(u.email, '') AS student_email,
 		       COALESCE(ex.environment_type, 'JUEZ_EFIMERO') AS environment_type,
 		       COALESCE(ex.language, '') AS language,
-		       COALESCE(ex.boilerplate, '') AS boilerplate,
+		       CASE WHEN ex.environment_type = 'IDE_PERSISTENTE'
+		            THEN COALESCE(v.text_snapshot, '')
+		            ELSE COALESCE(ex.boilerplate, '') END AS boilerplate,
+		       COALESCE(sub.base_status, '') AS base_status,
+		       sub.workspace_project_version_id,
 		       sub.code, COALESCE(sub.verdict, '') AS verdict, COALESCE(sub.verdict_origin, '') AS verdict_origin,
 		       sub.score, sub.manual_override, sub.override_reason,
 		       sub.graded_by, COALESCE(g.first_name || ' ' || g.last_name, '') AS graded_by_name,
@@ -148,6 +154,10 @@ func (r *PostgresTeacherRepository) GetTeacherSubmissionReview(ctx context.Conte
 		       ex.expected_complexity, sub.complexity_analysis, sub.submitted_at
 		FROM submissions sub
 		JOIN exercises ex ON sub.exercise_id = ex.id
+		LEFT JOIN workspace_project_versions v
+		       ON v.id = sub.workspace_project_version_id
+		      AND v.tenant_id = sub.tenant_id
+		      AND v.exercise_id = sub.exercise_id
 		JOIN subjects s ON ex.subject_id = s.id
 		LEFT JOIN users u ON sub.student_id = u.id
 		LEFT JOIN users g ON sub.graded_by = g.id
@@ -189,6 +199,7 @@ func (r *PostgresTeacherRepository) GetTeacherSubmissionReview(ctx context.Conte
 		EnvironmentType:  environmentType,
 		Language:         strings.TrimSpace(row.Language),
 		Boilerplate:      row.Boilerplate,
+		BaseStatus:       row.BaseStatus,
 		Code:             row.Code,
 		Verdict:          row.Verdict,
 		VerdictOrigin:    row.VerdictOrigin,
@@ -224,6 +235,10 @@ func (r *PostgresTeacherRepository) GetTeacherSubmissionReview(ctx context.Conte
 	if row.GradedByName.Valid {
 		review.GradedByName = row.GradedByName.String
 	}
+	if row.WorkspaceProjectVersionID.Valid {
+		versionID := row.WorkspaceProjectVersionID.String
+		review.WorkspaceProjectVersionID = &versionID
+	}
 
 	if !isJudge {
 		// El snapshot de la entrega se deriva en archivos navegables. El
@@ -233,9 +248,13 @@ func (r *PostgresTeacherRepository) GetTeacherSubmissionReview(ctx context.Conte
 			review.FilesAvailable = true
 			review.Files = files
 		}
-		if baseFiles, ok := domain.ParseProjectSnapshot(row.Boilerplate, review.Language); ok {
-			review.BaseFiles = baseFiles
-			review.BaseFilesAvailable = true
+		// Solo una entrega con versión exacta tiene base publicada. no_base y
+		// legacy_unknown se muestran sin diff, nunca contra el espejo actual.
+		if review.BaseStatus == domain.BaseStatusVersion {
+			if baseFiles, ok := domain.ParseProjectSnapshot(row.Boilerplate, review.Language); ok {
+				review.BaseFiles = baseFiles
+				review.BaseFilesAvailable = true
+			}
 		}
 	}
 
