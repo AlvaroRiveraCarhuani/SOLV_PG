@@ -259,11 +259,26 @@ stateDiagram-v2
   * Creación con `category_id`, `model_id` y `sample_input`.
 * [`template-review-modal.component.ts`](file:///home/alvarorivera/Documentos/Desarrollo/SOLV_PG/frontend/src/app/features/admin/templates/components/template-review-modal/template-review-modal.component.ts): Sin tests unitarios propios (usa `getRuntimeCapabilities`).
 * [`template-reject-modal.component.ts`](file:///home/alvarorivera/Documentos/Desarrollo/SOLV_PG/frontend/src/app/features/admin/templates/components/template-reject-modal/template-reject-modal.component.ts): Sin tests unitarios propios (probado vía integración backend).
-* [`admin-templates.component.ts`](file:///home/alvarorivera/Documentos/Desarrollo/SOLV_PG/frontend/src/app/features/admin/templates/admin-templates.component.ts): **9 tests unitarios pasando**.
+* [`admin-templates.component.ts`](file:///home/alvarorivera/Documentos/Desarrollo/SOLV_PG/frontend/src/app/features/admin/templates/admin-templates.component.ts): **15 tests unitarios pasando**.
   * Carga inicial y lectura de estado de caché (`adminTemplatesService.getCacheStatus`).
-  * Renderizado del botón "Calentar Caché" en el header de administración.
-  * Badges semánticos "En disco (X MB)" y "Sin caché" para plantillas oficiales.
-  * Disparo de precalentamiento individual y masivo (`warmTemplate`, `warmAllTemplates`).
+  * Renderizado del botón "Preparar entornos" en el header de administración.
+  * Indicadores semánticos "Entorno preparado" y "Preparar entorno" para plantillas oficiales.
+  * Disparo de preparación individual y masiva (`warmTemplate`, `warmAllTemplates`).
+  * Tarjetas del catálogo: nombre, modalidad, categoría, estado y stack completo de tecnologías con `tech-logo`, resuelto contra el catálogo real de componentes (`stack_config` + `getTechCatalog`).
+  * Acciones secundarias (ajustar cuota, duplicar, promover, pausar/reactivar) agrupadas en el menú de la tarjeta; la acción principal es "Editar".
+  * Detalles técnicos (imagen base y comando del evaluador) plegados en un `summary` para dar prioridad a la lectura pedagógica.
+  * Regresión de inferencia: un stack JavaScript local (`solv-local/stack:<hash>`) se identifica como Node.js y no como C por la letra contenida en "stack".
+
+### 9.3 Presentación de la tarjeta del catálogo
+La tarjeta de entorno del Catálogo Activo prioriza la lectura rápida y no la inspección técnica. En escritorio la rejilla muestra tres tarjetas por fila; por debajo de 1100 px pasa a dos y en móvil a una. La escala de iconos y chips es la misma que la del catálogo del docente:
+
+1. Cabecera: nombre, modalidad y categoría; los estados (`Activa`, `Pausada`, `Auditoría`, `EOL`) se agrupan a la derecha. El lenguaje principal y el resto de tecnologías se identifican una sola vez en los chips del stack, sin un logo duplicado en la cabecera.
+2. Stack: una fila de chips con las tecnologías declaradas en `stack_config` (lenguaje, interfaz web, complementos y base de datos), cada una con el icono e identificador visual del catálogo de componentes. La opción `db-none` no se muestra como tecnología.
+3. Descripción breve y metadatos útiles: RAM asignada y fecha de aprobación.
+4. `Detalles técnicos`: despliegue progresivo de la imagen base (con copia del tag) y del comando del evaluador cuando aplica.
+5. Pie: disponibilidad en el servidor (`Entorno preparado` / `Preparar entorno` / `Preparando...`) y acciones. "Editar" abre el Constructor; el menú concentra cuota, duplicado, promoción y pausa/reactivación.
+
+Cuando el catálogo de componentes no está disponible o la plantilla no declara `stack_config`, la tarjeta degrada a la inferencia compartida (`inferTemplateTechnologies`), la misma que usa el catálogo del docente. Esa inferencia prioriza `stack_config` y compara tokens completos para evitar falsos positivos como Java dentro de JavaScript o C dentro de `stack`.
 
 ---
 

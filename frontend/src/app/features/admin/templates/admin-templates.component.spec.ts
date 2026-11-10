@@ -9,7 +9,8 @@ import {
   AdminTemplatesService,
   AdminTemplateItem,
   CreateOfficialTemplateDTO,
-  ReviewTemplateDTO
+  ReviewTemplateDTO,
+  TemplateComponent
 } from '../services/admin-templates.service';
 
 describe('AdminTemplatesComponent Spec', () => {
@@ -57,8 +58,100 @@ describe('AdminTemplatesComponent Spec', () => {
     }
   ];
 
+  const mockTechCatalog: TemplateComponent[] = [
+    {
+      id: 'comp-node',
+      slug: 'node-20',
+      layer: 'runtime',
+      sub_category: 'backend',
+      name: 'Node.js 20 LTS',
+      description: 'Entorno JavaScript y TypeScript',
+      icon_key: 'node',
+      base_image: 'node:20-bookworm-slim',
+      compatible_runtimes: ['node', 'web'],
+      install_mode: 'none',
+      package_names: [],
+      build_layer_snippet: '',
+      setup_snippet: '',
+      judge_entrypoint: 'node solution.js',
+      tools_provided: ['node', 'npm'],
+      service_engine: '',
+      ram_delta_mb: 512,
+      is_system: true,
+      is_active: true,
+      sort_order: 20
+    },
+    {
+      id: 'comp-nextjs',
+      slug: 'nextjs',
+      layer: 'runtime',
+      sub_category: 'web',
+      name: 'Next.js (React Full-Stack)',
+      description: 'Framework React de producción',
+      icon_key: 'nextjs',
+      base_image: 'node:20-bookworm-slim',
+      compatible_runtimes: ['node', 'web'],
+      install_mode: 'npm',
+      package_names: ['next'],
+      build_layer_snippet: '',
+      setup_snippet: '',
+      judge_entrypoint: '',
+      tools_provided: ['node', 'npm'],
+      service_engine: '',
+      ram_delta_mb: 128,
+      is_system: true,
+      is_active: true,
+      sort_order: 110
+    },
+    {
+      id: 'comp-prisma',
+      slug: 'prisma',
+      layer: 'addon',
+      sub_category: 'orm',
+      name: 'Prisma ORM',
+      description: 'ORM tipado para Node.js y TypeScript',
+      icon_key: 'prisma',
+      base_image: '',
+      compatible_runtimes: ['node'],
+      install_mode: 'npm',
+      package_names: ['prisma'],
+      build_layer_snippet: '',
+      setup_snippet: '',
+      judge_entrypoint: '',
+      tools_provided: ['npx'],
+      service_engine: '',
+      ram_delta_mb: 64,
+      is_system: true,
+      is_active: true,
+      sort_order: 280
+    },
+    {
+      id: 'comp-db-none',
+      slug: 'db-none',
+      layer: 'database',
+      sub_category: 'none',
+      name: 'Sin Base de Datos',
+      description: 'Sin motor de datos',
+      icon_key: 'docker',
+      base_image: '',
+      compatible_runtimes: ['universal'],
+      install_mode: 'none',
+      package_names: [],
+      build_layer_snippet: '',
+      setup_snippet: '',
+      judge_entrypoint: '',
+      tools_provided: [],
+      service_engine: 'none',
+      ram_delta_mb: 0,
+      is_system: true,
+      is_active: true,
+      sort_order: 300
+    }
+  ];
+
   let mockTemplatesService: {
     getTemplates: ReturnType<typeof vi.fn>;
+    getTechCatalog: ReturnType<typeof vi.fn>;
     getCategories: ReturnType<typeof vi.fn>;
     getRuntimeCapabilities: ReturnType<typeof vi.fn>;
     reviewTemplate: ReturnType<typeof vi.fn>;
@@ -83,6 +176,7 @@ describe('AdminTemplatesComponent Spec', () => {
         ...dto
       })),
       getTemplates: vi.fn().mockReturnValue(of([...mockTemplates])),
+      getTechCatalog: vi.fn().mockReturnValue(of([...mockTechCatalog])),
       getCategories: vi.fn().mockReturnValue(of([])),
       getRuntimeCapabilities: vi.fn().mockReturnValue(of({
         host_memory: { total_ram_mb: 16384, available_ram_mb: 8192, used_ram_mb: 8192, cpu_cores: 8 },
@@ -340,6 +434,49 @@ describe('AdminTemplatesComponent Spec', () => {
     // Con filtro 'IDE_PERSISTENTE', devuelve tpl-1, tpl-4 y la plantilla dual
     component.selectedPurpose.set('IDE_PERSISTENTE');
     expect(component.catalogTemplates().map(t => t.id).sort()).toEqual(['tpl-1', 'tpl-4', 'tpl-dual']);
+  });
+
+  it('no confunde un stack JavaScript local con C al inferir la tecnología principal', () => {
+    const fullStackJs: AdminTemplateItem = {
+      id: 'tpl-fullstack-js',
+      name: 'Entorno Full-Stack JS',
+      docker_image: 'solv-local/stack:660620ce5745',
+      base_ram_mb: 1024,
+      status: 'APROBADA',
+      target_environment: 'IDE_PERSISTENTE',
+      created_at: '2026-11-05T00:00:00Z'
+    };
+
+    const tech = component.getTemplateTech(fullStackJs);
+    expect(tech.iconType).toBe('node');
+    expect(tech.iconType).not.toBe('c');
+  });
+
+  it('las tarjetas muestran todas las tecnologías del stack con su icono del catálogo', () => {
+    const fullStackJs: AdminTemplateItem = {
+      id: 'tpl-fullstack-js',
+      name: 'Entorno Full-Stack JS',
+      docker_image: 'solv-local/stack:660620ce5745',
+      base_ram_mb: 1024,
+      status: 'APROBADA',
+      target_environment: 'IDE_PERSISTENTE',
+      stack_config: {
+        runtime_id: 'comp-node',
+        web_platform_id: 'comp-nextjs',
+        addon_ids: ['comp-prisma'],
+        database_id: 'comp-db-none'
+      },
+      created_at: '2026-11-05T00:00:00Z'
+    };
+
+    const chips = component.getStackTechs(fullStackJs);
+    expect(chips.map(chip => chip.name)).toEqual([
+      'Node.js 20 LTS',
+      'Next.js (React Full-Stack)',
+      'Prisma ORM'
+    ]);
+    expect(chips.map(chip => chip.iconKey)).toEqual(['node', 'nextjs', 'prisma']);
+    expect(component.getPrimaryTechIcon(fullStackJs)).toBe('node');
   });
 
   it('detectTemplateTech prioriza stack_config.runtime_id y web_platform_id sobre el nombre genérico', () => {

@@ -9,7 +9,8 @@ import {
   AdminTemplateItem,
   CreateOfficialTemplateDTO,
   ReviewTemplateDTO,
-  TemplateCacheStatus
+  TemplateCacheStatus,
+  TemplateComponent
 } from '../services/admin-templates.service';
 import { TemplateReviewModalComponent } from './components/template-review-modal/template-review-modal.component';
 import { TemplateRejectModalComponent } from './components/template-reject-modal/template-reject-modal.component';
@@ -35,7 +36,7 @@ import {
   LucideMoreVertical,
   LucideDownloadCloud
 } from '@lucide/angular';
-import { TechLogoComponent } from './components/tech-logo/tech-logo.component';
+import { TechLogoComponent, TechIconKey } from './components/tech-logo/tech-logo.component';
 import { SearchBarComponent } from '../../../shared/components/search-bar/search-bar.component';
 import { KpiCardComponent, KpiGridComponent } from '../../../shared/components/kpi-card/kpi-card.component';
 import { PaginationBarComponent } from '../../../shared/components/pagination-bar/pagination-bar.component';
@@ -47,7 +48,10 @@ import {
   filterAdminTemplatesForView,
   formatByteSize,
   getTemplatePurposeBadge,
+  inferTemplateTechnologies,
   isPausedTemplateStatus,
+  resolveTemplateStack,
+  StackTechChip,
   TechMeta
 } from './template-tech-detector.utils';
 
@@ -147,6 +151,7 @@ export class AdminTemplatesComponent implements OnInit {
   rejectedPageSize = signal<number>(8);
 
   allTemplates = signal<AdminTemplateItem[]>([]);
+  techCatalog = signal<TemplateComponent[]>([]);
 
   selectedTemplateForReview = signal<AdminTemplateItem | null>(null);
   selectedTemplateForReject = signal<AdminTemplateItem | null>(null);
@@ -293,6 +298,7 @@ export class AdminTemplatesComponent implements OnInit {
       this.activeTab.set(tabParam);
     }
     this.loadTemplates();
+    this.loadTechCatalog();
     if (this.route.snapshot.queryParamMap.get('nueva') === '1') {
       this.navigateToCreateStudio();
     }
@@ -314,6 +320,13 @@ export class AdminTemplatesComponent implements OnInit {
         this.isLoading.set(false);
         this.showToast('Error al cargar las plantillas de entornos.', 'error');
       }
+    });
+  }
+
+  loadTechCatalog(): void {
+    this.templatesService.getTechCatalog().subscribe({
+      next: components => this.techCatalog.set(components),
+      error: () => this.techCatalog.set([])
     });
   }
 
@@ -521,6 +534,29 @@ export class AdminTemplatesComponent implements OnInit {
 
   getTemplateTech(item: AdminTemplateItem): TechMeta {
     return detectTemplateTech(item);
+  }
+
+  getStackTechs(item: AdminTemplateItem): StackTechChip[] {
+    const resolved = resolveTemplateStack(item, this.techCatalog());
+    if (resolved.length > 0) return resolved;
+
+    const inferred = inferTemplateTechnologies(item);
+    if (inferred.length === 0) {
+      const primary = detectTemplateTech(item);
+      return [{ id: primary.id, name: primary.name, iconKey: primary.iconType, role: 'runtime' }];
+    }
+
+    return inferred.map((tech, index) => ({
+      id: tech.id,
+      name: tech.name,
+      iconKey: tech.iconType,
+      role: index === 0 ? 'runtime' : 'addon'
+    }));
+  }
+
+  getPrimaryTechIcon(item: AdminTemplateItem): TechIconKey {
+    const [first] = this.getStackTechs(item);
+    return (first?.iconKey || 'docker') as TechIconKey;
   }
 
   getTech(name: string, image: string): TechMeta {

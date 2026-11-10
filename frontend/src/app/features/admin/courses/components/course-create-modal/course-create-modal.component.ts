@@ -4,7 +4,6 @@ import { FormsModule } from '@angular/forms';
 import {
   AdminCoursesService,
   AcademicPeriod,
-  DockerTemplateItem,
   CreateCoursePayload
 } from '../../../services/admin-courses.service';
 import { TeacherItem } from '@core/models/admin.model';
@@ -40,7 +39,6 @@ export class CourseCreateModalComponent implements OnInit {
 
   @Input() periods: AcademicPeriod[] = [];
   @Input() teachers: TeacherItem[] = [];
-  @Input() templates: DockerTemplateItem[] = [];
   @Input() defaultPeriodId: string | null = null;
 
   @Output() closed = new EventEmitter<void>();
@@ -53,7 +51,6 @@ export class CourseCreateModalComponent implements OnInit {
   section = signal<string>('');
   selectedPeriodId = signal<string>('');
   selectedTeacherId = signal<string>('');
-  selectedTemplateId = signal<string>('');
   selectedColor = signal<string>('');
 
   isSubmitting = signal<boolean>(false);
@@ -111,22 +108,6 @@ export class CourseCreateModalComponent implements OnInit {
     return match ? match.full_name : 'Dejar sin asignar temporalmente';
   });
 
-  templateComboboxOptions = computed<ComboboxOption[]>(() => {
-    return this.templates.map(tpl => ({
-      id: tpl.id,
-      label: tpl.display_name || tpl.name,
-      value: tpl.id,
-      meta: tpl.base_ram_mb ? `${tpl.base_ram_mb} MB RAM` : undefined
-    }));
-  });
-
-  selectedTemplateLabel = computed<string>(() => {
-    const id = this.selectedTemplateId();
-    if (!id) return '';
-    const match = this.templates.find(t => t.id === id);
-    return match ? (match.display_name || match.name) : '';
-  });
-
   onPeriodSelected(opt: ComboboxOption): void {
     this.selectedPeriodId.set(opt.value || '');
   }
@@ -135,20 +116,12 @@ export class CourseCreateModalComponent implements OnInit {
     this.selectedTeacherId.set(opt.value || '');
   }
 
-  onTemplateSelected(opt: ComboboxOption): void {
-    this.selectedTemplateId.set(opt.value || '');
-  }
-
   ngOnInit(): void {
     if (this.defaultPeriodId) {
       this.selectedPeriodId.set(this.defaultPeriodId);
     } else if (this.periods.length > 0) {
       const active = this.periods.find(p => p.is_active) || this.periods[0];
       this.selectedPeriodId.set(active.id);
-    }
-
-    if (this.templates.length > 0) {
-      this.selectedTemplateId.set(this.templates[0].id);
     }
   }
 
@@ -166,8 +139,7 @@ export class CourseCreateModalComponent implements OnInit {
       code: this.code().trim().toUpperCase(),
       section: this.section().trim().toUpperCase() || undefined,
       teacher_id: this.selectedTeacherId() ? this.selectedTeacherId() : undefined,
-      academic_period_id: this.selectedPeriodId() ? this.selectedPeriodId() : undefined,
-      template_id: this.selectedTemplateId() ? this.selectedTemplateId() : undefined
+      academic_period_id: this.selectedPeriodId() ? this.selectedPeriodId() : undefined
     };
 
     this.coursesService.createCourse(payload).subscribe({

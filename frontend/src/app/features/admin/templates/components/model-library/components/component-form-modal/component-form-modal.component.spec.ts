@@ -1,9 +1,12 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
-import { NEVER, of, throwError } from 'rxjs';
+import { NEVER, Subject, of, throwError } from 'rxjs';
 import { vi } from 'vitest';
 import { ComponentFormModalComponent } from './component-form-modal.component';
 import { AdminTemplatesService } from '../../../../../services/admin-templates.service';
-import { AdminConfigIaService } from '../../../../../configuracion/admin-config-ia.service';
+import {
+  AISuggestComponentResponse,
+  AdminConfigIaService
+} from '../../../../../configuracion/admin-config-ia.service';
 import { TemplateComponent } from '@features/admin/models/admin-templates.models';
 
 describe('ComponentFormModalComponent', () => {
@@ -1328,14 +1331,107 @@ describe('ComponentFormModalComponent', () => {
       expect(component.description()).toBe('Ruby estable para prácticas y evaluaciones.');
     });
 
+    it('recupera lo escrito cuando el modal vuelve a abrirse con el mismo contexto', () => {
+      component.defaultLayer = 'addon';
+      fixture.detectChanges();
+      component.name.set('PyTorch CPU');
+      component.aiPrompt.set('PyTorch CPU con scikit-learn');
+      fixture.detectChanges();
+      fixture.destroy();
+
+      const reopened = TestBed.createComponent(ComponentFormModalComponent);
+      reopened.componentInstance.defaultLayer = 'addon';
+      reopened.detectChanges();
+
+      expect(reopened.componentInstance.name()).toBe('PyTorch CPU');
+      expect(reopened.componentInstance.aiPrompt()).toBe('PyTorch CPU con scikit-learn');
+    });
+
+    it('no reutiliza el borrador cuando el modal abre en otro contexto del catálogo', () => {
+      component.defaultLayer = 'addon';
+      fixture.detectChanges();
+      component.name.set('PyTorch CPU');
+      fixture.detectChanges();
+      fixture.destroy();
+
+      const reopened = TestBed.createComponent(ComponentFormModalComponent);
+      reopened.componentInstance.defaultLayer = 'database';
+      reopened.detectChanges();
+
+      expect(reopened.componentInstance.name()).toBe('');
+    });
+
+    it('aplica la propuesta que llegó con el modal cerrado al volver a abrirlo', () => {
+      const pending = new Subject<AISuggestComponentResponse>();
+      mockAiService.suggestComponent.mockReturnValue(pending.asObservable());
+
+      component.defaultLayer = 'addon';
+      fixture.detectChanges();
+      component.aiPrompt.set('FastAPI con uvicorn');
+      component.generateWithAi();
+      expect(component.isGeneratingAi()).toBe(true);
+
+      fixture.detectChanges();
+      fixture.destroy();
+
+      pending.next({
+        component: {
+          name: 'FastAPI',
+          layer: 'addon',
+          install_mode: 'pip',
+          package_names: ['fastapi', 'uvicorn']
+        },
+        rationale: 'Se eligió pip para instalar FastAPI con Uvicorn.',
+        latency_ms: 90
+      });
+      pending.complete();
+
+      const reopened = TestBed.createComponent(ComponentFormModalComponent);
+      reopened.componentInstance.defaultLayer = 'addon';
+      reopened.detectChanges();
+
+      expect(reopened.componentInstance.isGeneratingAi()).toBe(false);
+      expect(reopened.componentInstance.name()).toBe('FastAPI');
+      expect(reopened.componentInstance.aiRationale()).toContain('pip');
+    });
+
+    it('aplica la propuesta en la instancia reabierta y no en la que ya se destruyó', () => {
+      component.defaultLayer = 'addon';
+      fixture.detectChanges();
+      fixture.destroy();
+
+      const reopened = TestBed.createComponent(ComponentFormModalComponent);
+      reopened.componentInstance.defaultLayer = 'addon';
+      reopened.detectChanges();
+      reopened.componentInstance.aiPrompt.set('Redis con persistencia');
+      mockAiService.suggestComponent.mockReturnValue(
+        of({
+          component: {
+            name: 'Redis',
+            layer: 'addon',
+            install_mode: 'apt',
+            package_names: ['redis-server']
+          },
+          rationale: 'Redis se instala como servicio satélite.',
+          latency_ms: 120
+        } as AISuggestComponentResponse)
+      );
+
+      reopened.componentInstance.generateWithAi();
+      reopened.detectChanges();
+
+      expect(reopened.componentInstance.isGeneratingAi()).toBe(false);
+      expect(reopened.componentInstance.name()).toBe('Redis');
+    });
+
     it('renderiza telemetria y oculta atajo mientras isGeneratingAi es true', () => {
       component.ngOnInit();
       component.switchModalTab('ai');
       fixture.detectChanges();
 
-      // En estado de reposo se muestra el atajo y no la telemetría
+      // En estado de reposo se muestra el atajo y no el indicador de espera
       expect(fixture.nativeElement.querySelector('.ai-shortcut-hint')).toBeTruthy();
-      expect(fixture.nativeElement.querySelector('.ai-running-telemetry')).toBeNull();
+      expect(fixture.nativeElement.querySelector('ai-progress-indicator')).toBeNull();
 
       // Simulamos estado de generación activo
       mockAiService.suggestComponent.mockReturnValue(NEVER);
@@ -1344,7 +1440,7 @@ describe('ComponentFormModalComponent', () => {
       fixture.detectChanges();
 
       expect(fixture.nativeElement.querySelector('.ai-shortcut-hint')).toBeNull();
-      expect(fixture.nativeElement.querySelector('.ai-running-telemetry')).toBeTruthy();
+      expect(fixture.nativeElement.querySelector('ai-progress-indicator')).toBeTruthy();
     });
   });
 });

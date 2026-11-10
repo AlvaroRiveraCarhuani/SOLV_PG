@@ -4,7 +4,7 @@ import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { TestBed } from '@angular/core/testing';
 import { of, throwError } from 'rxjs';
 import { CourseCreateModalComponent } from './course-create-modal.component';
-import { AdminCoursesService, AcademicPeriod, DockerTemplateItem } from '../../../services/admin-courses.service';
+import { AdminCoursesService, AcademicPeriod } from '../../../services/admin-courses.service';
 import { TeacherItem } from '@core/models/admin.model';
 
 const mockPeriods: AcademicPeriod[] = [
@@ -14,10 +14,6 @@ const mockPeriods: AcademicPeriod[] = [
 
 const mockTeachers: TeacherItem[] = [
   { id: 't1', full_name: 'Ana Gutierrez', email: 'ana@uab.edu.bo', status: 'active', role_type: 'titular', origin: 'manual', active_courses: 1, invited_at: '2026-01-01' }
-];
-
-const mockTemplates: DockerTemplateItem[] = [
-  { id: 'tpl1', name: 'Python 3.12', display_name: 'Python 3.12 Slim', image: 'python:3.12-slim', base_ram_mb: 512 }
 ];
 
 interface MockAdminCoursesService {
@@ -44,7 +40,6 @@ describe('CourseCreateModalComponent', () => {
     component = fixture.componentInstance;
     component.periods = mockPeriods;
     component.teachers = mockTeachers;
-    component.templates = mockTemplates;
     component.ngOnInit();
     fixture.detectChanges();
   });
@@ -57,16 +52,11 @@ describe('CourseCreateModalComponent', () => {
     expect(component.selectedPeriodId()).toBe('p2');
   });
 
-  it('ngOnInit pre-selecciona el primer template disponible', () => {
-    expect(component.selectedTemplateId()).toBe('tpl1');
-  });
-
   it('defaultPeriodId tiene precedencia sobre el periodo activo', async () => {
     const fixture = TestBed.createComponent(CourseCreateModalComponent);
     const c = fixture.componentInstance;
     c.periods = mockPeriods;
     c.teachers = mockTeachers;
-    c.templates = mockTemplates;
     c.defaultPeriodId = 'p1';
     c.ngOnInit();
     expect(c.selectedPeriodId()).toBe('p1');
@@ -93,7 +83,6 @@ describe('CourseCreateModalComponent', () => {
     component.code.set('info-101');
     component.selectedTeacherId.set('t1');
     component.selectedPeriodId.set('p2');
-    component.selectedTemplateId.set('tpl1');
     component.submitCourse();
 
     expect(mockCoursesService.createCourse).toHaveBeenCalledWith(
@@ -101,8 +90,7 @@ describe('CourseCreateModalComponent', () => {
         name: 'Programación I',
         code: 'INFO-101',
         teacher_id: 't1',
-        academic_period_id: 'p2',
-        template_id: 'tpl1'
+        academic_period_id: 'p2'
       })
     );
   });

@@ -682,6 +682,18 @@
   // Los bucles de los componentes compartidos se apagan igual que en su propia
   // hoja de estilos. Se llega con ::ng-deep porque la demostración tiene que
   // usar el componente real, no una copia del marcador.
+  ::ng-deep .stage-ai-wait .ai-progress {
+    background-image: repeating-linear-gradient(
+      90deg,
+      var(--tenant-primary) 0 4px,
+      transparent 4px 8px
+    );
+  }
+
+  ::ng-deep .stage-ai-wait .ai-progress-bar {
+    display: none;
+  }
+
   ::ng-deep .stage-stack .shimmer::after,
   ::ng-deep .stage-stack .pulse,
   ::ng-deep .stage-row .status-running .status-indicator {

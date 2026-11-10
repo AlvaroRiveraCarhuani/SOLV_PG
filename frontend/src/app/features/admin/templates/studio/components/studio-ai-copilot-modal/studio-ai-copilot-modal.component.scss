@@ -90,31 +90,11 @@
   }
 }
 
-.ai-running-telemetry {
-  display: inline-flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: var(--space-2);
-  color: var(--text-primary);
-  font-size: var(--text-xs);
-
-}
-.btn-cancel-ai {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-1);
-  padding: 2px var(--space-2);
-  border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-xs);
-  background: transparent;
-  color: var(--text-secondary);
-  font-size: var(--text-2xs);
-  cursor: pointer;
-
-  &:hover {
-    border-color: var(--status-failed-border);
-    color: var(--status-failed-color);
-  }
+// El indicador de espera es compartido; acá solo ocupa el ancho de la fila
+// de acciones, donde reemplaza al atajo de teclado mientras la IA trabaja.
+.ai-waiting {
+  flex: 1;
+  min-width: 0;
 }
 
 .btn-ai-submit {

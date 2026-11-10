@@ -143,21 +143,13 @@
 
       <div class="ai-actions-row">
         @if (isGeneratingAi()) {
-          <div class="ai-running-telemetry">
-            <div class="telemetry-info">
-              <svg lucideRefreshCw class="btn-icon-xs motion-spin"></svg>
-              <span>Generando especificación técnica...</span>
-              <span class="font-mono text-xs" machineData>{{ aiElapsedSeconds() }} s</span>
-            </div>
-            <button
-              type="button"
-              class="btn-cancel-ai"
-              (click)="cancelAiGeneration()"
-            >
-              <svg lucideXCircle class="btn-icon-xs"></svg>
-              <span>Cancelar</span>
-            </button>
-          </div>
+          <ai-progress-indicator
+            class="ai-waiting"
+            label="Generando especificación técnica..."
+            ariaLabel="Generando componente con el Copiloto IA"
+            [elapsedSeconds]="aiElapsedSeconds()"
+            (cancelled)="cancelAiGeneration()"
+          />
         } @else {
           <span class="ai-shortcut-hint">Presioná <kbd>Ctrl</kbd> + <kbd>Enter</kbd> para generar</span>
           <button

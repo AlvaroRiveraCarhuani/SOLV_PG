@@ -111,6 +111,23 @@ export const KNOWN_TECH_ICON_KEYS = new Set<string>([
   'vitejs'
 ]);
 
+/**
+ * Escala canónica de tamaños para logos tecnológicos en SOLV.
+ * Evita números mágicos arbitrarios en plantillas y asegura legibilidad de SVGs.
+ */
+export const TECH_LOGO_SIZES = {
+  /** 18px: Usado dentro de chips/etiquetas de texto (chips en tarjetas y tablas) */
+  chip: 18,
+  /** 24px: Usado en selectores y grids compactos */
+  compact: 24,
+  /** 36px: Usado en avatares de tarjetas (avatar-box de 40-44px) */
+  avatar: 36,
+  /** 40px: Usado en cabeceras de modales y vistas hero */
+  hero: 40
+} as const;
+
+export type TechLogoSizeVariant = keyof typeof TECH_LOGO_SIZES;
+
 function isDirectAssetSource(value: string): boolean {
   return (
     value.startsWith('/') ||
@@ -128,16 +145,16 @@ function isDirectAssetSource(value: string): boolean {
       class="tech-logo-container"
       [class]="'logo-' + normalizedKey()"
       [class.is-monogram]="!resolvedIconSrc()"
-      [style.width.px]="size"
-      [style.height.px]="size"
+      [style.width.px]="resolvedSize()"
+      [style.height.px]="resolvedSize()"
     >
       @if (resolvedIconSrc(); as src) {
         <img
           class="tech-logo-img"
           [src]="src"
           [alt]="normalizedKey()"
-          [width]="size - 8"
-          [height]="size - 8"
+          [width]="resolvedSize() - 8"
+          [height]="resolvedSize() - 8"
           loading="lazy"
           (error)="onImgError()"
         />
@@ -151,6 +168,7 @@ function isDirectAssetSource(value: string): boolean {
 export class TechLogoComponent {
   private readonly iconTypeSignal = signal<TechIconKey>('docker');
   private readonly customIconUrlSignal = signal<string>('');
+  private readonly sizeSignal = signal<number | TechLogoSizeVariant>(32);
   readonly imgLoadFailed = signal<boolean>(false);
 
   @Input({ required: true })
@@ -171,7 +189,21 @@ export class TechLogoComponent {
     return this.customIconUrlSignal();
   }
 
-  @Input() size = 32;
+  @Input()
+  set size(value: number | TechLogoSizeVariant | undefined | null) {
+    if (value !== undefined && value !== null) {
+      this.sizeSignal.set(value);
+    }
+  }
+  get size(): number | TechLogoSizeVariant {
+    return this.sizeSignal();
+  }
+
+  readonly resolvedSize = computed<number>(() => {
+    const val = this.sizeSignal();
+    if (typeof val === 'number') return val;
+    return TECH_LOGO_SIZES[val] ?? 32;
+  });
 
   readonly normalizedKey = computed<string>(() => {
     const raw = (this.iconTypeSignal() || 'docker').trim();

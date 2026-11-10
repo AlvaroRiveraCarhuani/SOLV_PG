@@ -67,6 +67,7 @@ export interface AdminCourseItem {
   hibernated_students: number;
   ram_used_mb: number;
   template_name?: string;
+  created_at?: string;
 }
 
 export interface CreateCoursePayload {
@@ -174,7 +175,8 @@ export class AdminCoursesService {
             active_students: metric ? metric.active_students : 0,
             hibernated_students: metric ? metric.hibernated_students : 0,
             ram_used_mb: metric ? metric.ram_used_mb : 0,
-            template_name: resolvedTemplateName
+            template_name: resolvedTemplateName,
+            created_at: s.created_at
           };
         });
 
@@ -303,7 +305,8 @@ export class AdminCoursesService {
           active_students: 0,
           hibernated_students: 0,
           ram_used_mb: 0,
-          template_name: 'Linux / Docker Base'
+          template_name: 'Linux / Docker Base',
+          created_at: raw.created_at || new Date().toISOString()
         };
         this.courses.update(prev => [newCourse, ...prev]);
         return newCourse;

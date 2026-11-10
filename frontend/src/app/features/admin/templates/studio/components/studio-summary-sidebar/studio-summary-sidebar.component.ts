@@ -12,6 +12,7 @@ import {
   LucideXCircle
 } from '@lucide/angular';
 import { CodeEditorComponent } from '@shared/components/code-editor/code-editor.component';
+import { AiProgressIndicatorComponent } from '@shared/components/ai-progress-indicator/ai-progress-indicator.component';
 import { MachineDataDirective } from '@shared/directives/machine-data.directive';
 import { TargetEnvironment, TemplateComponent } from '@features/admin/models/admin-templates.models';
 import { EnvTestJob } from '../../../../services/env-test-job.service';
@@ -25,6 +26,7 @@ import { EnvironmentLabelPipe } from '@shared/pipes/environment-label.pipe';
   imports: [
     EnvironmentLabelPipe,
     CodeEditorComponent,
+    AiProgressIndicatorComponent,
     MachineDataDirective,
     TechLogoComponent,
     LucideAlertCircle,

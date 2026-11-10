@@ -245,43 +245,11 @@
     height: var(--space-4);
   }
 
-  .ai-running-telemetry {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    width: 100%;
-    gap: var(--space-2);
-    font-size: var(--text-xs);
-    color: var(--text-primary);
-
-    .telemetry-info {
-      display: inline-flex;
-      align-items: center;
-      gap: var(--space-2);
-      min-width: 0;
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-    }
-  }
-
-  .btn-cancel-ai {
-    display: inline-flex;
-    align-items: center;
-    gap: var(--space-1);
-    padding: 2px var(--space-2);
-    background: transparent;
-    border: 1px solid var(--border-subtle);
-    border-radius: var(--radius-xs);
-    font-size: var(--text-2xs);
-    cursor: pointer;
-    color: var(--text-secondary);
-    flex-shrink: 0;
-
-    &:hover {
-      color: var(--status-failed-color);
-      border-color: var(--status-failed-border);
-    }
+  // El indicador de espera es compartido; acá ocupa el lugar del atajo de
+  // teclado mientras el Copiloto trabaja.
+  .ai-waiting {
+    flex: 1;
+    min-width: 0;
   }
 }
 

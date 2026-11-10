@@ -74,4 +74,23 @@ describe('TechLogoComponent', () => {
     expect(monogramEl).toBeTruthy();
     expect(monogramEl?.textContent?.trim()).toBe('EL');
   });
+
+  it('should resolve standard size variants (chip, avatar, hero) to canonical dimensions', () => {
+    component.iconType = 'node';
+    component.size = 'chip';
+    fixture.detectChanges();
+    expect(component.resolvedSize()).toBe(18);
+
+    component.size = 'avatar';
+    fixture.detectChanges();
+    expect(component.resolvedSize()).toBe(36);
+
+    component.size = 'hero';
+    fixture.detectChanges();
+    expect(component.resolvedSize()).toBe(40);
+
+    component.size = 22;
+    fixture.detectChanges();
+    expect(component.resolvedSize()).toBe(22);
+  });
 });

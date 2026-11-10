@@ -72,15 +72,6 @@
     ></combobox>
   </form-field>
 
-  <form-field label="Plantilla Docker Base">
-    <combobox
-      [value]="selectedTemplateLabel()"
-      [options]="templateComboboxOptions()"
-      placeholder="Seleccione o busque plantilla Docker base..."
-      (optionSelected)="onTemplateSelected($event)"
-    ></combobox>
-  </form-field>
-
   <form-field label="Color de Identificación">
     <course-color-picker
       [selectedColor]="selectedColor()"

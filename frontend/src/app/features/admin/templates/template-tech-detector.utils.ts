@@ -1,5 +1,5 @@
-import { AdminTemplateItem } from '../services/admin-templates.service';
-import { CURATED_TECH_ICONS, TechIconKey } from './components/tech-logo/tech-logo.component';
+import { AdminTemplateItem, TemplateComponent } from '../services/admin-templates.service';
+import { TechIconKey } from './components/tech-logo/tech-logo.component';
 import { environmentBadge, isEnvironmentType } from '@shared/constants/environment-types.constants';
 
 export interface TechMeta {
@@ -9,140 +9,255 @@ export interface TechMeta {
   iconType: TechIconKey;
 }
 
-export function detectTemplateTech(
-  item: Pick<AdminTemplateItem, 'name' | 'docker_image' | 'stack_config'>
-): TechMeta {
-  const runtimeId = (item.stack_config?.runtime_id || '').toLowerCase().trim();
-  const webId = (item.stack_config?.web_platform_id || '').toLowerCase().trim();
+export interface StackTechChip {
+  id: string;
+  name: string;
+  iconKey: string;
+  role: 'runtime' | 'web' | 'addon' | 'database';
+}
 
-  const matchCuratedId = (id: string): TechMeta | null => {
-    if (!id) return null;
-    const direct = CURATED_TECH_ICONS.find(c => c.key.toLowerCase() === id && c.key !== 'docker');
-    if (direct) {
-      return { id: direct.key, name: direct.label, badgeClass: `tech-${direct.key}`, iconType: direct.key as TechIconKey };
-    }
-    for (const c of CURATED_TECH_ICONS) {
-      if (c.key === 'docker') continue;
-      const key = c.key.toLowerCase();
-      const re = new RegExp(`(^|[^a-z0-9])${key}([^a-z0-9]|$)`, 'i');
-      if (re.test(id)) {
-        return { id: c.key, name: c.label, badgeClass: `tech-${c.key}`, iconType: c.key as TechIconKey };
-      }
-    }
-    return null;
+/** Forma mínima que comparten el stack del administrador y el del docente. */
+export interface ResolvableStackConfig {
+  runtime_id?: string;
+  web_platform_id?: string;
+  addon_ids?: string[];
+  database_id?: string;
+  services?: { component_id?: string }[];
+}
+
+export interface TemplateTechInferenceInput {
+  name?: string;
+  docker_image?: string;
+  description?: string;
+  stack_config?: ResolvableStackConfig | null;
+}
+
+interface TechRule {
+  id: string;
+  name: string;
+  iconType: TechIconKey;
+  tokens?: string[];
+  substrings?: string[];
+  unless?: string[];
+}
+
+/** Compara por token completo: evita que `c` coincida dentro de "stack" o `go` dentro de "django". */
+function matchesToken(text: string, token: string): boolean {
+  if (!text || !token) return false;
+  const escaped = token.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  return new RegExp(`(^|[^a-z0-9])${escaped}([^a-z0-9]|$)`, 'i').test(text);
+}
+
+function metaFor(key: TechIconKey, label: string): TechMeta {
+  return { id: key, name: label, badgeClass: `tech-${key}`, iconType: key };
+}
+
+/**
+ * Reglas únicas de inferencia para ambos catálogos. El orden decide el icono
+ * principal y el orden de los chips; las reglas específicas van antes que las
+ * genéricas para que "JavaScript" no caiga en Java ni "C/C++" en C.
+ */
+const TECH_RULES: TechRule[] = [
+  {
+    id: 'python',
+    name: 'Python',
+    iconType: 'python',
+    tokens: ['python', 'django', 'flask', 'fastapi', 'pandas', 'numpy', 'streamlit', 'jupyter', 'pytorch'],
+    substrings: ['data science', 'machine learning', 'inteligencia artificial']
+  },
+  { id: 'rust', name: 'Rust', iconType: 'rust', tokens: ['rust', 'cargo', 'actix', 'tokio'] },
+  { id: 'go', name: 'Go', iconType: 'go', tokens: ['golang', 'go', 'gin', 'fiber'] },
+  {
+    id: 'java',
+    name: 'Java',
+    iconType: 'java',
+    tokens: ['java', 'temurin', 'openjdk', 'kotlin', 'spring', 'maven', 'gradle']
+  },
+  { id: 'php', name: 'PHP', iconType: 'php', tokens: ['php', 'laravel'] },
+  {
+    id: 'dotnet',
+    name: '.NET / C#',
+    iconType: 'dotnet',
+    tokens: ['dotnet', 'c#', 'csharp'],
+    substrings: ['.net']
+  },
+  { id: 'cpp', name: 'C / C++', iconType: 'cpp', tokens: ['c++', 'cpp', 'g++', 'gcc', 'clang', 'cmake'] },
+  { id: 'c', name: 'C', iconType: 'c', tokens: ['c'], unless: ['cpp'] },
+  { id: 'angular', name: 'Angular', iconType: 'angular', tokens: ['angular'] },
+  {
+    id: 'node',
+    name: 'Node.js',
+    iconType: 'node',
+    tokens: ['node', 'nodejs', 'javascript', 'js', 'express', 'nest', 'nestjs', 'bun', 'deno', 'ts-node']
+  },
+  { id: 'nextjs', name: 'Next.js', iconType: 'nextjs', tokens: ['next', 'nextjs', 'next.js'] },
+  { id: 'react', name: 'React', iconType: 'react', tokens: ['react'], unless: ['nextjs'] },
+  { id: 'vue', name: 'Vue', iconType: 'vue', tokens: ['vue', 'nuxt'] },
+  { id: 'vite', name: 'Vite', iconType: 'vite', tokens: ['vite'] },
+  { id: 'typescript', name: 'TypeScript', iconType: 'typescript', tokens: ['typescript', 'ts-node'] },
+  { id: 'spring', name: 'Spring Boot', iconType: 'spring', tokens: ['spring'] },
+  { id: 'maven', name: 'Maven', iconType: 'maven', tokens: ['maven'] },
+  { id: 'gradle', name: 'Gradle', iconType: 'gradle', tokens: ['gradle'] },
+  { id: 'fastapi', name: 'FastAPI', iconType: 'fastapi', tokens: ['fastapi'] },
+  { id: 'django', name: 'Django', iconType: 'django', tokens: ['django'] },
+  { id: 'flask', name: 'Flask', iconType: 'flask', tokens: ['flask'] },
+  { id: 'pandas', name: 'Pandas', iconType: 'pandas', tokens: ['pandas'] },
+  { id: 'numpy', name: 'NumPy', iconType: 'numpy', tokens: ['numpy'] },
+  { id: 'streamlit', name: 'Streamlit', iconType: 'streamlit', tokens: ['streamlit'] },
+  { id: 'pytorch', name: 'PyTorch', iconType: 'pytorch', tokens: ['pytorch'] },
+  { id: 'jupyter', name: 'Jupyter', iconType: 'python', tokens: ['jupyter'] },
+  {
+    id: 'data-science',
+    name: 'Data Science',
+    iconType: 'pandas',
+    substrings: ['data science', 'machine learning', 'inteligencia artificial'],
+    unless: ['pandas', 'numpy']
+  },
+  { id: 'express', name: 'Express', iconType: 'express', tokens: ['express'] },
+  { id: 'nestjs', name: 'NestJS', iconType: 'nestjs', tokens: ['nest', 'nestjs'] },
+  { id: 'bun', name: 'Bun', iconType: 'bun', tokens: ['bun'] },
+  { id: 'deno', name: 'Deno', iconType: 'deno', tokens: ['deno'] },
+  { id: 'prisma', name: 'Prisma', iconType: 'prisma', tokens: ['prisma'] },
+  { id: 'gcc', name: 'GCC / Clang', iconType: 'c', tokens: ['gcc', 'clang', 'g++', 'cmake'] },
+  { id: 'webassembly', name: 'WebAssembly', iconType: 'rust', tokens: ['wasm', 'webassembly'] },
+  { id: 'grpc', name: 'gRPC', iconType: 'go', tokens: ['grpc'] },
+  { id: 'laravel', name: 'Laravel', iconType: 'laravel', tokens: ['laravel'] },
+  { id: 'postgres', name: 'PostgreSQL', iconType: 'postgres', tokens: ['postgres', 'postgresql', 'psql'] },
+  { id: 'mysql', name: 'MySQL', iconType: 'mysql', tokens: ['mysql'] },
+  { id: 'mariadb', name: 'MariaDB', iconType: 'mariadb', tokens: ['mariadb'] },
+  { id: 'mongodb', name: 'MongoDB', iconType: 'mongodb', tokens: ['mongodb', 'mongo'] },
+  { id: 'redis', name: 'Redis', iconType: 'redis', tokens: ['redis'] },
+  { id: 'sqlite', name: 'SQLite', iconType: 'sqlite', tokens: ['sqlite'] },
+  {
+    id: 'db',
+    name: 'Bases de Datos',
+    iconType: 'db',
+    tokens: ['sql'],
+    unless: ['postgres', 'mysql', 'mariadb', 'mongodb', 'redis', 'sqlite']
+  }
+];
+
+function ruleMeta(rule: TechRule): TechMeta {
+  return { id: rule.id, name: rule.name, badgeClass: `tech-${rule.id}`, iconType: rule.iconType };
+}
+
+function matchesRule(text: string, rule: TechRule): boolean {
+  const tokenMatch = (rule.tokens || []).some(token => matchesToken(text, token));
+  const substringMatch = (rule.substrings || []).some(fragment => text.includes(fragment));
+  return tokenMatch || substringMatch;
+}
+
+function findRuleForReference(reference: string): TechRule | null {
+  const value = reference.toLowerCase().trim();
+  if (!value || value.includes('db-none') || value === 'none') return null;
+  return (
+    TECH_RULES.find(rule => {
+      if (rule.id === value) return true;
+      if (matchesToken(value, rule.id)) return true;
+      return (rule.tokens || []).some(token => matchesToken(value, token));
+    }) ?? null
+  );
+}
+
+/**
+ * Inferencia compartida por el catálogo del administrador y el del docente.
+ * Primero respeta las piezas declaradas en `stack_config`; después completa con
+ * el texto de la plantilla. Devuelve todas las tecnologías detectadas en orden
+ * de lectura para que las tarjetas no se queden solo con el lenguaje principal.
+ */
+export function inferTemplateTechnologies(input: TemplateTechInferenceInput): TechMeta[] {
+  const text = `${input.name || ''} ${input.docker_image || ''} ${input.description || ''}`.toLowerCase();
+  const matched = new Map<string, TechMeta>();
+
+  const add = (rule: TechRule): void => {
+    if (matched.has(rule.id)) return;
+    if (rule.unless?.some(id => matched.has(id))) return;
+    matched.set(rule.id, ruleMeta(rule));
   };
 
-  if (runtimeId) {
-    const matched = matchCuratedId(runtimeId);
-    if (matched) return matched;
-  }
-
-  if (webId) {
-    const matched = matchCuratedId(webId);
-    if (matched) return matched;
-  }
-
-  const name = item.name || '';
-  const image = item.docker_image || '';
-  const text = `${name} ${image}`.toLowerCase();
-
-  if (
-    text.includes('python') ||
-    text.includes('django') ||
-    text.includes('flask') ||
-    text.includes('fastapi') ||
-    text.includes('pandas') ||
-    text.includes('numpy') ||
-    text.includes('streamlit') ||
-    text.includes(' ds')
-  ) {
-    return { id: 'python', name: 'Python', badgeClass: 'tech-python', iconType: 'python' };
-  }
-  if (text.includes('rust') || text.includes('cargo') || text.includes('actix') || text.includes('tokio')) {
-    return { id: 'rust', name: 'Rust', badgeClass: 'tech-rust', iconType: 'rust' };
-  }
-  if (text.includes('typescript') || text.includes('ts-node')) {
-    return { id: 'typescript', name: 'TypeScript', badgeClass: 'tech-typescript', iconType: 'typescript' };
-  }
-  if (text.includes('angular')) {
-    return { id: 'angular', name: 'Angular', badgeClass: 'tech-angular', iconType: 'angular' };
-  }
-  if (text.includes('react') || text.includes('next')) {
-    return { id: 'react', name: 'React', badgeClass: 'tech-react', iconType: 'react' };
-  }
-  if (text.includes('vue') || text.includes('vite')) {
-    return { id: 'vue', name: 'Vue', badgeClass: 'tech-vue', iconType: 'vue' };
-  }
-  if (
-    text.includes('node') ||
-    text.includes('javascript') ||
-    text.includes('express') ||
-    text.includes('nest') ||
-    text.includes('bun') ||
-    text.includes('deno')
-  ) {
-    return { id: 'node', name: 'Node.js', badgeClass: 'tech-node', iconType: 'node' };
-  }
-  if (text.includes('php') || text.includes('laravel')) {
-    return { id: 'php', name: 'PHP', badgeClass: 'tech-php', iconType: 'php' };
-  }
-  if (text.includes('dotnet') || text.includes('c#') || text.includes('.net') || text.includes('csharp')) {
-    return { id: 'dotnet', name: '.NET / C#', badgeClass: 'tech-dotnet', iconType: 'dotnet' };
-  }
-  if (
-    text.includes('golang') ||
-    text.includes('go:') ||
-    text.includes('go-') ||
-    text.includes('/go') ||
-    text.includes('gin') ||
-    text.includes('fiber') ||
-    /\bgo\b/.test(text)
-  ) {
-    return { id: 'go', name: 'Go', badgeClass: 'tech-go', iconType: 'go' };
-  }
-  if (
-    text.includes('java') ||
-    text.includes('spring') ||
-    text.includes('kotlin') ||
-    text.includes('maven') ||
-    text.includes('gradle')
-  ) {
-    return { id: 'java', name: 'Java', badgeClass: 'tech-java', iconType: 'java' };
-  }
-  if (
-    text.includes('c++') ||
-    text.includes('cpp') ||
-    text.includes('clang') ||
-    text.includes('gcc') ||
-    text.includes('g++') ||
-    text.includes('cmake')
-  ) {
-    return { id: 'cpp', name: 'C / C++', badgeClass: 'tech-cpp', iconType: 'cpp' };
-  }
-  if (
-    text.includes('postgres') ||
-    text.includes('mysql') ||
-    text.includes('sql') ||
-    text.includes('redis') ||
-    text.includes('mongo') ||
-    text.includes('mariadb')
-  ) {
-    return { id: 'db', name: 'Bases de Datos', badgeClass: 'tech-db', iconType: 'db' };
-  }
-
-  for (const curated of CURATED_TECH_ICONS) {
-    if (curated.key === 'docker' || curated.key === 'go') continue;
-    if (text.includes(curated.key)) {
-      return {
-        id: curated.key,
-        name: curated.label,
-        badgeClass: `tech-${curated.key}`,
-        iconType: curated.key as TechIconKey
-      };
+  const stack = input.stack_config;
+  if (stack) {
+    const references = [
+      stack.runtime_id,
+      stack.web_platform_id,
+      ...(stack.addon_ids || []),
+      stack.database_id,
+      ...(stack.services || []).map(service => service.component_id)
+    ];
+    for (const reference of references) {
+      if (!reference) continue;
+      const rule = findRuleForReference(reference);
+      if (rule) add(rule);
     }
   }
 
-  return { id: 'docker', name: 'Docker Base', badgeClass: 'tech-docker', iconType: 'docker' };
+  for (const rule of TECH_RULES) {
+    if (matchesRule(text, rule)) add(rule);
+  }
+
+  // El stack puede declarar una pieza genérica y el texto una más específica.
+  if (['postgres', 'mysql', 'mariadb', 'mongodb', 'redis', 'sqlite'].some(id => matched.has(id))) {
+    matched.delete('db');
+  }
+  if (matched.has('nextjs')) matched.delete('react');
+  if (matched.has('pandas') || matched.has('numpy')) matched.delete('data-science');
+
+  return Array.from(matched.values());
+}
+
+export function detectTemplateTech(
+  item: TemplateTechInferenceInput
+): TechMeta {
+  return inferTemplateTechnologies(item)[0] ?? metaFor('docker', 'Docker Base');
+}
+
+/**
+ * Resuelve las piezas declaradas en `stack_config` contra el catálogo real de
+ * tecnologías, conservando el orden lenguaje → web → complementos → datos.
+ * Reutiliza nombre e icono del catálogo en lugar de inferirlos del tag Docker.
+ */
+export function resolveTemplateStack(
+  item: { stack_config?: ResolvableStackConfig | null },
+  catalog: TemplateComponent[]
+): StackTechChip[] {
+  const config = item.stack_config;
+  if (!config || catalog.length === 0) return [];
+
+  const byId = new Map(catalog.map(component => [component.id, component]));
+  const bySlug = new Map(catalog.map(component => [component.slug, component]));
+  const seen = new Set<string>();
+  const chips: StackTechChip[] = [];
+
+  const push = (reference?: string): void => {
+    if (!reference) return;
+    const component = byId.get(reference) || bySlug.get(reference);
+    if (!component || seen.has(component.id)) return;
+    // "Sin base de datos" es una decisión, no una tecnología del entorno.
+    if (component.layer === 'database' && (component.service_engine === 'none' || component.slug === 'db-none')) {
+      return;
+    }
+    seen.add(component.id);
+    const role: StackTechChip['role'] =
+      component.layer === 'runtime'
+        ? component.sub_category === 'web'
+          ? 'web'
+          : 'runtime'
+        : component.layer;
+    chips.push({
+      id: component.id,
+      name: component.name,
+      iconKey: component.icon_key || 'docker',
+      role
+    });
+  };
+
+  push(config.runtime_id);
+  push(config.web_platform_id);
+  for (const addonId of config.addon_ids || []) push(addonId);
+  push(config.database_id);
+  for (const service of config.services || []) push(service.component_id);
+
+  return chips;
 }
 
 export function detectTech(name: string, image: string): TechMeta {

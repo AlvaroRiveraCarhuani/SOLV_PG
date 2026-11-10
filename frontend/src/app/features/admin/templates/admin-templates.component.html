@@ -19,7 +19,7 @@
         <span class="role-badge">Gobernanza Docker</span>
       </div>
       <p class="page-subtitle view-subtitle">
-        Gestión y control de imágenes Docker institucionales y solicitudes de docentes
+        Administra los entornos disponibles para las materias y revisa las solicitudes de los docentes
       </p>
     </div>
     <div class="header-actions">
@@ -112,7 +112,7 @@
       <search-bar
         [query]="searchTerm()"
         (queryChange)="searchTerm.set($event)"
-        placeholder="Buscar plantilla, imagen docker, docente o motivo..."
+        placeholder="Buscar plantilla, tecnología, docente o motivo..."
       />
     </div>
 
@@ -144,7 +144,7 @@
         class="purpose-chip"
         [class.active]="selectedPurpose() === 'AMBOS'"
         (click)="selectedPurpose.set('AMBOS')">
-        Dual (Entorno + Evaluador)
+        {{ 'AMBOS' | environmentLabel }}
       </button>
     </div>
 
@@ -214,13 +214,12 @@
       </div>
     } @else {
       @if (viewMode() === 'cards') {
-        <!-- Modo Tarjetas: Grilla Lado a Lado de 2 columnas -->
+        <!-- Modo Tarjetas: Grilla Lado a Lado de 3 columnas -->
         <div class="cards-grid">
           @for (item of pendingTemplates(); track item.id) {
             <div class="template-card">
               <div class="card-header">
                 <div class="card-title-group">
-                  <tech-logo [iconType]="getTemplateTech(item).iconType" [size]="36" />
                   <div>
                     <h3 class="card-title">{{ item.name }}</h3>
                     <div class="card-badges">
@@ -240,14 +239,18 @@
                         <span class="badge-status-pending">Pendiente</span>
                       }
                       <span class="badge-profile">RAM: <span machineData>{{ item.base_ram_mb }} MB</span></span>
-                      @for (srv of item.services_config?.services; track srv.engine) {
-                        <span class="badge-service" [title]="srv.category + ': ' + srv.engine">
-                          {{ srv.engine }}
-                        </span>
-                      }
                     </div>
                   </div>
                 </div>
+              </div>
+
+              <div class="card-stack" aria-label="Tecnologías solicitadas">
+                @for (tech of getStackTechs(item); track tech.id) {
+                  <span class="stack-chip">
+                    <tech-logo [iconType]="tech.iconKey" [size]="18" />
+                    <span class="stack-chip-name">{{ tech.name }}</span>
+                  </span>
+                }
               </div>
 
               <div class="card-meta">
@@ -332,7 +335,7 @@
                 <tr>
                   <td>
                     <div class="cell-entity-group">
-                      <tech-logo [iconType]="getTemplateTech(item).iconType" [size]="28" />
+                      <tech-logo [iconType]="getPrimaryTechIcon(item)" [size]="28" />
                       <div>
                         <div class="cell-title-badges">
                           <span class="cell-main-title font-semibold">{{ item.name }}</span>
@@ -425,8 +428,7 @@
             <div class="template-card" [class.card-paused]="isPausedStatus(item.status)">
               <div class="card-header">
                 <div class="card-title-group">
-                  <tech-logo [iconType]="getTemplateTech(item).iconType" [size]="36" />
-                  <div>
+                  <div class="card-title-block">
                     <h3 class="card-title">{{ item.name }}</h3>
                     <div class="card-badges">
                       @let pBadge = getPurposeBadge(item.target_environment);
@@ -436,161 +438,179 @@
                       @if (item.category_name) {
                         <span class="badge-category" title="Categoría">{{ item.category_name }}</span>
                       }
-                      @if (item.status === 'PENDIENTE_AUDITORIA') {
-                        <span class="badge-status-audit-pending" title="Auditoría de seguridad y prueba de arranque en curso">
-                          <span class="status-dot amber"></span>
-                          Auditoría (~3 min)
-                        </span>
-                      } @else if (item.status === 'approved' || item.status === 'APROBADA') {
-                        <span class="badge-status-approved" [title]="'0 CVEs críticos' + (item.smoke_test_status ? ' | Smoke: ' + item.smoke_test_status : '')">
-                          <span class="status-dot green"></span>
-                          Activa
-                        </span>
-                      } @else if (item.status === 'RECHAZADA' || item.status === 'rejected') {
-                        <span class="badge-status-rejected" [title]="item.rejection_reason || (item.cve_critical_count ? item.cve_critical_count + ' CVEs críticos detectados' : 'Rechazada')">
-                          <span class="status-dot red"></span>
-                          Rechazada
-                        </span>
-                      } @else {
-                        <span class="badge-status-paused">
-                          <span class="status-dot gray"></span>
-                          Pausada
-                        </span>
-                      }
-                      @if (item.eol_status === 'eol') {
-                        <span class="badge-status-eol" [title]="item.eol_message || 'Versión sin soporte oficial (EOL)'">
-                          <span class="status-dot red"></span>
-                          EOL
-                        </span>
-                      } @else if (item.eol_status === 'warning') {
-                        <span class="badge-status-eol-warning" [title]="item.eol_message || 'Próximo a fin de soporte'">
-                          <span class="status-dot amber"></span>
-                          Próximo a EOL
-                        </span>
-                      }
-                      <span class="badge-profile">RAM: <span machineData>{{ item.base_ram_mb }} MB</span></span>
-                      @for (srv of item.services_config?.services; track srv.engine) {
-                        <span class="badge-service" [title]="srv.category + ': ' + srv.engine">
-                          {{ srv.engine }}
-                        </span>
-                      }
-                      @if (getCacheStatus(item.id); as cache) {
-                        @if (warmingTemplateIds().has(item.id)) {
-                          <span class="badge-cache-warming">
-                            <svg lucideRefreshCw class="badge-icon motion-spin"></svg>
-                            Descargando...
-                          </span>
-                        } @else if (cache.is_cached) {
-                          <span class="badge-cache-cached" [title]="'Imagen en disco host (' + formatBytes(cache.size_bytes) + ')'">
-                            <svg lucideHardDrive class="badge-icon"></svg>
-                            En disco ({{ formatBytes(cache.size_bytes) }})
-                          </span>
-                        } @else {
-                          <button
-                            type="button"
-                            class="badge-cache-missing-btn"
-                            (click)="warmTemplate(item, $event)"
-                            title="Precalentar imagen en host">
-                            <svg lucideFlame class="badge-icon"></svg>
-                            Sin caché
-                          </button>
-                        }
-                      }
                     </div>
                   </div>
                 </div>
-              </div>
 
-              <div class="docker-image-box">
-                <span class="docker-label">Imagen Base:</span>
-                <div class="docker-tag-wrapper">
-                  <code class="docker-tag">{{ item.docker_image }}</code>
-                  <button
-                    type="button"
-                    class="btn-copy-tag"
-                    (click)="copyDockerTag(item.docker_image, $event)"
-                    [title]="copiedTag() === item.docker_image ? '¡Copiado!' : 'Copiar tag'">
-                    @if (copiedTag() === item.docker_image) {
-                      <svg lucideCheck class="copy-icon text-success"></svg>
-                    } @else {
-                      <svg lucideCopy class="copy-icon"></svg>
-                    }
-                  </button>
+                <div class="card-status-group">
+                  @if (item.status === 'PENDIENTE_AUDITORIA') {
+                    <span class="badge-status-audit-pending" title="Auditoría de seguridad y prueba de arranque en curso">
+                      <span class="status-dot amber"></span>
+                      Auditoría
+                    </span>
+                  } @else if (item.status === 'approved' || item.status === 'APROBADA') {
+                    <span class="badge-status-approved" [title]="'Sin vulnerabilidades críticas' + (item.smoke_test_status ? ' | Prueba de arranque: ' + item.smoke_test_status : '')">
+                      <span class="status-dot green"></span>
+                      Activa
+                    </span>
+                  } @else if (item.status === 'RECHAZADA' || item.status === 'rejected') {
+                    <span class="badge-status-rejected" [title]="item.rejection_reason || (item.cve_critical_count ? item.cve_critical_count + ' CVEs críticos detectados' : 'Rechazada')">
+                      <span class="status-dot red"></span>
+                      Rechazada
+                    </span>
+                  } @else {
+                    <span class="badge-status-paused">
+                      <span class="status-dot gray"></span>
+                      Pausada
+                    </span>
+                  }
+                  @if (item.eol_status === 'eol') {
+                    <span class="badge-status-eol" [title]="item.eol_message || 'Versión sin soporte oficial (EOL)'">
+                      <span class="status-dot red"></span>
+                      EOL
+                    </span>
+                  } @else if (item.eol_status === 'warning') {
+                    <span class="badge-status-eol-warning" [title]="item.eol_message || 'Próximo a fin de soporte'">
+                      <span class="status-dot amber"></span>
+                      Próximo a EOL
+                    </span>
+                  }
                 </div>
               </div>
 
-              @if ((item.target_environment === 'JUEZ_EFIMERO' || item.target_environment === 'AMBOS') && item.entrypoint) {
-                <div class="judge-entrypoint-box">
-                  <span class="judge-entrypoint-label">Comando del evaluador:</span>
-                  <code class="judge-entrypoint-tag" machineData>{{ item.entrypoint }}</code>
-                </div>
-              }
+              <div class="card-stack" aria-label="Tecnologías incluidas">
+                @for (tech of getStackTechs(item); track tech.id) {
+                  <span class="stack-chip">
+                    <tech-logo [iconType]="tech.iconKey" [size]="18" />
+                    <span class="stack-chip-name">{{ tech.name }}</span>
+                  </span>
+                }
+              </div>
 
               @if (item.description) {
-                <div class="pedagogical-justification-box">
-                  <span class="justification-title">Descripción:</span>
-                  <p class="justification-text">{{ item.description }}</p>
-                </div>
+                <p class="card-description">{{ item.description }}</p>
               }
 
               <div class="card-meta">
-                <div class="meta-row">
+                <span class="meta-item">
+                  <svg lucideHardDrive class="meta-icon"></svg>
+                  <span>RAM <span machineData>{{ item.base_ram_mb }} MB</span></span>
+                </span>
+                <span class="meta-item">
                   <svg lucideClock class="meta-icon"></svg>
-                  <span class="meta-text text-tertiary font-mono">
-                    Aprobada: <time>{{ (item.reviewed_at || item.created_at) | dateText:'date' }}</time>
-                  </span>
-                </div>
+                  <span>Aprobada <time>{{ (item.reviewed_at || item.created_at) | dateText:'date' }}</time></span>
+                </span>
               </div>
 
-              <div class="card-actions">
-                <button type="button" class="btn-outline-secondary" (click)="navigateToEditStudio(item)">
-                  <svg lucidePencil class="btn-icon-xs"></svg>
-                  <span>Editar en Constructor</span>
-                </button>
-
-                <button type="button" class="btn-outline-secondary" (click)="openEditModal(item)">
-                  <svg lucidePencil class="btn-icon-xs"></svg>
-                  <span>Ajustar Cuota</span>
-                </button>
-
-                <button type="button" class="btn-outline-secondary" (click)="duplicateTemplate(item)" title="Duplicar plantilla como copia editable">
-                  <svg lucideCopy class="btn-icon-xs"></svg>
-                  <span>Duplicar</span>
-                </button>
-
-                <button
-                  type="button"
-                  class="btn-outline-secondary"
-                  (click)="warmTemplate(item, $event)"
-                  [disabled]="warmingTemplateIds().has(item.id)"
-                  title="Asegurar descarga en el disco del host">
-                  @if (warmingTemplateIds().has(item.id)) {
-                    <svg lucideRefreshCw class="btn-icon-xs motion-spin"></svg>
-                    <span>Calentando...</span>
-                  } @else {
-                    <svg lucideFlame class="btn-icon-xs text-warning"></svg>
-                    <span>Calentar</span>
+              <details class="card-tech-details">
+                <summary class="tech-details-summary">
+                  <svg lucideChevronDown class="tech-details-chevron"></svg>
+                  <span>Detalles técnicos</span>
+                </summary>
+                <div class="tech-details-body">
+                  <div class="tech-detail-row">
+                    <span class="tech-detail-label">Imagen base</span>
+                    <div class="docker-tag-wrapper">
+                      <code class="docker-tag">{{ item.docker_image }}</code>
+                      <button
+                        type="button"
+                        class="btn-copy-tag"
+                        (click)="copyDockerTag(item.docker_image, $event)"
+                        [title]="copiedTag() === item.docker_image ? '¡Copiado!' : 'Copiar tag'">
+                        @if (copiedTag() === item.docker_image) {
+                          <svg lucideCheck class="copy-icon text-success"></svg>
+                        } @else {
+                          <svg lucideCopy class="copy-icon"></svg>
+                        }
+                      </button>
+                    </div>
+                  </div>
+                  @if ((item.target_environment === 'JUEZ_EFIMERO' || item.target_environment === 'AMBOS') && item.entrypoint) {
+                    <div class="tech-detail-row">
+                      <span class="tech-detail-label">Comando del evaluador</span>
+                      <code class="judge-entrypoint-tag" machineData>{{ item.entrypoint }}</code>
+                    </div>
                   }
-                </button>
+                </div>
+              </details>
 
-                                @if (item.status === 'approved' || item.status === 'APROBADA') {
-                  <button type="button" class="btn-promote-icon" (click)="promoteToModel(item)" title="Promover a modelo de plantilla">
-                    <svg lucideBadgeCheck class="btn-icon-xs"></svg>
-                    <span>Promover</span>
-                  </button>
+              <div class="card-footer">
+                @if (getCacheStatus(item.id); as cache) {
+                  @if (warmingTemplateIds().has(item.id)) {
+                    <span class="badge-cache-warming">
+                      <svg lucideRefreshCw class="badge-icon motion-spin"></svg>
+                      Preparando...
+                    </span>
+                  } @else if (cache.is_cached) {
+                    <span class="badge-cache-cached" [title]="'Imagen disponible en el servidor (' + formatBytes(cache.size_bytes) + ')'">
+                      <svg lucideHardDrive class="badge-icon"></svg>
+                      Entorno preparado
+                    </span>
+                  } @else {
+                    <button
+                      type="button"
+                      class="badge-cache-missing-btn"
+                      (click)="warmTemplate(item, $event)"
+                      title="Descarga la imagen al servidor para que el aula no espere">
+                      <svg lucideDownloadCloud class="badge-icon"></svg>
+                      Preparar entorno
+                    </button>
+                  }
                 }
 
-                @if (item.status === 'approved' || item.status === 'APROBADA') {
-                  <button type="button" class="btn-pause-template" (click)="requestToggleStatus(item)" title="Pausar plantilla">
-                    <svg lucidePause class="btn-icon-xs"></svg>
-                    <span>Pausar</span>
+                <div class="card-actions">
+                  <button type="button" class="btn-outline-secondary" (click)="navigateToEditStudio(item)" title="Abrir en el Constructor de Entornos">
+                    <svg lucidePencil class="btn-icon-xs"></svg>
+                    <span>Editar</span>
                   </button>
-                } @else {
-                  <button type="button" class="btn-resume-template" (click)="requestToggleStatus(item)" title="Reactivar plantilla">
-                    <svg lucidePlay class="btn-icon-xs"></svg>
-                    <span>Reactivar</span>
-                  </button>
-                }
+
+                  <div class="row-menu-anchor">
+                    <button
+                      type="button"
+                      class="btn-row-menu"
+                      (click)="toggleRowMenu(item.id, $event)"
+                      [class.active]="openMenuId() === item.id"
+                      title="Más acciones"
+                      aria-label="Más acciones de la plantilla">
+                      <svg lucideMoreVertical class="w-4 h-4"></svg>
+                    </button>
+
+                    @if (openMenuId() === item.id) {
+                      <div class="row-actions-menu animate-dropdown" animate.leave="motion-dropdown-out" role="menu">
+                        <button type="button" class="menu-item" role="menuitem" (click)="openEditModal(item); openMenuId.set(null)">
+                          <svg lucideHardDrive class="menu-item-icon"></svg>
+                          <span>Ajustar cuota de RAM</span>
+                        </button>
+
+                        <button type="button" class="menu-item" role="menuitem" (click)="duplicateTemplate(item); openMenuId.set(null)">
+                          <svg lucideCopy class="menu-item-icon"></svg>
+                          <span>Duplicar plantilla</span>
+                        </button>
+
+                        @if (item.status === 'approved' || item.status === 'APROBADA') {
+                          <button type="button" class="menu-item menu-item--promote" role="menuitem" (click)="promoteToModel(item); openMenuId.set(null)">
+                            <svg lucideBadgeCheck class="menu-item-icon"></svg>
+                            <span>Promover a modelo</span>
+                          </button>
+                        }
+
+                        <div class="menu-divider"></div>
+
+                        @if (item.status === 'approved' || item.status === 'APROBADA') {
+                          <button type="button" class="menu-item menu-item--danger" role="menuitem" (click)="requestToggleStatus(item); openMenuId.set(null)">
+                            <svg lucidePause class="menu-item-icon"></svg>
+                            <span>Pausar plantilla</span>
+                          </button>
+                        } @else {
+                          <button type="button" class="menu-item menu-item--success" role="menuitem" (click)="requestToggleStatus(item); openMenuId.set(null)">
+                            <svg lucidePlay class="menu-item-icon"></svg>
+                            <span>Reactivar plantilla</span>
+                          </button>
+                        }
+                      </div>
+                    }
+                  </div>
+                </div>
               </div>
             </div>
           }
@@ -606,7 +626,7 @@
                 <th>RAM Asignada</th>
                 <th>Fecha Aprobación</th>
                 <th>Estado</th>
-                <th>Caché Local</th>
+                <th>Disponibilidad</th>
                 <th class="text-right">Acciones</th>
               </tr>
             </thead>
@@ -615,7 +635,7 @@
                 <tr [class.row-paused]="isPausedStatus(item.status)">
                   <td>
                     <div class="cell-entity-group">
-                      <tech-logo [iconType]="getTemplateTech(item).iconType" [size]="28" />
+                      <tech-logo [iconType]="getPrimaryTechIcon(item)" [size]="28" />
                       <div>
                         <div class="cell-title-badges">
                           <span class="cell-main-title font-semibold">{{ item.name }}</span>
@@ -702,21 +722,21 @@
                       @if (warmingTemplateIds().has(item.id)) {
                         <span class="badge-cache-warming">
                           <svg lucideRefreshCw class="badge-icon motion-spin"></svg>
-                          Descargando...
+                          Preparando...
                         </span>
                       } @else if (cache.is_cached) {
-                        <span class="badge-cache-cached" [title]="'Presente en host overlay2 (' + formatBytes(cache.size_bytes) + ')'">
+                        <span class="badge-cache-cached" [title]="'Imagen disponible en el servidor (' + formatBytes(cache.size_bytes) + ')'">
                           <svg lucideHardDrive class="badge-icon"></svg>
-                          En disco ({{ formatBytes(cache.size_bytes) }})
+                          Entorno preparado
                         </span>
                       } @else {
                         <button
                           type="button"
                           class="badge-cache-missing-btn"
                           (click)="warmTemplate(item, $event)"
-                          title="Precalentar imagen en host">
-                          <svg lucideFlame class="badge-icon"></svg>
-                          Sin caché
+                          title="Descarga la imagen al servidor para que el aula no espere">
+                          <svg lucideDownloadCloud class="badge-icon"></svg>
+                          Preparar entorno
                         </button>
                       }
                     } @else {
@@ -738,11 +758,6 @@
 
                       @if (openMenuId() === item.id) {
                         <div class="row-actions-menu animate-dropdown" animate.leave="motion-dropdown-out" role="menu">
-                          <button type="button" class="menu-item" role="menuitem" (click)="warmTemplate(item); openMenuId.set(null)">
-                            <svg lucideFlame class="menu-item-icon text-warning"></svg>
-                            <span>Precalentar en Host</span>
-                          </button>
-
                           <button type="button" class="menu-item" role="menuitem" (click)="navigateToEditStudio(item); openMenuId.set(null)">
                             <svg lucidePencil class="menu-item-icon"></svg>
                             <span>Editar en Constructor</span>
@@ -834,7 +849,6 @@
             <div class="template-card card-rejected">
               <div class="card-header">
                 <div class="card-title-group">
-                  <tech-logo [iconType]="getTemplateTech(item).iconType" [size]="36" />
                   <div>
                     <h3 class="card-title">{{ item.name }}</h3>
                     <div class="card-badges">
@@ -847,14 +861,18 @@
                       }
                       <span class="badge-status-rejected">Rechazada</span>
                       <span class="badge-profile">RAM: <span machineData>{{ item.base_ram_mb }} MB</span></span>
-                      @for (srv of item.services_config?.services; track srv.engine) {
-                        <span class="badge-service" [title]="srv.category + ': ' + srv.engine">
-                          {{ srv.engine }}
-                        </span>
-                      }
                     </div>
                   </div>
                 </div>
+              </div>
+
+              <div class="card-stack" aria-label="Tecnologías solicitadas">
+                @for (tech of getStackTechs(item); track tech.id) {
+                  <span class="stack-chip">
+                    <tech-logo [iconType]="tech.iconKey" [size]="18" />
+                    <span class="stack-chip-name">{{ tech.name }}</span>
+                  </span>
+                }
               </div>
 
               <div class="card-meta">
@@ -920,7 +938,7 @@
                 <tr>
                   <td>
                     <div class="cell-entity-group">
-                      <tech-logo [iconType]="getTemplateTech(item).iconType" [size]="28" />
+                      <tech-logo [iconType]="getPrimaryTechIcon(item)" [size]="28" />
                       <div>
                         <div class="cell-title-badges">
                           <span class="cell-main-title font-semibold">{{ item.name }}</span>

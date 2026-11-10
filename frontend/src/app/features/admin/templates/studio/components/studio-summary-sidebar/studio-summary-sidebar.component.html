@@ -177,19 +177,13 @@
                           <span>Corregir con Copiloto IA</span>
                         </button>
                       } @else {
-                        <div class="ai-repair-loading-row">
-                          <svg lucideRefreshCw class="btn-icon-xs motion-spin"></svg>
-                          <span>Diagnosticando y reparando entorno...</span>
-                          <span class="font-mono text-xs" machineData>Transcurrido: {{ repairElapsedSeconds() }} s</span>
-                          <button
-                            type="button"
-                            class="btn-cancel-repair"
-                            (click)="cancelRepairWithAi.emit()"
-                          >
-                            <svg lucideXCircle class="btn-icon-xs"></svg>
-                            <span>Cancelar</span>
-                          </button>
-                        </div>
+                        <ai-progress-indicator
+                          variant="plain"
+                          label="Diagnosticando y reparando entorno..."
+                          ariaLabel="Reparando entorno con el Copiloto IA"
+                          [elapsedSeconds]="repairElapsedSeconds()"
+                          (cancelled)="cancelRepairWithAi.emit()"
+                        />
                       }
                     </div>
                   }

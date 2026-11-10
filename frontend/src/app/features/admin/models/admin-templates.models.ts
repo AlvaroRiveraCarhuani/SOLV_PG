@@ -229,11 +229,17 @@ export interface UpdateTemplateComponentDTO {
 
 export type UpdateTechCatalogItemDTO = UpdateTemplateComponentDTO;
 
+export interface StackServiceSelection {
+  role?: string;
+  component_id?: string;
+}
+
 export interface StackConfig {
   mode?: 'visual' | 'code';
   runtime_id?: string;
   web_platform_id?: string;
   addon_ids?: string[];
+  services?: StackServiceSelection[];
   database_id?: string;
   environment_folders?: string[];
   dockerfile_content?: string;

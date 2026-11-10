@@ -98,6 +98,31 @@
 
       <article class="motion-card">
         <header class="card-header">
+          <code class="card-token">solv-progress-indeterminate</code>
+          <span class="card-tag">bucle</span>
+        </header>
+        <p class="card-purpose">
+          Barra sin porcentaje para una operación que sigue en curso. La longitud móvil no representa
+          el avance real; siempre se acompaña de un texto de estado. Vive en el componente compartido
+          <code>ai-progress-indicator</code>, junto con la fase, los segundos y el botón de cancelar.
+        </p>
+        <div class="card-stage stage-center">
+          <ai-progress-indicator
+            class="stage-ai-wait"
+            label="Diseñando propuesta..."
+            ariaLabel="Esperando respuesta de la IA"
+            elapsedSeconds="1.4"
+          />
+        </div>
+        <dl class="card-meta">
+          <div class="meta-item"><dt>Duración</dt><dd><code>1.4 s</code></dd></div>
+          <div class="meta-item"><dt>Curva</dt><dd><code>--motion-ease-standard</code></dd></div>
+        </dl>
+        <p class="card-note">Con movimiento reducido queda una pista tramada estática, sin aparentar que terminó.</p>
+      </article>
+
+      <article class="motion-card">
+        <header class="card-header">
           <code class="card-token">skeleton · shimmer</code>
           <span class="card-tag">bucle</span>
         </header>

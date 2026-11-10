@@ -5,13 +5,13 @@ import {
   LucideSparkles,
   LucideCheckCircle2,
   LucideRotateCcw,
-  LucideRefreshCw,
   LucideXCircle,
   LucidePlusCircle,
   LucideInfo,
   LucideAlertCircle
 } from '@lucide/angular';
 import { ModalShellComponent } from '@shared/components/modal-shell/modal-shell.component';
+import { AiProgressIndicatorComponent } from '@shared/components/ai-progress-indicator/ai-progress-indicator.component';
 import { MachineDataDirective } from '@shared/directives/machine-data.directive';
 import { StackConstellationComponent } from '../stack-constellation/stack-constellation.component';
 import { TargetEnvironment } from '@features/admin/models/admin-templates.models';
@@ -26,11 +26,11 @@ import { AIMissingComponent } from '../../../../configuracion/admin-config-ia.se
     AutoGrowDirective,
     ModalShellComponent,
     MachineDataDirective,
+    AiProgressIndicatorComponent,
     StackConstellationComponent,
     LucideSparkles,
     LucideCheckCircle2,
     LucideRotateCcw,
-    LucideRefreshCw,
     LucideXCircle,
     LucidePlusCircle,
     LucideInfo,

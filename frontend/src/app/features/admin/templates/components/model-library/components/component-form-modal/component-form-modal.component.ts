@@ -1,11 +1,11 @@
-import { Component, EventEmitter, Input, OnInit, OnDestroy, inject, Output, computed, signal } from '@angular/core';
+import { Component, EventEmitter, Input, OnInit, effect, inject, Output, computed, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { AutoGrowDirective } from '@shared/directives/auto-grow.directive';
-import { LucideBoxes, LucideAlertTriangle, LucideSparkles, LucideLayers, LucideRefreshCw, LucideXCircle } from '@lucide/angular';
+import { LucideBoxes, LucideAlertTriangle, LucideSparkles, LucideLayers } from '@lucide/angular';
 import { MachineDataDirective } from '@shared/directives/machine-data.directive';
 import { AdminConfigIaService, AISuggestComponentResponse } from '../../../../../configuracion/admin-config-ia.service';
-import { AiOperation } from '@shared/services/ai-operation';
-import { ToastService } from '@shared/services/toast.service';
+import { AiOperation, AiOperations } from '@shared/services/ai-operation';
+import { AiFlowDrafts } from '@shared/services/ai-flow-drafts';
 import {
   AdminTemplatesService,
   ComponentLayer,
@@ -16,6 +16,7 @@ import {
 } from '../../../../../services/admin-templates.service';
 import { CURATED_TECH_ICONS } from '../../../tech-logo/tech-logo.component';
 import { ModalShellComponent } from '@shared/components/modal-shell/modal-shell.component';
+import { AiProgressIndicatorComponent } from '@shared/components/ai-progress-indicator/ai-progress-indicator.component';
 import { FormFieldComponent } from '@shared/components/form-field/form-field.component';
 import { ComboboxComponent, ComboboxOption } from '@shared/components/combobox/combobox.component';
 import {
@@ -73,12 +74,56 @@ export {
   OFFICIAL_WEB_PROFILES
 };
 
+const DRAFT_KEY = 'suggest-component';
+
+/**
+ * Formulario de alta tal como lo dejó el administrador.
+ *
+ * `contextKey` fija el contexto con el que se abrió el modal. Sin él, un
+ * borrador de complemento reaparecería en el alta de una base de datos, y una
+ * respuesta pendiente del Copiloto caería sobre otro formulario.
+ */
+interface ComponentAiDraft {
+  contextKey: string;
+  layer: ComponentLayer;
+  subCategory: string;
+  name: string;
+  description: string;
+  iconKey: string;
+  isIconManuallySelected: boolean;
+  customIconUrl: string;
+  baseImage: string;
+  compatibleRuntime: string;
+  installMode: InstallMode;
+  installPreset: string;
+  packageNamesInput: string;
+  customBuildSnippet: string;
+  toolsProvidedInput: string;
+  serviceEngine: string;
+  judgeEntrypoint: string;
+  memoryProfile: ComponentMemoryProfile;
+  ramDeltaMB: number;
+  activeModalTab: 'catalog' | 'ai';
+  aiPrompt: string;
+  showExpertMode: boolean;
+  showManualFineTune: boolean;
+  aiRationale: string | null;
+  aiLatencyMs: number | null;
+  selectedEcosystemProfileId: string;
+  selectedWebProfileId: string;
+  selectedAddonPresetId: string;
+  selectedDatabaseProfileId: string;
+  selectedVersion: string;
+  isCustomPresetSelected: boolean;
+}
+
 @Component({
   selector: 'component-form-modal',
   imports: [
     FormsModule,
     AutoGrowDirective,
     ModalShellComponent,
+    AiProgressIndicatorComponent,
     FormFieldComponent,
     ComboboxComponent,
     CatalogPresetGridComponent,
@@ -87,16 +132,18 @@ export {
     LucideBoxes,
     LucideAlertTriangle,
     LucideSparkles,
-    LucideLayers,
-    LucideRefreshCw,
-    LucideXCircle
+    LucideLayers
   ],
   templateUrl: './component-form-modal.component.html',
   styleUrls: ['./component-form-modal.component.scss']
 })
-export class ComponentFormModalComponent implements OnInit, OnDestroy {
+export class ComponentFormModalComponent implements OnInit {
   private readonly templatesService = inject(AdminTemplatesService);
   private readonly aiService = inject(AdminConfigIaService);
+  private readonly drafts = inject(AiFlowDrafts);
+  // Se lee en la construcción: el effect que persiste el formulario no puede
+  // pisar el borrador guardado antes de que ngOnInit lo recupere.
+  private readonly storedDraft = this.drafts.get<ComponentAiDraft>(DRAFT_KEY);
 
   @Input() defaultLayer: ComponentLayer = 'addon';
   @Input() defaultSubCategory: string = 'backend';
@@ -164,15 +211,18 @@ export class ComponentFormModalComponent implements OnInit, OnDestroy {
 
   readonly aiEnabled = signal<boolean>(false);
   readonly aiPrompt = signal<string>('');
-  // La sugerencia de un componente solo tiene sentido dentro de este formulario
-  // de alta: si el modal muere, el resultado no tiene destinatario. Por eso la
-  // operación vive acá y no en el registro de la raíz.
-  private readonly aiOperation: AiOperation<AISuggestComponentResponse> = new AiOperation(
-    inject(ToastService),
+  // La llamada vive en la raíz: cerrar el modal ya no la aborta. El resultado
+  // se reclama al volver al formulario, junto con el borrador que lo originó.
+  private readonly aiOperation: AiOperation<AISuggestComponentResponse> = inject(AiOperations).get(
+    'suggest-component',
     {
       resolveError: (err: unknown) => this.aiService.resolveError(err),
       onSuccess: (res: AISuggestComponentResponse) => this.applySuggestion(res),
-      onError: (message: string) => this.errorMessage.set(message)
+      onError: (message: string) => this.errorMessage.set(message),
+      notify: {
+        success: 'Propuesta del Copiloto IA lista para revisar.',
+        error: (message: string) => message
+      }
     }
   );
   readonly isGeneratingAi = this.aiOperation.isRunning;
@@ -180,8 +230,22 @@ export class ComponentFormModalComponent implements OnInit, OnDestroy {
   readonly aiRationale = signal<string | null>(null);
   readonly aiLatencyMs = signal<number | null>(null);
 
-  ngOnDestroy(): void {
-    this.aiOperation.dispose();
+  constructor() {
+    // El borrador se guarda mientras el formulario está montado; si el modal
+    // se destruye, la próxima apertura en el mismo contexto lo recupera.
+    effect(() => {
+      if (this.editingComponent) return;
+      this.drafts.save<ComponentAiDraft>(DRAFT_KEY, this.captureAiDraft());
+    });
+
+    // Un fallo del motor sucedido con el modal cerrado reaparece como el aviso
+    // del formulario, no como un modal vacío sin explicación.
+    effect(() => {
+      const message = this.aiOperation.errorMessage();
+      if (message) {
+        this.errorMessage.set(message);
+      }
+    });
   }
 
   /** Reporta si hay una previsualización técnica lista para mostrar */
@@ -421,6 +485,81 @@ export class ComponentFormModalComponent implements OnInit, OnDestroy {
     return 'Icono estándar por defecto';
   });
 
+  /** Contexto con el que se abrió el modal: decide si un borrador aplica. */
+  private get draftContextKey(): string {
+    const runtime = (this.defaultCompatibleRuntime || '').trim().toLowerCase();
+    return `${this.defaultLayer}|${this.defaultSubCategory}|${runtime}`;
+  }
+
+  private captureAiDraft(): ComponentAiDraft {
+    return {
+      contextKey: this.draftContextKey,
+      layer: this.layer(),
+      subCategory: this.subCategory(),
+      name: this.name(),
+      description: this.description(),
+      iconKey: this.iconKey(),
+      isIconManuallySelected: this.isIconManuallySelected(),
+      customIconUrl: this.customIconUrl(),
+      baseImage: this.baseImage(),
+      compatibleRuntime: this.compatibleRuntime(),
+      installMode: this.installMode(),
+      installPreset: this.installPreset(),
+      packageNamesInput: this.packageNamesInput(),
+      customBuildSnippet: this.customBuildSnippet(),
+      toolsProvidedInput: this.toolsProvidedInput(),
+      serviceEngine: this.serviceEngine(),
+      judgeEntrypoint: this.judgeEntrypoint(),
+      memoryProfile: this.memoryProfile(),
+      ramDeltaMB: this.ramDeltaMB(),
+      activeModalTab: this.activeModalTab(),
+      aiPrompt: this.aiPrompt(),
+      showExpertMode: this.showExpertMode(),
+      showManualFineTune: this.showManualFineTune(),
+      aiRationale: this.aiRationale(),
+      aiLatencyMs: this.aiLatencyMs(),
+      selectedEcosystemProfileId: this.selectedEcosystemProfileId(),
+      selectedWebProfileId: this.selectedWebProfileId(),
+      selectedAddonPresetId: this.selectedAddonPresetId(),
+      selectedDatabaseProfileId: this.selectedDatabaseProfileId(),
+      selectedVersion: this.selectedVersion(),
+      isCustomPresetSelected: this.isCustomPresetSelected()
+    };
+  }
+
+  private restoreAiDraft(draft: ComponentAiDraft): void {
+    this.layer.set(draft.layer);
+    this.subCategory.set(draft.subCategory);
+    this.name.set(draft.name);
+    this.description.set(draft.description);
+    this.iconKey.set(draft.iconKey);
+    this.isIconManuallySelected.set(draft.isIconManuallySelected);
+    this.customIconUrl.set(draft.customIconUrl);
+    this.baseImage.set(draft.baseImage);
+    this.compatibleRuntime.set(draft.compatibleRuntime);
+    this.installMode.set(draft.installMode);
+    this.installPreset.set(draft.installPreset);
+    this.packageNamesInput.set(draft.packageNamesInput);
+    this.customBuildSnippet.set(draft.customBuildSnippet);
+    this.toolsProvidedInput.set(draft.toolsProvidedInput);
+    this.serviceEngine.set(draft.serviceEngine);
+    this.judgeEntrypoint.set(draft.judgeEntrypoint);
+    this.memoryProfile.set(draft.memoryProfile);
+    this.ramDeltaMB.set(draft.ramDeltaMB);
+    this.activeModalTab.set(draft.activeModalTab);
+    this.aiPrompt.set(draft.aiPrompt);
+    this.showExpertMode.set(draft.showExpertMode);
+    this.showManualFineTune.set(draft.showManualFineTune);
+    this.aiRationale.set(draft.aiRationale);
+    this.aiLatencyMs.set(draft.aiLatencyMs);
+    this.selectedEcosystemProfileId.set(draft.selectedEcosystemProfileId);
+    this.selectedWebProfileId.set(draft.selectedWebProfileId);
+    this.selectedAddonPresetId.set(draft.selectedAddonPresetId);
+    this.selectedDatabaseProfileId.set(draft.selectedDatabaseProfileId);
+    this.selectedVersion.set(draft.selectedVersion);
+    this.isCustomPresetSelected.set(draft.isCustomPresetSelected);
+  }
+
   ngOnInit(): void {
     this.aiService.getStatus().subscribe({
       next: (s) => this.aiEnabled.set(!!s?.enabled),
@@ -455,9 +594,24 @@ export class ComponentFormModalComponent implements OnInit, OnDestroy {
       this.compatibleRuntime.set(this.defaultCompatibleRuntime.trim().toLowerCase());
     }
 
+    // Volver al mismo formulario retoma lo escrito. Un pedido que llega desde
+    // otra pantalla (con `initialAiPrompt`) manda sobre el borrador guardado.
+    if (!this.initialAiPrompt?.trim()) {
+      const draft = this.storedDraft;
+      if (draft && draft.contextKey === this.draftContextKey) {
+        this.restoreAiDraft(draft);
+      }
+    }
+
     if (this.initialAiPrompt?.trim()) {
       this.aiPrompt.set(this.initialAiPrompt.trim());
       this.activeModalTab.set('ai');
+    }
+
+    // Resultado que llegó con el modal cerrado: se reclama una sola vez.
+    const pending = this.aiOperation.take();
+    if (pending) {
+      this.applySuggestion(pending);
     }
   }
 
@@ -1028,6 +1182,8 @@ export class ComponentFormModalComponent implements OnInit, OnDestroy {
     this.templatesService.createTechCatalogItem(createDto).subscribe({
       next: created => {
         this.isSubmitting.set(false);
+        // El alta se resolvió: el siguiente formulario nace limpio.
+        this.drafts.clear(DRAFT_KEY);
         this.saved.emit(created);
       },
       error: err => {

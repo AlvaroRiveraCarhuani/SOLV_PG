@@ -28,14 +28,13 @@
 
       <div class="prompt-actions-row">
         @if (isSuggesting()) {
-          <div class="ai-running-telemetry" role="status">
-            <svg lucideRefreshCw class="btn-icon-xs motion-spin"></svg>
-            <span>Diseñando arquitectura...</span>
-            <span class="font-mono" machineData>{{ elapsedSeconds() }} s</span>
-            <button type="button" class="btn-cancel-ai" (click)="cancelSuggest.emit()">
-              <svg lucideXCircle class="btn-icon-xs"></svg><span>Cancelar</span>
-            </button>
-          </div>
+          <ai-progress-indicator
+            class="ai-waiting"
+            label="Diseñando arquitectura..."
+            ariaLabel="Generando propuesta de arquitectura"
+            [elapsedSeconds]="elapsedSeconds()"
+            (cancelled)="cancelSuggest.emit()"
+          />
         } @else {
           <span class="ai-shortcut-hint">Presioná <kbd>Ctrl</kbd> + <kbd>Enter</kbd> para generar</span>
           <button

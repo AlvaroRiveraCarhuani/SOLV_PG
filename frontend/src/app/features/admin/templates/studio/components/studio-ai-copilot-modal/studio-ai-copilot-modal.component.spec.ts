@@ -142,7 +142,7 @@ describe('StudioAiCopilotModalComponent', () => {
     expect(spy).toHaveBeenCalled();
   });
 
-  it('should display telemetry counter when isSuggesting is true', () => {
+  it('should display indeterminate progress, elapsed time, and cancellation when isSuggesting is true', () => {
     const cancelSpy = vi.fn();
     component.cancelSuggest.subscribe(cancelSpy);
 
@@ -150,11 +150,16 @@ describe('StudioAiCopilotModalComponent', () => {
     fixture.componentRef.setInput('elapsedSeconds', '4.2');
     fixture.detectChanges();
 
-    const telemetry = fixture.nativeElement.querySelector('.ai-running-telemetry');
-    expect(telemetry).toBeTruthy();
-    expect(telemetry.textContent).toContain('4.2 s');
+    const progressBox = fixture.nativeElement.querySelector('ai-progress-indicator');
+    expect(progressBox).toBeTruthy();
+    expect(progressBox.querySelector('.ai-progress-bar')).toBeTruthy();
+    expect(progressBox.querySelector('.ai-progress')?.getAttribute('role')).toBe('progressbar');
+    expect(progressBox.querySelector('[role="progressbar"]')?.getAttribute('aria-label'))
+      .toBe('Generando propuesta de arquitectura');
+    expect(progressBox.textContent).toContain('Diseñando arquitectura');
+    expect(progressBox.textContent).toContain('4.2 s');
 
-    const cancelBtn: HTMLButtonElement = fixture.nativeElement.querySelector('.btn-cancel-ai');
+    const cancelBtn: HTMLButtonElement = progressBox.querySelector('.btn-cancel-gen');
     cancelBtn.click();
     expect(cancelSpy).toHaveBeenCalled();
   });

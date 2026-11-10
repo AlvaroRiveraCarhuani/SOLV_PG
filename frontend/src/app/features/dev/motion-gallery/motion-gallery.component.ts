@@ -4,6 +4,7 @@ import { LucideArrowLeft, LucideLoader2, LucidePlay, LucideRotateCcw } from '@lu
 
 import { SkeletonComponent } from '@shared/components/skeleton/skeleton.component';
 import { StatusBadgeComponent } from '@shared/components/status-badge/status-badge.component';
+import { AiProgressIndicatorComponent } from '@shared/components/ai-progress-indicator/ai-progress-indicator.component';
 
 type DemoMode = 'normal' | 'reduced';
 
@@ -39,6 +40,7 @@ const HIGHLIGHT_MS = 1800;
     LucideRotateCcw,
     SkeletonComponent,
     StatusBadgeComponent,
+    AiProgressIndicatorComponent,
   ],
   templateUrl: './motion-gallery.component.html',
   styleUrl: './motion-gallery.component.scss',
