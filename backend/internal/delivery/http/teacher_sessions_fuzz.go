@@ -9,14 +9,13 @@ import (
 )
 
 func (h *TeacherHandler) GetLiveSessions(w http.ResponseWriter, r *http.Request) {
-	role := r.Header.Get("X-User-Role")
-	if role == "student" {
+	if !hasAnyRole(r, "teacher", "admin") {
 		SendError(w, http.StatusForbidden, "Forbidden", "Acceso denegado: solo docentes y administradores pueden acceder a este recurso")
 		return
 	}
 
 	tenantID := getTenantFromCtx(r)
-	teacherID := r.Header.Get("X-User-Id")
+	teacherID := requestUserID(r)
 
 	sessions, err := h.service.ListLiveSessions(r.Context(), tenantID, teacherID)
 	if err != nil {
@@ -28,8 +27,7 @@ func (h *TeacherHandler) GetLiveSessions(w http.ResponseWriter, r *http.Request)
 }
 
 func (h *TeacherHandler) GenerateFuzzCases(w http.ResponseWriter, r *http.Request) {
-	role := r.Header.Get("X-User-Role")
-	if role == "student" {
+	if !hasAnyRole(r, "teacher", "admin") {
 		SendError(w, http.StatusForbidden, "Forbidden", "Acceso denegado: solo docentes y administradores pueden acceder a este recurso")
 		return
 	}
@@ -41,7 +39,7 @@ func (h *TeacherHandler) GenerateFuzzCases(w http.ResponseWriter, r *http.Reques
 	}
 
 	tenantID := getTenantFromCtx(r)
-	teacherID := r.Header.Get("X-User-Id")
+	teacherID := requestUserID(r)
 
 	report, err := h.service.GenerateFuzzCases(r.Context(), tenantID, teacherID, req)
 	if err != nil {
@@ -53,8 +51,7 @@ func (h *TeacherHandler) GenerateFuzzCases(w http.ResponseWriter, r *http.Reques
 }
 
 func (h *TeacherHandler) ApplyFuzzCases(w http.ResponseWriter, r *http.Request) {
-	role := r.Header.Get("X-User-Role")
-	if role == "student" {
+	if !hasAnyRole(r, "teacher", "admin") {
 		SendError(w, http.StatusForbidden, "Forbidden", "Acceso denegado: solo docentes y administradores pueden acceder a este recurso")
 		return
 	}
@@ -72,7 +69,7 @@ func (h *TeacherHandler) ApplyFuzzCases(w http.ResponseWriter, r *http.Request) 
 	}
 
 	tenantID := getTenantFromCtx(r)
-	teacherID := r.Header.Get("X-User-Id")
+	teacherID := requestUserID(r)
 
 	addedCount, err := h.service.ApplyFuzzCases(r.Context(), tenantID, teacherID, exerciseID, req.Cases)
 	if err != nil {

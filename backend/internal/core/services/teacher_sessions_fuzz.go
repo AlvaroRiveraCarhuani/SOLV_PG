@@ -42,6 +42,32 @@ func (s *TeacherService) GetInitialTerminalBuffer(ctx context.Context, container
 	return s.mirrorService.GetInitialTerminalBuffer(ctx, containerID, tailLines)
 }
 
+// AuthorizeTerminal comprueba en el servidor que el docente tenga acceso a una
+// sesión viva del tenant y que el contenedor pertenezca a esa sesión. La lista
+// de sesiones ya está acotada por tenant y por el docente autenticado.
+func (s *TeacherService) AuthorizeTerminal(ctx context.Context, tenantID, teacherID, containerID string) error {
+	if tenantID == "" {
+		return domain.ErrInvalidTenant
+	}
+	if teacherID == "" || containerID == "" {
+		return domain.ErrNotFound
+	}
+	if s.repo == nil {
+		return domain.ErrNotFound
+	}
+
+	sessions, err := s.repo.ListLivePracticeEnvironmentSessions(ctx, tenantID, teacherID)
+	if err != nil {
+		return fmt.Errorf("error al autorizar terminal docente: %w", err)
+	}
+	for _, session := range sessions {
+		if session != nil && session.ContainerID == containerID {
+			return nil
+		}
+	}
+	return domain.ErrNotFound
+}
+
 func (s *TeacherService) ExecuteTutorCommand(ctx context.Context, tenantID, teacherID, containerID, cmd string) (*domain.TutorCommandResponse, error) {
 	if tenantID == "" {
 		return nil, domain.ErrInvalidTenant
