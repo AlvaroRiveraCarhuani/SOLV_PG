@@ -64,3 +64,9 @@ La relación entre ambas documentaciones, junto a la tabla de correspondencia sl
 * [`PILOT/README.md`](PILOT/README.md): Índice maestro del protocolo de validación con base de datos desde cero (`Zero-Seed State`).
 * [`PILOT/01-ADMIN/01-CONSTRUCTOR_PLANTILLAS/00-INDICE_MATRIZ.md`](PILOT/01-ADMIN/01-CONSTRUCTOR_PLANTILLAS/00-INDICE_MATRIZ.md): Matriz modular de pruebas del Constructor de Entornos (5 niveles × 3 sub-dificultades).
 * [`PILOT/smoke-test-guide.md`](PILOT/smoke-test-guide.md): Guía rápida de smoke test pre-piloto.
+
+---
+
+## 9. Entorno Local y Pruebas E2E
+* [`OPERATIONS/GUIA_LOCAL_FEDORA.md`](OPERATIONS/GUIA_LOCAL_FEDORA.md): Cómo levantar SOLV en Fedora, verificar los servicios y entrar al navegador con Google o con una sesión local.
+* [`E2E/02-SPECS_PENDIENTES.md`](E2E/02-SPECS_PENDIENTES.md): Estado de los specs E2E pendientes, último fallo conocido y comandos para cerrar el plan L3.

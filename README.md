@@ -105,19 +105,23 @@ detalle y las limitaciones están en
 ```bash
 git clone https://github.com/tu-usuario/SOLV_PG.git
 cd SOLV_PG
-cp .env.example .env
+cp example.env .env
+# Editar .env: DATABASE_URL, PORT, JWT_SECRET y claves de SeaweedFS.
 ```
 
-### 2. Desplegar servicios de infraestructura
+### 2. Levantar la infraestructura mínima
 ```bash
-docker compose up -d
+docker compose up -d postgres seaweedfs
 ```
 
-### 3. Ejecutar el servidor backend en Go
+### 3. Levantar backend y frontend
 ```bash
-cd backend
-go run cmd/api/main.go
+./scripts/dev.sh start
 ```
+
+Abrir **http://localhost:4200** en el navegador. La guía detallada para Fedora,
+login local y resolución de problemas está en
+[`docs/OPERATIONS/GUIA_LOCAL_FEDORA.md`](docs/OPERATIONS/GUIA_LOCAL_FEDORA.md).
 
 ---
 
