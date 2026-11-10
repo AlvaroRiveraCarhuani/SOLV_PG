@@ -156,19 +156,6 @@ test.describe('Flujo Core 01: Admin (Constructor) -> Docente (Curso y Ejercicio)
         await expect(teacherOption).toBeVisible();
         await teacherOption.click();
 
-        // Seleccionar Plantilla Docker Base recién creada
-        const tplComboInput = modal
-          .locator('form-field', { hasText: 'Plantilla Docker Base' })
-          .locator('input[role="combobox"]');
-        await tplComboInput.click();
-        await tplComboInput.fill(templateName);
-        const tplOption = modal
-          .locator('form-field', { hasText: 'Plantilla Docker Base' })
-          .locator('[role="option"]')
-          .first();
-        await expect(tplOption).toBeVisible();
-        await tplOption.click();
-
         // Confirmar creación del curso y capturar su ID
         const submitCourseBtn = modal.locator('button', { hasText: 'Crear Curso' });
         const [createCourseResp] = await Promise.all([

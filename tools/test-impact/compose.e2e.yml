@@ -1,0 +1,53 @@
+# Stack efímero y aislado para los flujos Playwright. No comparte proyecto,
+# puertos ni volúmenes con compose.yml (despliegue). Se levanta con:
+#   docker compose -p solv-e2e-ci -f tools/test-impact/compose.e2e.yml up -d --wait
+# y se baja con el mismo proyecto y `down -v`. Nunca usar el proyecto del
+# despliegue para limpiar.
+services:
+  postgres:
+    image: postgres:18-alpine
+    environment:
+      POSTGRES_USER: solv_user
+      POSTGRES_PASSWORD: solv_password
+      POSTGRES_DB: solv_e2e
+    ports:
+      - "127.0.0.1:55432:5432"
+    volumes:
+      - solv_e2e_pg:/var/lib/postgresql
+      - ../../backend/seeds:/seeds:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U solv_user -d solv_e2e"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+
+  seaweedfs:
+    image: chrislusf/seaweedfs:4.51
+    container_name: solv_e2e_seaweedfs
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - >-
+        mkdir -p /etc/seaweedfs &&
+        printf '{"identities":[{"name":"solv","credentials":[{"accessKey":"%s","secretKey":"%s"}],"actions":["Admin","Read","List","Tagging","Write"]}]}' "$$SEAWEEDFS_ACCESS_KEY" "$$SEAWEEDFS_SECRET_KEY" > /etc/seaweedfs/s3.json &&
+        exec weed server -s3 -dir=/data -s3.port=8333 -ip.bind=0.0.0.0 -s3.config=/etc/seaweedfs/s3.json -volume.max=0
+    environment:
+      SEAWEEDFS_ACCESS_KEY: e2e-access-key
+      SEAWEEDFS_SECRET_KEY: e2e-secret-key
+    ports:
+      - "127.0.0.1:58333:8333"
+      - "127.0.0.1:59333:9333"
+      - "127.0.0.1:58080:8080"
+      - "127.0.0.1:58888:8888"
+    volumes:
+      - solv_e2e_seaweed:/data
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O /dev/null http://127.0.0.1:9333/cluster/status || exit 1"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+
+volumes:
+  solv_e2e_pg:
+    name: solv_e2e_ci_pg
+  solv_e2e_seaweed:
+    name: solv_e2e_ci_seaweed

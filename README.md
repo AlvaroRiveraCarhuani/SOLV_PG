@@ -87,6 +87,16 @@ SOLV_PG/
 
 **Regla de lectura rápida:** `docs/` responde *qué es* el sistema (arquitectura, decisiones, contratos); `openspec/` responde *cómo se gobierna su construcción* (especificación de cambios, verificación y evidencia). La correspondencia entre ambas y el flujo de contribución están en [`docs/GOBERNANZA/METODOLOGIA.md`](docs/GOBERNANZA/METODOLOGIA.md).
 
+## Testing por impacto
+
+El plan de `tools/test-impact` selecciona las suites según el diff y la política
+vigente. El informe se escribe con `--report`, lleva un recibo HMAC y un sidecar
+`<informe>.evidence.json`; `cli report --plan` y `cli aggregate` verifican ambos.
+En CI cada job usa `SOLV_TEST_RECEIPT_KEY_<JOB>` y `ci-summary` recibe todas las
+claves. Un plan `--files` es sintético y nunca valida el árbol de trabajo. El
+detalle y las limitaciones están en
+[`docs/GOBERNANZA/TESTING_POR_IMPACTO.md`](docs/GOBERNANZA/TESTING_POR_IMPACTO.md).
+
 ---
 
 ## Guía de Inicio Rápido

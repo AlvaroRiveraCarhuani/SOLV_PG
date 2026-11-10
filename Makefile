@@ -24,4 +24,23 @@ lint\:backend:
 token:
 	@./scripts/gen-token.sh
 
+.PHONY: test-impact-plan
+test-impact-plan:
+	@node tools/test-impact/cli.mjs plan --base $${BASE:-origin/main} --working-tree --format text
+
+.PHONY: test-impact
+test-impact:
+	@node tools/test-impact/run.mjs --all --base $${BASE:-origin/main} --working-tree --report impact-report.json
+	@node tools/test-impact/cli.mjs report --file impact-report.json
+
+.PHONY: test-impact-suite
+test-impact-suite:
+	@node tools/test-impact/run.mjs --partial --suite $${SUITE:-build} --if-selected \
+		--base $${BASE:-origin/main} --working-tree --report impact-report-$${SUITE:-build}.json
+
+.PHONY: test-selector
+test-selector:
+	@node tools/test-impact/cli.mjs validate
+	@node --test tools/test-impact/test/*.test.mjs
+
 

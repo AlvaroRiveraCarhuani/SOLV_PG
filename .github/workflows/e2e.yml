@@ -1,0 +1,214 @@
+name: SOLV E2E (programado o manual)
+
+on:
+  schedule:
+    - cron: '0 7 * * *'
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: 'full ejecuta todos los flujos; impact selecciona desde --base'
+        type: choice
+        options: [ full, impact ]
+        default: full
+      base:
+        description: 'Ref base para mode=impact (por ejemplo origin/main)'
+        required: false
+        default: ''
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  SOLV_TEST_EXECUTION_ID: ${{ github.run_id }}-${{ github.run_attempt }}
+
+jobs:
+  plan:
+    name: 0. Plan E2E
+    runs-on: ubuntu-latest
+    outputs:
+      mode: ${{ steps.plan.outputs.mode }}
+      reason: ${{ steps.plan.outputs.reason }}
+      frontend_e2e: ${{ steps.plan.outputs.frontend_e2e }}
+      e2e_specs_count: ${{ steps.plan.outputs.e2e_specs_count }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Compute E2E plan
+        id: plan
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          INPUT_MODE: ${{ inputs.mode }}
+          INPUT_BASE: ${{ inputs.base }}
+        run: |
+          set -euo pipefail
+          base=""
+          if [ "$EVENT_NAME" = "workflow_dispatch" ] && [ "$INPUT_MODE" = "impact" ]; then
+            if [ -z "$INPUT_BASE" ]; then
+              echo "::error::mode=impact requiere el input base."
+              exit 1
+            fi
+            base="$INPUT_BASE"
+          fi
+
+          args=(plan --format text --output impact-plan.json)
+          if [ -n "$base" ]; then
+            args+=(--base "$base")
+          else
+            args+=(--full)
+          fi
+          node tools/test-impact/cli.mjs "${args[@]}"
+          node tools/test-impact/cli.mjs outputs --plan impact-plan.json >> "$GITHUB_OUTPUT"
+
+      - name: Upload impact plan
+        if: steps.plan.outcome == 'success'
+        uses: actions/upload-artifact@v4
+        with:
+          name: impact-plan
+          path: impact-plan.json
+          retention-days: 7
+
+  e2e:
+    name: 1. Flujos Playwright en stack aislado
+    needs: plan
+    if: needs.plan.outputs.frontend_e2e == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    env:
+      SOLV_TEST_RECEIPT_KEY_E2E: ${{ secrets.SOLV_TEST_RECEIPT_KEY_E2E }}
+      DATABASE_URL: postgres://solv_user:solv_password@127.0.0.1:55432/solv_e2e?sslmode=disable
+      TEST_DB_DSN: postgres://solv_user:solv_password@127.0.0.1:55432/solv_e2e?sslmode=disable
+      JWT_SECRET: e2e-ci-only-secret
+      SEAWEEDFS_ENDPOINT: http://127.0.0.1:58333
+      SEAWEEDFS_BUCKET: solv-e2e-advances
+      SEAWEEDFS_ACCESS_KEY: e2e-access-key
+      SEAWEEDFS_SECRET_KEY: e2e-secret-key
+      E2E_BASE_URL: http://127.0.0.1:4200
+      PORT: '3000'
+      E2E_SLOW_MO: '0'
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.26'
+          cache-dependency-path: backend/go.sum
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install frontend dependencies
+        run: |
+          cd frontend
+          npm ci
+
+      - name: Install Playwright Chromium
+        run: |
+          cd frontend
+          npx playwright install --with-deps chromium
+
+      - name: Download impact plan
+        uses: actions/download-artifact@v4
+        with:
+          name: impact-plan
+
+      - name: Start isolated infrastructure
+        run: |
+          docker compose -p solv-e2e-ci -f tools/test-impact/compose.e2e.yml up -d --wait --wait-timeout 180
+
+      - name: Apply migrations and synthetic actors
+        run: |
+          cd backend
+          go run ./cmd/migrate -dir ./migrations -action=up
+          cd ..
+          docker compose -p solv-e2e-ci -f tools/test-impact/compose.e2e.yml exec -T postgres \
+            psql -U solv_user -d solv_e2e -f /seeds/e2e_actors.sql
+
+      - name: Build and start backend
+        run: |
+          set -euo pipefail
+          cd backend
+          go build -o "$RUNNER_TEMP/solv-e2e-api" ./cmd/api
+          cd ..
+          setsid "$RUNNER_TEMP/solv-e2e-api" > "$GITHUB_WORKSPACE/backend-e2e.log" 2>&1 &
+          echo $! > "$GITHUB_WORKSPACE/backend-e2e.pid"
+          for _ in $(seq 1 90); do
+            if curl -s -o /dev/null http://127.0.0.1:3000/; then
+              echo "Backend listo"
+              exit 0
+            fi
+            sleep 2
+          done
+          echo "::error::El backend no respondió en 180 segundos"
+          tail -100 "$GITHUB_WORKSPACE/backend-e2e.log"
+          exit 1
+
+      - name: Start frontend
+        run: |
+          set -euo pipefail
+          cd frontend
+          setsid npm start -- --host 127.0.0.1 --port 4200 > "$GITHUB_WORKSPACE/frontend-e2e.log" 2>&1 &
+          echo $! > "$GITHUB_WORKSPACE/frontend-e2e.pid"
+          for _ in $(seq 1 90); do
+            if curl -s -o /dev/null http://127.0.0.1:4200/; then
+              echo "Frontend listo"
+              exit 0
+            fi
+            sleep 2
+          done
+          echo "::error::El frontend no respondió en 180 segundos"
+          tail -100 "$GITHUB_WORKSPACE/frontend-e2e.log"
+          exit 1
+
+      - name: Run selected Playwright flows
+        run: node tools/test-impact/run.mjs --partial --suite frontend-e2e --if-selected --plan impact-plan.json --report impact-report-frontend-e2e.json
+
+      - name: Upload frontend E2E report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: impact-report-frontend-e2e
+          path: |
+            impact-report-frontend-e2e.json
+            impact-report-frontend-e2e.json.evidence.json
+          if-no-files-found: ignore
+          retention-days: 7
+
+      - name: Upload E2E diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-diagnostics
+          path: |
+            backend-e2e.log
+            frontend-e2e.log
+            frontend/e2e/test-results
+          if-no-files-found: ignore
+          retention-days: 7
+
+      - name: Stop isolated stack
+        if: always()
+        run: |
+          if [ -f backend-e2e.pid ]; then kill -- "-$(cat backend-e2e.pid)" 2>/dev/null || true; fi
+          if [ -f frontend-e2e.pid ]; then kill -- "-$(cat frontend-e2e.pid)" 2>/dev/null || true; fi
+          # Solo el proyecto solv-e2e-ci y sus volúmenes propios.
+          docker compose -p solv-e2e-ci -f tools/test-impact/compose.e2e.yml down -v --remove-orphans || true

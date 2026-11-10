@@ -19,5 +19,7 @@
   - [ ] Fechas renderizadas con el pipe `dateText`.
   - [ ] Datos técnicos marcados con `[machineData]` o clase `font-mono`.
   - [ ] Sin prefijos `solv-` en selectors o clases Angular.
-- [ ] **Build & Pipeline en Verde:** `npm run lint:styles`, `go test ./...` y `ng build` compilan localmente sin errores.
+- [ ] **Build & Pipeline en Verde:** ejecuté el plan de impacto y las suites seleccionadas; `build` solo compiló el lado que el plan indicó. No ejecuté suites completas por costumbre.
+- [ ] **Validación completa:** el informe tiene `validated: true` y `cli.mjs report` devolvió 0. No presenté como completa una ejecución `--partial`, un dry-run ni un plan sintético.
+- [ ] **Cobertura faltante:** revisé `uncovered` y `coverageGaps`; si el plan declaró cobertura faltante, la PR la explica o la corrige.
 - [ ] **ADR (si aplica):** Se registró un Architecture Decision Record si el cambio altera decisiones arquitectónicas estructurales.

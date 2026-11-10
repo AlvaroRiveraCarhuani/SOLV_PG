@@ -1,9 +1,9 @@
 schema: spec-driven
 
 context: |
-  Backend: Go 1.25 + net/http.ServeMux (no Gin) + sqlx + PostgreSQL; hexagonal (core/domain, core/services, infrastructure/, delivery/http); goose migrations.
+  Backend: Go 1.26 + net/http.ServeMux (no Gin) + sqlx + PostgreSQL; hexagonal (core/domain, core/services, infrastructure/, delivery/http); goose migrations.
   Frontend: Angular 22 standalone zoneless (Signals only, @if/@for/@switch, inject(), loadComponent); Material 3 + Lucide + SCSS tokens; selector prefix `app`, `solv-` banned; Tailwind banned.
-  Testing: backend `go test ./...` unit + integration (needs TEST_DB_DSN); frontend `ng test` (vitest + jsdom); build check `CI=true npm run build` (ngtsc template validation); stylelint gate `npm run lint:styles`; Semgrep in CI.
+  Testing: el plan de impacto de `tools/test-impact` selecciona suites y nivel; no se ejecutan runners completos por defecto. Backend `go test` por paquete, integración con `TEST_DB_DSN`, frontend specs seleccionadas (vitest + jsdom), build por lado y gates de estilo; la suite de seguridad ejecuta `go vet`, `npm audit` y auditoría de secretos, sin Semgrep en CI.
   Style: Conventional Commits with Que/Por que/Como/Impacto body; no emojis; ADRs tracked in docs/ARQUITECTURA/ADR/INDEX.md.
 
 rules:
@@ -24,21 +24,22 @@ rules:
       - Follow existing code patterns
       - Respect solv-context, angular-architecture, solv-design-system, gobernanza skills
     tdd: true
-    test_command: "cd backend && go test ./... -count=1"
+    test_command: "node tools/test-impact/cli.mjs plan --base origin/main --working-tree --output impact-plan.json && node tools/test-impact/run.mjs --all --plan impact-plan.json --report impact-report.json"
   verify:
-    test_command: "cd backend && go test ./... -count=1"
-    build_command: "cd frontend && CI=true npm run build"
-    lint_command: "cd frontend && npm run lint:styles"
+    test_command: "node tools/test-impact/cli.mjs plan --base origin/main --working-tree --output impact-plan.json && node tools/test-impact/run.mjs --all --plan impact-plan.json --report impact-report.json && node tools/test-impact/cli.mjs report --file impact-report.json --plan impact-plan.json"
+    build_command: "node tools/test-impact/cli.mjs plan --base origin/main --working-tree --output impact-plan.json && node tools/test-impact/run.mjs --partial --suite build --if-selected --plan impact-plan.json --report impact-report-build.json"
+    lint_command: "node tools/test-impact/cli.mjs plan --base origin/main --working-tree --output impact-plan.json && node tools/test-impact/run.mjs --partial --suite gates --if-selected --plan impact-plan.json --report impact-report-gates.json"
     coverage_threshold: 0
   archive:
     - Warn before merging destructive deltas
 
 testing:
   strict_tdd: true
-  backend_runner: "cd backend && go test ./... -count=1"
-  backend_integration_env: "TEST_DB_DSN=postgres://solv_user:solv_password@127.0.0.1:5432/solv_test?sslmode=disable"
-  frontend_runner: "cd frontend && npx ng test"
-  frontend_build: "cd frontend && CI=true npm run build"
-  coverage_backend: "cd backend && go test -cover ./..."
+  backend_runner: "node tools/test-impact/cli.mjs plan --base origin/main --working-tree --output impact-plan.json && node tools/test-impact/run.mjs --partial --suite backend-unit --if-selected --plan impact-plan.json --report impact-report-backend-unit.json"
+  backend_integration_env: "TEST_DB_DSN=postgres://solv_user:solv_password@127.0.0.1:5433/solv_test?sslmode=disable"
+  frontend_runner: "node tools/test-impact/cli.mjs plan --base origin/main --working-tree --output impact-plan.json && node tools/test-impact/run.mjs --partial --suite frontend-unit --if-selected --plan impact-plan.json --report impact-report-frontend-unit.json"
+  frontend_build: "node tools/test-impact/cli.mjs plan --base origin/main --working-tree --output impact-plan.json && node tools/test-impact/run.mjs --partial --suite build --if-selected --plan impact-plan.json --report impact-report-build.json"
+  coverage_backend: "cd backend && go test -cover ./internal/core/... ./internal/delivery/..."
   coverage_frontend: "cd frontend && npx ng test --coverage"
-  lint_styles: "cd frontend && npm run lint:styles"
+  lint_styles: "node tools/test-impact/cli.mjs plan --base origin/main --working-tree --output impact-plan.json && node tools/test-impact/run.mjs --partial --suite gates --if-selected --plan impact-plan.json --report impact-report-gates.json"
+  note: "Un comando --partial nunca valida el cambio completo. La validación global exige --all sobre todas las suites obligatorias y un informe validated=true con recibo HMAC y sidecar <informe>.evidence.json; en CI cada job usa SOLV_TEST_RECEIPT_KEY_<JOB>. Los comandos coverage_* son diagnóstico manual, no validación por impacto."

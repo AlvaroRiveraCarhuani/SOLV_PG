@@ -1,0 +1,707 @@
+{
+  "version": 4,
+  "description": "Fuente única de verdad para seleccionar pruebas por impacto en SOLV. Los scripts, el CI y las instrucciones de agentes leen este archivo; no repiten estas reglas.",
+  "limits": {
+    "maxChangedFiles": 60
+  },
+  "fullEvents": [
+    "schedule",
+    "release"
+  ],
+  "suites": {
+    "gates": {
+      "title": "Gates semánticos, de estilo y de tipografía",
+      "requires": [],
+      "cacheable": true
+    },
+    "asset-validation": {
+      "title": "Validación de recursos estáticos",
+      "requires": [],
+      "cacheable": true
+    },
+    "backend-unit": {
+      "title": "Tests unitarios de Go (sin Docker ni PostgreSQL)",
+      "requires": [],
+      "cacheable": true
+    },
+    "backend-integration": {
+      "title": "Tests de integración de Go con PostgreSQL efímero (sin Docker de evaluación)",
+      "requires": [
+        "TEST_DB_DSN"
+      ]
+    },
+    "backend-docker": {
+      "title": "Tests de integración que ejecutan contenedores reales",
+      "requires": [
+        "docker"
+      ]
+    },
+    "frontend-unit": {
+      "title": "Specs de Angular con Vitest",
+      "requires": [],
+      "cacheable": true
+    },
+    "frontend-e2e": {
+      "title": "Flujos Playwright de punta a punta",
+      "requires": [
+        "stack"
+      ]
+    },
+    "migrations": {
+      "title": "Cadena de migraciones up, down y re-aplicación",
+      "requires": [
+        "TEST_DB_DSN"
+      ]
+    },
+    "build": {
+      "title": "Compilación de backend y frontend",
+      "requires": []
+    },
+    "security": {
+      "title": "Vet de Go, pruebas negativas WebSocket, dependencias y secretos",
+      "requires": []
+    }
+  },
+  "globalTriggers": [
+    {
+      "id": "policy-tooling",
+      "globs": [
+        "tools/test-impact/**",
+        ".github/**",
+        "Makefile"
+      ],
+      "scope": "all",
+      "reason": "cambia la política, el selector o el CI",
+      "level": "L3"
+    },
+    {
+      "id": "infra",
+      "globs": [
+        "infra/**",
+        "compose*.yml",
+        "compose*.yaml",
+        "Dockerfile*",
+        "**/Dockerfile*",
+        "example.env"
+      ],
+      "scope": "all",
+      "reason": "infraestructura o configuración compartida",
+      "level": "L3"
+    },
+    {
+      "id": "backend-dependencies",
+      "globs": [
+        "backend/go.mod",
+        "backend/go.sum"
+      ],
+      "scope": "backend",
+      "reason": "dependencias del backend",
+      "level": "L3"
+    },
+    {
+      "id": "frontend-configuration",
+      "globs": [
+        "frontend/angular.json",
+        "frontend/tsconfig*.json",
+        "frontend/package.json",
+        "frontend/package-lock.json",
+        "frontend/eslint.config.mjs",
+        "frontend/.stylelintrc*",
+        "frontend/.stylelintignore",
+        "frontend/.prettierrc*",
+        "frontend/*.json",
+        "frontend/*.xlf",
+        "frontend/playwright*.mjs"
+      ],
+      "scope": "frontend",
+      "reason": "configuración global del frontend",
+      "level": "L3"
+    }
+  ],
+  "neutral": {
+    "globs": [
+      "docs/**",
+      "**/*.md",
+      "AGENTS.md",
+      "CHANGELOG.md",
+      "openspec/**",
+      "odd/**",
+      ".agents/**",
+      "especificaciones/**",
+      "tests/fixtures/**",
+      "tests/stress/**",
+      "load-tests/**",
+      "tools/solv-companion/**",
+      "frontend/.editorconfig",
+      "frontend/.gitignore",
+      "frontend/.vscode/**"
+    ],
+    "reason": "documentación o herramientas que no cambian el comportamiento de SOLV"
+  },
+  "critical": [
+    {
+      "id": "auth-backend",
+      "globs": [
+        "backend/internal/**/*auth*.go",
+        "backend/internal/**/jwt*.go",
+        "backend/internal/**/*session*.go",
+        "backend/internal/**/*login*.go",
+        "backend/internal/infrastructure/**/oauth*.go",
+        "backend/internal/**/*forwardauth*.go"
+      ],
+      "backendUnit": "all",
+      "backendIntegration": true,
+      "frontendUnit": false,
+      "backendDocker": false,
+      "migrations": false,
+      "e2e": [
+        "e2e/flows/01-core-lifecycle.spec.mjs",
+        "e2e/flows/02-medium/J03-verdict-matrix-and-hidden-isolation.spec.mjs"
+      ],
+      "reason": "autenticación o sesiones del backend",
+      "level": "L3"
+    },
+    {
+      "id": "auth-frontend",
+      "globs": [
+        "frontend/src/app/core/guards/**",
+        "frontend/src/app/core/interceptors/**",
+        "frontend/src/app/features/auth/**",
+        "frontend/src/app/core/services/auth*.ts",
+        "frontend/src/app/**/login*.ts",
+        "frontend/src/app/**/session*.ts"
+      ],
+      "backendUnit": false,
+      "backendIntegration": false,
+      "frontendUnit": "all",
+      "backendDocker": false,
+      "migrations": false,
+      "e2e": [
+        "e2e/flows/01-core-lifecycle.spec.mjs",
+        "e2e/flows/02-medium/J03-verdict-matrix-and-hidden-isolation.spec.mjs"
+      ],
+      "reason": "autenticación o sesiones de la interfaz",
+      "level": "L3"
+    },
+    {
+      "id": "tenancy",
+      "globs": [
+        "backend/internal/**/*tenant*.go",
+        "backend/internal/**/*multitenancy*.go",
+        "backend/internal/delivery/http/middleware/**"
+      ],
+      "backendUnit": "all",
+      "backendIntegration": true,
+      "frontendUnit": false,
+      "backendDocker": false,
+      "migrations": false,
+      "e2e": [
+        "e2e/flows/01-core-lifecycle.spec.mjs",
+        "e2e/flows/02-medium/J03-verdict-matrix-and-hidden-isolation.spec.mjs"
+      ],
+      "reason": "aislamiento de tenants o autorización de peticiones",
+      "level": "L3"
+    },
+    {
+      "id": "websocket-backend",
+      "globs": [
+        "backend/internal/delivery/http/websocket_handler.go",
+        "backend/internal/delivery/http/websocket_hub.go",
+        "backend/internal/delivery/http/teacher_ephemeral.go",
+        "backend/internal/delivery/http/teacher_handler.go",
+        "backend/internal/delivery/http/router.go",
+        "backend/internal/delivery/http/submission_handler.go",
+        "backend/internal/delivery/http/evaluation_handler.go"
+      ],
+      "backendUnit": "all",
+      "backendIntegration": true,
+      "frontendUnit": false,
+      "backendDocker": false,
+      "migrations": false,
+      "e2e": [
+        "e2e/flows/02-medium/J08-persistent-ide-lifecycle.spec.mjs",
+        "e2e/flows/03-hard/08-concurrency-and-resource-limits.spec.mjs"
+      ],
+      "coverageGaps": [
+        "el aislamiento por tenant del hub y los emisores debe confirmarse en E2E real",
+        "el cierre por expiración o revocación del token debe confirmarse en navegador real",
+        "el rechazo de exec sin permiso debe confirmarse en E2E real",
+        "el registro de rutas y los emisores deben conservar autenticación y aislamiento en E2E real"
+      ],
+      "reason": "autenticación, autorización o aislamiento de conexiones WebSocket",
+      "level": "L3"
+    },
+    {
+      "id": "websocket-frontend",
+      "globs": [
+        "frontend/src/app/features/teacher/aula/shadow-terminal-modal/**"
+      ],
+      "backendUnit": false,
+      "backendIntegration": false,
+      "frontendUnit": false,
+      "backendDocker": false,
+      "migrations": false,
+      "e2e": [
+        "e2e/flows/02-medium/J08-persistent-ide-lifecycle.spec.mjs",
+        "e2e/flows/03-hard/08-concurrency-and-resource-limits.spec.mjs"
+      ],
+      "coverageGaps": [
+        "la conexión del terminal no adjunta token explícito ni valida la sesión antes de abrir",
+        "onclose no reintenta ni distingue un token expirado de un cierre normal",
+        "un mensaje de terminal de otro tenant no debe renderizarse",
+        "el cierre de la modal debe liberar la conexión y sus listeners"
+      ],
+      "reason": "cliente WebSocket de terminales o avisos de sesión",
+      "level": "L3"
+    },
+    {
+      "id": "container-execution",
+      "globs": [
+        "backend/internal/infrastructure/docker/**",
+        "backend/internal/infrastructure/semgrep/**",
+        "backend/internal/core/services/**/*judge*.go",
+        "backend/internal/core/services/**/*evaluation*.go",
+        "backend/internal/core/services/**/*executor*.go",
+        "backend/internal/core/services/ast_*.go",
+        "backend/internal/core/services/comparators/**"
+      ],
+      "backendUnit": "all",
+      "backendIntegration": true,
+      "frontendUnit": false,
+      "backendDocker": true,
+      "migrations": false,
+      "e2e": [
+        "e2e/flows/02-medium/04-judge-verdicts.spec.mjs",
+        "e2e/flows/02-medium/05-ast-rules-security.spec.mjs",
+        "e2e/flows/02-medium/J03-verdict-matrix-and-hidden-isolation.spec.mjs",
+        "e2e/flows/02-medium/J04-ast-security-barrier.spec.mjs",
+        "e2e/flows/03-hard/08-concurrency-and-resource-limits.spec.mjs",
+        "e2e/flows/02-medium/J08-persistent-ide-lifecycle.spec.mjs"
+      ],
+      "reason": "ejecución de contenedores, juez o barrera AST",
+      "level": "L3"
+    },
+    {
+      "id": "shared-contracts",
+      "globs": [
+        "backend/internal/delivery/http/dto/**",
+        "backend/internal/core/domain/**",
+        "backend/internal/domain/**",
+        "frontend/src/app/**/models/**",
+        "frontend/src/app/shared/constants/**",
+        "frontend/src/app/shared/models/**"
+      ],
+      "backendUnit": "all",
+      "backendIntegration": true,
+      "frontendUnit": "all",
+      "backendDocker": false,
+      "migrations": false,
+      "e2e": [
+        "e2e/flows/01-core-lifecycle.spec.mjs",
+        "e2e/flows/03-hard/09-exam-mode-seed.spec.mjs"
+      ],
+      "reason": "contrato compartido entre módulos o capas",
+      "level": "L3"
+    },
+    {
+      "id": "migrations",
+      "globs": [
+        "backend/migrations/**"
+      ],
+      "backendUnit": "all",
+      "backendIntegration": true,
+      "frontendUnit": false,
+      "backendDocker": false,
+      "migrations": true,
+      "e2eAll": true,
+      "reason": "esquema de base de datos",
+      "level": "L3"
+    }
+  ],
+  "areas": [
+    {
+      "id": "backend-unit-tests",
+      "globs": [
+        "backend/internal/**/*_test.go",
+        "backend/cmd/**/*_test.go"
+      ],
+      "backend": true,
+      "integration": false,
+      "build": true,
+      "e2e": [],
+      "level": "L1"
+    },
+    {
+      "id": "backend-integration-tests",
+      "globs": [
+        "backend/tests/integration/**"
+      ],
+      "backend": true,
+      "integration": true,
+      "build": true,
+      "e2e": [
+        "e2e/flows/01-core-lifecycle.spec.mjs"
+      ],
+      "level": "L2"
+    },
+    {
+      "id": "backend-api",
+      "globs": [
+        "backend/internal/delivery/http/**",
+        "backend/cmd/api/**"
+      ],
+      "backend": true,
+      "integration": true,
+      "build": true,
+      "e2e": [
+        "e2e/flows/01-core-lifecycle.spec.mjs"
+      ],
+      "level": "L2"
+    },
+    {
+      "id": "backend-storage",
+      "globs": [
+        "backend/internal/infrastructure/storage/**"
+      ],
+      "backend": true,
+      "integration": true,
+      "build": true,
+      "e2e": [
+        "e2e/flows/01-core-lifecycle.spec.mjs"
+      ],
+      "level": "L2"
+    },
+    {
+      "id": "backend-seeds",
+      "globs": [
+        "backend/seeds/**"
+      ],
+      "backend": true,
+      "integration": true,
+      "build": false,
+      "e2e": [],
+      "level": "L2"
+    },
+    {
+      "id": "backend-general",
+      "globs": [
+        "backend/**"
+      ],
+      "backend": true,
+      "integration": true,
+      "build": true,
+      "e2e": [],
+      "level": "L2"
+    },
+    {
+      "id": "frontend-bootstrap",
+      "globs": [
+        "frontend/src/main.ts",
+        "frontend/src/app/app.config.ts",
+        "frontend/src/app/app.ts",
+        "frontend/src/app/app.html",
+        "frontend/src/app/app.scss"
+      ],
+      "frontend": true,
+      "frontendUnitAll": true,
+      "build": true,
+      "e2eAll": true,
+      "level": "L3"
+    },
+    {
+      "id": "frontend-routes",
+      "globs": [
+        "frontend/src/app/app.routes.ts",
+        "frontend/src/app/**/*.routes.ts",
+        "frontend/src/app/**/*-routing.module.ts"
+      ],
+      "frontend": true,
+      "frontendUnitAll": true,
+      "build": true,
+      "e2eAll": true,
+      "level": "L3"
+    },
+    {
+      "id": "frontend-admin-templates",
+      "globs": [
+        "frontend/src/app/features/admin/templates/**",
+        "frontend/src/app/features/admin/models/**"
+      ],
+      "frontend": true,
+      "build": true,
+      "e2e": [
+        "e2e/flows/01-easy/01-catalog-and-templates.spec.mjs",
+        "e2e/flows/01-easy/J01-template-to-judge-multilang.spec.mjs",
+        "e2e/flows/01-easy/J02-teacher-authoring-pipeline.spec.mjs",
+        "e2e/flows/02-medium/07-rubrics-and-ide-projects.spec.mjs",
+        "e2e/flows/02-medium/J08-persistent-ide-lifecycle.spec.mjs"
+      ],
+      "level": "L1"
+    },
+    {
+      "id": "frontend-admin-courses",
+      "globs": [
+        "frontend/src/app/features/admin/courses/**"
+      ],
+      "frontend": true,
+      "build": true,
+      "e2e": [
+        "e2e/flows/01-easy/02-course-management.spec.mjs",
+        "e2e/flows/03-hard/10-bulk-import-and-analytics.spec.mjs",
+        "e2e/flows/03-hard/J05-curricular-unlock-and-exam-seed.spec.mjs"
+      ],
+      "level": "L1"
+    },
+    {
+      "id": "frontend-admin-students",
+      "globs": [
+        "frontend/src/app/features/admin/students/**",
+        "frontend/src/app/features/admin/teachers/**"
+      ],
+      "frontend": true,
+      "build": true,
+      "e2e": [
+        "e2e/flows/01-easy/02-course-management.spec.mjs",
+        "e2e/flows/05-badges-and-grading/14-student-gamification-and-progress.spec.mjs"
+      ],
+      "level": "L1"
+    },
+    {
+      "id": "frontend-admin",
+      "globs": [
+        "frontend/src/app/features/admin/**"
+      ],
+      "frontend": true,
+      "build": true,
+      "e2e": [
+        "e2e/flows/01-easy/01-catalog-and-templates.spec.mjs",
+        "e2e/flows/01-easy/02-course-management.spec.mjs",
+        "e2e/flows/03-hard/10-bulk-import-and-analytics.spec.mjs"
+      ],
+      "level": "L2"
+    },
+    {
+      "id": "frontend-teacher-grading",
+      "globs": [
+        "frontend/src/app/features/teacher/grading/**"
+      ],
+      "frontend": true,
+      "build": true,
+      "e2e": [
+        "e2e/flows/05-badges-and-grading/13-speedgrader-audit-and-override.spec.mjs",
+        "e2e/flows/05-badges-and-grading/J07-speedgrader-ephemeral-and-plagiarism.spec.mjs"
+      ],
+      "level": "L2"
+    },
+    {
+      "id": "frontend-teacher",
+      "globs": [
+        "frontend/src/app/features/teacher/**"
+      ],
+      "frontend": true,
+      "build": true,
+      "e2e": [
+        "e2e/flows/01-easy/03-exercise-authoring-simple.spec.mjs",
+        "e2e/flows/01-easy/J02-teacher-authoring-pipeline.spec.mjs",
+        "e2e/flows/02-medium/07-rubrics-and-ide-projects.spec.mjs",
+        "e2e/flows/04-edge-cases/12-anti-plagiarism-supervision.spec.mjs"
+      ],
+      "level": "L2"
+    },
+    {
+      "id": "frontend-student",
+      "globs": [
+        "frontend/src/app/features/student/**"
+      ],
+      "frontend": true,
+      "build": true,
+      "e2e": [
+        "e2e/flows/01-easy/03-exercise-authoring-simple.spec.mjs",
+        "e2e/flows/02-medium/04-judge-verdicts.spec.mjs",
+        "e2e/flows/02-medium/06-curricular-modules.spec.mjs",
+        "e2e/flows/03-hard/J05-curricular-unlock-and-exam-seed.spec.mjs",
+        "e2e/flows/04-edge-cases/11-extreme-inputs-and-utf8.spec.mjs",
+        "e2e/flows/05-badges-and-grading/14-student-gamification-and-progress.spec.mjs"
+      ],
+      "level": "L2"
+    },
+    {
+      "id": "frontend-ide",
+      "globs": [
+        "frontend/src/app/features/teacher/exercise-editor/steps/step-ide-environment/**",
+        "frontend/src/app/features/teacher/aula/**"
+      ],
+      "frontend": true,
+      "build": true,
+      "e2e": [
+        "e2e/flows/02-medium/07-rubrics-and-ide-projects.spec.mjs",
+        "e2e/flows/02-medium/J08-persistent-ide-lifecycle.spec.mjs"
+      ],
+      "level": "L2"
+    },
+    {
+      "id": "frontend-global-styles",
+      "globs": [
+        "frontend/src/styles.scss",
+        "frontend/src/styles/**"
+      ],
+      "frontend": true,
+      "frontendUnitAll": true,
+      "build": true,
+      "e2e": [
+        "e2e/typography.spec.mjs"
+      ],
+      "level": "L3",
+      "gates": true
+    },
+    {
+      "id": "frontend-assets",
+      "globs": [
+        "frontend/public/**"
+      ],
+      "frontend": false,
+      "build": true,
+      "e2e": [],
+      "level": "L0"
+    },
+    {
+      "id": "frontend-e2e-specs",
+      "globs": [
+        "frontend/e2e/**/*.spec.mjs"
+      ],
+      "frontend": false,
+      "build": false,
+      "e2eSelf": true,
+      "level": "L1"
+    },
+    {
+      "id": "frontend-e2e-support",
+      "globs": [
+        "frontend/e2e/**"
+      ],
+      "frontend": false,
+      "build": false,
+      "e2eAll": true,
+      "level": "L2"
+    },
+    {
+      "id": "frontend-gate-scripts",
+      "globs": [
+        "frontend/scripts/**"
+      ],
+      "frontend": false,
+      "gates": true,
+      "build": false,
+      "level": "L1"
+    },
+    {
+      "id": "frontend-general",
+      "globs": [
+        "frontend/src/app/**"
+      ],
+      "frontend": true,
+      "build": true,
+      "e2e": [],
+      "level": "L1"
+    },
+    {
+      "id": "frontend-shell",
+      "globs": [
+        "frontend/src/index.html"
+      ],
+      "frontend": true,
+      "build": true,
+      "e2e": [
+        "e2e/flows/01-core-lifecycle.spec.mjs"
+      ],
+      "level": "L2"
+    },
+    {
+      "id": "frontend-admin-services",
+      "globs": [
+        "frontend/src/app/features/admin/services/**"
+      ],
+      "level": "L1",
+      "frontend": true,
+      "build": true,
+      "e2e": []
+    }
+  ],
+  "e2e": {
+    "defaultConfig": "playwright.e2e.config.mjs",
+    "specs": {
+      "e2e/flows/01-core-lifecycle.spec.mjs": {},
+      "e2e/flows/01-easy/01-catalog-and-templates.spec.mjs": {},
+      "e2e/flows/01-easy/02-course-management.spec.mjs": {},
+      "e2e/flows/01-easy/03-exercise-authoring-simple.spec.mjs": {},
+      "e2e/flows/01-easy/J01-template-to-judge-multilang.spec.mjs": {},
+      "e2e/flows/01-easy/J02-teacher-authoring-pipeline.spec.mjs": {},
+      "e2e/flows/02-medium/04-judge-verdicts.spec.mjs": {},
+      "e2e/flows/02-medium/05-ast-rules-security.spec.mjs": {},
+      "e2e/flows/02-medium/06-curricular-modules.spec.mjs": {},
+      "e2e/flows/02-medium/07-rubrics-and-ide-projects.spec.mjs": {},
+      "e2e/flows/02-medium/J03-verdict-matrix-and-hidden-isolation.spec.mjs": {},
+      "e2e/flows/02-medium/J04-ast-security-barrier.spec.mjs": {},
+      "e2e/flows/02-medium/J08-persistent-ide-lifecycle.spec.mjs": {},
+      "e2e/flows/03-hard/08-concurrency-and-resource-limits.spec.mjs": {},
+      "e2e/flows/03-hard/09-exam-mode-seed.spec.mjs": {},
+      "e2e/flows/03-hard/10-bulk-import-and-analytics.spec.mjs": {},
+      "e2e/flows/03-hard/J05-curricular-unlock-and-exam-seed.spec.mjs": {},
+      "e2e/flows/04-edge-cases/11-extreme-inputs-and-utf8.spec.mjs": {},
+      "e2e/flows/04-edge-cases/12-anti-plagiarism-supervision.spec.mjs": {},
+      "e2e/flows/04-edge-cases/J06-extreme-utf8-and-bulk-import.spec.mjs": {},
+      "e2e/flows/05-badges-and-grading/13-speedgrader-audit-and-override.spec.mjs": {},
+      "e2e/flows/05-badges-and-grading/14-student-gamification-and-progress.spec.mjs": {},
+      "e2e/flows/05-badges-and-grading/J07-speedgrader-ephemeral-and-plagiarism.spec.mjs": {},
+      "e2e/typography.spec.mjs": {
+        "config": "playwright.config.mjs"
+      }
+    }
+  },
+  "levels": {
+    "L0": {
+      "title": "Validación inmediata",
+      "description": "Cambio visual o recurso aislado: gates locales, spec del componente y validación del recurso. Sin backend, PostgreSQL, Docker ni E2E completos.",
+      "examples": [
+        "iconos",
+        "textos",
+        "SCSS de un componente",
+        "espaciado",
+        "animaciones locales",
+        "recursos estáticos"
+      ]
+    },
+    "L1": {
+      "title": "Validación del módulo",
+      "description": "Cambio funcional localizado: tests del módulo y sus dependientes directos, tipos y build del lado afectado.",
+      "examples": [
+        "formularios",
+        "componentes complejos",
+        "servicios frontend",
+        "servicios backend",
+        "repositorios aislados"
+      ]
+    },
+    "L2": {
+      "title": "Validación de integración",
+      "description": "Cambio que cruza módulos o contratos: integración, persistencia, API, WebSockets y E2E afectados.",
+      "examples": [
+        "endpoints",
+        "autenticación y autorización",
+        "comunicación frontend/backend",
+        "integración con Docker"
+      ]
+    },
+    "L3": {
+      "title": "Validación integral",
+      "description": "Riesgo alto o transversal: suites completas pertinentes, cobertura crítica, seguridad, migraciones y E2E según corresponda.",
+      "examples": [
+        "juez",
+        "aislamiento de contenedores",
+        "migraciones importantes",
+        "infraestructura",
+        "cambios transversales"
+      ]
+    }
+  }
+}

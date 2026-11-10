@@ -13,6 +13,7 @@ backups/
 /*_preview.html
 coverage/
 .run/
+/tools/test-impact/.cache/
 /especificaciones
 .freebuff
 *.dump

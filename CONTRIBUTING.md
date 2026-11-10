@@ -65,7 +65,10 @@ Reglas de workflow sí viven acá: sin atribución de IA (`Co-Authored-By`), len
 
 1. **Ramas:** Crear ramas descriptivas partiendo de `main` (ej: `feat/bulk-import-exercises` o `fix/submission-keystroke-event`).
 2. **Verificación Local:** Antes de abrir un PR, ejecutar:
-   - `cd backend && go vet ./... && go test ./...`
-   - `cd frontend && npm run lint:styles && CI=true npm run build`
+   - `node tools/test-impact/cli.mjs plan --base origin/main --working-tree --output impact-plan.json --format text`
+   - `node tools/test-impact/run.mjs --all --plan impact-plan.json --report impact-report.json`
+   - `node tools/test-impact/cli.mjs report --file impact-report.json --plan impact-plan.json`
+   - Las suites las selecciona `tools/test-impact/policy.json`; no ejecutes runners completos por costumbre. Un cambio crítico conserva integración, seguridad y Docker según la regla.
+   - El informe debe quedar `validated: true`, con recibo HMAC y sidecar `impact-report.json.evidence.json`, y `cli report --plan` debe devolver 0. Una suite aislada se ejecuta con `--partial --suite <id>` y no valida el cambio completo. Un plan con `--files` es sintético y no sustituye la validación del diff.
 3. **Pull Request:** Abrir un Pull Request hacia `main` usando el template `.github/PULL_REQUEST_TEMPLATE.md`.
-4. **Revisión y CI:** El pipeline de CI debe finalizar en verde (6 stages) y contar con la aprobación de al menos un CODEOWNER (`@AlvaroRiveraCarhuani`).
+4. **Revisión y CI:** El pipeline de CI debe finalizar en verde y `ci-summary` debe validar la cobertura global del plan; además se requiere la aprobación de al menos un CODEOWNER (`@AlvaroRiveraCarhuani`).

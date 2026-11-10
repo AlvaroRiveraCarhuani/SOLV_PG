@@ -9,29 +9,31 @@ const REPO_ROOT = path.resolve(__dirname, '../../..');
 
 export const DEFAULT_TENANT_ID = '00000000-0000-0000-0000-000000000001';
 
+// Identidades sintéticas compartidas con backend/seeds/e2e_actors.sql. No se
+// usan correos ni nombres de personas reales.
 export const CANONICAL_ACTORS = {
   admin: {
-    id: 'f9ad3bb1-f05a-4443-ba73-28a9db44ee60',
-    email: 'regulo.rivera@uab.edu.bo',
+    id: 'e2e00000-0000-4000-8000-000000000001',
+    email: 'admin@e2e.solv.test',
     role: 'admin',
-    firstName: 'Alvaro Regulo',
-    lastName: 'RIVERA CARHUANI',
+    firstName: 'Admin',
+    lastName: 'E2E',
     tenantId: DEFAULT_TENANT_ID
   },
   teacher: {
-    id: '07583caa-d70e-43df-ab1f-1e2a379bb8e0',
-    email: 'alvarorivera4513@gmail.com',
+    id: 'e2e00000-0000-4000-8000-000000000002',
+    email: 'teacher@e2e.solv.test',
     role: 'teacher',
-    firstName: 'Alvaro',
-    lastName: 'Rivera',
+    firstName: 'Docente',
+    lastName: 'E2E',
     tenantId: DEFAULT_TENANT_ID
   },
   student: {
-    id: 'f3c99eba-f743-4f6c-8dac-7b15039f6077',
-    email: 'pedro_f3c99e@uab.edu.bo',
+    id: 'e2e00000-0000-4000-8000-000000000003',
+    email: 'student@e2e.solv.test',
     role: 'student',
-    firstName: 'Pedro',
-    lastName: 'EstudianteComun',
+    firstName: 'Estudiante',
+    lastName: 'E2E',
     tenantId: DEFAULT_TENANT_ID
   }
 };

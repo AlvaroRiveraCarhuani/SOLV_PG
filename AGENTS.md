@@ -16,6 +16,45 @@ Cargar solo la skill que matchee la intención del trabajo; no cargar todas por 
 - `gobernanza`: en auditorías/lectura de convenciones; siempre antes de escribir commits, ADRs o docs de arquitectura.
 - `angular-developer`: guías genéricas del framework, solo si `angular-architecture` no cubre el caso.
 
+## Testing por impacto
+
+La política única es `tools/test-impact/policy.json`. No repitas globs, suites ni
+umbrales en scripts, workflows, documentación o instrucciones de agentes: el
+selector, el CI y el ejecutor local leen ese archivo.
+
+- Plan del cambio: `node tools/test-impact/cli.mjs plan --base origin/main --working-tree --output impact-plan.json --format text`
+- Suites del plan: `node tools/test-impact/run.mjs --all --plan impact-plan.json --report impact-report.json`
+- Informe legible: `node tools/test-impact/cli.mjs report --file impact-report.json --plan impact-plan.json`
+- Suite aislada: `node tools/test-impact/run.mjs --partial --suite <id> --plan impact-plan.json --report impact-report-<id>.json`
+- Regresiones del selector: `node --test tools/test-impact/test/*.test.mjs`
+- Detalle y límites: `docs/GOBERNANZA/TESTING_POR_IMPACTO.md`
+
+El plan es el contrato de validación. El runner rechaza un plan de otro commit
+o que no represente el working tree. Devuelve el nivel L0–L3, las suites
+seleccionadas, las omitidas, el motivo de cada decisión y la cobertura faltante.
+No ejecutes suites completas por costumbre ni ignores una suite seleccionada.
+`--all` ejecuta las suites del plan, no todas las suites de la política. Si el
+plan escala a L3, no lo reduzcas por conveniencia.
+
+Si modificás el código después de generar el plan, generá uno nuevo. Una suite
+recuperada de caché se informa como `cached`, no como una ejecución nueva. No
+edites el JSON del informe para declarar éxito: `cli report --plan` y la
+agregación de CI verifican el recibo HMAC y el sidecar firmado
+`<informe>.evidence.json`. En CI cada job usa
+`SOLV_TEST_RECEIPT_KEY_<JOB>`; `ci-summary` recibe todas las claves y rechaza la
+de otro job. En local el runner crea
+`tools/test-impact/.cache/receipt.key` con permisos restrictivos.
+
+`--suite` exige `--partial` y una ejecución parcial nunca valida el cambio
+completo: deja las demás suites en `pending`. Un job condicional usa
+`--if-selected`; si su suite no fue seleccionada, no falla, pero tampoco cuenta
+como cobertura. El informe es la única prueba de validación: `validated` debe
+ser verdadero, `cli report --plan` debe verificar la firma y la evidencia y
+devolver 0. Un dry-run queda en `simulated` y
+un plan generado con `--files` es sintético; ninguno valida el árbol de trabajo.
+No declares validado un cambio con suites pendientes, fallidas, simuladas o con
+cobertura faltante que el plan haya declarado.
+
 ## Stack (NO cambiar)
 
 - Backend: Go 1.26 + net/http.ServeMux (SIN Gin) + sqlx + PostgreSQL 18

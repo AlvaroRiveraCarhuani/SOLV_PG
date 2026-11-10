@@ -42,7 +42,7 @@ description: Sistema de diseño, tokens, tipografía, paleta semántica y compon
 2. Fechas con `dateText` dentro de `<time>`; técnicos con `[machineData]`/`code`/`pre`/`font-mono`; controles con `form-field`/clases globales.
 3. Tokens de la matriz de arriba, sin overrides locales de `font-family`/`font-size`.
 4. Nuevo campo técnico público: registrarlo en `frontend/scripts/machine-data-catalog.mjs` con categoría/ejemplo y agregar fixture en `machine-data-gate.test.mjs`.
-5. Correr desde `frontend/`: `npm run lint:styles`, luego el test focalizado, `npm run test:ci`, `npm run test:e2e:typography`, `npm run build`.
+5. Ejecutar `node tools/test-impact/cli.mjs plan --base origin/main --working-tree --format text` desde la raíz. Correr solo las suites que el plan seleccione; un cambio visual localizado no debe disparar las suites completas de frontend, backend ni Docker. Si el plan pide `gates`, ejecutar el gate de estilos; si pide `frontend-e2e`, ejecutar los flujos indicados. No reemplazar el plan por una suite completa. Para cerrar el cambio, ejecutar `run.mjs --all` y comprobar que `cli.mjs report` devuelve 0 con `validated: true`; una suite aislada requiere `--partial` y no valida el cambio completo. Un plan con `--files` es sintético y tampoco lo valida.
 
 ### Fechas: canon obligatorio (pipe `dateText` + `<time>`)
 - Renderizar fechas únicamente con el pipe compartido `dateText` (`shared/pipes/date-text.pipe.ts`) dentro de un `<time>` semántico. PROHIBIDO `toLocaleDateString`, `toLocaleTimeString`, `Intl.DateTimeFormat` y `| date:` de Angular en vistas. Gate de CI `date-format-gate.mjs` (parte de `npm run lint:styles`) aplica este contrato.

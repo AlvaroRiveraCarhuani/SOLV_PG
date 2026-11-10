@@ -7,34 +7,136 @@ on:
   pull_request:
     branches:
       - '**'
+  # Las ejecuciones programadas mantienen la cobertura completa aunque no haya
+  # cambios: releases, migraciones y dependencias se revisan igual.
+  schedule:
+    - cron: '0 6 * * 1'
+  workflow_dispatch:
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
+permissions:
+  contents: read
+
+env:
+  GO_VERSION: '1.26'
+  NODE_VERSION: '22'
+  SOLV_TEST_EXECUTION_ID: ${{ github.run_id }}-${{ github.run_attempt }}
+
 jobs:
-  # Stage 1: Linting y Gates de Calidad Semántica (fail-fast)
-  lint:
-    name: 1. Lint & Quality Gates
+  # Stage 0: plan único de pruebas. El selector lee policy.json y los grafos de
+  # imports; el resto de jobs solo consume ese plan.
+  impact:
+    name: 0. Plan de impacto
     runs-on: ubuntu-latest
+    outputs:
+      mode: ${{ steps.plan.outputs.mode }}
+      level: ${{ steps.plan.outputs.level }}
+      reason: ${{ steps.plan.outputs.reason }}
+      gates: ${{ steps.plan.outputs.gates }}
+      asset_validation: ${{ steps.plan.outputs.asset_validation }}
+      backend_unit: ${{ steps.plan.outputs.backend_unit }}
+      backend_integration: ${{ steps.plan.outputs.backend_integration }}
+      backend_docker: ${{ steps.plan.outputs.backend_docker }}
+      frontend_unit: ${{ steps.plan.outputs.frontend_unit }}
+      frontend_e2e: ${{ steps.plan.outputs.frontend_e2e }}
+      migrations: ${{ steps.plan.outputs.migrations }}
+      build: ${{ steps.plan.outputs.build }}
+      build_backend: ${{ steps.plan.outputs.build_backend }}
+      build_frontend: ${{ steps.plan.outputs.build_frontend }}
+      security: ${{ steps.plan.outputs.security }}
+      backend_touched: ${{ steps.plan.outputs.backend_touched }}
+      frontend_touched: ${{ steps.plan.outputs.frontend_touched }}
+      critical: ${{ steps.plan.outputs.critical }}
+      unknown: ${{ steps.plan.outputs.unknown }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Validate policy and selector regressions
+        env:
+          # Los tests del motor son locales aunque corran dentro de Actions.
+          # No producen informes de suites ni reciben claves por job.
+          SOLV_TEST_TRUST_MODE: local
+          SOLV_TEST_RECEIPT_KEY: solv-ci-engine-test-key-0123456789
+        run: |
+          node tools/test-impact/cli.mjs validate
+          node --test tools/test-impact/test/*.test.mjs
+
+      - name: Compute impact plan
+        id: plan
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          BASE_REF: ${{ github.base_ref }}
+          BEFORE_SHA: ${{ github.event.before }}
+        run: |
+          set -euo pipefail
+          base=""
+          if [ "$EVENT_NAME" = "pull_request" ]; then
+            git fetch origin "$BASE_REF" --no-tags
+            base="origin/$BASE_REF"
+          elif [ "$EVENT_NAME" = "push" ]; then
+            base="$BEFORE_SHA"
+          fi
+
+          args=(plan --format text --output impact-plan.json)
+          if [ -n "$base" ]; then
+            args+=(--base "$base")
+          else
+            args+=(--full)
+          fi
+          node tools/test-impact/cli.mjs "${args[@]}"
+          node tools/test-impact/cli.mjs outputs --plan impact-plan.json >> "$GITHUB_OUTPUT"
+
+      - name: Upload impact plan
+        if: steps.plan.outcome == 'success'
+        uses: actions/upload-artifact@v4
+        with:
+          name: impact-plan
+          path: impact-plan.json
+          retention-days: 7
+
+  # Stage 1: lint y gates semánticos. El job conserva el nombre estable para la
+  # protección de rama, pero cada paso se activa según el nivel y el alcance:
+  # un icono no ejecuta go vet ni instala dependencias del frontend.
+  lint:
+    name: 1. Lint & Quality Gates
+    needs: [impact]
+    runs-on: ubuntu-latest
+    env:
+      SOLV_TEST_RECEIPT_KEY_LINT: ${{ secrets.SOLV_TEST_RECEIPT_KEY_LINT }}
+    outputs:
+      advisory: ${{ steps.advisory.outputs.failed }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Setup Go
         uses: actions/setup-go@v5
         with:
-          go-version: '1.26'
+          go-version: ${{ env.GO_VERSION }}
           cache-dependency-path: backend/go.sum
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '22'
+          node-version: ${{ env.NODE_VERSION }}
           cache: 'npm'
           cache-dependency-path: frontend/package-lock.json
 
       - name: Check Go format (gofmt)
+        if: needs.impact.outputs.backend_touched == 'true'
         run: |
           cd backend
           unformatted=$(gofmt -l .)
@@ -45,13 +147,16 @@ jobs:
           fi
 
       - name: Run Go vet
+        if: needs.impact.outputs.backend_touched == 'true'
         run: |
           cd backend
           go vet ./...
 
       # TODO(lint-harness): temporal no bloqueante — pasar a bloqueante
       # cuando el backlog preexistente (gosec + SA1019) esté triageado.
-      - name: Run golangci-lint (non-blocking until backlog cleanup)
+      - name: Run golangci-lint (advisory; non-blocking until backlog cleanup)
+        id: golangci
+        if: needs.impact.outputs.backend_touched == 'true'
         continue-on-error: true
         run: |
           go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@latest
@@ -59,31 +164,142 @@ jobs:
           "$(go env GOPATH)/bin/golangci-lint" run --max-issues-per-linter=0 --max-same-issues=0 ./...
 
       - name: Install Frontend Dependencies
+        if: needs.impact.outputs.frontend_touched == 'true' || needs.impact.outputs.gates == 'true'
         run: |
           cd frontend
           npm ci
 
-      - name: Run ESLint (non-blocking until backlog cleanup)
+      - name: Run ESLint (advisory; non-blocking until backlog cleanup)
+        id: eslint
+        if: needs.impact.outputs.frontend_touched == 'true' || needs.impact.outputs.gates == 'true'
         continue-on-error: true
         run: |
           cd frontend
           npm run lint:ts
 
-      - name: Run Stylelint & Semantic Gates
+      - name: Record advisory lint result
+        id: advisory
+        if: always()
         run: |
-          cd frontend
-          npm run lint:styles
+          if [ "${{ steps.golangci.outcome }}" = "failure" ] || [ "${{ steps.eslint.outcome }}" = "failure" ]; then
+            echo "failed=true" >> "$GITHUB_OUTPUT"
+            echo "::warning::Un análisis advisory (golangci-lint o ESLint) falló; no bloquea la validación obligatoria."
+          else
+            echo "failed=false" >> "$GITHUB_OUTPUT"
+          fi
 
-      - name: Run Vitest Quality Gates
-        run: |
-          cd frontend
-          npx vitest run scripts/date-format-gate.test.mjs scripts/machine-data-gate.test.mjs scripts/machine-data-catalog.test.mjs scripts/motion-gate.test.mjs scripts/terminology-gate.test.mjs
+      - name: Download impact plan
+        if: needs.impact.outputs.gates == 'true'
+        uses: actions/download-artifact@v4
+        with:
+          name: impact-plan
 
-  # Stage 2: Tests del Backend con Postgres Efímero
-  test-backend:
-    name: 2. Test Backend (Postgres Service)
-    needs: lint
+      - name: Run style and semantic gates
+        if: needs.impact.outputs.gates == 'true'
+        run: node tools/test-impact/run.mjs --partial --suite gates --if-selected --plan impact-plan.json --report impact-report-gates.json
+
+      - name: Upload gates report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: impact-report-gates
+          path: |
+            impact-report-gates.json
+            impact-report-gates.json.evidence.json
+          if-no-files-found: ignore
+          retention-days: 7
+
+  # Stage 1b: validación de recursos estáticos aislados (iconos, imágenes y
+  # fuentes). No instala Go ni frontend ni levanta infraestructura.
+  test-assets:
+    name: 1b. Asset Validation
+    needs: [impact, lint]
+    if: needs.impact.outputs.asset_validation == 'true'
     runs-on: ubuntu-latest
+    env:
+      SOLV_TEST_RECEIPT_KEY_TEST_ASSETS: ${{ secrets.SOLV_TEST_RECEIPT_KEY_TEST_ASSETS }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Download impact plan
+        uses: actions/download-artifact@v4
+        with:
+          name: impact-plan
+
+      - name: Validate selected assets
+        run: node tools/test-impact/run.mjs --partial --suite asset-validation --if-selected --plan impact-plan.json --report impact-report-asset-validation.json
+
+      - name: Upload asset validation report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: impact-report-asset-validation
+          path: |
+            impact-report-asset-validation.json
+            impact-report-asset-validation.json.evidence.json
+          if-no-files-found: ignore
+          retention-days: 7
+
+  # Stage 2: tests unitarios de Go. No requieren PostgreSQL ni Docker.
+  test-backend:
+    name: 2. Test Backend (unitario)
+    needs: [impact, lint]
+    if: needs.impact.outputs.backend_unit == 'true'
+    runs-on: ubuntu-latest
+    env:
+      SOLV_TEST_RECEIPT_KEY_TEST_BACKEND: ${{ secrets.SOLV_TEST_RECEIPT_KEY_TEST_BACKEND }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache-dependency-path: backend/go.sum
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Download impact plan
+        uses: actions/download-artifact@v4
+        with:
+          name: impact-plan
+
+      - name: Run selected backend unit tests
+        run: node tools/test-impact/run.mjs --partial --suite backend-unit --if-selected --plan impact-plan.json --report impact-report-backend-unit.json
+
+      - name: Upload backend unit report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: impact-report-backend-unit
+          path: |
+            impact-report-backend-unit.json
+            impact-report-backend-unit.json.evidence.json
+          if-no-files-found: ignore
+          retention-days: 7
+
+  # Stage 3: integración de Go contra PostgreSQL efímero. Los tests que
+  # arrancan contenedores se omiten con -short y corren en la suite Docker.
+  test-backend-integration:
+    name: 3. Test Backend (integración PostgreSQL)
+    needs: [impact, lint]
+    if: needs.impact.outputs.backend_integration == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
     services:
       postgres:
         image: postgres:18
@@ -92,147 +308,322 @@ jobs:
           POSTGRES_USER: solv_user
           POSTGRES_PASSWORD: solv_password
         ports:
-          - 5432:5432
+          - 55432:5432
         options: >-
           --health-cmd pg_isready
           --health-interval 5s
           --health-timeout 5s
           --health-retries 5
-
+    env:
+      TEST_DB_DSN: "postgres://solv_user:solv_password@localhost:55432/solv_test?sslmode=disable"
+      DATABASE_URL: "postgres://solv_user:solv_password@localhost:55432/solv_test?sslmode=disable"
+      SOLV_TEST_RECEIPT_KEY_TEST_BACKEND_INTEGRATION: ${{ secrets.SOLV_TEST_RECEIPT_KEY_TEST_BACKEND_INTEGRATION }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Setup Go
         uses: actions/setup-go@v5
         with:
-          go-version: '1.26'
+          go-version: ${{ env.GO_VERSION }}
           cache-dependency-path: backend/go.sum
-
-      - name: Apply Migrations Chain (00001 -> Up)
-        env:
-          TEST_DB_DSN: "postgres://solv_user:solv_password@localhost:5432/solv_test?sslmode=disable"
-        run: |
-          cd backend
-          go run ./cmd/migrate -dir ./migrations -action=up
-
-      - name: Run Backend Tests
-        env:
-          TEST_DB_DSN: "postgres://solv_user:solv_password@localhost:5432/solv_test?sslmode=disable"
-        run: |
-          cd backend
-          go test -v ./internal/core/services ./internal/delivery/http
-
-  # Stage 3: Tests del Frontend
-  test-frontend:
-    name: 3. Test Frontend
-    needs: lint
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '22'
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Download impact plan
+        uses: actions/download-artifact@v4
+        with:
+          name: impact-plan
+
+      - name: Apply migrations to ephemeral database
+        run: |
+          cd backend
+          go run ./cmd/migrate -dir ./migrations -action=up
+
+      - name: Run selected integration tests
+        run: node tools/test-impact/run.mjs --partial --suite backend-integration --if-selected --plan impact-plan.json --report impact-report-backend-integration.json
+
+      - name: Upload backend integration report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: impact-report-backend-integration
+          path: |
+            impact-report-backend-integration.json
+            impact-report-backend-integration.json.evidence.json
+          if-no-files-found: ignore
+          retention-days: 7
+
+  # Stage 4: integración que arranca contenedores reales del juez y entornos.
+  test-backend-docker:
+    name: 4. Test Backend (Docker)
+    needs: [impact, lint]
+    if: needs.impact.outputs.backend_docker == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    services:
+      postgres:
+        image: postgres:18
+        env:
+          POSTGRES_DB: solv_test
+          POSTGRES_USER: solv_user
+          POSTGRES_PASSWORD: solv_password
+        ports:
+          - 55432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      TEST_DB_DSN: "postgres://solv_user:solv_password@localhost:55432/solv_test?sslmode=disable"
+      DATABASE_URL: "postgres://solv_user:solv_password@localhost:55432/solv_test?sslmode=disable"
+      SOLV_TEST_RUN_ID: "solv-ci-${{ github.run_id }}-${{ github.run_attempt }}"
+      SOLV_TEST_RECEIPT_KEY_TEST_BACKEND_DOCKER: ${{ secrets.SOLV_TEST_RECEIPT_KEY_TEST_BACKEND_DOCKER }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache-dependency-path: backend/go.sum
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Download impact plan
+        uses: actions/download-artifact@v4
+        with:
+          name: impact-plan
+
+      - name: Clean stale Docker test resources
+        run: bash tools/test-impact/cleanup-docker.sh --stale
+
+      - name: Apply migrations to ephemeral database
+        run: |
+          cd backend
+          go run ./cmd/migrate -dir ./migrations -action=up
+
+      - name: Run selected Docker integration tests
+        run: node tools/test-impact/run.mjs --partial --suite backend-docker --if-selected --plan impact-plan.json --report impact-report-backend-docker.json
+
+      - name: Upload backend Docker report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: impact-report-backend-docker
+          path: |
+            impact-report-backend-docker.json
+            impact-report-backend-docker.json.evidence.json
+          if-no-files-found: ignore
+          retention-days: 7
+
+      - name: Clean Docker test resources
+        if: always()
+        run: bash tools/test-impact/cleanup-docker.sh
+
+  # Stage 5: specs de Angular seleccionadas por el grafo de imports.
+  test-frontend:
+    name: 5. Test Frontend (specs afectadas)
+    needs: [impact, lint]
+    if: needs.impact.outputs.frontend_unit == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      SOLV_TEST_RECEIPT_KEY_TEST_FRONTEND: ${{ secrets.SOLV_TEST_RECEIPT_KEY_TEST_FRONTEND }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
           cache: 'npm'
           cache-dependency-path: frontend/package-lock.json
+
+      - name: Download impact plan
+        uses: actions/download-artifact@v4
+        with:
+          name: impact-plan
 
       - name: Install Dependencies
         run: |
           cd frontend
           npm ci
 
-      - name: Run Frontend Vitest Gates
-        run: |
-          cd frontend
-          npx vitest run scripts/date-format-gate.test.mjs scripts/machine-data-gate.test.mjs scripts/machine-data-catalog.test.mjs scripts/motion-gate.test.mjs scripts/terminology-gate.test.mjs
+      - name: Run selected Angular specs
+        run: node tools/test-impact/run.mjs --partial --suite frontend-unit --if-selected --plan impact-plan.json --report impact-report-frontend-unit.json
 
-  # Stage 4: Build Backend & Frontend
-  build:
-    name: 4. Build Artifacts
-    needs: [test-backend, test-frontend]
+      - name: Upload frontend unit report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: impact-report-frontend-unit
+          path: |
+            impact-report-frontend-unit.json
+            impact-report-frontend-unit.json.evidence.json
+          if-no-files-found: ignore
+          retention-days: 7
+
+  # Stage 5b: flujos Playwright seleccionados por el plan de impacto. No se
+  # delega al workflow programado: si el plan los exige, este job debe correr.
+  test-frontend-e2e:
+    name: 5b. Test Frontend (E2E)
+    needs: [impact, lint]
+    if: needs.impact.outputs.frontend_e2e == 'true'
     runs-on: ubuntu-latest
+    timeout-minutes: 90
+    env:
+      SOLV_TEST_RECEIPT_KEY_TEST_FRONTEND_E2E: ${{ secrets.SOLV_TEST_RECEIPT_KEY_TEST_FRONTEND_E2E }}
+      DATABASE_URL: postgres://solv_user:solv_password@127.0.0.1:55432/solv_e2e?sslmode=disable
+      TEST_DB_DSN: postgres://solv_user:solv_password@127.0.0.1:55432/solv_e2e?sslmode=disable
+      JWT_SECRET: e2e-ci-only-secret
+      SEAWEEDFS_ENDPOINT: http://127.0.0.1:58333
+      SEAWEEDFS_BUCKET: solv-e2e-advances
+      SEAWEEDFS_ACCESS_KEY: e2e-access-key
+      SEAWEEDFS_SECRET_KEY: e2e-secret-key
+      E2E_BASE_URL: http://127.0.0.1:4200
+      PORT: '3000'
+      E2E_SLOW_MO: '0'
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Setup Go
         uses: actions/setup-go@v5
         with:
-          go-version: '1.26'
+          go-version: ${{ env.GO_VERSION }}
           cache-dependency-path: backend/go.sum
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '22'
+          node-version: ${{ env.NODE_VERSION }}
           cache: 'npm'
           cache-dependency-path: frontend/package-lock.json
 
-      - name: Build Go Backend
-        run: |
-          cd backend
-          go build -v ./...
+      - name: Download impact plan
+        uses: actions/download-artifact@v4
+        with:
+          name: impact-plan
 
-      - name: Install Frontend Dependencies
+      - name: Install frontend dependencies
         run: |
           cd frontend
           npm ci
 
-      - name: Build Angular Frontend Production
+      - name: Install Playwright Chromium
         run: |
           cd frontend
-          CI=true NG_CLI_ANALYTICS=false npm run build
+          npx playwright install --with-deps chromium
 
-  # Stage 5: Security Audit & Scans
-  security:
-    name: 5. Security Audit
-    needs: build
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '22'
-          cache: 'npm'
-          cache-dependency-path: frontend/package-lock.json
-
-      - name: Install Frontend Dependencies
+      - name: Start isolated infrastructure
         run: |
-          cd frontend
-          npm ci
+          docker compose -p solv-e2e-ci -f tools/test-impact/compose.e2e.yml up -d --wait --wait-timeout 180
 
-      - name: Audit NPM Dependencies (High/Critical)
-        run: |
-          cd frontend
-          npm audit --audit-level=high --omit=dev
-
-      - name: Setup Go
-        uses: actions/setup-go@v5
-        with:
-          go-version: '1.26'
-          cache-dependency-path: backend/go.sum
-
-      - name: Run Go Vet Security Check
+      - name: Apply migrations and synthetic actors
         run: |
           cd backend
-          go vet ./...
+          go run ./cmd/migrate -dir ./migrations -action=up
+          cd ..
+          docker compose -p solv-e2e-ci -f tools/test-impact/compose.e2e.yml exec -T postgres \
+            psql -U solv_user -d solv_e2e -f /seeds/e2e_actors.sql
 
-      - name: Audit Secrets & Config Check
+      - name: Build and start backend
         run: |
-          chmod +x ./scripts/audit-secrets.sh
-          ./scripts/audit-secrets.sh
+          set -euo pipefail
+          cd backend
+          go build -o "$RUNNER_TEMP/solv-e2e-api" ./cmd/api
+          cd ..
+          setsid "$RUNNER_TEMP/solv-e2e-api" > "$GITHUB_WORKSPACE/backend-e2e.log" 2>&1 &
+          echo $! > "$GITHUB_WORKSPACE/backend-e2e.pid"
+          for _ in $(seq 1 90); do
+            if curl -s -o /dev/null http://127.0.0.1:3000/; then
+              echo "Backend listo"
+              exit 0
+            fi
+            sleep 2
+          done
+          echo "::error::El backend no respondió en 180 segundos"
+          tail -100 "$GITHUB_WORKSPACE/backend-e2e.log"
+          exit 1
 
-  # Stage 6: Migration Chain Verification (00001 -> 00019 Up & Down Reversibility)
+      - name: Start frontend
+        run: |
+          set -euo pipefail
+          cd frontend
+          setsid npm start -- --host 127.0.0.1 --port 4200 > "$GITHUB_WORKSPACE/frontend-e2e.log" 2>&1 &
+          echo $! > "$GITHUB_WORKSPACE/frontend-e2e.pid"
+          for _ in $(seq 1 90); do
+            if curl -s -o /dev/null http://127.0.0.1:4200/; then
+              echo "Frontend listo"
+              exit 0
+            fi
+            sleep 2
+          done
+          echo "::error::El frontend no respondió en 180 segundos"
+          tail -100 "$GITHUB_WORKSPACE/frontend-e2e.log"
+          exit 1
+
+      - name: Run selected Playwright flows
+        run: node tools/test-impact/run.mjs --partial --suite frontend-e2e --if-selected --plan impact-plan.json --report impact-report-frontend-e2e.json
+
+      - name: Upload frontend E2E report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: impact-report-frontend-e2e
+          path: |
+            impact-report-frontend-e2e.json
+            impact-report-frontend-e2e.json.evidence.json
+          if-no-files-found: ignore
+          retention-days: 7
+
+      - name: Upload E2E diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-diagnostics-ci
+          path: |
+            backend-e2e.log
+            frontend-e2e.log
+            frontend/e2e/test-results
+          if-no-files-found: ignore
+          retention-days: 7
+
+      - name: Stop isolated infrastructure
+        if: always()
+        run: |
+          set -euo pipefail
+          if [ -f backend-e2e.pid ]; then kill -- -"$(cat backend-e2e.pid)" 2>/dev/null || true; fi
+          if [ -f frontend-e2e.pid ]; then kill -- -"$(cat frontend-e2e.pid)" 2>/dev/null || true; fi
+          docker compose -p solv-e2e-ci -f tools/test-impact/compose.e2e.yml down -v --remove-orphans
+
+  # Stage 6: reversibilidad de migraciones sobre una base descartable.
   migration-chain:
     name: 6. Migration Chain Verification
-    needs: security
+    needs: [impact, lint]
+    if: needs.impact.outputs.migrations == 'true'
     runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      SOLV_TEST_RECEIPT_KEY_MIGRATION_CHAIN: ${{ secrets.SOLV_TEST_RECEIPT_KEY_MIGRATION_CHAIN }}
     services:
       postgres:
         image: postgres:18
@@ -241,40 +632,242 @@ jobs:
           POSTGRES_USER: solv_user
           POSTGRES_PASSWORD: solv_password
         ports:
-          - 5432:5432
+          - 55432:5432
         options: >-
           --health-cmd pg_isready
           --health-interval 5s
           --health-timeout 5s
           --health-retries 5
-
+    env:
+      TEST_DB_DSN: "postgres://solv_user:solv_password@localhost:55432/solv_migration_test?sslmode=disable"
+      DATABASE_URL: "postgres://solv_user:solv_password@localhost:55432/solv_migration_test?sslmode=disable"
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Setup Go
         uses: actions/setup-go@v5
         with:
-          go-version: '1.26'
+          go-version: ${{ env.GO_VERSION }}
           cache-dependency-path: backend/go.sum
 
-      - name: Run Migration Up Chain (00001 -> Complete)
-        env:
-          DATABASE_URL: "postgres://solv_user:solv_password@localhost:5432/solv_migration_test?sslmode=disable"
-        run: |
-          cd backend
-          go run ./cmd/migrate -dir ./migrations -action=up
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
 
-      - name: Run Migration Down Chain (Reversibility Complete -> 00001)
-        env:
-          DATABASE_URL: "postgres://solv_user:solv_password@localhost:5432/solv_migration_test?sslmode=disable"
-        run: |
-          cd backend
-          go run ./cmd/migrate -dir ./migrations -action=down
+      - name: Download impact plan
+        uses: actions/download-artifact@v4
+        with:
+          name: impact-plan
 
-      - name: Re-apply Migration Up Chain (Verify Clean Re-execution)
-        env:
-          DATABASE_URL: "postgres://solv_user:solv_password@localhost:5432/solv_migration_test?sslmode=disable"
+      - name: Verify up, down and re-apply
+        run: node tools/test-impact/run.mjs --partial --suite migrations --if-selected --plan impact-plan.json --report impact-report-migrations.json
+
+      - name: Upload migrations report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: impact-report-migrations
+          path: |
+            impact-report-migrations.json
+            impact-report-migrations.json.evidence.json
+          if-no-files-found: ignore
+          retention-days: 7
+
+  # Stage 7: compilación de artefactos.
+  build:
+    name: 7. Build Artifacts
+    needs: [impact, lint]
+    if: needs.impact.outputs.build == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      SOLV_TEST_RECEIPT_KEY_BUILD: ${{ secrets.SOLV_TEST_RECEIPT_KEY_BUILD }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache-dependency-path: backend/go.sum
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Download impact plan
+        uses: actions/download-artifact@v4
+        with:
+          name: impact-plan
+
+      - name: Install Frontend Dependencies
+        if: needs.impact.outputs.build_frontend == 'true'
         run: |
-          cd backend
-          go run ./cmd/migrate -dir ./migrations -action=up
+          cd frontend
+          npm ci
+
+      - name: Build artifacts
+        run: node tools/test-impact/run.mjs --partial --suite build --if-selected --plan impact-plan.json --report impact-report-build.json
+
+      - name: Upload build report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: impact-report-build
+          path: |
+            impact-report-build.json
+            impact-report-build.json.evidence.json
+          if-no-files-found: ignore
+          retention-days: 7
+
+  # Stage 8: auditoría de seguridad. Se activa en cambios críticos y en la
+  # ejecución completa.
+  security:
+    name: 8. Security Audit
+    needs: [impact, lint]
+    if: needs.impact.outputs.security == 'true'
+    runs-on: ubuntu-latest
+    env:
+      SOLV_TEST_RECEIPT_KEY_SECURITY: ${{ secrets.SOLV_TEST_RECEIPT_KEY_SECURITY }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache-dependency-path: backend/go.sum
+
+      - name: Download impact plan
+        uses: actions/download-artifact@v4
+        with:
+          name: impact-plan
+
+      - name: Install Frontend Dependencies
+        run: |
+          cd frontend
+          npm ci
+
+      - name: Run security audit
+        run: node tools/test-impact/run.mjs --partial --suite security --if-selected --plan impact-plan.json --report impact-report-security.json
+
+      - name: Upload security report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: impact-report-security
+          path: |
+            impact-report-security.json
+            impact-report-security.json.evidence.json
+          if-no-files-found: ignore
+          retention-days: 7
+
+  # Chequeo agregado para la protección de rama. Los jobs omitidos por impacto
+  # son válidos; los fallidos o cancelados no.
+  ci-summary:
+    name: 9. CI Summary
+    if: always()
+    needs:
+      - impact
+      - lint
+      - test-backend
+      - test-assets
+      - test-backend-integration
+      - test-backend-docker
+      - test-frontend
+      - test-frontend-e2e
+      - migration-chain
+      - build
+      - security
+    runs-on: ubuntu-latest
+    env:
+      # La única función que verifica todas las firmas recibe todas las claves.
+      # Ningún job de suite recibe la clave de otro job.
+      SOLV_TEST_RECEIPT_KEY_LINT: ${{ secrets.SOLV_TEST_RECEIPT_KEY_LINT }}
+      SOLV_TEST_RECEIPT_KEY_TEST_ASSETS: ${{ secrets.SOLV_TEST_RECEIPT_KEY_TEST_ASSETS }}
+      SOLV_TEST_RECEIPT_KEY_TEST_BACKEND: ${{ secrets.SOLV_TEST_RECEIPT_KEY_TEST_BACKEND }}
+      SOLV_TEST_RECEIPT_KEY_TEST_BACKEND_INTEGRATION: ${{ secrets.SOLV_TEST_RECEIPT_KEY_TEST_BACKEND_INTEGRATION }}
+      SOLV_TEST_RECEIPT_KEY_TEST_BACKEND_DOCKER: ${{ secrets.SOLV_TEST_RECEIPT_KEY_TEST_BACKEND_DOCKER }}
+      SOLV_TEST_RECEIPT_KEY_TEST_FRONTEND: ${{ secrets.SOLV_TEST_RECEIPT_KEY_TEST_FRONTEND }}
+      SOLV_TEST_RECEIPT_KEY_TEST_FRONTEND_E2E: ${{ secrets.SOLV_TEST_RECEIPT_KEY_TEST_FRONTEND_E2E }}
+      SOLV_TEST_RECEIPT_KEY_MIGRATION_CHAIN: ${{ secrets.SOLV_TEST_RECEIPT_KEY_MIGRATION_CHAIN }}
+      SOLV_TEST_RECEIPT_KEY_BUILD: ${{ secrets.SOLV_TEST_RECEIPT_KEY_BUILD }}
+      SOLV_TEST_RECEIPT_KEY_SECURITY: ${{ secrets.SOLV_TEST_RECEIPT_KEY_SECURITY }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Download impact plan
+        uses: actions/download-artifact@v4
+        with:
+          name: impact-plan
+
+      - name: Download suite reports
+        uses: actions/download-artifact@v4
+        with:
+          pattern: impact-report-*
+          path: impact-reports
+          merge-multiple: true
+          if-no-files-found: warn
+
+      - name: Validate global coverage
+        run: >-
+          node tools/test-impact/cli.mjs aggregate
+          --plan impact-plan.json
+          --dir impact-reports
+
+      - name: Verify job results
+        env:
+          IMPACT_RESULT: ${{ needs.impact.result }}
+          LINT_RESULT: ${{ needs.lint.result }}
+          ASSET_RESULT: ${{ needs.test-assets.result }}
+          UNIT_RESULT: ${{ needs.test-backend.result }}
+          INTEGRATION_RESULT: ${{ needs.test-backend-integration.result }}
+          DOCKER_RESULT: ${{ needs.test-backend-docker.result }}
+          FRONTEND_RESULT: ${{ needs.test-frontend.result }}
+          E2E_RESULT: ${{ needs.test-frontend-e2e.result }}
+          MIGRATION_RESULT: ${{ needs.migration-chain.result }}
+          BUILD_RESULT: ${{ needs.build.result }}
+          SECURITY_RESULT: ${{ needs.security.result }}
+          IMPACT_MODE: ${{ needs.impact.outputs.mode }}
+          IMPACT_REASON: ${{ needs.impact.outputs.reason }}
+          E2E_SELECTED: ${{ needs.impact.outputs.frontend_e2e }}
+          UNIT_EXPECTED: ${{ needs.impact.outputs.backend_unit }}
+          INTEGRATION_EXPECTED: ${{ needs.impact.outputs.backend_integration }}
+          DOCKER_EXPECTED: ${{ needs.impact.outputs.backend_docker }}
+          FRONTEND_EXPECTED: ${{ needs.impact.outputs.frontend_unit }}
+          E2E_EXPECTED: ${{ needs.impact.outputs.frontend_e2e }}
+          MIGRATION_EXPECTED: ${{ needs.impact.outputs.migrations }}
+          BUILD_EXPECTED: ${{ needs.impact.outputs.build }}
+          SECURITY_EXPECTED: ${{ needs.impact.outputs.security }}
+          ASSET_EXPECTED: ${{ needs.impact.outputs.asset_validation }}
+          IMPACT_LEVEL: ${{ needs.impact.outputs.level }}
+          LINT_ADVISORY: ${{ needs.lint.outputs.advisory }}
+        run: bash tools/test-impact/ci-summary.sh

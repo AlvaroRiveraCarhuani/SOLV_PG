@@ -119,6 +119,22 @@ Los specs `J0x` ejercitan el flujo completo del **Juez Virtual** sobre la interf
 
 ---
 
+## Identidades sintéticas
+
+Los fixtures usan tres identidades de prueba (`admin@e2e.solv.test`,
+`teacher@e2e.solv.test` y `student@e2e.solv.test`). No se usan correos ni
+nombres de personas reales. La base de E2E debe sembrarse antes de correr los
+flujos:
+
+```bash
+psql "$DATABASE_URL" -f backend/seeds/e2e_actors.sql
+# o, con el stack aislado de CI:
+docker compose -p solv-e2e-ci -f tools/test-impact/compose.e2e.yml exec -T postgres \
+  psql -U solv_user -d solv_e2e -f /seeds/e2e_actors.sql
+```
+
+---
+
 ## 🚀 Comandos de Ejecución
 
 > Todos los comandos usan `E2E_SLOW_MO=3000` (3 segundos por acción) para poder seguir el flujo con los ojos.
