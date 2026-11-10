@@ -38,11 +38,6 @@
               {{ envBadge().label }}
             </span>
 
-            @if (language(); as lang) {
-              <span class="meta-separator">·</span>
-              <span class="meta-item">{{ lang }}</span>
-            }
-
             @if (practice.due_date) {
               <span class="meta-separator">·</span>
               <span class="meta-item">
@@ -222,10 +217,19 @@
             <span class="param-icon">
               <svg lucideLaptop class="param-icon-svg"></svg>
             </span>
-            <div>
+            <div class="param-copy">
               <div class="param-value">{{ templateName() ?? 'Sin plantilla asignada' }}</div>
-              @if (language(); as lang) {
-                <div class="param-hint"><span class="font-mono" machineData>{{ lang }}</span></div>
+              @if (templateTechnologies().length > 0) {
+                <div class="tech-chips" aria-label="Tecnologías del laboratorio">
+                  @for (tech of templateTechnologies(); track tech.id) {
+                    <span class="tech-chip" [title]="tech.name">
+                      <tech-logo [iconType]="tech.iconType" [size]="18" />
+                      <span class="tech-chip-label">{{ tech.name }}</span>
+                    </span>
+                  }
+                </div>
+              } @else {
+                <div class="param-hint">Sin detalle declarado</div>
               }
             </div>
           </div>
@@ -259,7 +263,9 @@
                 {{ allowResubmit() === null ? 'Sin configurar' : allowResubmit() ? 'Re-entregas habilitadas' : 'Una sola entrega' }}
               </div>
               @if (allowResubmit() !== null) {
-                <div class="param-hint"><code>allow_resubmit: {{ allowResubmit() }}</code></div>
+                <div class="param-hint">
+                  {{ allowResubmit() ? 'El estudiante puede volver a entregar la práctica.' : 'El estudiante solo puede entregar una vez.' }}
+                </div>
               }
             </div>
           </div>
@@ -298,7 +304,11 @@
         <span>{{ isIde() ? 'Consigna de la Práctica' : 'Consigna del Problema' }}</span>
       </h2>
 
-      <p class="callout-desc">{{ practice.description || 'Sin descripción registrada.' }}</p>
+      @if (renderedDescription(); as description) {
+        <div class="callout-desc markdown-body" [innerHTML]="description"></div>
+      } @else {
+        <p class="callout-desc">Sin descripción registrada.</p>
+      }
 
       @if (isJudge() && practice.boilerplate) {
         <h3 class="subsection-title">Código Base para el Estudiante</h3>

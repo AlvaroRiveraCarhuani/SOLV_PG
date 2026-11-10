@@ -1,6 +1,7 @@
 import type { ExerciseContract } from '../exercise-editor/steps/step-contract/format-builder/format-builder.models';
 import type { ProjectFile } from '@core/models/project-file.model';
 import type { SubmissionComment } from '@core/models/submission-comment.model';
+import type { ResolvableStackConfig } from '@features/admin/templates/template-tech-detector.utils';
 
 export interface AcademicPeriod {
   id: string;
@@ -745,6 +746,7 @@ export interface ScriptGenerationResponse {
 export interface ExerciseTemplateSummary {
   id: string;
   name: string;
+  description?: string;
   docker_image?: string;
   entrypoint?: string;
   base_ram_mb?: number;
@@ -753,6 +755,7 @@ export interface ExerciseTemplateSummary {
   status?: string;
   slug?: string;
   language?: string;
+  stack_config?: ResolvableStackConfig | Record<string, unknown> | null;
   services_config?: Record<string, unknown>;
 }
 

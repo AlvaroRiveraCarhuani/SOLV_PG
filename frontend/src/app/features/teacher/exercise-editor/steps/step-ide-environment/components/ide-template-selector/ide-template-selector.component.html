@@ -31,8 +31,8 @@
   @if (selectedTemplate(); as tpl) {
     <div class="template-detail-card">
       <div class="stack-identity-block">
-        <div class="avatar-box">
-          <tech-logo [iconType]="deriveTechIcon(tpl)" [size]="28"></tech-logo>
+        <div class="avatar-box" aria-hidden="true">
+          <svg lucideLaptop class="avatar-icon"></svg>
         </div>
 
         <div class="stack-meta-info">
@@ -43,17 +43,17 @@
 
           <!-- Chips con Iconos Oficiales -->
           <div class="tech-badges-list">
-            @for (badge of deriveTechBadges(tpl); track badge.label) {
+            @for (badge of getTechBadges(tpl); track badge.label) {
               <span class="tech-chip">
-                <tech-logo [iconType]="badge.icon" [size]="14"></tech-logo>
+                <tech-logo [iconType]="badge.icon" size="chip"></tech-logo>
                 <span>{{ badge.label }}</span>
               </span>
             }
 
-            @if (tpl.services_config?.database?.enabled) {
+            @if (hasDatabaseService(tpl)) {
               <span class="satellite-badge active">
                 <svg lucideDatabase class="badge-icon"></svg>
-                <span>Base de datos activa ({{ tpl.services_config?.database?.engine || 'PostgreSQL' }})</span>
+                <span>Base de datos activa ({{ databaseEngine(tpl) }})</span>
               </span>
             }
           </div>

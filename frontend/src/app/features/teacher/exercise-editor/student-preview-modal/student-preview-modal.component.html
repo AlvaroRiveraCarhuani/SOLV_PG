@@ -141,8 +141,11 @@
                       <ul class="levels-preview-list">
                         @for (level of criterion.levels; track level.name) {
                           <li class="level-preview-item">
-                            <strong class="level-name font-mono">{{ level.name }} ({{ level.score }} pts):</strong>
-                            <span class="level-desc">{{ level.description }}</span>
+                            <div class="level-preview-head">
+                              <strong class="level-name">{{ level.name }}</strong>
+                              <span class="level-score font-mono" machineData>{{ level.score }} pts</span>
+                            </div>
+                            <p class="level-desc">{{ level.description }}</p>
                           </li>
                         }
                       </ul>
@@ -200,7 +203,6 @@
                   <svg lucideServer class="column-icon"></svg>
                   <h3 class="column-title">Entorno Interactivo OpenVSCode</h3>
                 </div>
-                <span class="status-pill status-ready font-mono" machineData>READY</span>
               </div>
 
               <div class="ide-environment-body">
@@ -248,12 +250,12 @@
                 </div>
 
                 <div class="ide-action-preview">
-                  <button type="button" class="btn-launch-sim" disabled title="Botón simulado en vista previa del docente">
+                  <button type="button" class="btn-launch-sim" disabled title="Vista previa: no abre una sesión real; la sesión se habilita para el estudiante">
                     <svg lucideExternalLink class="btn-icon"></svg>
-                    <span>Abrir Sesión OpenVSCode (Simulado)</span>
+                    <span>Abrir sesión OpenVSCode</span>
                   </button>
                   <span class="sim-note">
-                    Durante la sesión del estudiante, este botón desplegará el contenedor e iniciará el túnel seguro.
+                    En esta vista previa no se abre una sesión real. Durante la sesión del estudiante, este botón desplegará el contenedor e iniciará el túnel seguro.
                   </span>
                 </div>
               </div>

@@ -8,14 +8,17 @@ import { IdeDbInitScriptComponent } from './components/ide-db-init-script/ide-db
 import { IdeDeliveryConfigComponent } from './components/ide-delivery-config/ide-delivery-config.component';
 import { IdeRubricEditorComponent } from './components/ide-rubric-editor/ide-rubric-editor.component';
 import { StatementEditorComponent } from '../step-identity/statement-editor.component';
+import { ResolvableStackConfig } from '@features/admin/templates/template-tech-detector.utils';
 
 export interface ApprovedTemplate {
   id: string;
   name: string;
+  description?: string;
   docker_image: string;
   base_ram_mb: number;
   target_environment: string;
   status: string;
+  stack_config?: ResolvableStackConfig | null;
   services_config?: {
     database?: {
       enabled: boolean;
@@ -125,10 +128,12 @@ export class StepIdeEnvironmentComponent implements OnInit {
       return {
         id: storeTpl.id,
         name: storeTpl.name,
+        description: storeTpl.description,
         docker_image: storeTpl.docker_image || '',
         base_ram_mb: storeTpl.base_ram_mb || 128,
         target_environment: storeTpl.target_environment || storeTpl.environment_type || '',
         status: storeTpl.status || 'approved',
+        stack_config: storeTpl.stack_config as ApprovedTemplate['stack_config'],
         services_config: storeTpl.services_config as ApprovedTemplate['services_config']
       };
     }

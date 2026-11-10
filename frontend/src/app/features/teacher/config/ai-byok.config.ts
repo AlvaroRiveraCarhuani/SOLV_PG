@@ -1,12 +1,12 @@
 /**
- * Catálogo de proveedores habilitados para la credencial personal del docente
- * (BYOK). Es la única fuente de verdad de esta lista: el panel del modal y la
- * vista de configuración la consumen desde acá para no divergir.
+ * Catálogo base de proveedores habilitados para la credencial personal del
+ * docente (BYOK). El panel lo combina con los proveedores personalizados que
+ * registra la institución, de modo que ambos caminos compartan la misma forma
+ * de opción y no dupliquen lógica.
  *
- * Todos los proveedores son servicios en la nube con endpoints oficiales fijos
- * forzados por el backend (escudo anti-SSRF). Los motores on-premise (Ollama/vLLM)
- * pertenecen exclusivamente al ámbito de infraestructura y se gestionan desde
- * el motor institucional.
+ * Los cuatro proveedores base son servicios en la nube con endpoints oficiales
+ * fijos forzados por el backend (escudo anti-SSRF). Los proveedores custom
+ * aportan su propio endpoint institucional y el docente solo agrega su clave.
  */
 export interface ByokProviderOption {
   value: string;

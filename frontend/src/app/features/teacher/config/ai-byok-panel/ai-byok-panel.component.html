@@ -42,7 +42,7 @@
   }
 
   <div class="provider-grid">
-    @for (item of providers; track item.value) {
+    @for (item of providers(); track item.value) {
       <button
         type="button"
         class="provider-card"
@@ -51,7 +51,7 @@
         (click)="onProviderChange(item.value)">
         <div class="provider-card-header">
           <div class="provider-title-row">
-            @if (!iconErrors()[item.value]) {
+            @if (item.iconUrl && !iconErrors()[item.value]) {
               <img
                 class="provider-logo"
                 [src]="item.iconUrl"

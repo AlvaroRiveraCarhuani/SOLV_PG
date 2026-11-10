@@ -29,6 +29,7 @@ import {
   TeacherAiCopilotService
 } from '../../services/teacher-ai-copilot.service';
 import { BYOK_PROVIDERS, DEFAULT_BYOK_PROVIDER } from '../ai-byok.config';
+import type { ByokProviderOption } from '../ai-byok.config';
 
 /**
  * Configuración de la credencial personal de IA del docente (BYOK).
@@ -70,8 +71,6 @@ export class AiByokPanelComponent implements OnInit {
   /** Notifica al contenedor que la configuración cambió y debe refrescar estado. */
   readonly changed = output<AIUserOverrideDTO>();
 
-  readonly providers = BYOK_PROVIDERS;
-
   readonly loading = signal(true);
   readonly enabled = signal(false);
   readonly provider = signal(DEFAULT_BYOK_PROVIDER);
@@ -95,6 +94,23 @@ export class AiByokPanelComponent implements OnInit {
 
   readonly current = signal<AIUserOverrideDTO | null>(null);
 
+  /**
+   * Catálogo visible para el docente: los cuatro proveedores base más los
+   * proveedores personalizados que registró la institución. En estos últimos
+   * el endpoint lo define la institución; el docente solo aporta su clave.
+   */
+  readonly providers = computed<ByokProviderOption[]>(() => {
+    const customs = (this.current()?.custom_providers ?? []).map<ByokProviderOption>((cp) => ({
+      value: cp.id,
+      label: cp.label,
+      badge: 'Personalizado · Institución',
+      iconUrl: cp.icon_url ?? '',
+      isCloud: true,
+      placeholderKey: 'sk-...'
+    }));
+    return [...BYOK_PROVIDERS, ...customs];
+  });
+
   readonly hasSavedKey = computed(() => this.current()?.has_api_key === true);
   readonly savedKeyMasked = computed(() => this.current()?.api_key_masked ?? '');
   readonly updatedAt = computed(() => this.current()?.updated_at ?? '');
@@ -110,8 +126,15 @@ export class AiByokPanelComponent implements OnInit {
   readonly sameProviderAsSaved = computed(() => this.provider() === this.savedKeyProvider());
 
   readonly selectedProvider = computed(() =>
-    this.providers.find((item) => item.value === this.provider())
+    this.providers().find((item) => item.value === this.provider())
   );
+
+  readonly selectedCustomProvider = computed(() =>
+    (this.current()?.custom_providers ?? []).find((cp) => cp.id === this.provider())
+  );
+
+  /** Endpoint institucional del proveedor custom; los base usan la URL oficial. */
+  readonly selectedBaseURL = computed(() => this.selectedCustomProvider()?.base_url || undefined);
 
   /**
    * Solo se puede descubrir el catálogo con una credencial propia: la clave
@@ -153,7 +176,10 @@ export class AiByokPanelComponent implements OnInit {
     if (this.provider() !== initialProvider) {
       return true;
     }
-    const initialModel = (initial.model || '').trim();
+    const initialCustom = (initial.custom_providers ?? []).find(
+      (cp) => cp.id === initialProvider
+    );
+    const initialModel = (initial.model || initialCustom?.model || '').trim();
     if (this.model().trim() !== initialModel) {
       return true;
     }
@@ -245,7 +271,10 @@ export class AiByokPanelComponent implements OnInit {
         if (settings.model) {
           this.model.set(settings.model);
         } else {
-          this.model.set('');
+          const custom = (settings.custom_providers ?? []).find(
+            (cp) => cp.id === settings.provider
+          );
+          this.model.set(custom?.model ?? '');
         }
         this.loading.set(false);
       },
@@ -274,7 +303,8 @@ export class AiByokPanelComponent implements OnInit {
     this.modelTierFilter.set('all');
     this.manualModelMode.set(false);
     if (value !== this.savedKeyProvider()) {
-      this.model.set('');
+      const custom = (this.current()?.custom_providers ?? []).find((cp) => cp.id === value);
+      this.model.set(custom?.model ?? '');
     } else {
       this.model.set(this.current()?.model ?? '');
     }
@@ -319,7 +349,7 @@ export class AiByokPanelComponent implements OnInit {
       .listMyModels({
         provider: this.provider(),
         api_key: this.apiKey().trim() || undefined,
-        base_url: undefined
+        base_url: this.selectedBaseURL()
       })
       .subscribe({
         next: (models) => {
@@ -352,7 +382,7 @@ export class AiByokPanelComponent implements OnInit {
         provider: this.provider(),
         model: this.model().trim(),
         api_key: this.apiKey().trim() || undefined,
-        base_url: undefined
+        base_url: this.selectedBaseURL()
       })
       .subscribe({
         next: (res) => {
@@ -387,7 +417,7 @@ export class AiByokPanelComponent implements OnInit {
         enabled: this.enabled(),
         provider: this.provider(),
         model: this.model().trim(),
-        base_url: undefined,
+        base_url: this.selectedBaseURL(),
         api_key: this.apiKey().trim() || undefined
       })
       .subscribe({

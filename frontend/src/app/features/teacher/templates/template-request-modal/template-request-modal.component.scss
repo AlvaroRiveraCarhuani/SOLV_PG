@@ -211,28 +211,6 @@
   resize: vertical;
 }
 
-/* Barra informativa mientras la IA trabaja: el botón dice qué hace y la barra
-   muestra que el pedido sigue vivo, sin fingir un porcentaje que no conocemos. */
-.ai-progress {
-  position: relative;
-  height: 3px;
-  margin-top: var(--space-1);
-  border-radius: var(--radius-full);
-  background-color: var(--tenant-primary-subtle);
-  overflow: hidden;
-
-  .ai-progress-bar {
-    position: absolute;
-    top: 0;
-    bottom: 0;
-    left: 0;
-    width: 35%;
-    border-radius: var(--radius-full);
-    background-color: var(--tenant-primary);
-    animation: solv-progress-indeterminate 1.4s var(--motion-ease-standard) infinite;
-  }
-}
-
 .field-foot {
   display: flex;
   align-items: center;
@@ -252,26 +230,6 @@
   align-items: center;
   gap: var(--space-2);
   min-width: 0;
-}
-
-.ai-cancel {
-  padding: 0;
-  background: none;
-  border: none;
-  font-family: var(--font-sans);
-  font-size: var(--text-sm);
-  color: var(--text-secondary);
-  cursor: pointer;
-
-  &:hover {
-    color: var(--text-primary);
-    text-decoration: underline;
-  }
-}
-
-.ai-elapsed {
-  margin-left: var(--space-1);
-  color: var(--text-secondary);
 }
 
 .ai-button {
@@ -1114,23 +1072,6 @@
   .result-hint {
     font-size: var(--text-xs);
     color: var(--text-muted);
-  }
-}
-
-// Sin barrido la barra no puede comunicar avance, y un relleno completo se
-// leería como proceso terminado. La pista queda con una trama estática de
-// espera; el botón y el contador de segundos siguen indicando el avance.
-@media (prefers-reduced-motion: reduce) {
-  .ai-progress {
-    background-image: repeating-linear-gradient(
-      90deg,
-      var(--tenant-primary) 0 4px,
-      transparent 4px 8px
-    );
-  }
-
-  .ai-progress .ai-progress-bar {
-    display: none;
   }
 }
 

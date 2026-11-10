@@ -1,6 +1,6 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { provideHttpClient } from '@angular/common/http';
-import { provideHttpClientTesting } from '@angular/common/http/testing';
+import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { provideRouter } from '@angular/router';
 import { of } from 'rxjs';
 import { AiExerciseGeneratorModalComponent } from './ai-exercise-generator-modal.component';
@@ -11,6 +11,7 @@ import {
   AIAvailabilityStatus
 } from '../../services/teacher-ai-copilot.service';
 import { ExerciseEditorStore } from '../exercise-editor.store';
+import { AiFlowDrafts } from '@shared/services/ai-flow-drafts';
 
 const mockDraft: AIGenerateExerciseResponse = {
   title: 'Suma de primos hasta N',
@@ -152,7 +153,7 @@ describe('AiExerciseGeneratorModalComponent', () => {
     const latency = fixture.nativeElement.querySelector('.chip-latency');
     expect(latency?.textContent).toContain('1234 ms');
     const seal = fixture.nativeElement.querySelector('.seal-banner.seal-ok');
-    expect(seal?.textContent).toContain('selladas por el ejecutor del motor de evaluación');
+    expect(seal?.textContent).toContain('El motor verificó las salidas esperadas');
   });
 
   it('debe invocar generateExercise en modo IDE sin lenguaje ni casos de juez', () => {
@@ -171,6 +172,95 @@ describe('AiExerciseGeneratorModalComponent', () => {
       hidden_cases_count: 0,
       verify_with_runner: false
     });
+  });
+
+  it('conserva la plantilla homologada resuelta por el backend al aplicar un borrador IDE', () => {
+    component.environmentType = 'IDE_PERSISTENTE';
+    component.generatedResult.set({
+      ...mockDraft,
+      environment_type: 'IDE_PERSISTENTE',
+      template_id: 'ai-suggested-template',
+      template_name: 'Plantilla sugerida por IA',
+      missing_technology: 'Svelte'
+    });
+    component.reviewDraft();
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.querySelector('#ai-template-choice')).toBeNull();
+    expect(fixture.nativeElement.textContent).toContain('no encontró un entorno homologado');
+    expect(component.canApplyDraft()).toBe(true);
+
+    const appliedSpy = vi.spyOn(component.applied, 'emit');
+    component.applyDraft();
+
+    const appliedDraft = appliedSpy.mock.calls[0]?.[0];
+    expect(appliedDraft).toEqual(expect.objectContaining({
+      environment_type: 'IDE_PERSISTENTE',
+      template_id: 'ai-suggested-template',
+      template_name: 'Plantilla sugerida por IA'
+    }));
+
+    const store = TestBed.inject(ExerciseEditorStore);
+    store.applyAIGeneratedDraft(appliedDraft!);
+    expect(store.metadata().template_id).toBe('ai-suggested-template');
+  });
+
+  it('permite editar el borrador y volver a revisarlo sin perder cambios', () => {
+    component.generatedResult.set({
+      ...mockDraft,
+      rubric: {
+        criteria: [{
+          name: 'Correctitud',
+          description: 'Resuelve el problema',
+          weight: 100,
+          levels: [{ name: 'Excelente', description: 'Solución completa', score: 100 }]
+        }]
+      }
+    });
+    component.startEditingDraft();
+    component.updateDraft({ title: 'Título corregido', description: 'Enunciado editado' });
+    component.updateRubricCriterion(0, { weight: 80 });
+    component.updateRubricLevel(0, 0, { description: 'Nivel ajustado' });
+    component.updateTestCase(0, { expected_output: '18' });
+    component.reviewDraft();
+    fixture.detectChanges();
+
+    expect(component.draftStep()).toBe('review');
+    expect(fixture.nativeElement.textContent).toContain('Enunciado editado');
+    expect(component.rubricTotal(component.draftForReview()!.rubric!.criteria)).toBe(80);
+    expect(component.allTestCasesVerified(component.draftForReview()!)).toBe(false);
+
+    const appliedSpy = vi.spyOn(component.applied, 'emit');
+    component.applyDraft();
+    const appliedDraft = appliedSpy.mock.calls[0]?.[0];
+    expect(appliedDraft).toEqual(expect.objectContaining({
+      title: 'Título corregido',
+      description: 'Enunciado editado',
+      test_cases: expect.arrayContaining([expect.objectContaining({ expected_output: '18', verified_by_runner: false })])
+    }));
+  });
+
+  it('conserva las ediciones al cambiar al prompt y confirma antes de descartar', () => {
+    component.generatedResult.set(mockDraft);
+    component.startEditingDraft();
+    component.updateDraft({ title: 'Conservado' });
+    component.editPrompt();
+    fixture.detectChanges();
+
+    expect(component.draftStep()).toBe('prompt');
+    component.reviewDraft();
+    expect(component.draftForReview()?.title).toBe('Conservado');
+
+    component.requestDiscardDraft();
+    fixture.detectChanges();
+    expect(fixture.nativeElement.querySelector('.discard-confirm')).toBeTruthy();
+    component.cancelDiscardDraft();
+    expect(component.draftForReview()?.title).toBe('Conservado');
+
+    component.requestDiscardDraft();
+    component.discardDraft();
+    expect(component.generatedResult()).toBeNull();
+    expect(component.editingDraft()).toBeNull();
   });
 
   it('debe cancelar la generación en curso al llamar cancelGeneration()', () => {
@@ -215,6 +305,36 @@ describe('AiExerciseGeneratorModalComponent', () => {
     expect(cases[1].is_hidden).toBe(true);
     expect(cases[1].weight).toBe(2);
     expect(store.hasInteracted()).toBe(true);
+  });
+
+  it('conserva la consigna y los parámetros al cerrar y reabrir el modal', () => {
+    component.prompt.set('Recorrido de árboles binarios con casos ocultos');
+    component.difficulty.set('hard');
+    component.publicCasesCount.set(4);
+    component.hiddenCasesCount.set(6);
+    fixture.detectChanges();
+    fixture.destroy();
+
+    const reopened = TestBed.createComponent(AiExerciseGeneratorModalComponent);
+    reopened.detectChanges();
+    const instance = reopened.componentInstance;
+
+    expect(instance.prompt()).toBe('Recorrido de árboles binarios con casos ocultos');
+    expect(instance.difficulty()).toBe('hard');
+    expect(instance.publicCasesCount()).toBe(4);
+    expect(instance.hiddenCasesCount()).toBe(6);
+  });
+
+  it('limpia el borrador guardado cuando el resultado se aplica al editor', () => {
+    const drafts = TestBed.inject(AiFlowDrafts);
+    component.prompt.set('Suma de primos');
+    fixture.detectChanges();
+    expect(drafts.get('generate-exercise')).not.toBeNull();
+
+    component.generatedResult.set(mockDraft);
+    component.applyDraft();
+
+    expect(drafts.get('generate-exercise')).toBeNull();
   });
 
   it('dispara generate al presionar Ctrl+Enter o Cmd+Enter en el prompt', () => {

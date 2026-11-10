@@ -2,7 +2,6 @@
   title="Generar Borrador con Copiloto IA"
   [subtitle]="isIde() ? 'Crea la consigna estructurada y la rúbrica de evaluación balanceada al 100%' : 'Crea enunciado, solución de referencia y casos de prueba sellados por el motor de evaluación'"
   maxWidth="640px"
-  [disableClose]="isGenerating()"
   (close)="closed.emit()"
 >
   <svg modal-icon lucideSparkles class="icon"></svg>
@@ -61,62 +60,164 @@
     </div>
   }
 
-  @if (generatedResult(); as res) {
-    <!-- Paso B: Tarjeta Estructurada de Previsualización (.exercise-preview-card) -->
+  @if (visibleDraft(); as res) {
     <div class="modal-body-form preview-step">
-      <div class="exercise-preview-card">
-        <div class="preview-header">
-          <div class="preview-title-row">
-            <h4 class="preview-title">{{ res.title }}</h4>
-            <div class="preview-badges">
-              @if (res.environment_type === 'IDE_PERSISTENTE' || isIde()) {
-                <span class="chip-lang font-mono" machineData>{{ 'IDE_PERSISTENTE' | environmentLabel }}</span>
-                @if (res.template_name || res.template_id) {
-                  <span class="chip-lang font-mono" machineData>{{ res.template_name || res.template_id }}</span>
+      <section class="exercise-preview-card">
+        <header class="preview-header">
+          @if (draftStep() === 'edit') {
+            <label class="form-label" for="draft-title">Título del ejercicio</label>
+            <input id="draft-title" class="form-input" [ngModel]="res.title" (ngModelChange)="updateDraft({ title: $event })" />
+          } @else {
+            <h3 class="preview-title">{{ res.title }}</h3>
+          }
+          <div class="preview-badges">
+            @if (res.language) {
+              <span class="chip-lang font-mono" machineData>{{ res.language }}</span>
+            }
+            @if (draftStep() === 'edit') {
+              <label class="form-label" for="draft-difficulty">Dificultad</label>
+              <select id="draft-difficulty" class="form-select draft-difficulty" [ngModel]="res.difficulty" (ngModelChange)="updateDraft({ difficulty: $event })">
+                @for (option of difficultyOptions; track option.value) {
+                  <option [value]="option.value">{{ option.label }}</option>
                 }
-              } @else {
-                <span class="chip-lang font-mono" machineData>{{ res.language }}</span>
-                @if (res.test_cases) {
-                  <span class="chip-cases font-mono" machineData>{{ res.test_cases.length }} casos de prueba</span>
-                }
-              }
+              </select>
+            } @else {
               <span class="chip-difficulty" [class]="res.difficulty">{{ res.difficulty }}</span>
-              <span class="chip-latency font-mono" machineData>{{ res.latency_ms }} ms</span>
-            </div>
+            }
+            <span class="chip-latency font-mono" machineData>{{ res.latency_ms }} ms</span>
           </div>
-        </div>
-
-        <p class="preview-desc">{{ res.description }}</p>
+        </header>
 
         @if (res.missing_technology) {
-          <div class="seal-banner seal-warning" role="alert">
+          <div class="seal-banner seal-warning" role="status">
             <svg lucideAlertTriangle class="seal-icon"></svg>
-            <span>Tecnología fuera de catálogo: <strong>{{ res.missing_technology }}</strong>. Se asignó la plantilla base {{ res.template_name || 'disponible' }}.</span>
+            <span>La IA no encontró un entorno homologado para <strong>{{ res.missing_technology }}</strong>. Podés elegir el entorno en su paso del editor; esto no impide aplicar el borrador.</span>
           </div>
         }
 
+        <section class="preview-section">
+          <h4>Consigna para el estudiante</h4>
+          @if (draftStep() === 'edit') {
+            <textarea class="form-textarea draft-edit-textarea" rows="10" [ngModel]="res.description" (ngModelChange)="updateDraft({ description: $event })" aria-label="Consigna para el estudiante"></textarea>
+            <span class="field-hint">Se admite Markdown. Revisa títulos, listas y bloques de código antes de aplicar.</span>
+          } @else {
+            <article class="markdown-body preview-markdown" [innerHTML]="renderedDescription()"></article>
+          }
+        </section>
+
         @if (res.rubric) {
-          <div class="preview-rubric-section">
-            <div class="rubric-header-line">
-              <span class="rubric-header-title">Criterios de Evaluación Pedagógica</span>
-              <span class="rubric-header-weight font-mono" machineData>Total: 100% (Balanceado)</span>
-            </div>
-            <div class="rubric-criteria-list">
-              @for (c of res.rubric.criteria; track c.name) {
-                <div class="rubric-criterion-item">
+          <details class="preview-details" open>
+            <summary>Rúbrica de evaluación <span>Total {{ rubricTotal(res.rubric.criteria) }}%</span></summary>
+            <div class="preview-rubric-section">
+              @for (criterion of res.rubric.criteria; track $index; let criterionIndex = $index) {
+                <article class="rubric-criterion-item">
                   <div class="criterion-main">
-                    <span class="criterion-name">{{ c.name }}</span>
-                    <span class="criterion-desc">{{ c.description }}</span>
+                    @if (draftStep() === 'edit') {
+                      <label class="form-label" [for]="'criterion-name-' + criterionIndex">Criterio</label>
+                      <input class="form-input" [id]="'criterion-name-' + criterionIndex" [ngModel]="criterion.name" (ngModelChange)="updateRubricCriterion(criterionIndex, { name: $event })" />
+                      <label class="form-label" [for]="'criterion-description-' + criterionIndex">Descripción</label>
+                      <textarea class="form-textarea draft-small-textarea" [id]="'criterion-description-' + criterionIndex" [ngModel]="criterion.description" (ngModelChange)="updateRubricCriterion(criterionIndex, { description: $event })"></textarea>
+                      <label class="form-label" [for]="'criterion-weight-' + criterionIndex">Ponderación (%)</label>
+                      <input class="form-input draft-number-input" type="number" min="0" max="100" [id]="'criterion-weight-' + criterionIndex" [ngModel]="criterion.weight" (ngModelChange)="updateRubricCriterion(criterionIndex, { weight: +$event })" />
+                    } @else {
+                      <strong class="criterion-name"><span>{{ criterion.name }}</span></strong>
+                      <span class="criterion-desc">{{ criterion.description }}</span>
+                      <span class="criterion-weight font-mono" machineData>{{ criterion.weight }}%</span>
+                    }
+                    @if (criterion.levels?.length) {
+                      <ul class="rubric-level-list">
+                        @for (level of criterion.levels; track $index; let levelIndex = $index) {
+                          <li>
+                            @if (draftStep() === 'edit') {
+                              <label class="form-label" [for]="'level-name-' + criterionIndex + '-' + levelIndex">Nivel</label>
+                              <input class="form-input" [id]="'level-name-' + criterionIndex + '-' + levelIndex" [ngModel]="level.name" (ngModelChange)="updateRubricLevel(criterionIndex, levelIndex, { name: $event })" />
+                              <label class="form-label" [for]="'level-description-' + criterionIndex + '-' + levelIndex">Descripción del nivel</label>
+                              <textarea class="form-textarea draft-small-textarea" [id]="'level-description-' + criterionIndex + '-' + levelIndex" [ngModel]="level.description" (ngModelChange)="updateRubricLevel(criterionIndex, levelIndex, { description: $event })"></textarea>
+                              <label class="form-label" [for]="'level-score-' + criterionIndex + '-' + levelIndex">Puntaje (%)</label>
+                              <input class="form-input draft-number-input" type="number" min="0" max="100" [id]="'level-score-' + criterionIndex + '-' + levelIndex" [ngModel]="level.score" (ngModelChange)="updateRubricLevel(criterionIndex, levelIndex, { score: +$event })" />
+                            } @else {
+                              <strong>{{ level.name }}</strong>: {{ level.description }} ({{ level.score }}%)
+                            }
+                          </li>
+                        }
+                      </ul>
+                    }
                   </div>
-                  <span class="criterion-weight font-mono" machineData>{{ c.weight }}%</span>
-                </div>
+                </article>
               }
             </div>
-          </div>
-        } @else if (res.runner_verified_all) {
+          </details>
+        }
+
+        @if (res.boilerplate || res.reference_solution) {
+          <details class="preview-details">
+            <summary>Código inicial y solución de referencia</summary>
+            @if (res.boilerplate) {
+              <div class="code-preview-block">
+                <h5>Código inicial</h5>
+                @if (draftStep() === 'edit') {
+                  <textarea class="form-textarea draft-code-textarea" [ngModel]="res.boilerplate" (ngModelChange)="updateDraft({ boilerplate: $event })" aria-label="Código inicial"></textarea>
+                } @else {
+                  <pre><code>{{ res.boilerplate }}</code></pre>
+                }
+              </div>
+            }
+            @if (res.reference_solution) {
+              <div class="code-preview-block">
+                <h5>Solución de referencia (docente)</h5>
+                @if (draftStep() === 'edit') {
+                  <textarea class="form-textarea draft-code-textarea" [ngModel]="res.reference_solution" (ngModelChange)="updateDraft({ reference_solution: $event })" aria-label="Solución de referencia"></textarea>
+                } @else {
+                  <pre><code>{{ res.reference_solution }}</code></pre>
+                }
+              </div>
+            }
+          </details>
+        }
+
+        @if (res.test_cases?.length) {
+          <details class="preview-details">
+            <summary>Casos de prueba ({{ res.test_cases.length }})</summary>
+            @for (testCase of res.test_cases; track $index; let testCaseIndex = $index) {
+              <article class="test-case-preview">
+                <h5>Caso {{ testCase.order_index }} · {{ testCase.visibility }}</h5>
+                <div class="test-case-values">
+                  <div>
+                    <label class="form-label" [for]="'test-case-input-' + testCaseIndex">Entrada</label>
+                    @if (draftStep() === 'edit') {
+                      <textarea class="form-textarea draft-small-textarea" [id]="'test-case-input-' + testCaseIndex" [ngModel]="testCase.input" (ngModelChange)="updateTestCase(testCaseIndex, { input: $event })"></textarea>
+                    } @else {
+                      <pre><code>{{ testCase.input }}</code></pre>
+                    }
+                  </div>
+                  <div>
+                    <label class="form-label" [for]="'test-case-output-' + testCaseIndex">Salida esperada</label>
+                    @if (draftStep() === 'edit') {
+                      <textarea class="form-textarea draft-small-textarea" [id]="'test-case-output-' + testCaseIndex" [ngModel]="testCase.expected_output" (ngModelChange)="updateTestCase(testCaseIndex, { expected_output: $event, verified_by_runner: false })"></textarea>
+                    } @else {
+                      <pre><code>{{ testCase.expected_output }}</code></pre>
+                    }
+                  </div>
+                </div>
+              </article>
+            }
+          </details>
+        }
+
+        @if (res.rubric && rubricBalanced(res.rubric.criteria)) {
           <div class="seal-banner seal-ok" role="status">
             <svg lucideShieldCheck class="seal-icon"></svg>
-            <span>Salidas esperadas selladas por el ejecutor del motor de evaluación (100% casos verificados)</span>
+            <span>La suma de ponderaciones es 100%. Revisá que los criterios midan lo que buscas evaluar.</span>
+          </div>
+        } @else if (res.rubric) {
+          <div class="seal-banner seal-warning" role="status">
+            <svg lucideAlertTriangle class="seal-icon"></svg>
+            <span>La suma de ponderaciones es {{ rubricTotal(res.rubric.criteria) }}%; ajustala a 100% antes de publicar.</span>
+          </div>
+        } @else if (allTestCasesVerified(res)) {
+          <div class="seal-banner seal-ok" role="status">
+            <svg lucideShieldCheck class="seal-icon"></svg>
+            <span>El motor verificó las salidas esperadas de estos casos. La verificación aplica a los valores generados, no a cambios posteriores.</span>
           </div>
         } @else {
           <div class="seal-banner seal-warning" role="status">
@@ -124,7 +225,7 @@
             <span>{{ res.verification_warning || 'Algunos casos no pudieron sellarse con el motor de evaluación. Revisa las salidas esperadas antes de aplicar.' }}</span>
           </div>
         }
-      </div>
+      </section>
     </div>
   } @else {
     <!-- Paso A: formulario de generación -->
@@ -217,48 +318,60 @@
       }
 
       @if (isGenerating()) {
-        <div class="generation-progress-box">
-          <div class="ai-progress-container">
-            <div class="ai-progress" role="progressbar" aria-label="Generando borrador">
-              <span class="ai-progress-bar"></span>
-            </div>
-            <div class="progress-info">
-              <span>{{ isIde() ? 'Generando consigna estructurada y balanceando rúbrica...' : 'Generando y sellando casos de prueba...' }}</span>
-              <span class="ai-elapsed font-mono" machineData>{{ elapsedSeconds() }} s</span>
-            </div>
-          </div>
-          <button type="button" class="btn-cancel-gen" (click)="cancelGeneration()">
-            Cancelar
-          </button>
-        </div>
+        <ai-progress-indicator
+          [label]="isIde() ? 'Generando consigna estructurada y balanceando rúbrica...' : 'Generando y sellando casos de prueba...'"
+          ariaLabel="Generando borrador con el Copiloto IA"
+          [elapsedSeconds]="elapsedSeconds()"
+          (cancelled)="cancelGeneration()"
+        />
       }
     </div>
   }
 
+  @if (confirmDiscardDraft()) {
+    <div class="discard-confirm" role="group" aria-labelledby="discard-draft-title">
+      <div>
+        <strong id="discard-draft-title">¿Descartar este borrador?</strong>
+        <p>Se perderán el resultado generado y las correcciones hechas en esta revisión.</p>
+      </div>
+      <div class="discard-confirm-actions">
+        <button type="button" class="btn-outline" (click)="cancelDiscardDraft()">Seguir revisando</button>
+        <button type="button" class="btn-danger" (click)="discardDraft()">Descartar borrador</button>
+      </div>
+    </div>
+  }
+
   <div modal-footer class="modal-footer-actions">
-    @if (generatedResult()) {
-      <button type="button" class="btn-outline" [disabled]="isGenerating()" (click)="discardResult()">
-        Volver a editar
-      </button>
-      <button type="button" class="btn-primary" [disabled]="isGenerating()" (click)="applyDraft()">
-        Aplicar Borrador al Editor
-      </button>
-    } @else {
-      <button type="button" class="btn-outline" [disabled]="isGenerating()" (click)="closed.emit()">
-        Cerrar
-      </button>
-      <button
-        type="button"
-        class="btn-primary"
-        [disabled]="isGenerating() || (!aiStatus()?.enabled && !aiStatus()?.using_personal_key)"
-        (click)="generate()"
-      >
-        @if (isGenerating()) {
-          Generando...
+    @switch (draftStep()) {
+      @case ('review') {
+        <button type="button" class="btn-outline" (click)="startEditingDraft()">Editar borrador</button>
+        <button type="button" class="btn-outline" (click)="editPrompt()">Cambiar consigna</button>
+        <button type="button" class="btn-outline" (click)="requestDiscardDraft()">Descartar borrador</button>
+        <button type="button" class="btn-primary" [disabled]="!canApplyDraft() || !!confirmDiscardDraft()" (click)="applyDraft()">Aplicar al editor</button>
+      }
+      @case ('edit') {
+        <button type="button" class="btn-outline" (click)="reviewDraft()">Volver a revisar</button>
+        <button type="button" class="btn-primary" [disabled]="!canApplyDraft() || !!confirmDiscardDraft()" (click)="applyDraft()">Aplicar al editor</button>
+      }
+      @default {
+        @if (generatedResult()) {
+          <button type="button" class="btn-outline" (click)="reviewDraft()">Volver a la revisión</button>
         } @else {
-          {{ isIde() ? 'Generar Práctica y Rúbrica con IA' : 'Generar y verificar casos de prueba' }}
+          <button type="button" class="btn-outline" (click)="closed.emit()">Cerrar</button>
         }
-      </button>
+        <button
+          type="button"
+          class="btn-primary"
+          [disabled]="isGenerating() || (!aiStatus()?.enabled && !aiStatus()?.using_personal_key)"
+          (click)="generate()"
+        >
+          @if (isGenerating()) {
+            Generando...
+          } @else {
+            {{ isIde() ? 'Generar Práctica y Rúbrica con IA' : 'Generar y verificar casos de prueba' }}
+          }
+        </button>
+      }
     }
   </div>
 </modal-shell>

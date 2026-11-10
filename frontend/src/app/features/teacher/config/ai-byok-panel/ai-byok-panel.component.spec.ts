@@ -22,6 +22,21 @@ const institutionalOnly: AIUserOverrideDTO = {
   institutional_model: 'gemini-2.5-flash'
 };
 
+const withCustomProvider: AIUserOverrideDTO = {
+  ...institutionalOnly,
+  provider: 'custom_inception',
+  provider_label: 'Inception Mercury',
+  custom_providers: [
+    {
+      id: 'custom_inception',
+      label: 'Inception Mercury',
+      icon_url: '',
+      base_url: 'https://api.inceptionlabs.ai/v1',
+      model: 'mercury-3'
+    }
+  ]
+};
+
 const withPersonalKey: AIUserOverrideDTO = {
   enabled: true,
   provider: 'openrouter',
@@ -238,6 +253,32 @@ describe('AiByokPanelComponent', () => {
 
     component.apiKey.set('AIzaSy-nueva');
     expect(component.canFetchModels()).toBe(true);
+  });
+
+  it('ofrece los proveedores custom de la institución y usa su endpoint', async () => {
+    await setup(withCustomProvider);
+
+    expect(component.providers().some((p) => p.value === 'custom_inception')).toBe(true);
+    expect(component.model()).toBe('mercury-3');
+
+    component.onToggleEnabled(true);
+    component.apiKey.set('sk-inc-personal');
+    component.fetchModels();
+
+    expect(mockService.listMyModels).toHaveBeenCalledWith({
+      provider: 'custom_inception',
+      api_key: 'sk-inc-personal',
+      base_url: 'https://api.inceptionlabs.ai/v1'
+    });
+
+    component.save();
+    expect(mockService.updateMySettings).toHaveBeenCalledWith({
+      enabled: true,
+      provider: 'custom_inception',
+      model: 'mercury-3',
+      base_url: 'https://api.inceptionlabs.ai/v1',
+      api_key: 'sk-inc-personal'
+    });
   });
 
   it('no ofrece conservar la clave guardada al cambiar de proveedor', async () => {

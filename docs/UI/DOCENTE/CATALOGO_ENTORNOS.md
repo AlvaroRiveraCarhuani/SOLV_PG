@@ -61,7 +61,7 @@ Buscar por lenguaje, framework o base de datos…
 │ Java 21 + Spring Boot     │ │ Python 3.12 + Data Science│ │ C / C++ Algoritmia        │
 │ APIs REST y servicios     │ │ Análisis y visualización  │ │ Prácticas de algoritmia   │
 │ [Java 21][Spring Boot]    │ │ [Python 3.12][NumPy]      │ │ [C][GCC 13][Make]         │
-│ [Maven][PostgreSQL 16] +1 │ │ [Pandas][Jupyter]         │ │                           │
+│ [Maven][PostgreSQL 16]    │ │ [Pandas][Jupyter]         │ │                           │
 │ Ver detalle          Usar │ │ Ver detalle          Usar │ │ Ver detalle     Solicitar │
 └───────────────────────────┘ └───────────────────────────┘ └───────────────────────────┘
 ```
@@ -77,7 +77,7 @@ Sin fila de KPIs. Sin RAM, CPU ni nombre de imagen en la tarjeta.
 | Cabecera | Modalidad en palabras: "Editor persistente" o "Juez automático" | Nunca "IDE" ni "Juez" solos |
 | Título | Nombre humano: "Java 21 + Spring Boot" | El nombre de la imagen no aparece acá |
 | Resumen | Una línea de para qué sirve | Máximo 90 caracteres |
-| Herramientas | Chips por capa, con nombre e icono | Máximo 5; el resto se resume como "+N" |
+| Herramientas | Chips por capa, con nombre e icono | Todas las piezas declaradas; la fila hace wrap |
 | Acciones | "Ver detalle" y "Usar" (o "Solicitar") | "Usar" solo si `available` es verdadero |
 | Insignia | "Oficial" solo si el flag es verdadero | Sin default; si no hay definición, no se muestra |
 
@@ -86,9 +86,14 @@ La tarjeta es un `article` con título en `h3`. No es un enlace completo: tiene 
 ### Chips
 
 - Orden: runtime, plataformas web, complementos, base de datos.
+- Se muestran todas las piezas declaradas; si no entran en una línea, la fila hace wrap. No se ocultan detrás de "+N".
 - Texto: nombre visible de la pieza, no el slug ni el binario.
 - Un chip no es un botón; si se puede filtrar por esa pieza, el filtro vive en la barra, no en la tarjeta.
 - Si no hay piezas declaradas: "Sin detalle declarado", sin inventar chips.
+
+### Implementación actual
+
+La tarjeta resuelve las piezas desde `stack_config` contra el catálogo de componentes que ya usa el modal de solicitud. El orden es lenguaje → interfaz web → complementos → base de datos; la opción `db-none` no se muestra como tecnología y las piezas repetidas se descartan. Cada tecnología se representa una sola vez, en su chip; la cabecera no repite el logo principal. Si la plantilla no declara un stack resoluble, se usa la inferencia compartida con el catálogo del administrador (`inferTemplateTechnologies`), que prioriza `stack_config` y compara tokens completos. La búsqueda indexa el nombre de todas las piezas resueltas, y el detalle recibe la misma lista con sus iconos. La rejilla muestra tres tarjetas por fila en escritorio, dos por debajo de 1100 px y una en móvil, con los mismos tamaños de icono y chip que el catálogo del administrador. Las tarjetas de una fila comparten altura; el contenido fluye desde arriba, las herramientas siguen a la descripción y el espacio sobrante queda antes del pie, de modo que las acciones siguen alineadas.
 
 ---
 

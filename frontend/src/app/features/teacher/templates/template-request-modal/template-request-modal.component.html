@@ -84,31 +84,20 @@
                 (ngModelChange)="description.set($event)"
               ></textarea>
               @if (aiLoading()) {
-                <div
-                  class="ai-progress"
-                  role="progressbar"
-                  aria-label="Consultando a la IA"
-                  [attr.aria-valuetext]="'Esperando respuesta, ' + aiElapsedSeconds() + ' segundos'"
-                >
-                  <span class="ai-progress-bar"></span>
-                </div>
+                <ai-progress-indicator
+                  variant="plain"
+                  label="Armando la lista con IA..."
+                  ariaLabel="Consultando a la IA"
+                  [elapsedSeconds]="aiElapsedSeconds()"
+                  (cancelled)="cancelAI()"
+                />
               }
               <div class="field-foot">
                 <div class="ai-actions">
                   <button type="button" class="ai-button" [disabled]="aiLoading()" (click)="interpret()">
                     <svg lucideWand class="btn-icon"></svg>
-                    @if (aiLoading()) {
-                      <span>
-                        Armando la lista…
-                        <span class="ai-elapsed font-mono" machineData>{{ aiElapsedSeconds() }} s</span>
-                      </span>
-                    } @else {
-                      <span>Armar la lista con IA</span>
-                    }
+                    <span>Armar la lista con IA</span>
                   </button>
-                  @if (aiLoading()) {
-                    <button type="button" class="ai-cancel" (click)="cancelAI()">Cancelar</button>
-                  }
                 </div>
                 <span class="counter">{{ description().length }}/600</span>
               </div>

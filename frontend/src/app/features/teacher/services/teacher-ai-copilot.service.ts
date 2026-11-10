@@ -21,6 +21,14 @@ export interface AIGenerateExercisePayload {
   verify_with_runner?: boolean;
 }
 
+export interface AIUserCustomProviderDTO {
+  id: string;
+  label: string;
+  icon_url?: string;
+  base_url: string;
+  model: string;
+}
+
 export interface AIUserOverrideDTO {
   enabled: boolean;
   provider: string;
@@ -33,6 +41,7 @@ export interface AIUserOverrideDTO {
   institutional_enabled: boolean;
   institutional_provider_label: string;
   institutional_model: string;
+  custom_providers?: AIUserCustomProviderDTO[];
 }
 
 export interface UpdateAIUserOverridePayload {

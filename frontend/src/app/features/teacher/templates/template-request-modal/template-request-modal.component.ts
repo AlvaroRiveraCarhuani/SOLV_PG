@@ -39,6 +39,7 @@ import { TemplateComponent } from '@features/admin/models/admin-templates.models
 import { TechLogoComponent } from '@features/admin/templates/components/tech-logo/tech-logo.component';
 import { matchesRuntimeEcosystem } from '@features/admin/templates/components/model-library/model-library.utils';
 import { ComboboxComponent, ComboboxOption } from '@shared/components/combobox/combobox.component';
+import { AiProgressIndicatorComponent } from '@shared/components/ai-progress-indicator/ai-progress-indicator.component';
 import { TeacherDashboardService } from '../../services/teacher-dashboard.service';
 import { EnvironmentRequestService } from '../../services/environment-request.service';
 import {
@@ -94,6 +95,7 @@ interface PickerGroup {
     CommonModule,
     FormsModule,
     ComboboxComponent,
+    AiProgressIndicatorComponent,
     LucideAlertCircle,
     LucideBoxes,
     LucideCheck,

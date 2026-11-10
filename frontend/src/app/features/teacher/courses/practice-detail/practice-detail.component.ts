@@ -21,6 +21,8 @@ import {
   LucideSparkles,
   LucideTerminal
 } from '@lucide/angular';
+import { marked } from 'marked';
+import katex from 'katex';
 
 import { TeacherCourseService } from '../../services/teacher-course.service';
 import { TeacherEnvironmentService } from '../../services/teacher-environment.service';
@@ -32,10 +34,43 @@ import { DateTextPipe } from '@shared/pipes/date-text.pipe';
 import { MachineDataDirective } from '@shared/directives/machine-data.directive';
 import { SkeletonLoaderComponent } from '@shared/components/skeleton/skeleton-loader.component';
 import { CodeEditorComponent } from '@shared/components/code-editor/code-editor.component';
+import { TechLogoComponent } from '@features/admin/templates/components/tech-logo/tech-logo.component';
+import {
+  inferTemplateTechnologies,
+  type ResolvableStackConfig
+} from '@features/admin/templates/template-tech-detector.utils';
 import { FuzzingModalComponent } from '../../evaluations/fuzzing-modal/fuzzing-modal.component';
 
 interface ApiResponse<T> {
   data: T;
+}
+
+function renderMarkdownWithKatex(raw: string): string {
+  if (!raw.trim()) {
+    return '';
+  }
+
+  let processed = raw.replace(/\$\$([\s\S]+?)\$\$/g, (_, math) => {
+    try {
+      return `<div class="katex-block-wrapper">${katex.renderToString(math.trim(), { displayMode: true, throwOnError: false, output: 'mathml' })}</div>`;
+    } catch {
+      return `<pre class="katex-error">${math}</pre>`;
+    }
+  });
+
+  processed = processed.replace(/\$([^$\n]+?)\$/g, (_, math) => {
+    try {
+      return katex.renderToString(math.trim(), { displayMode: false, throwOnError: false, output: 'mathml' });
+    } catch {
+      return `<code>${math}</code>`;
+    }
+  });
+
+  try {
+    return marked.parse(processed, { async: false }) as string;
+  } catch {
+    return `<pre>${raw}</pre>`;
+  }
 }
 
 /**
@@ -57,6 +92,7 @@ import { environmentBadge } from '@shared/constants/environment-types.constants'
     MachineDataDirective,
     SkeletonLoaderComponent,
     CodeEditorComponent,
+    TechLogoComponent,
     LucideAlertTriangle,
     LucideArrowLeft,
     LucideCalendar,
@@ -149,6 +185,20 @@ export class PracticeDetailComponent implements OnInit, OnDestroy {
   language = computed(
     () => this.exercise()?.language ?? this.exercise()?.template?.language ?? null
   );
+  templateTechnologies = computed(() => {
+    const exercise = this.exercise();
+    const template = exercise?.template;
+    return inferTemplateTechnologies({
+      name: [template?.name, exercise?.title].filter(Boolean).join(' '),
+      docker_image: template?.docker_image,
+      description: template?.description,
+      stack_config: (template?.stack_config as ResolvableStackConfig | null | undefined) ?? null
+    });
+  });
+  renderedDescription = computed(() => {
+    const description = this.exercise()?.description ?? '';
+    return description.trim() ? renderMarkdownWithKatex(description) : '';
+  });
 
   envTestTone = computed<'neutral' | 'running' | 'success' | 'error'>(() => {
     if (this.isEnvTestRunning()) {

@@ -1,4 +1,4 @@
-import { Component, ChangeDetectionStrategy, Input, Output, EventEmitter, OnInit, inject, signal, computed } from '@angular/core';
+import { Component, ChangeDetectionStrategy, Input, Output, EventEmitter, OnInit, effect, inject, signal, computed } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { AutoGrowDirective } from '@shared/directives/auto-grow.directive';
@@ -11,17 +11,38 @@ import {
   LucideChevronUp
 } from '@lucide/angular';
 import { ModalShellComponent } from '@shared/components/modal-shell/modal-shell.component';
+import { AiProgressIndicatorComponent } from '@shared/components/ai-progress-indicator/ai-progress-indicator.component';
 import { FormFieldComponent } from '@shared/components/form-field/form-field.component';
 import { MachineDataDirective } from '@shared/directives/machine-data.directive';
 import {
   TeacherAiCopilotService,
+  AIGeneratedTestCaseDTO,
   AIGenerateExerciseResponse,
   AIAvailabilityStatus
 } from '../../services/teacher-ai-copilot.service';
 import { AiOperation, AiOperations } from '@shared/services/ai-operation';
+import { AiFlowDrafts } from '@shared/services/ai-flow-drafts';
 import { AiByokPanelComponent } from '../../config/ai-byok-panel/ai-byok-panel.component';
+import { marked } from 'marked';
+import type { RubricCriterionDTO, RubricLevelDTO } from '@core/models/rubric.model';
 
 type AIDifficulty = 'easy' | 'medium' | 'hard';
+
+const DRAFT_KEY = 'generate-exercise';
+
+/**
+ * Lo escrito en el modal. La consigna se pierde si el modal se destruye, y el
+ * docente suele cerrarlo justamente para mirar el editor mientras el motor
+ * trabaja: al volver, el formulario sigue como estaba.
+ */
+interface ExerciseGeneratorDraft {
+  prompt: string;
+  language: string;
+  difficulty: AIDifficulty;
+  publicCasesCount: number;
+  hiddenCasesCount: number;
+  editedDraft?: AIGenerateExerciseResponse;
+}
 
 const LANGUAGE_OPTIONS: string[] = [
   'python',
@@ -40,13 +61,10 @@ const DIFFICULTY_OPTIONS: { value: AIDifficulty; label: string }[] = [
   { value: 'hard', label: 'Difícil' }
 ];
 
-import { EnvironmentLabelPipe } from '@shared/pipes/environment-label.pipe';
-
 @Component({
   selector: 'ai-exercise-generator-modal',
   standalone: true,
   imports: [
-    EnvironmentLabelPipe,
     CommonModule,
     FormsModule,
     AutoGrowDirective,
@@ -57,6 +75,7 @@ import { EnvironmentLabelPipe } from '@shared/pipes/environment-label.pipe';
     LucideChevronDown,
     LucideChevronUp,
     ModalShellComponent,
+    AiProgressIndicatorComponent,
     FormFieldComponent,
     MachineDataDirective,
     AiByokPanelComponent
@@ -67,6 +86,12 @@ import { EnvironmentLabelPipe } from '@shared/pipes/environment-label.pipe';
 })
 export class AiExerciseGeneratorModalComponent implements OnInit {
   private readonly copilotService = inject(TeacherAiCopilotService);
+  private readonly drafts = inject(AiFlowDrafts);
+  // Se lee antes de crear el effect que persiste: el borrador guardado manda
+  // sobre los valores por defecto del formulario.
+  private readonly storedDraft = this.drafts.get<ExerciseGeneratorDraft>(DRAFT_KEY);
+  private restoredDraft = false;
+  private suppressDraftPersistence = false;
 
   @Input() defaultLanguage = 'python';
 
@@ -105,6 +130,10 @@ export class AiExerciseGeneratorModalComponent implements OnInit {
     {
       resolveError: (err: unknown) => this.copilotService.resolveError(err),
       onError: (message: string) => this.errorMessage.set(message),
+      onSuccess: () => {
+        this.editingDraft.set(null);
+        this.draftStep.set('review');
+      },
       notify: {
         success: 'Ejercicio generado por el Copiloto IA.'
       }
@@ -114,14 +143,65 @@ export class AiExerciseGeneratorModalComponent implements OnInit {
   readonly isGenerating = this.operation.isRunning;
   readonly elapsedSeconds = this.operation.elapsedSeconds;
   readonly generatedResult = this.operation.result;
+  readonly editingDraft = signal<AIGenerateExerciseResponse | null>(null);
+  readonly draftStep = signal<'prompt' | 'review' | 'edit'>('prompt');
+  readonly confirmDiscardDraft = signal(false);
+  readonly draftForReview = computed(() => this.editingDraft() || this.generatedResult());
+  readonly visibleDraft = computed(() => this.draftStep() === 'prompt' ? null : this.draftForReview());
+  readonly canApplyDraft = computed(() => !!this.draftForReview() && !this.isGenerating());
+  readonly renderedDescription = computed(() => {
+    const description = this.draftForReview()?.description?.trim() || '';
+    if (!description) return '<p>La consigna está vacía.</p>';
+    try {
+      return marked.parse(description, { async: false }) as string;
+    } catch {
+      return `<p>${description}</p>`;
+    }
+  });
 
   readonly errorMessage = signal<string | null>(null);
 
   // Panel de credencial personal: la lógica vive en el componente compartido.
   readonly showByokPanel = signal(false);
 
+  constructor() {
+    const draft = this.storedDraft;
+    if (draft) {
+      this.restoredDraft = true;
+      this.prompt.set(draft.prompt);
+      if (this.languageOptions.includes(draft.language)) {
+        this.language.set(draft.language);
+      }
+      this.difficulty.set(draft.difficulty);
+      this.publicCasesCount.set(this.clamp(draft.publicCasesCount, 1, 5));
+      this.hiddenCasesCount.set(this.clamp(draft.hiddenCasesCount, 1, 10));
+      if (draft.editedDraft) {
+        this.editingDraft.set(this.copyDraft(draft.editedDraft));
+        this.draftStep.set('review');
+      }
+    }
+    if (this.operation.state() === 'ready' && this.generatedResult()) {
+      this.draftStep.set('review');
+    }
+
+    effect(() => {
+      const draft: ExerciseGeneratorDraft = {
+        prompt: this.prompt(),
+        language: this.language(),
+        difficulty: this.difficulty(),
+        publicCasesCount: this.publicCasesCount(),
+        hiddenCasesCount: this.hiddenCasesCount(),
+        editedDraft: this.editingDraft() || undefined
+      };
+      if (!this.suppressDraftPersistence) {
+        this.drafts.save(DRAFT_KEY, draft);
+      }
+    });
+
+  }
+
   ngOnInit(): void {
-    if (this.defaultLanguage && this.languageOptions.includes(this.defaultLanguage)) {
+    if (!this.restoredDraft && this.defaultLanguage && this.languageOptions.includes(this.defaultLanguage)) {
       this.language.set(this.defaultLanguage);
     }
     this.loadStatus();
@@ -172,6 +252,7 @@ export class AiExerciseGeneratorModalComponent implements OnInit {
     }
 
     this.errorMessage.set(null);
+    this.draftStep.set('prompt');
     const isIdeMode = this.isIde();
     this.operation.run(
       this.copilotService.generateExercise({
@@ -191,18 +272,133 @@ export class AiExerciseGeneratorModalComponent implements OnInit {
     this.errorMessage.set('Generación cancelada por el docente.');
   }
 
-  discardResult(): void {
+  startEditingDraft(): void {
+    const draft = this.draftForReview();
+    if (!draft) return;
+    if (!this.editingDraft()) {
+      this.editingDraft.set(this.copyDraft(draft));
+    }
+    this.draftStep.set('edit');
+  }
+
+  reviewDraft(): void {
+    this.draftStep.set('review');
+  }
+
+  editPrompt(): void {
+    this.draftStep.set('prompt');
+  }
+
+  requestDiscardDraft(): void {
+    this.confirmDiscardDraft.set(true);
+  }
+
+  cancelDiscardDraft(): void {
+    this.confirmDiscardDraft.set(false);
+  }
+
+  discardDraft(): void {
     this.operation.reset();
+    this.editingDraft.set(null);
+    this.draftStep.set('prompt');
+    this.confirmDiscardDraft.set(false);
     this.errorMessage.set(null);
   }
 
+  updateDraft(patch: Partial<AIGenerateExerciseResponse>): void {
+    this.editingDraft.update(draft => draft ? { ...draft, ...patch } : draft);
+  }
+
+  rubricTotal(criteria: RubricCriterionDTO[]): number {
+    return criteria.reduce((total, criterion) => total + (Number(criterion.weight) || 0), 0);
+  }
+
+  rubricBalanced(criteria: RubricCriterionDTO[]): boolean {
+    return Math.abs(this.rubricTotal(criteria) - 100) < 0.01;
+  }
+
+  allTestCasesVerified(draft: AIGenerateExerciseResponse): boolean {
+    return !!draft.test_cases?.length && draft.test_cases.every(testCase => testCase.verified_by_runner);
+  }
+
+  updateTestCase(index: number, patch: Partial<AIGeneratedTestCaseDTO>): void {
+    this.editingDraft.update(draft => {
+      if (!draft?.test_cases) return draft;
+      const test_cases = draft.test_cases.map((testCase, i) =>
+        i === index ? { ...testCase, ...patch } : testCase
+      );
+      const changedVerifiedContent =
+        Object.prototype.hasOwnProperty.call(patch, 'input') ||
+        Object.prototype.hasOwnProperty.call(patch, 'expected_output');
+      if (changedVerifiedContent) {
+        test_cases[index] = { ...test_cases[index], verified_by_runner: false };
+      }
+      return {
+        ...draft,
+        test_cases,
+        ...(changedVerifiedContent
+          ? {
+              runner_verified_all: false,
+              verification_warning: 'Se modificó un caso después de verificarlo. El motor debe volver a comprobar los casos.'
+            }
+          : {})
+      };
+    });
+  }
+
+  updateRubricCriterion(index: number, patch: Partial<RubricCriterionDTO>): void {
+    this.editingDraft.update(draft => {
+      if (!draft?.rubric) return draft;
+      const criteria = draft.rubric.criteria.map((criterion, i) =>
+        i === index ? { ...criterion, ...patch } : criterion
+      );
+      return { ...draft, rubric: { ...draft.rubric, criteria } };
+    });
+  }
+
+  updateRubricLevel(criterionIndex: number, levelIndex: number, patch: Partial<RubricLevelDTO>): void {
+    this.editingDraft.update(draft => {
+      if (!draft?.rubric) return draft;
+      const criteria = draft.rubric.criteria.map((criterion, i) => {
+        if (i !== criterionIndex) return criterion;
+        const levels = criterion.levels.map((level, j) => j === levelIndex ? { ...level, ...patch } : level);
+        return { ...criterion, levels };
+      });
+      return { ...draft, rubric: { ...draft.rubric, criteria } };
+    });
+  }
+
   applyDraft(): void {
-    const res = this.generatedResult();
-    if (!res) {
-      return;
-    }
-    this.applied.emit(res);
+    const draft = this.editingDraft() || this.generatedResult();
+    if (!draft || !this.canApplyDraft()) return;
+
+    // El backend ya resolvió la plantilla contra el catálogo aprobado. Se conserva
+    // para que el paso de Entorno la hidrate; sin coincidencia, el docente elige
+    // el entorno a mano.
+    const appliedDraft = { ...draft };
+    this.suppressDraftPersistence = true;
+    this.drafts.clear(DRAFT_KEY);
+    this.applied.emit(appliedDraft);
+    this.operation.reset();
+    this.editingDraft.set(null);
+    this.confirmDiscardDraft.set(false);
     this.closed.emit();
+  }
+
+  private copyDraft(draft: AIGenerateExerciseResponse): AIGenerateExerciseResponse {
+    return {
+      ...draft,
+      rubric: draft.rubric
+        ? {
+            ...draft.rubric,
+            criteria: draft.rubric.criteria.map(criterion => ({
+              ...criterion,
+              levels: criterion.levels.map(level => ({ ...level }))
+            }))
+          }
+        : undefined,
+      test_cases: draft.test_cases?.map(testCase => ({ ...testCase }))
+    };
   }
 
   private clamp(value: number, min: number, max: number): number {
