@@ -1,5 +1,7 @@
 name: SOLV Pipeline CI/CD
 
+# Retrigger: harmless comment to re-run the full L3 plan after the
+# migration-chain duplicate env fix (a70da74).
 on:
   push:
     branches: [ main, develop ]
