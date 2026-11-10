@@ -6,6 +6,7 @@ import { RouterTestingModule } from '@angular/router/testing';
 import { Router } from '@angular/router';
 import { signal } from '@angular/core';
 import { TeacherCourseSummary } from '../models/teacher.models';
+import { TemplateComponent } from '@features/admin/models/admin-templates.models';
 
 describe('TeacherTemplatesComponent', () => {
   let component: TeacherTemplatesComponent;
@@ -22,6 +23,97 @@ describe('TeacherTemplatesComponent', () => {
       active_now: 5,
       pending_review: 2,
       at_risk: 1
+    }
+  ];
+
+  const mockTechCatalog: TemplateComponent[] = [
+    {
+      id: 'comp-node',
+      slug: 'node-20',
+      layer: 'runtime',
+      sub_category: 'backend',
+      name: 'Node.js 20 LTS',
+      description: 'Entorno JavaScript y TypeScript',
+      icon_key: 'node',
+      base_image: 'node:20-bookworm-slim',
+      compatible_runtimes: ['node', 'web'],
+      install_mode: 'none',
+      package_names: [],
+      build_layer_snippet: '',
+      setup_snippet: '',
+      judge_entrypoint: 'node solution.js',
+      tools_provided: ['node', 'npm'],
+      service_engine: '',
+      ram_delta_mb: 512,
+      is_system: true,
+      is_active: true,
+      sort_order: 20
+    },
+    {
+      id: 'comp-nextjs',
+      slug: 'nextjs',
+      layer: 'runtime',
+      sub_category: 'web',
+      name: 'Next.js (React Full-Stack)',
+      description: 'Framework React de producción',
+      icon_key: 'nextjs',
+      base_image: 'node:20-bookworm-slim',
+      compatible_runtimes: ['node', 'web'],
+      install_mode: 'npm',
+      package_names: ['next'],
+      build_layer_snippet: '',
+      setup_snippet: '',
+      judge_entrypoint: '',
+      tools_provided: ['node', 'npm'],
+      service_engine: '',
+      ram_delta_mb: 128,
+      is_system: true,
+      is_active: true,
+      sort_order: 110
+    },
+    {
+      id: 'comp-prisma',
+      slug: 'prisma',
+      layer: 'addon',
+      sub_category: 'orm',
+      name: 'Prisma ORM',
+      description: 'ORM tipado para Node.js y TypeScript',
+      icon_key: 'prisma',
+      base_image: '',
+      compatible_runtimes: ['node'],
+      install_mode: 'npm',
+      package_names: ['prisma'],
+      build_layer_snippet: '',
+      setup_snippet: '',
+      judge_entrypoint: '',
+      tools_provided: ['npx'],
+      service_engine: '',
+      ram_delta_mb: 64,
+      is_system: true,
+      is_active: true,
+      sort_order: 280
+    },
+    {
+      id: 'comp-db-none',
+      slug: 'db-none',
+      layer: 'database',
+      sub_category: 'none',
+      name: 'Sin Base de Datos',
+      description: 'Sin motor de datos',
+      icon_key: 'docker',
+      base_image: '',
+      compatible_runtimes: ['universal'],
+      install_mode: 'none',
+      package_names: [],
+      build_layer_snippet: '',
+      setup_snippet: '',
+      judge_entrypoint: '',
+      tools_provided: [],
+      service_engine: 'none',
+      ram_delta_mb: 0,
+      is_system: true,
+      is_active: true,
+      sort_order: 300
     }
   ];
 
@@ -78,6 +170,11 @@ describe('TeacherTemplatesComponent', () => {
     const requestsReq = httpMock.expectOne('/api/v1/teacher/environment-requests');
     expect(requestsReq.request.method).toBe('GET');
     requestsReq.flush({ data: [] });
+
+    // El catálogo de componentes traduce los ids del stack a nombres e iconos.
+    const catalogReq = httpMock.expectOne('/api/v1/admin/template-components');
+    expect(catalogReq.request.method).toBe('GET');
+    catalogReq.flush({ data: mockTechCatalog });
   });
 
   afterEach(() => {
@@ -157,6 +254,31 @@ describe('TeacherTemplatesComponent', () => {
     expect(component.activeTab()).toBe('requests');
 
     httpMock.expectOne('/api/v1/teacher/environment-requests').flush({ data: [] });
+  });
+
+  it('resolves the full stored stack in the catalog cards, not only the main language', () => {
+    const fullStack: PublishedTemplate = {
+      ...mockTemplates[0],
+      name: 'Entorno Full-Stack JS',
+      docker_image: 'solv-local/stack:660620ce5745',
+      stack_config: {
+        runtime_id: 'comp-node',
+        web_platform_id: 'comp-nextjs',
+        addon_ids: ['comp-prisma'],
+        database_id: 'comp-db-none'
+      }
+    };
+
+    expect(component.techChipsFor(fullStack).map(chip => chip.name)).toEqual([
+      'Node.js 20 LTS',
+      'Next.js (React Full-Stack)',
+      'Prisma ORM'
+    ]);
+    expect(component.primaryIconFor(fullStack)).toBe('node');
+
+    component.templates.set([fullStack]);
+    component.searchTerm.set('prisma');
+    expect(component.filteredTemplates().length).toBe(1);
   });
 
   it('carries the base environment and its pieces when asking for a variant', () => {

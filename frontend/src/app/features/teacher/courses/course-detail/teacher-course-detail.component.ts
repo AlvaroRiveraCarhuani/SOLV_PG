@@ -40,6 +40,8 @@ import { MachineDataDirective } from '@shared/directives/machine-data.directive'
 import { DismissibleDirective } from '@shared/directives/dismissible.directive';
 import { ComboboxComponent, ComboboxOption } from '@shared/components/combobox/combobox.component';
 import { VerdictBadgeComponent } from '@shared/components/verdict-badge/verdict-badge.component';
+import { SortHeaderComponent } from '@shared/components/sort-header/sort-header.component';
+import { SortDirection, SortState } from '@shared/components/sort-header/sort-header.types';
 import { VERDICT_FILTER_OPTIONS, matchesVerdictFilter } from '@core/models/verdict.model';
 
 @Component({
@@ -81,7 +83,8 @@ import { VERDICT_FILTER_OPTIONS, matchesVerdictFilter } from '@core/models/verdi
     GradebookExportModalComponent,
     ImportExercisesModalComponent,
     ComboboxComponent,
-    VerdictBadgeComponent
+    VerdictBadgeComponent,
+    SortHeaderComponent
   ],
   templateUrl: './teacher-course-detail.component.html',
   styleUrl: './teacher-course-detail.component.scss'
@@ -142,14 +145,51 @@ export class TeacherCourseDetailComponent implements OnInit {
     return [defaultOpt, ...labOpts];
   });
 
+  // Ordenamiento de entregas
+  sortState = signal<SortState>({ column: null, direction: 'none' });
+
+  onSortChange(event: { column: string; direction: SortDirection }): void {
+    this.sortState.set({
+      column: event.direction === 'none' ? null : event.column,
+      direction: event.direction
+    });
+  }
+
   filteredSubmissions = computed(() => {
     const verdict = this.verdictFilter();
     const labId = this.labFilter();
-    return this.submissions().filter(s => {
+    const sort = this.sortState();
+    let list = this.submissions().filter(s => {
       const matchVerdict = matchesVerdictFilter(s.verdict, verdict);
       const matchLab = labId === 'all' || s.exercise_id === labId;
       return matchVerdict && matchLab;
     });
+
+    if (sort.column && sort.direction !== 'none') {
+      const modifier = sort.direction === 'asc' ? 1 : -1;
+      list = [...list].sort((a, b) => {
+        switch (sort.column) {
+          case 'student':
+            return (a.student_name || '').localeCompare(b.student_name || '', undefined, { sensitivity: 'base' }) * modifier;
+          case 'exercise':
+            return (a.exercise_title || '').localeCompare(b.exercise_title || '', undefined, { sensitivity: 'base' }) * modifier;
+          case 'score': {
+            const scA = a.score ?? -1;
+            const scB = b.score ?? -1;
+            return (scA - scB) * modifier;
+          }
+          case 'date': {
+            const dA = a.submitted_at ? new Date(a.submitted_at).getTime() : 0;
+            const dB = b.submitted_at ? new Date(b.submitted_at).getTime() : 0;
+            return (dA - dB) * modifier;
+          }
+          default:
+            return 0;
+        }
+      });
+    }
+
+    return list;
   });
 
   ngOnInit(): void {

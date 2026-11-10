@@ -122,9 +122,6 @@
           <!-- Card Body -->
           <div class="card-body">
             <div class="card-main-info">
-              <div class="logo-wrapper">
-                <tech-logo [iconType]="tpl.primaryIcon || 'docker'" [size]="56" />
-              </div>
               <div class="title-wrap">
                 <h2 class="template-title">{{ tpl.name }}</h2>
               </div>
@@ -137,10 +134,10 @@
             <div class="tech-stack-section">
               <span class="tech-stack-label">Herramientas incluidas:</span>
               <div class="tech-chips-row">
-                @for (chip of tpl.techChips; track chip.name) {
+                @for (chip of techChipsFor(tpl); track chip.name) {
                   <span class="tech-chip">
                     @if (chip.iconKey) {
-                      <tech-logo [iconType]="chip.iconKey" [size]="24" />
+                      <tech-logo [iconType]="chip.iconKey" [size]="18" />
                     }
                     <span class="chip-label">{{ chip.name }}</span>
                   </span>

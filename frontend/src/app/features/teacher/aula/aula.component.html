@@ -180,10 +180,46 @@
       <table class="aula-table">
         <thead>
           <tr>
-            <th scope="col">Alumno</th>
-            <th scope="col">Estado</th>
-            <th scope="col">Entrega</th>
-            <th scope="col" class="num">Intentos</th>
+            <th scope="col">
+              <sort-header
+                column="name"
+                [activeColumn]="sortState().column"
+                [direction]="sortState().direction"
+                (sortChange)="onSortChange($event)"
+              >
+                Alumno
+              </sort-header>
+            </th>
+            <th scope="col">
+              <sort-header
+                column="state"
+                [activeColumn]="sortState().column"
+                [direction]="sortState().direction"
+                (sortChange)="onSortChange($event)"
+              >
+                Estado
+              </sort-header>
+            </th>
+            <th scope="col">
+              <sort-header
+                column="time"
+                [activeColumn]="sortState().column"
+                [direction]="sortState().direction"
+                (sortChange)="onSortChange($event)"
+              >
+                Entrega
+              </sort-header>
+            </th>
+            <th scope="col" class="num">
+              <sort-header
+                column="attempts"
+                [activeColumn]="sortState().column"
+                [direction]="sortState().direction"
+                (sortChange)="onSortChange($event)"
+              >
+                Intentos
+              </sort-header>
+            </th>
             <th scope="col">Entorno</th>
           </tr>
         </thead>

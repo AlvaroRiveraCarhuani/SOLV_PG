@@ -5,6 +5,8 @@ import { ComboboxComponent, ComboboxOption } from '@shared/components/combobox/c
 import { SearchBarComponent } from '@shared/components/search-bar/search-bar.component';
 import { StatusTabsComponent, StatusTabItem } from '@shared/components/status-tabs/status-tabs.component';
 import { PaginationBarComponent } from '@shared/components/pagination-bar/pagination-bar.component';
+import { SortHeaderComponent } from '@shared/components/sort-header/sort-header.component';
+import { SortDirection } from '@shared/components/sort-header/sort-header.types';
 import { TeacherItem } from '@core/models/admin.model';
 import { formatSolvDate } from '@shared/pipes/date-text.pipe';
 import {
@@ -35,6 +37,7 @@ const ENGLISH_MONTH_INDEX: Record<string, number> = {
     SearchBarComponent,
     StatusTabsComponent,
     PaginationBarComponent,
+    SortHeaderComponent,
     LucideUserPlus,
     LucideLock,
     LucideCheckCircle,
@@ -63,10 +66,13 @@ export class TeacherTableComponent {
   readonly originComboboxOptions = input.required<ComboboxOption[]>();
   readonly selectedOriginLabel = input.required<string>();
   readonly counts = input.required<{ all: number; active: number; noCourses: number; pending: number; expired: number }>();
+  readonly sortColumn = input<string | null>(null);
+  readonly sortDirection = input<SortDirection>('none');
 
   readonly searchChange = output<string>();
   readonly statusChange = output<string>();
   readonly originChange = output<string>();
+  readonly sortChange = output<{ column: string; direction: SortDirection }>();
   readonly pageChange = output<number>();
   readonly resendInvitation = output<TeacherItem>();
   readonly revokeInvitation = output<TeacherItem>();

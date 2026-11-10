@@ -100,6 +100,8 @@ Cada intención tiene **una** animación asignada. Si una vista necesita otra co
 | `.motion-spin` | `solv-spin` | Icono o anillo que indica espera; es el único giro permitido |
 | `solv-progress-indeterminate` | — | Barra de espera sin porcentaje |
 
+**Espera de una operación de IA.** No se dibuja por vista. `ai-progress-indicator` (`shared/components/ai-progress-indicator/`) compone la barra indeterminada, la fase en curso, los segundos transcurridos y el botón de cancelación, con su propia versión de movimiento reducido. `variant="plain"` sirve para los flujos que ya viven dentro de un bloque con borde.
+
 **Salidas.** Se activan con `animate.leave="<clase>"` y duran `--motion-fast` con `--motion-ease-exit`; un menú usa `--motion-instant`.
 
 | Primitiva | Keyframe | Cuándo |
@@ -182,7 +184,7 @@ Solo aplica a animaciones locales que no son bucle y que no tienen primitiva equ
 
 | Bloque | Qué muestra |
 | :--- | :--- |
-| Indicadores de carga | `.motion-spin`, `skeleton` con `shimmer` y con `pulse`, `status-badge` en `running`, `typing-dot` (documentado, sin vista previa: vive en `aula-telemetry-widget`) |
+| Indicadores de carga | `.motion-spin`, `solv-progress-indeterminate` (con el componente `ai-progress-indicator`), `skeleton` con `shimmer` y con `pulse`, `status-badge` en `running`, `typing-dot` (documentado, sin vista previa: vive en `aula-telemetry-widget`) |
 | Entradas | `.motion-fade`, `.motion-rise`, `.motion-panel`, `.motion-backdrop`, `.animate-dropdown`, `.motion-drawer`, `.motion-chip`, `.motion-stagger` |
 | Salidas | `.motion-fade-out`, `.motion-backdrop-out`, `.motion-panel-out`, `.motion-drawer-out`, `.motion-dropdown-out`, `.motion-modal-out` |
 | Otros efectos | `.highlight-target-pulse` y la tabla de efectos locales por vista |
@@ -195,7 +197,22 @@ Se actualiza junto con el catálogo: al agregar o retirar una primitiva, al camb
 
 ---
 
-## 5. Política de Archivos Legacy e Ignore-List
+## 5. Escala Canónica de Logos Tecnológicos (`tech-logo`)
+
+Para evitar tamaños arbitrarios o números mágicos que degraden la legibilidad de iconos SVG y garantizar coherencia visual en toda la plataforma, el componente `TechLogoComponent` (`@features/admin/templates/components/tech-logo/tech-logo.component.ts`) expone la escala estándar `TECH_LOGO_SIZES`:
+
+| Variante | Tamaño exterior (`size`) | Tamaño SVG útil (`size - 8`) | Uso canónico | Ejemplo |
+| :--- | :---: | :---: | :--- | :--- |
+| `chip` | **18px** | 10px | Etiquetas y chips de herramientas dentro de tarjetas o tablas | `.tech-chip` en ficha de práctica y editor |
+| `compact` | **24px** | 16px | Grillas de selección, inspectores compactos o dropdowns | Selectores en modales de entorno |
+| `avatar` | **36px** | 28px | Cajas de identidad de tarjetas (`.avatar-box` de 40–44px) | Avatar hero en selector de entorno |
+| `hero` | **40px** | 32px | Cabeceras principales de modal y vistas de detalle extendidas | Modal de detalle de plantilla |
+
+> **Regla de Legibilidad:** Queda prohibido usar tamaños menores a `18px` en `tech-logo`. Debido al padding interno y borde (`var(--space-1)` = 4px), tamaños inferiores a `18px` comprimen el SVG a menos de 10px, inutilizando la silueta del isotipo.
+
+---
+
+## 6. Política de Archivos Legacy e Ignore-List
 
 Los componentes históricos de administración que aún poseen colores hex pendientes de migración se encuentran aislados temporalmente en el archivo `.stylelintignore`, cada uno con su respectivo comentario `// TODO: salir de la lista exige limpiar el archivo en el mismo PR`.
 

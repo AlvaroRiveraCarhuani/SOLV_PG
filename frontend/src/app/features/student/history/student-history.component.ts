@@ -9,6 +9,8 @@ import { ComboboxComponent, ComboboxOption } from '@shared/components/combobox/c
 import { SearchBarComponent } from '@shared/components/search-bar/search-bar.component';
 import { VerdictBadgeComponent } from '@shared/components/verdict-badge/verdict-badge.component';
 import { SkeletonLoaderComponent } from '@shared/components/skeleton/skeleton-loader.component';
+import { SortHeaderComponent } from '@shared/components/sort-header/sort-header.component';
+import { SortDirection, SortState } from '@shared/components/sort-header/sort-header.types';
 import { MachineDataDirective } from '@shared/directives/machine-data.directive';
 import { DateTextPipe } from '@shared/pipes/date-text.pipe';
 import { environmentTypeOptions } from '@shared/constants/environment-types.constants';
@@ -23,6 +25,7 @@ import { environmentTypeOptions } from '@shared/constants/environment-types.cons
     SearchBarComponent,
     VerdictBadgeComponent,
     SkeletonLoaderComponent,
+    SortHeaderComponent,
     MachineDataDirective,
     DateTextPipe
   ],
@@ -37,6 +40,7 @@ export class StudentHistoryComponent implements OnInit {
   readonly verdictFilter = signal<string>('all');
   readonly environmentFilter = signal<string>('all');
   readonly searchQuery = signal<string>('');
+  readonly sortState = signal<SortState>({ column: null, direction: 'none' });
 
   readonly submissions = computed<StudentSubmissionHistoryItem[]>(() =>
     this.studentService.submissionsHistory()
@@ -71,8 +75,9 @@ export class StudentHistoryComponent implements OnInit {
     const verdict = this.verdictFilter();
     const env = this.environmentFilter();
     const query = this.searchQuery().trim().toLowerCase();
+    const sort = this.sortState();
 
-    return this.submissions().filter((sub) => {
+    let list = this.submissions().filter((sub) => {
       if (subject !== 'all' && this.subjectKey(sub) !== subject) {
         return false;
       }
@@ -90,7 +95,39 @@ export class StudentHistoryComponent implements OnInit {
       }
       return (sub.exercise_title ?? '').toLowerCase().includes(query);
     });
+
+    if (sort.column && sort.direction !== 'none') {
+      const modifier = sort.direction === 'asc' ? 1 : -1;
+      list = [...list].sort((a, b) => {
+        switch (sort.column) {
+          case 'exercise':
+            return (a.exercise_title || '').localeCompare(b.exercise_title || '', undefined, { sensitivity: 'base' }) * modifier;
+          case 'subject':
+            return (a.subject_name || a.subject_code || '').localeCompare(b.subject_name || b.subject_code || '', undefined, { sensitivity: 'base' }) * modifier;
+          case 'verdict':
+            return (a.verdict || '').localeCompare(b.verdict || '', undefined, { sensitivity: 'base' }) * modifier;
+          case 'score': {
+            const scoreA = a.score ?? -1;
+            const scoreB = b.score ?? -1;
+            return (scoreA - scoreB) * modifier;
+          }
+          case 'date': {
+            const dateA = a.submitted_at ? new Date(a.submitted_at).getTime() : 0;
+            const dateB = b.submitted_at ? new Date(b.submitted_at).getTime() : 0;
+            return (dateA - dateB) * modifier;
+          }
+          default:
+            return 0;
+        }
+      });
+    }
+
+    return list;
   });
+
+  onSortChange(event: { column: string; direction: SortDirection }): void {
+    this.sortState.set({ column: event.column, direction: event.direction });
+  }
 
   ngOnInit(): void {
     void this.loadSubmissionsHistory();

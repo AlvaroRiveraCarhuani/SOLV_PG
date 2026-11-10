@@ -255,11 +255,47 @@
         <table class="data-table">
           <thead>
             <tr>
-              <th>Estudiante</th>
-              <th>Laboratorio</th>
+              <th>
+                <sort-header
+                  column="student"
+                  [activeColumn]="sortState().column"
+                  [direction]="sortState().direction"
+                  (sortChange)="onSortChange($event)"
+                >
+                  Estudiante
+                </sort-header>
+              </th>
+              <th>
+                <sort-header
+                  column="exercise"
+                  [activeColumn]="sortState().column"
+                  [direction]="sortState().direction"
+                  (sortChange)="onSortChange($event)"
+                >
+                  Laboratorio
+                </sort-header>
+              </th>
               <th>Veredicto</th>
-              <th>Puntaje</th>
-              <th>Fecha Entrega</th>
+              <th>
+                <sort-header
+                  column="score"
+                  [activeColumn]="sortState().column"
+                  [direction]="sortState().direction"
+                  (sortChange)="onSortChange($event)"
+                >
+                  Puntaje
+                </sort-header>
+              </th>
+              <th>
+                <sort-header
+                  column="date"
+                  [activeColumn]="sortState().column"
+                  [direction]="sortState().direction"
+                  (sortChange)="onSortChange($event)"
+                >
+                  Fecha Entrega
+                </sort-header>
+              </th>
               <th class="text-center">Comentarios</th>
               <th>Acción</th>
             </tr>

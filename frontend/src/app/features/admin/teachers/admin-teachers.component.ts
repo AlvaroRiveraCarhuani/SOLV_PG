@@ -10,6 +10,7 @@ import { TeacherInviteFeedbackComponent } from './components/teacher-invite-feed
 import { TeacherKpiCardsComponent } from './components/teacher-kpi-cards/teacher-kpi-cards.component';
 import { ComboboxOption } from '@shared/components/combobox/combobox.component';
 import { StatusTabItem } from '@shared/components/status-tabs/status-tabs.component';
+import { SortDirection, SortState } from '@shared/components/sort-header/sort-header.types';
 import {
   TeacherItem,
   TeacherInvitationPayload,
@@ -64,6 +65,15 @@ export class AdminTeachersComponent implements OnInit, OnDestroy {
   searchTerm = signal<string>('');
   statusFilter = signal<string>('all');
   originFilter = signal<string>('all');
+  sortState = signal<SortState>({ column: null, direction: 'none' });
+
+  onSortChange(event: { column: string; direction: SortDirection }): void {
+    this.sortState.set({
+      column: event.direction === 'none' ? null : event.column,
+      direction: event.direction
+    });
+    this.currentPage.set(1);
+  }
 
   originComboboxOptions = computed<ComboboxOption[]>(() => [
     { id: 'all', label: 'Todos los orígenes', value: 'all' },
@@ -199,13 +209,14 @@ export class AdminTeachersComponent implements OnInit, OnDestroy {
     { id: 'expired', label: 'Expirados', count: this.counts().expired, badgeVariant: 'neutral' }
   ]);
 
-  // Lista filtrada en cliente por si la búsqueda/estado cambia en vista
+  // Lista filtrada y ordenada en cliente por si la búsqueda/estado cambia en vista
   filteredTeachersList = computed(() => {
     const term = this.searchTerm().toLowerCase().trim();
     const status = this.statusFilter();
     const origin = this.originFilter();
+    const sort = this.sortState();
 
-    return this.teachers().filter(t => {
+    let list = this.teachers().filter(t => {
       if (status === 'no_courses') {
         if (t.status !== 'active' || (t.active_courses ?? 0) > 0) return false;
       } else if (status !== 'all' && t.status !== status) {
@@ -219,6 +230,31 @@ export class AdminTeachersComponent implements OnInit, OnDestroy {
       }
       return true;
     });
+
+    if (sort.column && sort.direction !== 'none') {
+      const modifier = sort.direction === 'asc' ? 1 : -1;
+      list = [...list].sort((a, b) => {
+        switch (sort.column) {
+          case 'name':
+            return (a.full_name || '').localeCompare(b.full_name || '', undefined, { sensitivity: 'base' }) * modifier;
+          case 'origin':
+            return (a.origin || '').localeCompare(b.origin || '', undefined, { sensitivity: 'base' }) * modifier;
+          case 'status':
+            return (a.status || '').localeCompare(b.status || '', undefined, { sensitivity: 'base' }) * modifier;
+          case 'courses':
+            return ((a.active_courses ?? 0) - (b.active_courses ?? 0)) * modifier;
+          case 'date': {
+            const dA = a.invited_at ? new Date(a.invited_at).getTime() : 0;
+            const dB = b.invited_at ? new Date(b.invited_at).getTime() : 0;
+            return (dA - dB) * modifier;
+          }
+          default:
+            return 0;
+        }
+      });
+    }
+
+    return list;
   });
 
   // Lista paginada

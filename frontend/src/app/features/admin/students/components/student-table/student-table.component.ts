@@ -4,6 +4,8 @@ import { FormsModule } from '@angular/forms';
 import { ComboboxComponent, ComboboxOption } from '@shared/components/combobox/combobox.component';
 import { SearchBarComponent } from '@shared/components/search-bar/search-bar.component';
 import { PaginationBarComponent } from '@shared/components/pagination-bar/pagination-bar.component';
+import { SortHeaderComponent } from '@shared/components/sort-header/sort-header.component';
+import { SortDirection } from '@shared/components/sort-header/sort-header.types';
 import { DismissibleDirective } from '@shared/directives/dismissible.directive';
 import { AdminStudentItem } from '../../../services/admin-students.service';
 import { formatSolvDate } from '@shared/pipes/date-text.pipe';
@@ -28,6 +30,7 @@ import {
     ComboboxComponent,
     SearchBarComponent,
     PaginationBarComponent,
+    SortHeaderComponent,
     DismissibleDirective,
     LucideAlertTriangle,
     LucideShieldAlert,
@@ -58,11 +61,14 @@ export class StudentTableComponent {
   readonly paginationFrom = input<number>(0);
   readonly paginationTo = input<number>(0);
   readonly activeMenuStudentId = input<string | null>(null);
+  readonly sortColumn = input<string | null>(null);
+  readonly sortDirection = input<SortDirection>('none');
 
   readonly searchChange = output<string>();
   readonly periodSelected = output<ComboboxOption>();
   readonly subjectSelected = output<ComboboxOption>();
   readonly statusSelected = output<ComboboxOption>();
+  readonly sortChange = output<{ column: string; direction: SortDirection }>();
   readonly pageChange = output<number>();
   readonly openCourses = output<AdminStudentItem>();
   readonly openResetOOM = output<AdminStudentItem>();

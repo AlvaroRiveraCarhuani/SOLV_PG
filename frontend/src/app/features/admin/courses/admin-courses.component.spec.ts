@@ -164,6 +164,27 @@ describe('AdminCoursesComponent Unit Tests', () => {
     expect(component.filteredCourses()[0].id).toBe('c3');
   });
 
+  it('debe ordenar cursos mediante onSortChange y alternar ascendente/descendente', () => {
+    // Los códigos en mockCourses son: 'SIS-201', 'SIS-301', 'TEL-101'
+    // Ordenar por código ascendente: 'SIS-201', 'SIS-301', 'TEL-101'
+    component.onSortChange({ column: 'code', direction: 'asc' });
+    fixture.detectChanges();
+    expect(component.sortState()).toEqual({ column: 'code', direction: 'asc' });
+    expect(component.filteredCourses()[0].code).toBe('SIS-201');
+    expect(component.filteredCourses()[2].code).toBe('TEL-101');
+
+    // Ordenar por código descendente: 'TEL-101', 'SIS-301', 'SIS-201'
+    component.onSortChange({ column: 'code', direction: 'desc' });
+    fixture.detectChanges();
+    expect(component.filteredCourses()[0].code).toBe('TEL-101');
+    expect(component.filteredCourses()[2].code).toBe('SIS-201');
+
+    // Quitar ordenamiento (direction: 'none')
+    component.onSortChange({ column: 'code', direction: 'none' });
+    fixture.detectChanges();
+    expect(component.sortState()).toEqual({ column: null, direction: 'none' });
+  });
+
   it('debe calcular los límites de paginación from, to y total', () => {
     const display = component.paginationDisplay();
     expect(display).toEqual({ from: 1, to: 3, total: 3 });

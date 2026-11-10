@@ -39,11 +39,56 @@
       <table class="teachers-table">
         <thead>
           <tr>
-            <th>NOMBRE Y CORREO</th>
-            <th>ORIGEN</th>
-            <th>ESTADO</th>
-            <th>MATERIAS</th>
-            <th>FECHA DE REGISTRO</th>
+            <th>
+              <sort-header
+                column="name"
+                [activeColumn]="sortColumn()"
+                [direction]="sortDirection()"
+                (sortChange)="sortChange.emit($event)"
+              >
+                NOMBRE Y CORREO
+              </sort-header>
+            </th>
+            <th>
+              <sort-header
+                column="origin"
+                [activeColumn]="sortColumn()"
+                [direction]="sortDirection()"
+                (sortChange)="sortChange.emit($event)"
+              >
+                ORIGEN
+              </sort-header>
+            </th>
+            <th>
+              <sort-header
+                column="status"
+                [activeColumn]="sortColumn()"
+                [direction]="sortDirection()"
+                (sortChange)="sortChange.emit($event)"
+              >
+                ESTADO
+              </sort-header>
+            </th>
+            <th>
+              <sort-header
+                column="courses"
+                [activeColumn]="sortColumn()"
+                [direction]="sortDirection()"
+                (sortChange)="sortChange.emit($event)"
+              >
+                MATERIAS
+              </sort-header>
+            </th>
+            <th>
+              <sort-header
+                column="date"
+                [activeColumn]="sortColumn()"
+                [direction]="sortDirection()"
+                (sortChange)="sortChange.emit($event)"
+              >
+                FECHA DE REGISTRO
+              </sort-header>
+            </th>
             <th class="text-right">ACCIÓN</th>
           </tr>
         </thead>

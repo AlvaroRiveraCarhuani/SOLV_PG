@@ -65,12 +65,57 @@
       <table class="history-table">
         <thead>
           <tr>
-            <th scope="col">Ejercicio</th>
-            <th scope="col">Materia</th>
-            <th scope="col">Resultado</th>
-            <th scope="col">Nota</th>
+            <th scope="col">
+              <sort-header
+                column="exercise"
+                [activeColumn]="sortState().column"
+                [direction]="sortState().direction"
+                (sortChange)="onSortChange($event)"
+              >
+                Ejercicio
+              </sort-header>
+            </th>
+            <th scope="col">
+              <sort-header
+                column="subject"
+                [activeColumn]="sortState().column"
+                [direction]="sortState().direction"
+                (sortChange)="onSortChange($event)"
+              >
+                Materia
+              </sort-header>
+            </th>
+            <th scope="col">
+              <sort-header
+                column="verdict"
+                [activeColumn]="sortState().column"
+                [direction]="sortState().direction"
+                (sortChange)="onSortChange($event)"
+              >
+                Resultado
+              </sort-header>
+            </th>
+            <th scope="col">
+              <sort-header
+                column="score"
+                [activeColumn]="sortState().column"
+                [direction]="sortState().direction"
+                (sortChange)="onSortChange($event)"
+              >
+                Nota
+              </sort-header>
+            </th>
             <th scope="col">Tiempo</th>
-            <th scope="col">Fecha</th>
+            <th scope="col">
+              <sort-header
+                column="date"
+                [activeColumn]="sortState().column"
+                [direction]="sortState().direction"
+                (sortChange)="onSortChange($event)"
+              >
+                Fecha
+              </sort-header>
+            </th>
             <th scope="col">Acciones</th>
           </tr>
         </thead>

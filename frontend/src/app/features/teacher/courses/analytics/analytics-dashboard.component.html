@@ -195,13 +195,40 @@
               <table class="analytics-table">
                 <thead>
                   <tr>
-                    <th>Etiqueta</th>
-                    <th class="text-right">Ejercicios</th>
-                    <th class="text-right">Tasa de Éxito</th>
+                    <th>
+                      <sort-header
+                        column="tag"
+                        [activeColumn]="tagSortState().column"
+                        [direction]="tagSortState().direction"
+                        (sortChange)="onTagSortChange($event)"
+                      >
+                        Etiqueta
+                      </sort-header>
+                    </th>
+                    <th class="text-right">
+                      <sort-header
+                        column="count"
+                        [activeColumn]="tagSortState().column"
+                        [direction]="tagSortState().direction"
+                        (sortChange)="onTagSortChange($event)"
+                      >
+                        Ejercicios
+                      </sort-header>
+                    </th>
+                    <th class="text-right">
+                      <sort-header
+                        column="rate"
+                        [activeColumn]="tagSortState().column"
+                        [direction]="tagSortState().direction"
+                        (sortChange)="onTagSortChange($event)"
+                      >
+                        Tasa de Éxito
+                      </sort-header>
+                    </th>
                   </tr>
                 </thead>
                 <tbody>
-                  @for (t of analytics()?.top_tags; track t.tag) {
+                  @for (t of sortedTopTags(); track t.tag) {
                     <tr>
                       <td>
                         <span class="tag-pill font-mono" machineData>{{ t.tag }}</span>

@@ -99,11 +99,47 @@
       <table class="data-table">
         <thead>
           <tr>
-            <th class="col-code">CÓDIGO & MATERIA</th>
-            <th class="col-teacher">DOCENTE TITULAR</th>
+            <th class="col-code">
+              <sort-header
+                column="code"
+                [activeColumn]="sortState().column"
+                [direction]="sortState().direction"
+                (sortChange)="onSortChange($event)"
+              >
+                CÓDIGO & MATERIA
+              </sort-header>
+            </th>
+            <th class="col-teacher">
+              <sort-header
+                column="teacher"
+                [activeColumn]="sortState().column"
+                [direction]="sortState().direction"
+                (sortChange)="onSortChange($event)"
+              >
+                DOCENTE TITULAR
+              </sort-header>
+            </th>
             <th class="col-template">PLANTILLA BASE</th>
-            <th class="col-students">MATRICULADOS</th>
-            <th class="col-status">ESTADO</th>
+            <th class="col-students">
+              <sort-header
+                column="students"
+                [activeColumn]="sortState().column"
+                [direction]="sortState().direction"
+                (sortChange)="onSortChange($event)"
+              >
+                MATRICULADOS
+              </sort-header>
+            </th>
+            <th class="col-status">
+              <sort-header
+                column="status"
+                [activeColumn]="sortState().column"
+                [direction]="sortState().direction"
+                (sortChange)="onSortChange($event)"
+              >
+                ESTADO
+              </sort-header>
+            </th>
             <th class="col-actions">ACCIÓN</th>
           </tr>
         </thead>
@@ -218,7 +254,6 @@
     <course-create-modal animate.leave="motion-modal-out" 
       [periods]="coursesService.periods()"
       [teachers]="coursesService.teachers()"
-      [templates]="coursesService.templates()"
       [defaultPeriodId]="coursesService.activePeriod()?.id || null"
       (closed)="closeCreateCourseModal()"
       (courseCreated)="onCourseCreated()">

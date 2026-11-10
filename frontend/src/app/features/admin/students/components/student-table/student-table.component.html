@@ -65,11 +65,56 @@
     <table class="students-table">
       <thead>
         <tr>
-          <th>Estudiante</th>
-          <th>Condición Académica</th>
-          <th>Materias Inscritas</th>
-          <th>Entornos Activos</th>
-          <th>Penalizaciones OOM</th>
+          <th>
+            <sort-header
+              column="student"
+              [activeColumn]="sortColumn()"
+              [direction]="sortDirection()"
+              (sortChange)="sortChange.emit($event)"
+            >
+              Estudiante
+            </sort-header>
+          </th>
+          <th>
+            <sort-header
+              column="status"
+              [activeColumn]="sortColumn()"
+              [direction]="sortDirection()"
+              (sortChange)="sortChange.emit($event)"
+            >
+              Condición Académica
+            </sort-header>
+          </th>
+          <th>
+            <sort-header
+              column="subjects"
+              [activeColumn]="sortColumn()"
+              [direction]="sortDirection()"
+              (sortChange)="sortChange.emit($event)"
+            >
+              Materias Inscritas
+            </sort-header>
+          </th>
+          <th>
+            <sort-header
+              column="environments"
+              [activeColumn]="sortColumn()"
+              [direction]="sortDirection()"
+              (sortChange)="sortChange.emit($event)"
+            >
+              Entornos Activos
+            </sort-header>
+          </th>
+          <th>
+            <sort-header
+              column="strikes"
+              [activeColumn]="sortColumn()"
+              [direction]="sortDirection()"
+              (sortChange)="sortChange.emit($event)"
+            >
+              Penalizaciones OOM
+            </sort-header>
+          </th>
           <th>Último Incidente</th>
           <th class="text-right">Acciones</th>
         </tr>

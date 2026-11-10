@@ -27,6 +27,12 @@ import {
 } from '@shared/constants/environment-types.constants';
 import { DateTextPipe } from '@shared/pipes/date-text.pipe';
 import { TechLogoComponent } from '@features/admin/templates/components/tech-logo/tech-logo.component';
+import { AdminTemplatesService } from '@features/admin/services/admin-templates.service';
+import { TemplateComponent } from '@features/admin/models/admin-templates.models';
+import {
+  inferTemplateTechnologies,
+  resolveTemplateStack
+} from '@features/admin/templates/template-tech-detector.utils';
 import { ModalShellComponent } from '@shared/components/modal-shell/modal-shell.component';
 import { TemplateRequestModalComponent } from './template-request-modal/template-request-modal.component';
 import { TemplateDetailModalComponent } from './template-detail-modal/template-detail-modal.component';
@@ -84,88 +90,131 @@ export type TemplateApiResponse =
   | RawTemplateItem[]
   | { data?: RawTemplateItem[] | { data?: RawTemplateItem[] } };
 
+interface TemplateTechDefaults {
+  defaultCategory: string;
+  defaultDescription: string;
+}
+
+const GENERAL_TECH_DEFAULTS: TemplateTechDefaults = {
+  defaultCategory: 'General',
+  defaultDescription: 'Entorno optimizado para prácticas y proyectos de laboratorio.'
+};
+
+function techDefaultsFor(primaryId: string): TemplateTechDefaults {
+  switch (primaryId) {
+    case 'java':
+      return {
+        defaultCategory: 'Empresarial & Backend',
+        defaultDescription: 'Desarrollo de aplicaciones empresariales, programación orientada a objetos y servicios REST con Spring Boot.'
+      };
+    case 'spring':
+    case 'maven':
+    case 'gradle':
+      return {
+        defaultCategory: 'Empresarial & Backend',
+        defaultDescription: 'Desarrollo de aplicaciones empresariales con el ecosistema Java y sus herramientas de construcción.'
+      };
+    case 'dotnet':
+      return {
+        defaultCategory: 'Empresarial & Backend',
+        defaultDescription: 'Desarrollo en .NET y C# para aplicaciones empresariales y APIs multiplataforma.'
+      };
+    case 'python':
+    case 'fastapi':
+    case 'django':
+    case 'flask':
+    case 'pandas':
+    case 'numpy':
+    case 'jupyter':
+    case 'data-science':
+      return {
+        defaultCategory: 'Ciencia de Datos & IA',
+        defaultDescription: 'Análisis de datos, computación numérica, desarrollo web y fundamentos de inteligencia artificial.'
+      };
+    case 'cpp':
+    case 'c':
+    case 'gcc':
+      return {
+        defaultCategory: 'Sistemas & Computación',
+        defaultDescription: 'Programación de sistemas, bajo nivel, memoria dinámica y concurrencia con compilador GCC.'
+      };
+    case 'rust':
+    case 'webassembly':
+      return {
+        defaultCategory: 'Sistemas & Computación',
+        defaultDescription: 'Desarrollo de software seguro en memoria, concurrencia moderna y WebAssembly.'
+      };
+    case 'go':
+    case 'grpc':
+      return {
+        defaultCategory: 'Desarrollo Web & Cloud',
+        defaultDescription: 'Construcción de microservicios de alto rendimiento, concurrencia nativa y gRPC.'
+      };
+    case 'php':
+    case 'laravel':
+      return {
+        defaultCategory: 'Desarrollo Web & Cloud',
+        defaultDescription: 'Desarrollo de aplicaciones web dinámicas y servicios backend tradicionales.'
+      };
+    case 'node':
+    case 'typescript':
+    case 'nextjs':
+    case 'react':
+    case 'angular':
+    case 'vue':
+    case 'vite':
+    case 'express':
+    case 'nestjs':
+    case 'bun':
+    case 'deno':
+    case 'prisma':
+      return {
+        defaultCategory: 'Desarrollo Web & Cloud',
+        defaultDescription: 'Desarrollo Full Stack con JavaScript y TypeScript, APIs REST y utilidades npm.'
+      };
+    case 'postgres':
+    case 'mysql':
+    case 'mariadb':
+    case 'mongodb':
+    case 'redis':
+    case 'sqlite':
+    case 'db':
+      return {
+        defaultCategory: 'Bases de Datos',
+        defaultDescription: 'Motor de datos para prácticas de persistencia, consultas y modelado.'
+      };
+    default:
+      return GENERAL_TECH_DEFAULTS;
+  }
+}
+
+/**
+ * Inferencia de respaldo cuando la plantilla no declara un stack resoluble.
+ * Usa el mismo resolutor que el catálogo del administrador para que ambos
+ * muestren las mismas tecnologías ante los mismos datos.
+ */
 export function resolveTemplateTechInfo(name: string, dockerImage: string, description: string = ''): {
   primaryIcon: string;
   techChips: TechChip[];
   defaultCategory: string;
   defaultDescription: string;
 } {
-  const text = `${name} ${dockerImage} ${description}`.toLowerCase();
-  const chips: TechChip[] = [];
-  let primary = 'docker';
-  let defaultCategory = 'General';
-  let defaultDescription = 'Entorno optimizado para prácticas y proyectos de laboratorio.';
+  const detected = inferTemplateTechnologies({ name, docker_image: dockerImage, description });
+  const primary = detected[0];
 
-  if (text.includes('java') || text.includes('temurin') || text.includes('spring') || text.includes('openjdk')) {
-    primary = 'java';
-    defaultCategory = 'Empresarial & Backend';
-    defaultDescription = 'Desarrollo de aplicaciones empresariales, programación orientada a objetos y servicios REST con Spring Boot.';
-    chips.push({ name: 'Java', iconKey: 'java' });
-    if (text.includes('spring')) chips.push({ name: 'Spring Boot', iconKey: 'spring' });
-    if (text.includes('maven')) chips.push({ name: 'Maven', iconKey: 'maven' });
-  } else if (text.includes('python') || text.includes('django') || text.includes('fastapi') || text.includes('flask')) {
-    primary = 'python';
-    defaultCategory = 'Ciencia de Datos & IA';
-    defaultDescription = 'Análisis de datos, computación numérica, desarrollo web y fundamentos de inteligencia artificial.';
-    chips.push({ name: 'Python', iconKey: 'python' });
-    if (text.includes('fastapi')) chips.push({ name: 'FastAPI', iconKey: 'fastapi' });
-    if (text.includes('django')) chips.push({ name: 'Django', iconKey: 'django' });
-    if (text.includes('flask')) chips.push({ name: 'Flask', iconKey: 'flask' });
-    if (text.includes('pandas') || text.includes('numpy') || text.includes('data science') || text.includes('ia')) {
-      chips.push({ name: 'Data Science', iconKey: 'pandas' });
-    }
-  } else if (text.includes('c++') || text.includes('g++') || text.includes('gcc') || text.includes('c/c++') || text.includes('clang')) {
-    primary = 'cpp';
-    defaultCategory = 'Sistemas & Computación';
-    defaultDescription = 'Programación de sistemas, bajo nivel, memoria dinámica y concurrencia con compilador GCC.';
-    chips.push({ name: 'C / C++', iconKey: 'cpp' });
-    chips.push({ name: 'GCC / Clang', iconKey: 'c' });
-  } else if (text.includes('rust') || text.includes('cargo')) {
-    primary = 'rust';
-    defaultCategory = 'Sistemas & Computación';
-    defaultDescription = 'Desarrollo de software seguro en memoria, concurrencia moderna y WebAssembly.';
-    chips.push({ name: 'Rust', iconKey: 'rust' });
-    if (text.includes('wasm') || text.includes('webassembly')) chips.push({ name: 'WebAssembly', iconKey: 'rust' });
-  } else if (text.includes('golang') || text.includes('go 1.') || text.includes('go micro')) {
-    primary = 'go';
-    defaultCategory = 'Desarrollo Web & Cloud';
-    defaultDescription = 'Construcción de microservicios de alto rendimiento, concurrencia nativa y gRPC.';
-    chips.push({ name: 'Go', iconKey: 'go' });
-    if (text.includes('grpc')) chips.push({ name: 'gRPC', iconKey: 'go' });
-  } else if (text.includes('node') || text.includes('typescript') || text.includes('javascript')) {
-    primary = 'node';
-    defaultCategory = 'Desarrollo Web & Cloud';
-    defaultDescription = 'Desarrollo Full Stack con JavaScript y TypeScript, APIs REST y utilidades npm.';
-    chips.push({ name: 'Node.js', iconKey: 'node' });
-    if (text.includes('typescript')) chips.push({ name: 'TypeScript', iconKey: 'typescript' });
-  } else if (text.includes('php') || text.includes('laravel')) {
-    primary = 'php';
-    defaultCategory = 'Desarrollo Web & Cloud';
-    defaultDescription = 'Desarrollo de aplicaciones web dinámicas y servicios backend tradicionales.';
-    chips.push({ name: 'PHP', iconKey: 'php' });
-    if (text.includes('laravel')) chips.push({ name: 'Laravel', iconKey: 'laravel' });
-  } else if (text.includes('postgres') || text.includes('psql')) {
-    primary = 'postgres';
-    defaultCategory = 'Bases de Datos';
-    defaultDescription = 'Motor de base de datos relacional para consultas SQL, procedimientos y modelado relacional.';
-    chips.push({ name: 'PostgreSQL', iconKey: 'postgres' });
-  } else if (text.includes('mysql') || text.includes('mariadb')) {
-    primary = 'mysql';
-    defaultCategory = 'Bases de Datos';
-    defaultDescription = 'Motor de base de datos relacional para prácticas de SQL y persistencia estructurada.';
-    chips.push({ name: 'MySQL', iconKey: 'mysql' });
-  } else if (text.includes('dotnet') || text.includes('c#')) {
-    primary = 'dotnet';
-    defaultCategory = 'Empresarial & Backend';
-    defaultDescription = 'Desarrollo en .NET y C# para aplicaciones empresariales y APIs multiplataforma.';
-    chips.push({ name: '.NET / C#', iconKey: 'dotnet' });
+  if (!primary) {
+    return {
+      primaryIcon: 'docker',
+      techChips: [{ name: 'Entorno Estándar', iconKey: 'docker' }],
+      ...GENERAL_TECH_DEFAULTS
+    };
   }
 
-  if (chips.length === 0) {
-    chips.push({ name: 'Entorno Estándar', iconKey: 'docker' });
-  }
-
-  return { primaryIcon: primary, techChips: chips, defaultCategory, defaultDescription };
+  return {
+    primaryIcon: primary.iconType,
+    techChips: detected.map(tech => ({ name: tech.name, iconKey: tech.iconType })),
+    ...techDefaultsFor(primary.id)
+  };
 }
 
 @Component({
@@ -201,10 +250,12 @@ export class TeacherTemplatesComponent implements OnInit {
   private http = inject(HttpClient);
   private dashboardService = inject(TeacherDashboardService);
   private environmentRequestService = inject(EnvironmentRequestService);
+  private templatesCatalogService = inject(AdminTemplatesService);
   private router = inject(Router);
 
   courses = this.dashboardService.courses;
   templates = signal<PublishedTemplate[]>([]);
+  techCatalog = signal<TemplateComponent[]>([]);
   isLoading = signal<boolean>(false);
 
   // Filtros reactivos
@@ -253,7 +304,7 @@ export class TeacherTemplatesComponent implements OnInit {
         t.name.toLowerCase().includes(query) ||
         (t.description && t.description.toLowerCase().includes(query)) ||
         (t.docker_image && t.docker_image.toLowerCase().includes(query)) ||
-        (t.techChips && t.techChips.some(c => c.name.toLowerCase().includes(query)))
+        this.techChipsFor(t).some(c => c.name.toLowerCase().includes(query))
       );
     }
 
@@ -314,7 +365,32 @@ export class TeacherTemplatesComponent implements OnInit {
 
   ngOnInit(): void {
     this.loadTemplates();
+    this.loadTechCatalog();
     this.loadRequests();
+  }
+
+  /**
+   * El catálogo de componentes ya alimenta el modal de solicitud. Se reutiliza
+   * aquí para traducir los ids de `stack_config` a nombres e iconos reales.
+   */
+  loadTechCatalog(): void {
+    this.templatesCatalogService.getTechCatalog().subscribe({
+      next: list => this.techCatalog.set(list || []),
+      error: () => this.techCatalog.set([])
+    });
+  }
+
+  techChipsFor(template: PublishedTemplate): TechChip[] {
+    const resolved = resolveTemplateStack({ stack_config: template.stack_config ?? null }, this.techCatalog());
+    if (resolved.length > 0) {
+      return resolved.map(chip => ({ name: chip.name, iconKey: chip.iconKey }));
+    }
+    return template.techChips || [];
+  }
+
+  primaryIconFor(template: PublishedTemplate): string {
+    const resolved = resolveTemplateStack({ stack_config: template.stack_config ?? null }, this.techCatalog());
+    return resolved[0]?.iconKey || template.primaryIcon || 'docker';
   }
 
   setTab(tab: 'catalog' | 'requests'): void {
@@ -418,7 +494,11 @@ export class TeacherTemplatesComponent implements OnInit {
   }
 
   openDetailModal(template: PublishedTemplate): void {
-    this.selectedTemplateForDetail.set(template);
+    this.selectedTemplateForDetail.set({
+      ...template,
+      primaryIcon: this.primaryIconFor(template),
+      techChips: this.techChipsFor(template)
+    });
   }
 
   closeDetailModal(): void {

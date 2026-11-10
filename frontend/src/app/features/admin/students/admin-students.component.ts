@@ -16,6 +16,7 @@ import { StudentRegisterModalComponent } from './components/student-register-mod
 import { StudentEnrollRosterModalComponent } from './components/student-enroll-roster-modal/student-enroll-roster-modal.component';
 import { ConfirmModalComponent } from '@shared/components/confirm-modal/confirm-modal.component';
 import { ComboboxOption } from '@shared/components/combobox/combobox.component';
+import { SortDirection, SortState } from '@shared/components/sort-header/sort-header.types';
 import { LucideCheckCircle2, LucideAlertTriangle, LucideUserPlus, LucideBookOpen } from '@lucide/angular';
 
 @Component({
@@ -53,6 +54,7 @@ export class AdminStudentsComponent implements OnInit {
   readonly currentPage = signal<number>(1);
   readonly pageSize = 8;
   readonly activeMenuStudentId = signal<string | null>(null);
+  readonly sortState = signal<SortState>({ column: null, direction: 'none' });
 
   readonly showRegisterModal = signal<boolean>(false);
   readonly isRegistering = signal<boolean>(false);
@@ -114,7 +116,8 @@ export class AdminStudentsComponent implements OnInit {
   readonly filteredStudents = computed(() => {
     const search = this.searchTerm().trim().toLowerCase();
     const status = this.selectedStatus();
-    return this.students().filter(s => {
+    const sort = this.sortState();
+    let list = this.students().filter(s => {
       const matchSearch = !search || (s.first_name + ' ' + s.last_name).toLowerCase().includes(search) || s.email.toLowerCase().includes(search);
       if (!matchSearch) return false;
       switch (status) {
@@ -127,6 +130,31 @@ export class AdminStudentsComponent implements OnInit {
         default: return true;
       }
     });
+
+    if (sort.column && sort.direction !== 'none') {
+      const modifier = sort.direction === 'asc' ? 1 : -1;
+      list = [...list].sort((a, b) => {
+        switch (sort.column) {
+          case 'student': {
+            const nameA = `${a.first_name} ${a.last_name}`.trim();
+            const nameB = `${b.first_name} ${b.last_name}`.trim();
+            return nameA.localeCompare(nameB, undefined, { sensitivity: 'base' }) * modifier;
+          }
+          case 'status':
+            return (a.academic_status || '').localeCompare(b.academic_status || '', undefined, { sensitivity: 'base' }) * modifier;
+          case 'subjects':
+            return ((a.enrolled_courses_count ?? 0) - (b.enrolled_courses_count ?? 0)) * modifier;
+          case 'environments':
+            return ((a.active_environments_count ?? 0) - (b.active_environments_count ?? 0)) * modifier;
+          case 'strikes':
+            return ((a.oom_strike_count ?? 0) - (b.oom_strike_count ?? 0)) * modifier;
+          default:
+            return 0;
+        }
+      });
+    }
+
+    return list;
   });
 
   readonly paginatedStudents = computed(() =>
@@ -217,6 +245,10 @@ export class AdminStudentsComponent implements OnInit {
   onSearchChange(term: string): void {
     this.searchTerm.set(term);
     this.currentPage.set(1);
+  }
+
+  onSortChange(event: { column: string; direction: SortDirection }): void {
+    this.sortState.set({ column: event.column, direction: event.direction });
   }
 
   goToPage(page: number): void {

@@ -1,0 +1,24 @@
+<button
+  type="button"
+  class="sort-trigger"
+  [class.is-active]="isActive()"
+  [attr.aria-sort]="ariaSortValue()"
+  (click)="onToggle()"
+>
+  <span class="sort-label">
+    <ng-content></ng-content>
+  </span>
+  <span class="sort-icon-box" aria-hidden="true">
+    @switch (currentDirection()) {
+      @case ('asc') {
+        <svg lucideArrowUp class="sort-icon"></svg>
+      }
+      @case ('desc') {
+        <svg lucideArrowDown class="sort-icon"></svg>
+      }
+      @default {
+        <svg lucideArrowUpDown class="sort-icon neutral"></svg>
+      }
+    }
+  </span>
+</button>

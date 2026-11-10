@@ -17,6 +17,8 @@ import { SearchBarComponent } from '@shared/components/search-bar/search-bar.com
 import { KpiCardComponent, KpiGridComponent } from '@shared/components/kpi-card/kpi-card.component';
 import { StatusTabsComponent, StatusTabItem } from '@shared/components/status-tabs/status-tabs.component';
 import { PaginationBarComponent } from '@shared/components/pagination-bar/pagination-bar.component';
+import { SortHeaderComponent } from '@shared/components/sort-header/sort-header.component';
+import { SortDirection, SortState } from '@shared/components/sort-header/sort-header.types';
 import { 
   LucideBookOpen, 
   LucidePlus, 
@@ -48,6 +50,7 @@ interface ToastState {
     KpiGridComponent,
     StatusTabsComponent,
     PaginationBarComponent,
+    SortHeaderComponent,
     CourseCreateModalComponent,
     CourseReassignModalComponent,
     ConfirmModalComponent,
@@ -109,11 +112,23 @@ export class AdminCoursesComponent implements OnInit {
   // Toast flotante
   toastMessage = signal<ToastState | null>(null);
 
-  // Cursos filtrados por periodo, estado y búsqueda
+  // Ordenamiento de tabla
+  sortState = signal<SortState>({ column: null, direction: 'none' });
+
+  onSortChange(event: { column: string; direction: SortDirection }): void {
+    this.sortState.set({
+      column: event.direction === 'none' ? null : event.column,
+      direction: event.direction
+    });
+    this.currentPage.set(1);
+  }
+
+  // Cursos filtrados y ordenados por periodo, estado, búsqueda y columnas
   filteredCourses = computed(() => {
     const q = this.searchQuery().toLowerCase().trim();
     const filter = this.statusFilter();
     const activePeriod = this.coursesService.activePeriod();
+    const sort = this.sortState();
     let list = this.coursesService.courses();
 
     // Filtrar por periodo activo si está seleccionado
@@ -135,6 +150,41 @@ export class AdminCoursesComponent implements OnInit {
         c.code.toLowerCase().includes(q) ||
         c.teacher_name.toLowerCase().includes(q)
       );
+    }
+
+    // Ordenamiento: si hay columna activa se respeta; de lo contrario, orden cronológico descendente (lo más nuevo primero)
+    if (sort.column && sort.direction !== 'none') {
+      const modifier = sort.direction === 'asc' ? 1 : -1;
+      list = [...list].sort((a, b) => {
+        switch (sort.column) {
+          case 'code':
+            return a.code.localeCompare(b.code, undefined, { numeric: true, sensitivity: 'base' }) * modifier;
+          case 'name':
+            return a.name.localeCompare(b.name, undefined, { sensitivity: 'base' }) * modifier;
+          case 'teacher': {
+            const tA = (a.teacher_name || '').trim();
+            const tB = (b.teacher_name || '').trim();
+            return tA.localeCompare(tB, undefined, { sensitivity: 'base' }) * modifier;
+          }
+          case 'students':
+            return ((a.active_students || 0) - (b.active_students || 0)) * modifier;
+          case 'status': {
+            const sA = a.is_archived ? 1 : 0;
+            const sB = b.is_archived ? 1 : 0;
+            return (sA - sB) * modifier;
+          }
+          default:
+            return 0;
+        }
+      });
+    } else {
+      // Orden natural: cursos más recientes primero si traen created_at
+      list = [...list].sort((a, b) => {
+        if (!a.created_at && !b.created_at) return 0;
+        if (!a.created_at) return 1;
+        if (!b.created_at) return -1;
+        return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+      });
     }
 
     return list;

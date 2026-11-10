@@ -20,6 +20,8 @@ import { SkeletonLoaderComponent } from '@shared/components/skeleton/skeleton-lo
 import { PlagiarismModalComponent } from './plagiarism-modal/plagiarism-modal.component';
 import { ComboboxComponent, ComboboxOption } from '@shared/components/combobox/combobox.component';
 import { VerdictBadgeComponent } from '@shared/components/verdict-badge/verdict-badge.component';
+import { SortHeaderComponent } from '@shared/components/sort-header/sort-header.component';
+import { SortDirection, SortState } from '@shared/components/sort-header/sort-header.types';
 import { VERDICT_FILTER_OPTIONS, matchesVerdictFilter } from '@core/models/verdict.model';
 import { TeacherLabStats, SubmissionQueueItem } from '../models/teacher.models';
 
@@ -57,7 +59,8 @@ export interface EnrichedQueueItem extends SubmissionQueueItem {
     SkeletonLoaderComponent,
     PlagiarismModalComponent,
     ComboboxComponent,
-    VerdictBadgeComponent
+    VerdictBadgeComponent,
+    SortHeaderComponent
   ],
   templateUrl: './teacher-evaluations.component.html',
   styleUrl: './teacher-evaluations.component.scss'
@@ -76,6 +79,16 @@ export class TeacherEvaluationsComponent implements OnInit {
   verdictFilter = signal<string>('all');
   statusFilter = signal<'all' | 'pending' | 'graded'>('all');
   searchTerm = signal<string>('');
+
+  // Ordenamiento Cola Global
+  sortState = signal<SortState>({ column: null, direction: 'none' });
+
+  onSortChange(event: { column: string; direction: SortDirection }): void {
+    this.sortState.set({
+      column: event.direction === 'none' ? null : event.column,
+      direction: event.direction
+    });
+  }
 
   // Datos Cola
   queueList = signal<EnrichedQueueItem[]>([]);
@@ -135,6 +148,34 @@ export class TeacherEvaluationsComponent implements OnInit {
         (i.course_name && i.course_name.toLowerCase().includes(query))
       );
     }
+
+    const sort = this.sortState();
+    if (sort.column && sort.direction !== 'none') {
+      const modifier = sort.direction === 'asc' ? 1 : -1;
+      items = [...items].sort((a, b) => {
+        switch (sort.column) {
+          case 'student':
+            return (a.student_name || '').localeCompare(b.student_name || '', undefined, { sensitivity: 'base' }) * modifier;
+          case 'course':
+            return (a.course_name || '').localeCompare(b.course_name || '', undefined, { sensitivity: 'base' }) * modifier;
+          case 'exercise':
+            return (a.exercise_title || '').localeCompare(b.exercise_title || '', undefined, { sensitivity: 'base' }) * modifier;
+          case 'date': {
+            const dA = a.submitted_at ? new Date(a.submitted_at).getTime() : 0;
+            const dB = b.submitted_at ? new Date(b.submitted_at).getTime() : 0;
+            return (dA - dB) * modifier;
+          }
+          case 'score': {
+            const scA = a.score ?? -1;
+            const scB = b.score ?? -1;
+            return (scA - scB) * modifier;
+          }
+          default:
+            return 0;
+        }
+      });
+    }
+
     return items;
   });
 

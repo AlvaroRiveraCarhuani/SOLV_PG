@@ -22,6 +22,8 @@ import { ComboboxComponent, ComboboxOption } from '@shared/components/combobox/c
 import { SearchBarComponent } from '@shared/components/search-bar/search-bar.component';
 import { StatusTabItem, StatusTabsComponent } from '@shared/components/status-tabs/status-tabs.component';
 import { VerdictBadgeComponent } from '@shared/components/verdict-badge/verdict-badge.component';
+import { SortHeaderComponent } from '@shared/components/sort-header/sort-header.component';
+import { SortDirection, SortState } from '@shared/components/sort-header/sort-header.types';
 
 import { ClassSessionService } from '../services/class-session.service';
 import { ClassAdvanceService } from '../services/class-advance.service';
@@ -103,6 +105,7 @@ const STATE_LABELS: Record<ClassSessionStudentState, string> = {
     SearchBarComponent,
     StatusTabsComponent,
     VerdictBadgeComponent,
+    SortHeaderComponent,
     AulaTelemetryWidgetComponent,
     ShadowTerminalModalComponent,
     ClassAdvanceModalComponent,
@@ -203,12 +206,22 @@ export class AulaComponent implements OnInit, OnDestroy {
     ];
   });
 
+  readonly sortState = signal<SortState>({ column: null, direction: 'none' });
+
+  onSortChange(event: { column: string; direction: SortDirection }): void {
+    this.sortState.set({
+      column: event.direction === 'none' ? null : event.column,
+      direction: event.direction
+    });
+  }
+
   readonly visibleStudents = computed<ClassSessionStudent[]>(() => {
     const students = this.board()?.students ?? [];
     const tab = this.activeTab();
     const term = this.searchTerm().toLowerCase().trim();
+    const sort = this.sortState();
 
-    return students.filter(student => {
+    let list = students.filter(student => {
       if (tab !== 'todos' && student.state !== tab) {
         return false;
       }
@@ -217,6 +230,29 @@ export class AulaComponent implements OnInit, OnDestroy {
       }
       return student.name.toLowerCase().includes(term) || student.email.toLowerCase().includes(term);
     });
+
+    if (sort.column && sort.direction !== 'none') {
+      const modifier = sort.direction === 'asc' ? 1 : -1;
+      list = [...list].sort((a, b) => {
+        switch (sort.column) {
+          case 'name':
+            return (a.name || '').localeCompare(b.name || '', undefined, { sensitivity: 'base' }) * modifier;
+          case 'state':
+            return (a.state || '').localeCompare(b.state || '', undefined, { sensitivity: 'base' }) * modifier;
+          case 'attempts':
+            return (a.attempts - b.attempts) * modifier;
+          case 'time': {
+            const tA = a.submitted_at ? new Date(a.submitted_at).getTime() : 0;
+            const tB = b.submitted_at ? new Date(b.submitted_at).getTime() : 0;
+            return (tA - tB) * modifier;
+          }
+          default:
+            return 0;
+        }
+      });
+    }
+
+    return list;
   });
 
   /** El cierre de un examen deja los volúmenes en solo lectura; una clase no. */

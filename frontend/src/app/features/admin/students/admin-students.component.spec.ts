@@ -161,4 +161,20 @@ describe('AdminStudentsComponent Unit Tests', () => {
     component.goToPage(1);
     expect(component.currentPage()).toBe(1);
   });
+
+  it('debe ordenar estudiantes al invocar onSortChange', () => {
+    component.onSortChange({ column: 'student', direction: 'asc' });
+    fixture.detectChanges();
+    expect(component.filteredStudents()[0].first_name).toBe('Ana');
+    expect(component.filteredStudents()[3].first_name).toBe('David');
+
+    component.onSortChange({ column: 'student', direction: 'desc' });
+    fixture.detectChanges();
+    expect(component.filteredStudents()[0].first_name).toBe('David');
+    expect(component.filteredStudents()[3].first_name).toBe('Ana');
+
+    component.onSortChange({ column: 'strikes', direction: 'desc' });
+    fixture.detectChanges();
+    expect(component.filteredStudents()[0].first_name).toBe('Beatriz');
+  });
 });

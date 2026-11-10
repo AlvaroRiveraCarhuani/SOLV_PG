@@ -12,6 +12,8 @@ import {
   LucideLayers
 } from '@lucide/angular';
 import { MachineDataDirective } from '@shared/directives/machine-data.directive';
+import { SortHeaderComponent } from '@shared/components/sort-header/sort-header.component';
+import { SortDirection, SortState } from '@shared/components/sort-header/sort-header.types';
 import { TeacherCourseService } from '../../services/teacher-course.service';
 import { CourseAnalyticsDTO } from '../../models/teacher.models';
 
@@ -29,7 +31,8 @@ import { CourseAnalyticsDTO } from '../../models/teacher.models';
     LucideAlertTriangle,
     LucideTrendingUp,
     LucideLayers,
-    MachineDataDirective
+    MachineDataDirective,
+    SortHeaderComponent
   ],
   templateUrl: './analytics-dashboard.component.html',
   styleUrl: './analytics-dashboard.component.scss'
@@ -44,6 +47,37 @@ export class AnalyticsDashboardComponent implements OnInit {
   readonly isLoading = signal<boolean>(false);
   readonly error = signal<string | null>(null);
   readonly lastUpdated = signal<Date | null>(null);
+
+  // Ordenamiento de etiquetas temáticas
+  readonly tagSortState = signal<SortState>({ column: null, direction: 'none' });
+
+  onTagSortChange(event: { column: string; direction: SortDirection }): void {
+    this.tagSortState.set({
+      column: event.direction === 'none' ? null : event.column,
+      direction: event.direction
+    });
+  }
+
+  readonly sortedTopTags = computed(() => {
+    const tags = this.analytics()?.top_tags || [];
+    const sort = this.tagSortState();
+    if (!sort.column || sort.direction === 'none') {
+      return tags;
+    }
+    const modifier = sort.direction === 'asc' ? 1 : -1;
+    return [...tags].sort((a, b) => {
+      switch (sort.column) {
+        case 'tag':
+          return (a.tag || '').localeCompare(b.tag || '', undefined, { sensitivity: 'base' }) * modifier;
+        case 'count':
+          return (a.count - b.count) * modifier;
+        case 'rate':
+          return (a.success_rate - b.success_rate) * modifier;
+        default:
+          return 0;
+      }
+    });
+  });
 
   // Computeds
   readonly difficultyEasy = computed(() => {

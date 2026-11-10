@@ -237,4 +237,21 @@ describe('StudentHistoryComponent', () => {
     expect(projectLink?.getAttribute('href')).toBe('/student/history/sub-5');
     expect(projectLink?.textContent?.trim()).toBe('Ver entrega');
   });
+
+  it('ordena las entregas por columna al invocar onSortChange', async () => {
+    await setup();
+
+    component.onSortChange({ column: 'exercise', direction: 'asc' });
+    fixture.detectChanges();
+    expect(rows()[0].textContent).toContain('API REST con autenticación');
+
+    component.onSortChange({ column: 'exercise', direction: 'desc' });
+    fixture.detectChanges();
+    expect(rows()[0].textContent).toContain('Recorrido de listas');
+
+    component.onSortChange({ column: 'exercise', direction: 'none' });
+    fixture.detectChanges();
+    // Vuelve al orden original
+    expect(component.sortState().direction).toBe('none');
+  });
 });

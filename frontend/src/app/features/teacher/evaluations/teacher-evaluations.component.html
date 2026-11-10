@@ -133,12 +133,57 @@
           <table class="solv-table">
             <thead>
               <tr>
-                <th>Estudiante</th>
-                <th>Materia</th>
-                <th>Laboratorio</th>
-                <th>Fecha de Entrega</th>
+                <th>
+                  <sort-header
+                    column="student"
+                    [activeColumn]="sortState().column"
+                    [direction]="sortState().direction"
+                    (sortChange)="onSortChange($event)"
+                  >
+                    Estudiante
+                  </sort-header>
+                </th>
+                <th>
+                  <sort-header
+                    column="course"
+                    [activeColumn]="sortState().column"
+                    [direction]="sortState().direction"
+                    (sortChange)="onSortChange($event)"
+                  >
+                    Materia
+                  </sort-header>
+                </th>
+                <th>
+                  <sort-header
+                    column="exercise"
+                    [activeColumn]="sortState().column"
+                    [direction]="sortState().direction"
+                    (sortChange)="onSortChange($event)"
+                  >
+                    Laboratorio
+                  </sort-header>
+                </th>
+                <th>
+                  <sort-header
+                    column="date"
+                    [activeColumn]="sortState().column"
+                    [direction]="sortState().direction"
+                    (sortChange)="onSortChange($event)"
+                  >
+                    Fecha de Entrega
+                  </sort-header>
+                </th>
                 <th>Veredicto</th>
-                <th>Calificación</th>
+                <th>
+                  <sort-header
+                    column="score"
+                    [activeColumn]="sortState().column"
+                    [direction]="sortState().direction"
+                    (sortChange)="onSortChange($event)"
+                  >
+                    Calificación
+                  </sort-header>
+                </th>
                 <th>Acción</th>
               </tr>
             </thead>
