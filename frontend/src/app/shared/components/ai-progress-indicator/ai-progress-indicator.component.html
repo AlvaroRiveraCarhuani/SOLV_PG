@@ -1,0 +1,17 @@
+<div
+  class="ai-progress"
+  role="progressbar"
+  [attr.aria-label]="progressAriaLabel()"
+  [attr.aria-valuetext]="elapsedText()"
+>
+  <span class="ai-progress-bar"></span>
+</div>
+
+<div class="progress-info">
+  <span class="progress-label">{{ label() }}</span>
+  <span class="progress-elapsed font-mono" machineData>{{ elapsedSeconds() }} s</span>
+  <button type="button" class="btn-cancel-gen" (click)="cancelled.emit()">
+    <svg lucideXCircle class="cancel-icon"></svg>
+    <span>{{ cancelLabel() }}</span>
+  </button>
+</div>

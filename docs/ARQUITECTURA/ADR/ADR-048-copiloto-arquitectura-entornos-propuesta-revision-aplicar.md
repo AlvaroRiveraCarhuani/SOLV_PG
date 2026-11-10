@@ -48,6 +48,8 @@ El front consume cuatro acciones de IA. Sus presupuestos de tiempo los resuelve 
 | `repair-template` | 90 s | 120 s |
 | `generate-exercise` | 120 s | 180 s |
 
+> El generador de ejercicios del Entorno de Desarrollo usa la acción `generate-ide-exercise` y conserva los mismos presupuestos que `generate-exercise`.
+
 Cada una reimplementaba su propio ciclo de vida dentro del componente que la lanzaba: un `signal` de «generando», un `setInterval` de telemetría, una `Subscription` y un handler de cancelación. Cuatro copias del mismo patrón, con variantes.
 
 El defecto común: **el dueño del estado era la vista**. `ngOnDestroy` desuscribía la llamada, lo que aborta el request HTTP. Con presupuestos de 60 a 180 segundos, cualquier destrucción del componente —navegar a otra ruta, cambiar de contexto— era una pérdida garantizada de trabajo. En el Studio de Plantillas eso se manifestaba al salir de la vista, porque el modal solo recibe `input()`/`output()` y el estado real vivía en el componente padre. El modal del docente bloqueaba el cierre con `[disableClose]="isGenerating()"`, así que ahí la pérdida también llegaba por navegación. Y el aviso de finalización solo existía en dos de las cuatro operaciones: `suggest-template` y `repair-template` lo emitían desde el propio componente, mientras `generate-exercise` y `suggest-component` no avisaban nada, ni inline ni por toast. La operación más larga de todas —hasta 180 segundos en perfil de cola— era la más silenciosa.
@@ -64,6 +66,8 @@ El defecto común: **el dueño del estado era la vista**. `ngOnDestroy` desuscri
    | `repair-template` | manifiesto del entorno en edición | raíz |
    | `generate-exercise` | ejercicio generado, aplicable al editor | raíz |
    | `suggest-component` | campos de un modal de alta descartable | el modal |
+
+   > Actualizado el 2026-11-05: `suggest-component` pasó al alcance raíz, con borrador y contexto explícito. Ver la última sección.
 
    La distinción es de naturaleza, no de grado: un ejercicio generado es un artefacto de dominio que sirve aunque el modal se haya cerrado; la sugerencia de un componente son campos de un formulario de alta que el administrador ya descartó. Encolar la segunda o conservarla «por las dudas» produce resultados sin destinatario.
 
@@ -85,3 +89,41 @@ El defecto común: **el dueño del estado era la vista**. `ngOnDestroy` desuscri
 - **Efecto colateral corregido:** cancelar el Copiloto ya no limpia el cronómetro de «Corregir con Copiloto IA» (autorreparación), que compartía el mismo `timerInterval`.
 - **Pendiente, fuera de este ADR:** el borrador del Studio se pierde al recargar. Es trabajo manual del administrador, no una llamada regenerable, y corresponde resolverlo con persistencia local o en backend en su propio cambio.
 - **Descartado explícitamente:** una cola FIFO de operaciones de IA. El backend no comparte un recurso escaso (`ai_copilot_service.go` dispara un request independiente por llamada; la cola del proveedor es asunto del proveedor), y encolar introduce latencia acumulada y produce resultados sin destinatario.
+
+## Actualización — Espera compartida, borradores y alcance por formulario (2026-11-05)
+
+### Contexto y problema
+
+El primitivo dejó el ciclo de vida resuelto, pero al usarlo a diario quedaban tres huecos:
+
+1. **La espera se dibujaba en cada vista.** Cada flujo tenía su marcado propio (giro, texto, segundos, botón) con resultados distintos: solo dos mostraban barra, la cancelación no era visible en todos, y las reglas de `prefers-reduced-motion` estaban copiadas en tres hojas de estilos. La misma espera se veía distinta según la pantalla.
+2. **Cerrar un modal con una llamada en curso seguía perdiendo trabajo.** La operación ya vivía en la raíz, pero el formulario se destruía y con él lo escrito: al volver, la llamada seguía y el campo que la había originado estaba vacío. El modal de generación de ejercicios lo resolvía bloqueando el cierre con `[disableClose]="isGenerating()"`, que es la solución opuesta: encierra al usuario hasta 180 segundos.
+3. **Los manejadores quedaban atados a la primera instancia.** `AiOperations.get` devolvía la operación existente con los callbacks que capturó el componente que la pidió primero. Si esa instancia ya no estaba montada, el resultado no llegaba a ninguna parte y solo se recuperaba por el reclamo en `ngOnInit`; un error se escribía en un componente muerto.
+
+### Decisión
+
+1. **Un solo indicador de espera de IA: `ai-progress-indicator`** (`shared/components/ai-progress-indicator/`).
+   - Compone la barra indeterminada (`solv-progress-indeterminate`), la fase en curso, los segundos transcurridos en mono con `machineData` y el botón que corta la espera. No finge un porcentaje: el tiempo de una llamada al modelo no es predecible.
+   - Accesibilidad: `role="progressbar"` con `aria-valuetext` «Esperando respuesta, N segundos» y `role="status"` en el host.
+   - Dos presentaciones: `variant="panel"` trae contenedor propio; `variant="plain"` sirve para los flujos que ya viven dentro de un bloque con borde.
+   - Las reglas de movimiento reducido viven una sola vez en el componente: la pista queda con una trama estática y se retira el segmento móvil, sin aparentar que el proceso terminó.
+   - Lo usan los cuatro flujos con espera de IA: Copiloto del Studio, autorreparación del manifiesto, alta de componente del catálogo y solicitud de entorno del docente, y generación de ejercicio.
+
+2. **El modal se puede cerrar mientras la IA trabaja.** Se retira `[disableClose]` y el botón «Cerrar» deja de estar deshabilitado. La llamada no muere y el usuario vuelve cuando necesita mirar otra cosa.
+
+3. **Borrador por flujo: `AiFlowDrafts`** (`shared/services/ai-flow-drafts.ts`), un mapa en la raíz con una clave por flujo. Guarda solo los campos que el motor puede sobrescribir; el catálogo se relee del backend. Comparte el criterio de `AiOperations`: el alcance lo decide el destinatario, y un formulario de modal sí tiene destinatario aunque su vista haya muerto.
+   - El alta de componente guarda además un `contextKey` (capa + subcategoría + runtime compatible). Un borrador de complemento no reaparece sobre el alta de una base de datos, y una respuesta pendiente no cae sobre otro formulario.
+   - La generación de ejercicio normaliza los contadores al recuperar el borrador, para que un valor fuera de rango no rompa el formulario.
+   - El borrador se descarta cuando el resultado se aplica (ejercicio en el editor) o el alta se resuelve, de modo que la próxima apertura arranca limpia.
+
+4. **`suggest-component` pasa al alcance raíz.** La tabla anterior queda corregida: su resultado ya no muere con el modal. El resultado sin destinatario que motivó la decisión original se evita con dos piezas juntas: el `contextKey` decide si el borrador aplica, y `take()` reclama la respuesta una sola vez al volver al formulario.
+
+5. **`AiOperations.get` reasigna los manejadores.** `AiOperation.bind()` reemplaza `onSuccess`, `onError` y `notify` por los del componente que vuelve a pedir la operación. La operación sobrevive a la vista; sus callbacks no. El resultado y el error llegan a quien tiene un destinatario montado, no a una instancia destruida.
+
+6. **La galería interna muestra el componente real.** `/dev/animaciones` usa `ai-progress-indicator` en lugar de una copia del marcado, y su modo reducido demuestra las reglas de la propia hoja del componente.
+
+### Consecuencias
+
+- **Positivas:** la espera de IA queda escrita una vez; desaparecen tres copias de `prefers-reduced-motion` y cuatro variantes de barra, texto y botón. Ningún flujo bloquea el cierre del modal. Un error de la IA ya no se pierde en una instancia destruida, y el formulario que originó la llamada se encuentra como estaba.
+- **Negativas / Reducción de impacto:** los borradores viven en memoria del cliente, así que se pierden al recargar la página; se acepta porque son texto que el usuario puede volver a escribir y cubrirlos exigiría persistencia que no corresponde a este cambio. El `contextKey` del alta de componente se compara por capa, subcategoría y runtime: abrir el mismo contexto desde otra pantalla reutiliza lo escrito, que es el comportamiento buscado.
+- **Corregido respecto de la sección anterior:** el alcance de `suggest-component`, la nota de «riesgo acotado» (ese riesgo lo cubre ahora el `contextKey`) y la nota sobre opciones capturadas en la primera obtención (ya no aplican: se reasignan con `bind`).

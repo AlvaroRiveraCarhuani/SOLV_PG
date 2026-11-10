@@ -46,8 +46,19 @@ export class AiOperation<T> {
 
   constructor(
     private readonly toastService: ToastService,
-    private readonly options: AiOperationOptions<T>
+    private options: AiOperationOptions<T>
   ) {}
+
+  /**
+   * Reemplaza los manejadores por los del dueño actual.
+   *
+   * Una operación de la raíz sobrevive a la vista que la pidió, pero sus
+   * callbacks capturan esa instancia. Al volver a pedirla, el componente
+   * montado pasa a ser quien recibe el resultado y el error.
+   */
+  bind(options: AiOperationOptions<T>): void {
+    this.options = options;
+  }
 
   run(source: Observable<T>): void {
     if (this.isRunning()) return;
@@ -180,7 +191,11 @@ export class AiOperations {
   get<T>(key: string, options: AiOperationOptions<T>): AiOperation<T> {
     const existing = this.operations.get(key);
     if (existing) {
-      return existing as AiOperation<T>;
+      const operation = existing as AiOperation<T>;
+      // La operación sobrevive a la vista; sus manejadores no: el último que la
+      // pide es quien tiene un destinatario montado para el resultado.
+      operation.bind(options);
+      return operation;
     }
     const operation = new AiOperation<T>(this.toastService, options);
     this.operations.set(key, operation as AiOperation<unknown>);

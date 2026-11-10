@@ -203,6 +203,21 @@ describe('AiOperations', () => {
     expect(first).toBe(second);
   });
 
+  it('reasigna los manejadores al volver a pedir la misma clave', () => {
+    const registry = TestBed.inject(AiOperations);
+    const fromFirstView = vi.fn();
+    const fromSecondView = vi.fn();
+    registry.get<number>('k', createOptions({ onSuccess: fromFirstView }));
+
+    const operation = registry.get<number>('k', createOptions({ onSuccess: fromSecondView }));
+    const source = new Subject<number>();
+    operation.run(source);
+    source.next(3);
+
+    expect(fromSecondView).toHaveBeenCalledWith(3);
+    expect(fromFirstView).not.toHaveBeenCalled();
+  });
+
   it('devuelve instancias distintas para claves distintas', () => {
     const registry = TestBed.inject(AiOperations);
     const first = registry.get<number>('a', createOptions());

@@ -74,25 +74,28 @@ const (
 // timeout_seconds guardado por el administrador.
 var aiEngineAutoTimeoutSeconds = map[string]map[string]int{
 	AIEngineProfileFastCloud: {
-		"suggest-component": 60,
-		"suggest-template":  90,
-		"repair-template":   90,
-		"generate-exercise": 120,
-		"test-connection":   30,
+		"suggest-component":     60,
+		"suggest-template":      90,
+		"repair-template":       90,
+		"generate-exercise":     120,
+		"generate-ide-exercise": 120,
+		"test-connection":       30,
 	},
 	AIEngineProfileQueuedOrReasoning: {
-		"suggest-component": 90,
-		"suggest-template":  120,
-		"repair-template":   120,
-		"generate-exercise": 180,
-		"test-connection":   60,
+		"suggest-component":     90,
+		"suggest-template":      120,
+		"repair-template":       120,
+		"generate-exercise":     180,
+		"generate-ide-exercise": 180,
+		"test-connection":       60,
 	},
 	AIEngineProfileLocalGPU: {
-		"suggest-component": 90,
-		"suggest-template":  120,
-		"repair-template":   120,
-		"generate-exercise": 180,
-		"test-connection":   60,
+		"suggest-component":     90,
+		"suggest-template":      120,
+		"repair-template":       120,
+		"generate-exercise":     180,
+		"generate-ide-exercise": 180,
+		"test-connection":       60,
 	},
 }
 
@@ -494,21 +497,33 @@ type AIStatusDTO struct {
 	InstitutionalEnabled  bool   `json:"institutional_enabled"`
 }
 
+// AIUserCustomProviderDTO es la vista pública de un proveedor personalizado
+// de la institución que el docente puede elegir en su credencial personal.
+// No expone la clave institucional: el docente siempre aporta la suya.
+type AIUserCustomProviderDTO struct {
+	ID      string `json:"id"`
+	Label   string `json:"label"`
+	IconURL string `json:"icon_url,omitempty"`
+	BaseURL string `json:"base_url"`
+	Model   string `json:"model"`
+}
+
 // AIUserOverrideResponseDTO es la vista pública de la API Key personal (BYOK)
 // del usuario junto al estado de la base institucional.
 // NUNCA incluye encrypted_api_key ni la clave en texto plano.
 type AIUserOverrideResponseDTO struct {
-	Enabled                    bool   `json:"enabled"`
-	Provider                   string `json:"provider"`
-	ProviderLabel              string `json:"provider_label"`
-	Model                      string `json:"model"`
-	BaseURL                    string `json:"base_url"`
-	HasAPIKey                  bool   `json:"has_api_key"`
-	APIKeyMasked               string `json:"api_key_masked"`
-	UpdatedAt                  string `json:"updated_at"`
-	InstitutionalEnabled       bool   `json:"institutional_enabled"`
-	InstitutionalProviderLabel string `json:"institutional_provider_label"`
-	InstitutionalModel         string `json:"institutional_model"`
+	Enabled                    bool                      `json:"enabled"`
+	Provider                   string                    `json:"provider"`
+	ProviderLabel              string                    `json:"provider_label"`
+	Model                      string                    `json:"model"`
+	BaseURL                    string                    `json:"base_url"`
+	HasAPIKey                  bool                      `json:"has_api_key"`
+	APIKeyMasked               string                    `json:"api_key_masked"`
+	UpdatedAt                  string                    `json:"updated_at"`
+	InstitutionalEnabled       bool                      `json:"institutional_enabled"`
+	InstitutionalProviderLabel string                    `json:"institutional_provider_label"`
+	InstitutionalModel         string                    `json:"institutional_model"`
+	CustomProviders            []AIUserCustomProviderDTO `json:"custom_providers"`
 }
 
 // UpdateAIUserOverrideDTO es el payload de PUT /api/v1/ai/my-settings.
@@ -651,6 +666,19 @@ func NewAIStatusDTO(stored AISettingsStored) AIStatusDTO {
 // NewAIUserOverrideResponseDTO construye la vista pública de la cascada BYOK
 // personal del usuario junto a la base institucional vigente.
 func NewAIUserOverrideResponseDTO(override AIUserOverrideStored, institutional AISettingsStored) AIUserOverrideResponseDTO {
+	customProviders := make([]AIUserCustomProviderDTO, 0, len(institutional.CustomProviders))
+	for _, cp := range institutional.CustomProviders {
+		if strings.TrimSpace(cp.ID) == "" {
+			continue
+		}
+		customProviders = append(customProviders, AIUserCustomProviderDTO{
+			ID:      cp.ID,
+			Label:   cp.Label,
+			IconURL: cp.IconURL,
+			BaseURL: cp.BaseURL,
+			Model:   cp.Model,
+		})
+	}
 	return AIUserOverrideResponseDTO{
 		Enabled:                    override.Enabled,
 		Provider:                   override.Provider,
@@ -663,6 +691,7 @@ func NewAIUserOverrideResponseDTO(override AIUserOverrideStored, institutional A
 		InstitutionalEnabled:       institutional.Enabled,
 		InstitutionalProviderLabel: AIProviderLabel(institutional.Provider, institutional.CustomProviders),
 		InstitutionalModel:         institutional.Model,
+		CustomProviders:            customProviders,
 	}
 }
 

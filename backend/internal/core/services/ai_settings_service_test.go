@@ -1401,11 +1401,12 @@ func TestAISettingsAdaptiveGovernanceByProfileAndAction(t *testing.T) {
 			profile:  domain.AIEngineProfileFastCloud,
 			label:    "60s – 120s según complejidad de la tarea",
 			auto: map[string]int{
-				"suggest-component": 60,
-				"suggest-template":  90,
-				"repair-template":   90,
-				"generate-exercise": 120,
-				"test-connection":   30,
+				"suggest-component":     60,
+				"suggest-template":      90,
+				"repair-template":       90,
+				"generate-exercise":     120,
+				"generate-ide-exercise": 120,
+				"test-connection":       30,
 			},
 		},
 		{
@@ -1414,11 +1415,12 @@ func TestAISettingsAdaptiveGovernanceByProfileAndAction(t *testing.T) {
 			profile:  domain.AIEngineProfileQueuedOrReasoning,
 			label:    "90s – 180s según complejidad de la tarea",
 			auto: map[string]int{
-				"suggest-component": 90,
-				"suggest-template":  120,
-				"repair-template":   120,
-				"generate-exercise": 180,
-				"test-connection":   60,
+				"suggest-component":     90,
+				"suggest-template":      120,
+				"repair-template":       120,
+				"generate-exercise":     180,
+				"generate-ide-exercise": 180,
+				"test-connection":       60,
 			},
 		},
 		{
@@ -1427,11 +1429,12 @@ func TestAISettingsAdaptiveGovernanceByProfileAndAction(t *testing.T) {
 			profile:  domain.AIEngineProfileLocalGPU,
 			label:    "90s – 180s según complejidad de la tarea",
 			auto: map[string]int{
-				"suggest-component": 90,
-				"suggest-template":  120,
-				"repair-template":   120,
-				"generate-exercise": 180,
-				"test-connection":   60,
+				"suggest-component":     90,
+				"suggest-template":      120,
+				"repair-template":       120,
+				"generate-exercise":     180,
+				"generate-ide-exercise": 180,
+				"test-connection":       60,
 			},
 		},
 	}
@@ -1464,7 +1467,7 @@ func TestAISettingsAdaptiveGovernanceByProfileAndAction(t *testing.T) {
 
 		// Modo Experto: un tope mayor fijado por el administrador se respeta.
 		expert := &domain.AISettingsStored{Provider: tc.provider, Model: tc.model, TimeoutSeconds: 240}
-		for _, action := range []string{"suggest-component", "suggest-template", "repair-template", "generate-exercise"} {
+		for _, action := range []string{"suggest-component", "suggest-template", "repair-template", "generate-exercise", "generate-ide-exercise"} {
 			if got := int(effectiveAITimeout(expert, tc.profile, action) / time.Second); got != 240 {
 				t.Errorf("Modo Experto 240s ignorado en %q/%q: got %ds", tc.profile, action, got)
 			}
@@ -1769,6 +1772,130 @@ func TestAIUserListModelsRequiresPersonalCredential(t *testing.T) {
 	}
 	if resp.Count != 1 || resp.Models[0].ID != "gemini-2.5-pro" {
 		t.Errorf("modelo inesperado: %+v", resp)
+	}
+}
+
+// TestAIUserOverrideCustomProvider cubre la selección de un proveedor custom
+// institucional desde la credencial personal: el endpoint lo define la
+// institución, la clave es siempre la del docente y la respuesta expone el
+// catálogo sin filtrar credenciales.
+func TestAIUserOverrideCustomProvider(t *testing.T) {
+	repo := newTestAISettingsRepo(`{}`)
+	svc := NewAISettingsService(repo)
+	ctx := context.Background()
+
+	if _, err := svc.Update(ctx, "t-1", domain.UpdateAISettingsDTO{
+		Enabled:  false,
+		Provider: domain.AIProviderGemini,
+		CustomProviders: []domain.AICustomProviderDTO{
+			{
+				ID:      "custom_inception",
+				Label:   "Inception Mercury",
+				BaseURL: "https://api.inceptionlabs.ai/v1",
+				Model:   "mercury-3",
+				APIKey:  "sk-institucional",
+			},
+		},
+	}); err != nil {
+		t.Fatalf("no se pudo registrar el proveedor custom: %v", err)
+	}
+
+	fetched, err := svc.GetUserOverride(ctx, "t-1", "u-teacher")
+	if err != nil {
+		t.Fatalf("GetUserOverride falló: %v", err)
+	}
+	if len(fetched.CustomProviders) != 1 {
+		t.Fatalf("esperaba 1 proveedor custom visible, got %d", len(fetched.CustomProviders))
+	}
+	cp := fetched.CustomProviders[0]
+	if cp.ID != "custom_inception" || cp.Label != "Inception Mercury" || cp.BaseURL != "https://api.inceptionlabs.ai/v1" || cp.Model != "mercury-3" {
+		t.Errorf("proveedor custom inesperado: %+v", cp)
+	}
+	rawDTO, err := json.Marshal(fetched)
+	if err != nil {
+		t.Fatalf("no se pudo serializar la respuesta: %v", err)
+	}
+	if strings.Contains(string(rawDTO), "sk-institucional") || strings.Contains(string(rawDTO), "encrypted_api_key") {
+		t.Fatalf("la respuesta personal filtra la credencial institucional: %s", string(rawDTO))
+	}
+
+	var vErr *AISettingsValidationError
+	_, err = svc.UpdateUserOverride(ctx, "t-1", "u-teacher", domain.UpdateAIUserOverrideDTO{
+		Enabled:  true,
+		Provider: "custom_inception",
+		Model:    "mercury-3",
+	})
+	if err == nil {
+		t.Fatalf("esperaba api_key_required para custom sin clave personal")
+	}
+	if !errors.As(err, &vErr) || vErr.Code != "api_key_required" {
+		t.Errorf("esperaba api_key_required, got %v", err)
+	}
+
+	override, err := svc.UpdateUserOverride(ctx, "t-1", "u-teacher", domain.UpdateAIUserOverrideDTO{
+		Enabled:  true,
+		Provider: "custom_inception",
+		Model:    "mercury-3",
+		APIKey:   "sk-docente",
+	})
+	if err != nil {
+		t.Fatalf("no se pudo guardar el override custom: %v", err)
+	}
+	if override.Provider != "custom_inception" || override.BaseURL != "https://api.inceptionlabs.ai/v1" || !override.HasAPIKey {
+		t.Errorf("override custom inesperado: %+v", override)
+	}
+
+	_, err = svc.UpdateUserOverride(ctx, "t-1", "u-teacher", domain.UpdateAIUserOverrideDTO{
+		Enabled:  true,
+		Provider: "custom_fantasma",
+		Model:    "x",
+		APIKey:   "sk-x",
+	})
+	if err == nil {
+		t.Fatalf("esperaba provider_invalid para un custom no registrado")
+	}
+	if !errors.As(err, &vErr) || vErr.Code != "provider_invalid" {
+		t.Errorf("esperaba provider_invalid, got %v", err)
+	}
+
+	var gotAuth []string
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		gotAuth = append(gotAuth, r.Header.Get("Authorization"))
+		w.Header().Set("Content-Type", "application/json")
+		if strings.HasSuffix(r.URL.Path, "/models") {
+			_, _ = w.Write([]byte(`{"data":[{"id":"mercury-3"}]}`))
+			return
+		}
+		_, _ = w.Write([]byte(`{"choices":[{"message":{"content":"{\"ok\":true}"}}]}`))
+	}))
+	defer server.Close()
+	svc.WithTransport(&rewriteAITestTransport{base: mustParseURL(t, server.URL)})
+
+	models, err := svc.ListUserModels(ctx, "t-1", "u-teacher", domain.ListAIModelsRequestDTO{
+		Provider: "custom_inception",
+		APIKey:   "sk-docente",
+	})
+	if err != nil {
+		t.Fatalf("ListUserModels custom falló: %v", err)
+	}
+	if models.Count != 1 || models.Models[0].ID != "mercury-3" {
+		t.Errorf("modelos inesperados: %+v", models)
+	}
+	conn, err := svc.TestUserConnection(ctx, "t-1", "u-teacher", domain.TestAIConnectionRequestDTO{
+		Provider: "custom_inception",
+		Model:    "mercury-3",
+		APIKey:   "sk-docente",
+	})
+	if err != nil {
+		t.Fatalf("TestUserConnection custom falló: %v", err)
+	}
+	if !conn.OK {
+		t.Errorf("la prueba custom debía conectarse: %+v", conn)
+	}
+	for _, auth := range gotAuth {
+		if auth != "Bearer sk-docente" {
+			t.Errorf("el endpoint custom recibió una credencial ajena: %q", auth)
+		}
 	}
 }
 

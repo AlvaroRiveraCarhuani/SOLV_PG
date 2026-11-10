@@ -1319,11 +1319,13 @@ Contratos del Copiloto Institucional: configuración por institución, prueba de
 - Cuota horaria por usuario (`hourly_quota_per_user`, 1..200, default 15) con ventana en memoria de 1 hora. En motores `local_gpu` (`ollama_lan` o proveedor `custom_*`) el piso efectivo es de 60 solicitudes/hora, por no existir costo por token externo.
 - **Gobernanza autoadaptativa del timeout**: `timeout_seconds` (5..240, default 60) es un tope, no un valor adivinado. El servidor clasifica el motor activo (`engine_profile`) y resuelve el presupuesto de tiempo por acción (`min(240, max(presupuestoAutomático, timeout_seconds))`), de modo que un tope viejo de `30` jamás recorta una operación pesada y un tope mayor fijado en Modo Experto se respeta.
 
-| `engine_profile` | Condición | Presupuesto por acción (`suggest-component` · `suggest-template` / `repair-template` · `generate-exercise` · `test-connection`) | `auto_timeout_range_label` |
+| `engine_profile` | Condición | Presupuesto por acción (`suggest-component` · `suggest-template` / `repair-template` · `generate-exercise` / `generate-ide-exercise` · `test-connection`) | `auto_timeout_range_label` |
 |------------------|-----------|------------------------------------------------------------------------------------------------------------------------------------------------------------------|----------------------------|
 | `fast_cloud` | Modelo comercial en la nube (`gemini-2.5-flash`, `gpt-4o-mini`, `deepseek-chat`, ...) | `60 s` · `90 s` · `120 s` · `30 s` | `60s – 120s según complejidad de la tarea` |
 | `queued_or_reasoning` | Modelo gratuito o de razonamiento (`:free`, `r1`, `reasoner`, `thinking`, `nemotron`, `qwq`, `o1`, `o3`) | `90 s` · `120 s` · `180 s` · `60 s` | `90s – 180s según complejidad de la tarea` |
 | `local_gpu` | Servidor LAN propio (`ollama_lan`) o proveedor `custom_*` | `90 s` · `120 s` · `180 s` · `60 s` | `90s – 180s según complejidad de la tarea` |
+
+> El generador de ejercicios del Entorno de Desarrollo usa la acción `generate-ide-exercise` y recibe el mismo presupuesto que `generate-exercise`.
 
 - **Cascada BYOK personal** (`/api/v1/ai/my-settings`): docentes y administradores pueden guardar su propia API Key indexada por `userID` en `ai_settings.user_overrides`. Cuando está activa, la inferencia usa el proveedor, modelo, `base_url` y clave personales, opera incluso con la IA institucional deshabilitada y **no descuenta** la cuota horaria institucional compartida.
 - La latencia (`latency_ms`) se mide **después de descargar el cuerpo completo** de la respuesta del motor (no solo los headers) y acumula todos los intentos realizados.
@@ -1808,6 +1810,8 @@ Códigos: `200 OK`; `400 Bad Request` (`invalid_payload`, `base_image_latest`, `
 
 Cascada de credenciales por usuario: la base institucional sigue siendo el motor por defecto y cada docente/administrador puede activar su propia API Key. Las credenciales personales se almacenan en `ai_settings.user_overrides[userID]` con el mismo cifrado AES-256-GCM y las mismas validaciones que la configuración institucional.
 
+La respuesta incluye `custom_providers` con los proveedores personalizados registrados por la institución (`id`, `label`, `icon_url`, `base_url`, `model`), de modo que el docente puede elegirlos sin conocer el endpoint. El docente aporta siempre su propia API Key; la clave institucional nunca se reutiliza en la cascada BYOK.
+
 | Método y ruta | Uso |
 |---------------|-----|
 | `GET /api/v1/ai/my-settings` | Lee la configuración personal (nunca el ciphertext) |
@@ -1830,7 +1834,7 @@ Cascada de credenciales por usuario: la base institucional sigue siendo el motor
   "clear_api_key": false
 }
 ```
-> `provider` vacío reutiliza el de la base institucional; en proveedores cloud la URL oficial se fuerza y `base_url` se ignora. `clear_api_key: true` elimina la clave guardada.
+> `provider` vacío reutiliza el de la base institucional; en proveedores cloud la URL oficial se fuerza y `base_url` se ignora. Para `custom_<slug>`, el proveedor debe existir en el catálogo institucional y la URL base se resuelve desde ese catálogo. Al cambiar de proveedor la clave anterior no se reutiliza y se exige la nueva. `clear_api_key: true` elimina la clave guardada.
 
 #### Ejemplo de Respuesta (`200 OK`)
 ```json
@@ -1846,7 +1850,15 @@ Cascada de credenciales por usuario: la base institucional sigue siendo el motor
     "updated_at": "2026-10-25T14:03:11Z",
     "institutional_enabled": true,
     "institutional_provider_label": "Google Gemini",
-    "institutional_model": "gemini-2.5-flash"
+    "institutional_model": "gemini-2.5-flash",
+    "custom_providers": [
+      {
+        "id": "custom_inception",
+        "label": "Inception Mercury",
+        "base_url": "https://api.inceptionlabs.ai/v1",
+        "model": "mercury-3"
+      }
+    ]
   },
   "error": "",
   "message": "Configuración personal de IA actualizada"

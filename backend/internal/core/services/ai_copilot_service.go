@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"math"
+	"regexp"
 	"sort"
 	"strings"
 	"time"
@@ -275,7 +276,7 @@ func (s *AICopilotService) buildApprovedTemplatesSummary(ctx context.Context, te
 	var b strings.Builder
 	var valid []*domain.AdminTemplateReviewItem
 	for _, it := range items {
-		if it.Status != "approved" {
+		if !strings.EqualFold(it.Status, "approved") && !strings.EqualFold(it.Status, "APROBADA") {
 			continue
 		}
 		targetEnv := strings.ToUpper(strings.TrimSpace(it.TargetEnvironment))
@@ -283,7 +284,9 @@ func (s *AICopilotService) buildApprovedTemplatesSummary(ctx context.Context, te
 			continue
 		}
 		valid = append(valid, it)
-		b.WriteString(fmt.Sprintf("- ID: %s | Nombre: %s | Descripción: %s\n", it.ID, it.Name, it.Description))
+		stackConfig, _ := json.Marshal(it.StackConfig)
+		servicesConfig, _ := json.Marshal(it.ServicesConfig)
+		b.WriteString(fmt.Sprintf("- ID: %s | Nombre: %s | Descripción: %s | Imagen: %s | Stack tecnológico: %s | Servicios: %s\n", it.ID, it.Name, it.Description, it.DockerImage, stackConfig, servicesConfig))
 	}
 	return b.String(), valid
 }
@@ -892,42 +895,151 @@ func (s *AICopilotService) resolveIdeTemplate(
 	suggestedID, suggestedMissing, prompt string,
 	approvedTemplates []*domain.AdminTemplateReviewItem,
 ) (templateID, templateName, missingTech string) {
+	suggestedMissing = strings.TrimSpace(suggestedMissing)
 	if len(approvedTemplates) == 0 {
-		return strings.TrimSpace(suggestedID), "", strings.TrimSpace(suggestedMissing)
+		missing := strings.TrimSpace(suggestedMissing)
+		if missing == "" {
+			missing = "No hay entornos IDE aprobados disponibles en el catálogo"
+		}
+		return "", "", missing
 	}
 
 	suggestedID = strings.TrimSpace(suggestedID)
-	// 1. Coincidencia exacta por ID
+	requiredTechnologies := requestedIdeTechnologies(prompt)
+	if suggestedMissing != "" {
+		return "", "", suggestedMissing
+	}
+	compatible := func(template *domain.AdminTemplateReviewItem) bool {
+		return len(missingTemplateTechnologies(template, requiredTechnologies)) == 0
+	}
+
+	// 1. Coincidencia exacta por ID, solo si cubre las tecnologías solicitadas.
 	if suggestedID != "" {
 		for _, tmpl := range approvedTemplates {
-			if tmpl.ID == suggestedID {
-				return tmpl.ID, tmpl.Name, strings.TrimSpace(suggestedMissing)
+			if tmpl.ID == suggestedID && compatible(tmpl) {
+				return tmpl.ID, tmpl.Name, ""
 			}
 		}
 	}
 
-	// 2. Coincidencia por texto/nombre de la plantilla en el prompt o en suggestedID
+	// 2. Coincidencia por texto/nombre de plantilla, también validando compatibilidad.
 	promptLower := strings.ToLower(prompt)
-	var bestMatch *domain.AdminTemplateReviewItem
 	for _, tmpl := range approvedTemplates {
 		nameLower := strings.ToLower(tmpl.Name)
-		if strings.Contains(promptLower, nameLower) || (suggestedID != "" && strings.Contains(nameLower, strings.ToLower(suggestedID))) {
-			bestMatch = tmpl
-			break
+		if compatible(tmpl) && (strings.Contains(promptLower, nameLower) || (suggestedID != "" && strings.Contains(nameLower, strings.ToLower(suggestedID)))) {
+			return tmpl.ID, tmpl.Name, ""
 		}
 	}
 
-	if bestMatch != nil {
-		return bestMatch.ID, bestMatch.Name, strings.TrimSpace(suggestedMissing)
+	// 3. Usar alternativa únicamente cuando la consigna nombra tecnologías
+	// conocidas y la plantilla cubre todas. Sin señales suficientes, no adivinar.
+	if len(requiredTechnologies) > 0 {
+		for _, tmpl := range approvedTemplates {
+			if compatible(tmpl) {
+				return tmpl.ID, tmpl.Name, ""
+			}
+		}
 	}
 
-	// 3. Si no hubo coincidencia directa, asignar la primera plantilla homologada disponible y alertar
-	fallback := approvedTemplates[0]
 	missing := strings.TrimSpace(suggestedMissing)
 	if missing == "" {
-		missing = "Tecnología solicitada fuera de catálogo homologado"
+		missingList := make([]string, 0, len(requiredTechnologies))
+		for _, technology := range requiredTechnologies {
+			missingList = append(missingList, technology.label)
+		}
+		missing = strings.Join(missingList, ", ")
 	}
-	return fallback.ID, fallback.Name, missing
+	if missing == "" {
+		missing = "No hay una plantilla homologada compatible con esta práctica"
+	}
+	return "", "", missing
+}
+
+type ideTechnology struct {
+	label string
+	terms []string
+}
+
+var ideTechnologyCatalog = []ideTechnology{
+	{label: "Angular", terms: []string{"angular"}},
+	{label: "React", terms: []string{"react"}},
+	{label: "Vue", terms: []string{"vue"}},
+	{label: "NestJS", terms: []string{"nestjs", "nest.js", "nest js"}},
+	{label: "FastAPI", terms: []string{"fastapi", "fast api"}},
+	{label: "Django", terms: []string{"django"}},
+	{label: "Flask", terms: []string{"flask"}},
+	{label: "Spring", terms: []string{"spring boot", "spring"}},
+	{label: "Node.js", terms: []string{"node.js", "nodejs", "node js"}},
+	{label: "TypeScript", terms: []string{"typescript", "type script"}},
+	{label: "JavaScript", terms: []string{"javascript", "java script"}},
+	{label: "Python", terms: []string{"python"}},
+	{label: "PostgreSQL", terms: []string{"postgresql", "postgres"}},
+	{label: "SQLite", terms: []string{"sqlite"}},
+	{label: "MySQL", terms: []string{"mysql"}},
+	{label: "MariaDB", terms: []string{"mariadb"}},
+	{label: "MongoDB", terms: []string{"mongodb", "mongo db"}},
+	{label: "Redis", terms: []string{"redis"}},
+	{label: "Java", terms: []string{"java"}},
+	{label: "C++", terms: []string{"c++", "cpp"}},
+	{label: "C#", terms: []string{"c#", "csharp", ".net"}},
+	{label: "Go", terms: []string{"golang"}},
+	{label: "Rust", terms: []string{"rust"}},
+}
+
+func requestedIdeTechnologies(prompt string) []ideTechnology {
+	lower := strings.ToLower(prompt)
+	var required []ideTechnology
+	for _, technology := range ideTechnologyCatalog {
+		for _, term := range technology.terms {
+			if technology.label == "Java" && strings.Contains(lower, "javascript") {
+				continue
+			}
+			matched := strings.Contains(lower, term)
+			if technology.label == "Go" {
+				matched = matched || regexp.MustCompile(`\bgo\b`).MatchString(lower)
+			}
+			if matched {
+				required = append(required, technology)
+				break
+			}
+		}
+	}
+	return required
+}
+
+func missingTemplateTechnologies(template *domain.AdminTemplateReviewItem, required []ideTechnology) []ideTechnology {
+	if len(required) == 0 {
+		return nil
+	}
+	stackConfig, _ := json.Marshal(template.StackConfig)
+	servicesConfig, _ := json.Marshal(template.ServicesConfig)
+	searchable := strings.ToLower(strings.Join([]string{
+		template.Name,
+		template.Description,
+		template.DockerImage,
+		string(stackConfig),
+		string(servicesConfig),
+	}, " "))
+	var missing []ideTechnology
+	for _, technology := range required {
+		found := false
+		for _, term := range technology.terms {
+			if strings.Contains(searchable, term) {
+				found = true
+				break
+			}
+		}
+		if !found && technology.label == "Node.js" {
+			found = strings.Contains(searchable, "node")
+		}
+		if !found && technology.label == "Go" {
+			found = regexp.MustCompile(`\bgo\b`).MatchString(searchable)
+		}
+		if !found {
+			missing = append(missing, technology)
+		}
+	}
+	return missing
 }
 
 type rawRubricCriterion struct {
@@ -1040,7 +1152,7 @@ func normalizeRubricCriteria(raw []rawRubricCriterion) *domain.Rubric {
 func generateIdeExerciseSystemPrompt(approvedTemplatesSummary string) string {
 	catalogClause := ""
 	if approvedTemplatesSummary != "" {
-		catalogClause = fmt.Sprintf("\nPlantillas de desarrollo homologadas disponibles en el servidor:\n%s\nDebes elegir la plantilla que mejor se adapte al ejercicio e incluir su ID exacto en 'template_id'. Si la tecnología pedida no está en la lista, selecciona la plantilla base más cercana y reporta el nombre de la tecnología faltante en 'missing_technology'.", approvedTemplatesSummary)
+		catalogClause = fmt.Sprintf("\nPlantillas de desarrollo homologadas disponibles en el servidor:\n%s\nDebes elegir una plantilla de la lista solo si cubre las tecnologías requeridas e incluir su ID exacto en 'template_id'. Si ninguna plantilla es compatible o la tecnología pedida no está en la lista, deja 'template_id' vacío y reporta la tecnología faltante en 'missing_technology'; no sugieras una plantilla alternativa incompatible.", approvedTemplatesSummary)
 	}
 	return fmt.Sprintf(`Sos el copiloto pedagógico de prácticas de desarrollo (IDE persistente) de SOLV, la plataforma académica de laboratorios virtuales.
 Tu objetivo es generar una práctica de desarrollo completa, clara y motivante para estudiantes universitarios de informática.
@@ -1068,6 +1180,8 @@ Reglas innegociables:
   - ## Criterios de Entrega y Estructura esperada
 - difficulty: "easy", "medium" o "hard".
 - language: Lenguaje o framework principal (ej: typescript, python, java, etc.).
+- template_id: solo una plantilla compatible del catálogo; si no hay una compatible, cadena vacía.
+- missing_technology: tecnología requerida sin plantilla compatible; cadena vacía si el catálogo cubre la práctica.
 - rubric_criteria: Entre 3 y 6 criterios pedagógicos claros que cubran la práctica. La suma de sus pesos (weight) debe ser aproximadamente 100.%s`, catalogClause)
 }
 

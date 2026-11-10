@@ -793,7 +793,7 @@ func resolveUserOverride(settings *domain.AISettingsStored, userID string) (doma
 	if strings.TrimSpace(override.Model) == "" {
 		return zero, false
 	}
-	if domain.IsCloudAIProvider(override.Provider) && strings.TrimSpace(override.EncryptedAPIKey) == "" {
+	if (domain.IsCloudAIProvider(override.Provider) || domain.IsCustomAIProvider(override.Provider)) && strings.TrimSpace(override.EncryptedAPIKey) == "" {
 		return zero, false
 	}
 	return override, true
@@ -1052,6 +1052,22 @@ func (s *AISettingsService) UpdateUserOverride(ctx context.Context, tenantID, us
 		}
 	}
 
+	var customProvider *domain.AICustomProviderStored
+	if domain.IsCustomAIProvider(provider) {
+		for i := range stored.CustomProviders {
+			if stored.CustomProviders[i].ID == provider {
+				customProvider = &stored.CustomProviders[i]
+				break
+			}
+		}
+		if customProvider == nil {
+			return nil, &AISettingsValidationError{
+				Code:    "provider_invalid",
+				Message: fmt.Sprintf("proveedor personalizado no registrado por la institución: %q", provider),
+			}
+		}
+	}
+
 	previous := stored.UserOverrides[userID]
 
 	rawBaseURL := strings.TrimSpace(dto.BaseURL)
@@ -1061,13 +1077,9 @@ func (s *AISettingsService) UpdateUserOverride(ctx context.Context, tenantID, us
 	if rawBaseURL == "" && provider == stored.Provider {
 		rawBaseURL = strings.TrimSpace(stored.BaseURL)
 	}
-	if rawBaseURL == "" && domain.IsCustomAIProvider(provider) {
-		for _, cp := range stored.CustomProviders {
-			if cp.ID == provider {
-				rawBaseURL = cp.BaseURL
-				break
-			}
-		}
+	if customProvider != nil {
+		// El endpoint lo define la institución; el docente solo aporta su clave.
+		rawBaseURL = customProvider.BaseURL
 	}
 	baseURL, err := resolveAIBaseURL(provider, rawBaseURL)
 	if err != nil {
@@ -1080,6 +1092,9 @@ func (s *AISettingsService) UpdateUserOverride(ctx context.Context, tenantID, us
 	}
 	if model == "" && provider == stored.Provider {
 		model = strings.TrimSpace(stored.Model)
+	}
+	if model == "" && customProvider != nil {
+		model = strings.TrimSpace(customProvider.Model)
 	}
 
 	encryptedKey := previous.EncryptedAPIKey
@@ -1094,6 +1109,9 @@ func (s *AISettingsService) UpdateUserOverride(ctx context.Context, tenantID, us
 		}
 		encryptedKey = cipherText
 		maskedKey = maskAPIKey(strings.TrimSpace(dto.APIKey))
+	case provider != previous.Provider:
+		// Una clave no se reutiliza entre proveedores distintos.
+		encryptedKey, maskedKey = "", ""
 	}
 
 	if dto.Enabled {
@@ -1104,6 +1122,12 @@ func (s *AISettingsService) UpdateUserOverride(ctx context.Context, tenantID, us
 			}
 		}
 		if domain.IsCloudAIProvider(provider) && strings.TrimSpace(encryptedKey) == "" {
+			return nil, &AISettingsValidationError{
+				Code:    "api_key_required",
+				Message: domain.ErrAIMissingAPIKey.Error(),
+			}
+		}
+		if customProvider != nil && strings.TrimSpace(encryptedKey) == "" {
 			return nil, &AISettingsValidationError{
 				Code:    "api_key_required",
 				Message: domain.ErrAIMissingAPIKey.Error(),
@@ -1187,7 +1211,7 @@ func requireUserCredential(provider, baseURL, apiKey string) error {
 			Message: "seleccioná un proveedor de IA",
 		}
 	}
-	if domain.IsCloudAIProvider(provider) {
+	if domain.IsCloudAIProvider(provider) || domain.IsCustomAIProvider(provider) {
 		if strings.TrimSpace(apiKey) == "" {
 			return &AISettingsValidationError{
 				Code:    "api_key_required",

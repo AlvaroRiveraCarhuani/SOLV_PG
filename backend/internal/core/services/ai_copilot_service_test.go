@@ -107,7 +107,7 @@ func (s *stubComponentRepoForTesting) ListTemplates(ctx context.Context, tenantI
 			ID:                "tmpl-nestjs",
 			Name:              "NestJS + PostgreSQL",
 			Description:       "Entorno para APIs con NestJS y base de datos relacional",
-			Status:            "approved",
+			Status:            "APROBADA",
 			TargetEnvironment: "IDE_PERSISTENTE",
 		},
 		{
@@ -513,6 +513,33 @@ func TestAICopilot_GenerateExerciseDraft_IDEPersistente_BalancesWeightsAndMatche
 	}
 	if err := draft.Rubric.Validate(); err != nil {
 		t.Errorf("la rúbrica normalizada falló validación de dominio: %v", err)
+	}
+}
+
+func TestAICopilot_GenerateExerciseDraft_IDEFueraDeCatalogo_NoAsignaPlantillaAlternativa(t *testing.T) {
+	server := newCopilotLLMServer(t, `{
+		"title": "Aplicación con Angular",
+		"description": "Crear una interfaz con Angular.",
+		"difficulty": "medium",
+		"language": "typescript",
+		"template_id": "",
+		"missing_technology": "Angular",
+		"rubric_criteria": [{"name": "Interfaz", "description": "Implementación", "weight": 100}]
+	}`)
+	copilot := NewAICopilotService(newEnabledCopilotSettings(t, server), nil, &stubComponentRepoForTesting{})
+
+	draft, err := copilot.GenerateExerciseDraft(context.Background(), "t-1", "u-1", domain.AIGenerateExerciseRequestDTO{
+		Prompt:          "Crear una práctica con Angular",
+		EnvironmentType: "IDE_PERSISTENTE",
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if draft.TemplateID != "" || draft.TemplateName != "" {
+		t.Fatalf("no debe asignar una plantilla alternativa cuando falta la tecnología: id=%q name=%q", draft.TemplateID, draft.TemplateName)
+	}
+	if draft.MissingTechnology != "Angular" {
+		t.Fatalf("missing_technology = %q, esperado Angular", draft.MissingTechnology)
 	}
 }
 
