@@ -15,6 +15,7 @@ import {
   TemplateComponent
 } from '../../../../../services/admin-templates.service';
 import { CURATED_TECH_ICONS } from '../../../tech-logo/tech-logo.component';
+import { DependencyProfile } from '../../../../../models/admin-templates.models';
 import { ModalShellComponent } from '@shared/components/modal-shell/modal-shell.component';
 import { AiProgressIndicatorComponent } from '@shared/components/ai-progress-indicator/ai-progress-indicator.component';
 import { FormFieldComponent } from '@shared/components/form-field/form-field.component';
@@ -77,6 +78,85 @@ export {
 const DRAFT_KEY = 'suggest-component';
 
 /**
+ * Formulario del perfil de dependencias del proyecto. Solo aplica a runtimes:
+ * describe cómo se materializan las librerías que declara el proyecto del docente.
+ */
+interface DependencyProfileForm {
+  enabled: boolean;
+  detect: string;
+  lockfiles: string;
+  install: string;
+  installWithoutLock: string;
+  materialize: 'tree' | 'cache' | 'none';
+  paths: string;
+  verify: string;
+  network: 'build' | 'none';
+  offlineFlags: string;
+  cacheEnv: string;
+  user: string;
+  home: string;
+}
+
+function emptyDependencyProfileForm(): DependencyProfileForm {
+  return {
+    enabled: false,
+    detect: '',
+    lockfiles: '',
+    install: '',
+    installWithoutLock: '',
+    materialize: 'tree',
+    paths: '',
+    verify: '',
+    network: 'build',
+    offlineFlags: '',
+    cacheEnv: '',
+    user: '',
+    home: ''
+  };
+}
+
+function splitProfileList(value: string): string[] {
+  return value
+    .split(/[\n,]/)
+    .map(entry => entry.trim())
+    .filter(entry => entry.length > 0);
+}
+
+function parseCacheEnv(value: string): Record<string, string> {
+  const result: Record<string, string> = {};
+  for (const line of value.split('\n')) {
+    const separator = line.indexOf('=');
+    if (separator <= 0) continue;
+    const key = line.slice(0, separator).trim();
+    const rawValue = line.slice(separator + 1).trim();
+    if (key && rawValue) result[key] = rawValue;
+  }
+  return result;
+}
+
+function dependencyProfileFormFromComponent(comp: TemplateComponent): DependencyProfileForm {
+  const profile = (comp as TemplateComponent & { dependency_profile?: DependencyProfile }).dependency_profile;
+  const materialize = profile?.materialize;
+  return {
+    enabled: !!materialize,
+    detect: (profile?.detect ?? []).join(', '),
+    lockfiles: (profile?.lockfiles ?? []).join(', '),
+    install: profile?.install ?? '',
+    installWithoutLock: profile?.install_without_lock ?? '',
+    materialize: materialize === 'cache' || materialize === 'none' ? materialize : 'tree',
+    paths: (profile?.dependency_paths ?? []).join(', '),
+    verify: profile?.verify ?? '',
+    network: profile?.network === 'none' ? 'none' : 'build',
+    offlineFlags: profile?.offline_flags ?? '',
+    cacheEnv: Object.entries(profile?.cache_env ?? {})
+      .map(([key, value]) => `${key}=${value}`)
+      .join('\n'),
+    user: profile?.user ?? '',
+    home: profile?.home ?? ''
+  };
+}
+
+/**
  * Formulario de alta tal como lo dejó el administrador.
  *
  * `contextKey` fija el contexto con el que se abrió el modal. Sin él, un
@@ -115,6 +195,7 @@ interface ComponentAiDraft {
   selectedDatabaseProfileId: string;
   selectedVersion: string;
   isCustomPresetSelected: boolean;
+  dependencyProfile?: DependencyProfileForm;
 }
 
 @Component({
@@ -201,6 +282,17 @@ export class ComponentFormModalComponent implements OnInit {
   readonly judgeEntrypoint = signal<string>('');
   readonly memoryProfile = signal<ComponentMemoryProfile>('library');
   readonly ramDeltaMB = signal<number>(0);
+  readonly depForm = signal<DependencyProfileForm>(emptyDependencyProfileForm());
+
+  readonly dependencyMaterializeOptions: ComboboxOption<string>[] = [
+    { id: 'tree', label: 'Dentro del proyecto (node_modules, .venv, vendor)', value: 'tree' },
+    { id: 'cache', label: 'Caché fuera del proyecto (~/.m2, GOMODCACHE)', value: 'cache' },
+    { id: 'none', label: 'No materializa nada (sin dependencias de proyecto)', value: 'none' }
+  ];
+  readonly dependencyNetworkOptions: ComboboxOption<string>[] = [
+    { id: 'build', label: 'Necesita red al preparar', value: 'build' },
+    { id: 'none', label: 'Resuelve desde la caché', value: 'none' }
+  ];
 
   readonly isSubmitting = signal<boolean>(false);
   readonly errorMessage = signal<string | null>(null);
@@ -523,7 +615,8 @@ export class ComponentFormModalComponent implements OnInit {
       selectedAddonPresetId: this.selectedAddonPresetId(),
       selectedDatabaseProfileId: this.selectedDatabaseProfileId(),
       selectedVersion: this.selectedVersion(),
-      isCustomPresetSelected: this.isCustomPresetSelected()
+      isCustomPresetSelected: this.isCustomPresetSelected(),
+      dependencyProfile: this.depForm()
     };
   }
 
@@ -558,6 +651,7 @@ export class ComponentFormModalComponent implements OnInit {
     this.selectedDatabaseProfileId.set(draft.selectedDatabaseProfileId);
     this.selectedVersion.set(draft.selectedVersion);
     this.isCustomPresetSelected.set(draft.isCustomPresetSelected);
+    this.depForm.set({ ...emptyDependencyProfileForm(), ...(draft.dependencyProfile ?? {}) });
   }
 
   ngOnInit(): void {
@@ -651,12 +745,82 @@ export class ComponentFormModalComponent implements OnInit {
     this.serviceEngine.set(comp.service_engine || 'postgres');
     this.judgeEntrypoint.set(comp.judge_entrypoint || '');
     this.ramDeltaMB.set(comp.ram_delta_mb || 0);
+    this.depForm.set(dependencyProfileFormFromComponent(comp));
 
     if (comp.layer === 'addon') {
       this.memoryProfile.set(comp.ram_delta_mb >= 384 ? 'heavy' : (comp.ram_delta_mb >= 256 ? 'devserver' : 'library'));
     } else if (comp.layer === 'runtime') {
       this.memoryProfile.set(comp.ram_delta_mb >= 1024 ? 'heavy' : (comp.ram_delta_mb <= 384 ? 'light' : 'standard'));
     }
+  }
+
+  updateDepForm(patch: Partial<DependencyProfileForm>): void {
+    this.depForm.update(current => ({ ...current, ...patch }));
+  }
+
+  private hasExistingDependencyProfile(): boolean {
+    const target = this.editingComponent || this.existingCatalogMatch();
+    const profile = (target as TemplateComponent & { dependency_profile?: DependencyProfile } | null)
+      ?.dependency_profile;
+    return !!profile && !!profile.materialize;
+  }
+
+  private validateDependencyProfile(): string | null {
+    const form = this.depForm();
+    if (this.layer() !== 'runtime' || !form.enabled) return null;
+    if (form.materialize === 'none') return null;
+    if (splitProfileList(form.detect).length === 0) {
+      return 'Indicá al menos un archivo que delate que el proyecto usa esta familia.';
+    }
+    if (!form.install.trim()) {
+      return 'Falta el comando de instalación del perfil de dependencias.';
+    }
+    if (!form.verify.trim()) {
+      return 'Falta la comprobación sin red: sin ella no se puede saber si la preparación quedó usable.';
+    }
+    const paths = splitProfileList(form.paths);
+    if (paths.length === 0) {
+      return 'Indicá al menos una ruta que produzca la instalación.';
+    }
+    if (form.materialize === 'tree' && paths.some(path => path.startsWith('/') || path.startsWith('~'))) {
+      return 'Con materialización dentro del proyecto, las rutas tienen que ser relativas.';
+    }
+    if (form.materialize === 'cache' && paths.some(path => !path.startsWith('/') && !path.startsWith('~/'))) {
+      return 'Con materialización en caché, las rutas tienen que ser absolutas o empezar con ~/.';
+    }
+    return null;
+  }
+
+  private buildDependencyProfile(): DependencyProfile | null {
+    const form = this.depForm();
+    if (this.layer() !== 'runtime' || !form.enabled) return null;
+    const profile: DependencyProfile = {
+      version: 1,
+      detect: splitProfileList(form.detect),
+      lockfiles: splitProfileList(form.lockfiles),
+      install: form.install.trim(),
+      materialize: form.materialize,
+      dependency_paths: splitProfileList(form.paths),
+      verify: form.verify.trim(),
+      network: form.network
+    };
+    if (form.installWithoutLock.trim()) {
+      profile.install_without_lock = form.installWithoutLock.trim();
+    }
+    if (form.offlineFlags.trim()) {
+      profile.offline_flags = form.offlineFlags.trim();
+    }
+    if (form.user.trim()) {
+      profile.user = form.user.trim();
+    }
+    if (form.home.trim()) {
+      profile.home = form.home.trim();
+    }
+    const cacheEnv = parseCacheEnv(form.cacheEnv);
+    if (Object.keys(cacheEnv).length > 0) {
+      profile.cache_env = cacheEnv;
+    }
+    return profile;
   }
 
   onSelectEcosystemProfile(profileId: string): void {
@@ -1125,6 +1289,13 @@ export class ComponentFormModalComponent implements OnInit {
     const judgeEntrypointValue =
       currentLayer === 'runtime' && this.subCategory() === 'backend' ? this.judgeEntrypoint().trim() : '';
 
+    const dependencyError = this.validateDependencyProfile();
+    if (dependencyError) {
+      this.errorMessage.set(dependencyError);
+      return;
+    }
+    const dependencyProfile = this.buildDependencyProfile();
+
     this.isSubmitting.set(true);
     this.errorMessage.set(null);
 
@@ -1145,6 +1316,9 @@ export class ComponentFormModalComponent implements OnInit {
         tools_provided: tools,
         service_engine: currentLayer === 'database' ? this.serviceEngine().trim() : '',
         ram_delta_mb: Number(this.ramDeltaMB()) || 0,
+        ...(dependencyProfile || this.hasExistingDependencyProfile()
+          ? { dependency_profile: dependencyProfile ?? ({} as DependencyProfile) }
+          : {}),
         is_active: true
       };
 
@@ -1176,7 +1350,8 @@ export class ComponentFormModalComponent implements OnInit {
       judge_entrypoint: judgeEntrypointValue,
       tools_provided: tools,
       service_engine: currentLayer === 'database' ? this.serviceEngine().trim() : '',
-      ram_delta_mb: Number(this.ramDeltaMB()) || 0
+      ram_delta_mb: Number(this.ramDeltaMB()) || 0,
+      ...(dependencyProfile ? { dependency_profile: dependencyProfile } : {})
     };
 
     this.templatesService.createTechCatalogItem(createDto).subscribe({

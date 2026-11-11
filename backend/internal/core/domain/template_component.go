@@ -48,70 +48,73 @@ var (
 
 // TemplateComponent representa un componente tecnológico del catálogo componible en el Constructor de Entornos.
 type TemplateComponent struct {
-	ID                 string         `db:"id" json:"id"`
-	TenantID           string         `db:"tenant_id" json:"tenant_id"`
-	Slug               string         `db:"slug" json:"slug"`
-	Layer              ComponentLayer `db:"layer" json:"layer"`
-	SubCategory        string         `db:"sub_category" json:"sub_category"` // "backend" | "web" | "framework" | "toolkit" | "relational" | "nosql"
-	Name               string         `db:"name" json:"name"`
-	Description        string         `db:"description" json:"description"`
-	IconKey            string         `db:"icon_key" json:"icon_key"`
-	BaseImage          string         `db:"base_image" json:"base_image"`
-	CompatibleRuntimes []string       `db:"-" json:"compatible_runtimes"`
-	InstallMode        InstallMode    `db:"install_mode" json:"install_mode"`
-	PackageNames       []string       `db:"-" json:"package_names"`
-	BuildLayerSnippet  string         `db:"build_layer_snippet" json:"build_layer_snippet"`
-	SetupSnippet       string         `db:"setup_snippet" json:"setup_snippet"`
-	JudgeEntrypoint    string         `db:"judge_entrypoint" json:"judge_entrypoint"`
-	ToolsProvided      []string       `db:"-" json:"tools_provided"`
-	ServiceEngine      string         `db:"service_engine" json:"service_engine"`
-	RamDeltaMB         int            `db:"ram_delta_mb" json:"ram_delta_mb"`
-	IsSystem           bool           `db:"is_system" json:"is_system"`
-	IsActive           bool           `db:"is_active" json:"is_active"`
-	SortOrder          int            `db:"sort_order" json:"sort_order"`
-	CreatedAt          time.Time      `db:"created_at" json:"created_at"`
-	UpdatedAt          time.Time      `db:"updated_at" json:"updated_at"`
+	ID                 string            `db:"id" json:"id"`
+	TenantID           string            `db:"tenant_id" json:"tenant_id"`
+	Slug               string            `db:"slug" json:"slug"`
+	Layer              ComponentLayer    `db:"layer" json:"layer"`
+	SubCategory        string            `db:"sub_category" json:"sub_category"` // "backend" | "web" | "framework" | "toolkit" | "relational" | "nosql"
+	Name               string            `db:"name" json:"name"`
+	Description        string            `db:"description" json:"description"`
+	IconKey            string            `db:"icon_key" json:"icon_key"`
+	BaseImage          string            `db:"base_image" json:"base_image"`
+	CompatibleRuntimes []string          `db:"-" json:"compatible_runtimes"`
+	InstallMode        InstallMode       `db:"install_mode" json:"install_mode"`
+	PackageNames       []string          `db:"-" json:"package_names"`
+	BuildLayerSnippet  string            `db:"build_layer_snippet" json:"build_layer_snippet"`
+	SetupSnippet       string            `db:"setup_snippet" json:"setup_snippet"`
+	JudgeEntrypoint    string            `db:"judge_entrypoint" json:"judge_entrypoint"`
+	ToolsProvided      []string          `db:"-" json:"tools_provided"`
+	ServiceEngine      string            `db:"service_engine" json:"service_engine"`
+	RamDeltaMB         int               `db:"ram_delta_mb" json:"ram_delta_mb"`
+	DependencyProfile  DependencyProfile `db:"-" json:"dependency_profile"`
+	IsSystem           bool              `db:"is_system" json:"is_system"`
+	IsActive           bool              `db:"is_active" json:"is_active"`
+	SortOrder          int               `db:"sort_order" json:"sort_order"`
+	CreatedAt          time.Time         `db:"created_at" json:"created_at"`
+	UpdatedAt          time.Time         `db:"updated_at" json:"updated_at"`
 }
 
 // CreateTemplateComponentDTO DTO para registrar un nuevo componente tecnológico en el catálogo.
 type CreateTemplateComponentDTO struct {
-	Name               string         `json:"name" validate:"required,min=2,max=120"`
-	Slug               string         `json:"slug,omitempty"`
-	Layer              ComponentLayer `json:"layer" validate:"required"`
-	SubCategory        string         `json:"sub_category,omitempty"`
-	Description        string         `json:"description,omitempty"`
-	IconKey            string         `json:"icon_key,omitempty"`
-	BaseImage          string         `json:"base_image,omitempty"`
-	CompatibleRuntimes []string       `json:"compatible_runtimes,omitempty"`
-	InstallMode        InstallMode    `json:"install_mode,omitempty"`
-	PackageNames       []string       `json:"package_names,omitempty"`
-	BuildLayerSnippet  string         `json:"build_layer_snippet,omitempty"`
-	SetupSnippet       string         `json:"setup_snippet,omitempty"`
-	JudgeEntrypoint    string         `json:"judge_entrypoint,omitempty"`
-	ToolsProvided      []string       `json:"tools_provided,omitempty"`
-	ServiceEngine      string         `json:"service_engine,omitempty"`
-	RamDeltaMB         int            `json:"ram_delta_mb,omitempty"`
-	SortOrder          int            `json:"sort_order,omitempty"`
+	Name               string            `json:"name" validate:"required,min=2,max=120"`
+	Slug               string            `json:"slug,omitempty"`
+	Layer              ComponentLayer    `json:"layer" validate:"required"`
+	SubCategory        string            `json:"sub_category,omitempty"`
+	Description        string            `json:"description,omitempty"`
+	IconKey            string            `json:"icon_key,omitempty"`
+	BaseImage          string            `json:"base_image,omitempty"`
+	CompatibleRuntimes []string          `json:"compatible_runtimes,omitempty"`
+	InstallMode        InstallMode       `json:"install_mode,omitempty"`
+	PackageNames       []string          `json:"package_names,omitempty"`
+	BuildLayerSnippet  string            `json:"build_layer_snippet,omitempty"`
+	SetupSnippet       string            `json:"setup_snippet,omitempty"`
+	JudgeEntrypoint    string            `json:"judge_entrypoint,omitempty"`
+	ToolsProvided      []string          `json:"tools_provided,omitempty"`
+	ServiceEngine      string            `json:"service_engine,omitempty"`
+	RamDeltaMB         int               `json:"ram_delta_mb,omitempty"`
+	DependencyProfile  DependencyProfile `json:"dependency_profile,omitempty"`
+	SortOrder          int               `json:"sort_order,omitempty"`
 }
 
 // UpdateTemplateComponentDTO DTO para actualizar un componente tecnológico existente.
 type UpdateTemplateComponentDTO struct {
-	Name               string   `json:"name" validate:"required,min=2,max=120"`
-	SubCategory        string   `json:"sub_category,omitempty"`
-	Description        string   `json:"description,omitempty"`
-	IconKey            string   `json:"icon_key,omitempty"`
-	BaseImage          string   `json:"base_image,omitempty"`
-	CompatibleRuntimes []string `json:"compatible_runtimes,omitempty"`
-	InstallMode        string   `json:"install_mode,omitempty"`
-	PackageNames       []string `json:"package_names,omitempty"`
-	BuildLayerSnippet  string   `json:"build_layer_snippet,omitempty"`
-	SetupSnippet       string   `json:"setup_snippet,omitempty"`
-	JudgeEntrypoint    string   `json:"judge_entrypoint,omitempty"`
-	ToolsProvided      []string `json:"tools_provided,omitempty"`
-	ServiceEngine      string   `json:"service_engine,omitempty"`
-	RamDeltaMB         *int     `json:"ram_delta_mb,omitempty"`
-	IsActive           *bool    `json:"is_active,omitempty"`
-	SortOrder          *int     `json:"sort_order,omitempty"`
+	Name               string             `json:"name" validate:"required,min=2,max=120"`
+	SubCategory        string             `json:"sub_category,omitempty"`
+	Description        string             `json:"description,omitempty"`
+	IconKey            string             `json:"icon_key,omitempty"`
+	BaseImage          string             `json:"base_image,omitempty"`
+	CompatibleRuntimes []string           `json:"compatible_runtimes,omitempty"`
+	InstallMode        string             `json:"install_mode,omitempty"`
+	PackageNames       []string           `json:"package_names,omitempty"`
+	BuildLayerSnippet  string             `json:"build_layer_snippet,omitempty"`
+	SetupSnippet       string             `json:"setup_snippet,omitempty"`
+	JudgeEntrypoint    string             `json:"judge_entrypoint,omitempty"`
+	ToolsProvided      []string           `json:"tools_provided,omitempty"`
+	ServiceEngine      string             `json:"service_engine,omitempty"`
+	RamDeltaMB         *int               `json:"ram_delta_mb,omitempty"`
+	DependencyProfile  *DependencyProfile `json:"dependency_profile,omitempty"`
+	IsActive           *bool              `json:"is_active,omitempty"`
+	SortOrder          *int               `json:"sort_order,omitempty"`
 }
 
 // StackServiceSelection declara un servicio del stack por rol y componente.

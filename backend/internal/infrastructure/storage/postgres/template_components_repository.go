@@ -46,6 +46,7 @@ type templateComponentRow struct {
 	ToolsProvided      []byte    `db:"tools_provided"`
 	ServiceEngine      string    `db:"service_engine"`
 	RamDeltaMB         int       `db:"ram_delta_mb"`
+	DependencyProfile  []byte    `db:"dependency_profile"`
 	IsSystem           bool      `db:"is_system"`
 	IsActive           bool      `db:"is_active"`
 	SortOrder          int       `db:"sort_order"`
@@ -73,6 +74,7 @@ func (row *templateComponentRow) toDomain() *domain.TemplateComponent {
 		ToolsProvided:      []string{},
 		ServiceEngine:      row.ServiceEngine,
 		RamDeltaMB:         row.RamDeltaMB,
+		DependencyProfile:  domain.DependencyProfile{},
 		IsSystem:           row.IsSystem,
 		IsActive:           row.IsActive,
 		SortOrder:          row.SortOrder,
@@ -87,6 +89,9 @@ func (row *templateComponentRow) toDomain() *domain.TemplateComponent {
 	}
 	if len(row.ToolsProvided) > 0 {
 		_ = json.Unmarshal(row.ToolsProvided, &item.ToolsProvided)
+	}
+	if len(row.DependencyProfile) > 0 {
+		_ = json.Unmarshal(row.DependencyProfile, &item.DependencyProfile)
 	}
 	return item
 }
@@ -111,6 +116,7 @@ func (r *PostgresAdminGovernanceRepository) ListTemplateComponents(
 			COALESCE(tools_provided, '[]'::jsonb) AS tools_provided,
 			COALESCE(service_engine, '') AS service_engine,
 			COALESCE(ram_delta_mb, 0) AS ram_delta_mb,
+			COALESCE(dependency_profile, '{}'::jsonb) AS dependency_profile,
 			COALESCE(is_system, false) AS is_system,
 			COALESCE(is_active, true) AS is_active,
 			COALESCE(sort_order, 100) AS sort_order,
@@ -162,6 +168,7 @@ func (r *PostgresAdminGovernanceRepository) GetTemplateComponentByIDOrSlug(
 			COALESCE(tools_provided, '[]'::jsonb) AS tools_provided,
 			COALESCE(service_engine, '') AS service_engine,
 			COALESCE(ram_delta_mb, 0) AS ram_delta_mb,
+			COALESCE(dependency_profile, '{}'::jsonb) AS dependency_profile,
 			COALESCE(is_system, false) AS is_system,
 			COALESCE(is_active, true) AS is_active,
 			COALESCE(sort_order, 100) AS sort_order,
@@ -203,6 +210,10 @@ func (r *PostgresAdminGovernanceRepository) CreateTemplateComponent(
 	if len(toolsJSON) == 0 || string(toolsJSON) == "null" {
 		toolsJSON = []byte(`[]`)
 	}
+	profileJSON, errProfile := json.Marshal(comp.DependencyProfile)
+	if errProfile != nil || len(profileJSON) == 0 || string(profileJSON) == "null" {
+		profileJSON = []byte(`{}`)
+	}
 
 	subCat := strings.TrimSpace(comp.SubCategory)
 	if subCat == "" {
@@ -226,12 +237,13 @@ func (r *PostgresAdminGovernanceRepository) CreateTemplateComponent(
 			id, tenant_id, slug, layer, sub_category, name, description, icon_key,
 			base_image, compatible_runtimes, install_mode, package_names,
 			build_layer_snippet, setup_snippet, judge_entrypoint, tools_provided,
-			service_engine, ram_delta_mb, is_system, is_active, sort_order
+			service_engine, ram_delta_mb, is_system, is_active, sort_order,
+			dependency_profile
 		) VALUES (
 			gen_random_uuid(), $1::uuid, $2, $3, $4, $5, $6, $7,
 			$8, $9, $10, $11,
 			$12, $13, $14, $15,
-			$16, $17, false, true, $18
+			$16, $17, false, true, $18, $19
 		)
 		ON CONFLICT (tenant_id, slug) DO NOTHING
 		RETURNING
@@ -248,6 +260,7 @@ func (r *PostgresAdminGovernanceRepository) CreateTemplateComponent(
 			COALESCE(tools_provided, '[]'::jsonb) AS tools_provided,
 			COALESCE(service_engine, '') AS service_engine,
 			COALESCE(ram_delta_mb, 0) AS ram_delta_mb,
+			COALESCE(dependency_profile, '{}'::jsonb) AS dependency_profile,
 			COALESCE(is_system, false) AS is_system,
 			COALESCE(is_active, true) AS is_active,
 			COALESCE(sort_order, 100) AS sort_order,
@@ -259,12 +272,13 @@ func (r *PostgresAdminGovernanceRepository) CreateTemplateComponent(
 		tenantID, slug, string(comp.Layer), subCat, strings.TrimSpace(comp.Name), strings.TrimSpace(comp.Description), iconKey,
 		strings.TrimSpace(comp.BaseImage), compatJSON, installMode, pkgsJSON,
 		strings.TrimSpace(comp.BuildLayerSnippet), strings.TrimSpace(comp.SetupSnippet), strings.TrimSpace(comp.JudgeEntrypoint), toolsJSON,
-		strings.TrimSpace(comp.ServiceEngine), comp.RamDeltaMB, sortOrder,
+		strings.TrimSpace(comp.ServiceEngine), comp.RamDeltaMB, sortOrder, profileJSON,
 	).Scan(
 		&row.ID, &row.TenantID, &row.Slug, &row.Layer, &row.SubCategory, &row.Name,
 		&row.Description, &row.IconKey, &row.BaseImage, &row.CompatibleRuntimes,
 		&row.InstallMode, &row.PackageNames, &row.BuildLayerSnippet, &row.SetupSnippet,
 		&row.JudgeEntrypoint, &row.ToolsProvided, &row.ServiceEngine, &row.RamDeltaMB,
+		&row.DependencyProfile,
 		&row.IsSystem, &row.IsActive, &row.SortOrder, &row.CreatedAt, &row.UpdatedAt,
 	)
 	if err != nil {
@@ -336,10 +350,17 @@ func (r *PostgresAdminGovernanceRepository) UpdateTemplateComponent(
 	if dto.SortOrder != nil {
 		existing.SortOrder = *dto.SortOrder
 	}
+	if dto.DependencyProfile != nil {
+		existing.DependencyProfile = *dto.DependencyProfile
+	}
 
 	compatJSON, _ := json.Marshal(existing.CompatibleRuntimes)
 	pkgsJSON, _ := json.Marshal(existing.PackageNames)
 	toolsJSON, _ := json.Marshal(existing.ToolsProvided)
+	profileJSON, errProfile := json.Marshal(existing.DependencyProfile)
+	if errProfile != nil || len(profileJSON) == 0 || string(profileJSON) == "null" {
+		profileJSON = []byte(`{}`)
+	}
 
 	query := `
 		UPDATE template_components
@@ -360,15 +381,16 @@ func (r *PostgresAdminGovernanceRepository) UpdateTemplateComponent(
 			is_active = $14,
 			sort_order = $15,
 			sub_category = $16,
+			dependency_profile = $17,
 			updated_at = NOW()
-		WHERE id::text = $17 AND (tenant_id::text = $18 OR tenant_id = '00000000-0000-0000-0000-000000000001')
+		WHERE id::text = $18 AND (tenant_id::text = $19 OR tenant_id = '00000000-0000-0000-0000-000000000001')
 	`
 	_, err = r.db.ExecContext(
 		ctx, query,
 		existing.Name, existing.Description, existing.IconKey, existing.BaseImage,
 		compatJSON, string(existing.InstallMode), pkgsJSON, existing.BuildLayerSnippet,
 		existing.SetupSnippet, existing.JudgeEntrypoint, toolsJSON, existing.ServiceEngine,
-		existing.RamDeltaMB, existing.IsActive, existing.SortOrder, existing.SubCategory, existing.ID, tenantID,
+		existing.RamDeltaMB, existing.IsActive, existing.SortOrder, existing.SubCategory, profileJSON, existing.ID, tenantID,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("error updating template component: %w", err)

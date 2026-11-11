@@ -345,6 +345,207 @@
         </button>
       </div>
 
+      @if (layer() === 'runtime') {
+        <div class="dep-panel">
+          <label class="dep-toggle" for="comp-dep-enabled">
+            <input
+              id="comp-dep-enabled"
+              type="checkbox"
+              [ngModel]="depForm().enabled"
+              (ngModelChange)="updateDepForm({ enabled: $event })"
+            />
+            <span>Este entorno prepara las librerías del proyecto</span>
+          </label>
+          <p class="dep-hint">
+            Se preparan una vez por versión publicada y se comparten entre laboratorios. Si lo dejás
+            desactivado, la versión se publica sin preparación y cada alumno instala al abrir.
+          </p>
+
+          @if (depForm().enabled) {
+            <div class="form-row">
+              <form-field
+                label="Archivos que delatan la familia"
+                for="comp-dep-detect"
+                [required]="true"
+                hint="Separados por coma. Ej: requirements.txt, pyproject.toml"
+              >
+                <input
+                  id="comp-dep-detect"
+                  type="text"
+                  class="form-input font-mono"
+                  [ngModel]="depForm().detect"
+                  (ngModelChange)="updateDepForm({ detect: $event })"
+                />
+              </form-field>
+
+              <form-field
+                label="Archivos de versión fija"
+                for="comp-dep-lockfiles"
+                hint="Su contenido entra en la clave de preparación."
+              >
+                <input
+                  id="comp-dep-lockfiles"
+                  type="text"
+                  class="form-input font-mono"
+                  placeholder="package-lock.json, poetry.lock"
+                  [ngModel]="depForm().lockfiles"
+                  (ngModelChange)="updateDepForm({ lockfiles: $event })"
+                />
+              </form-field>
+            </div>
+
+            <form-field
+              label="Comando de instalación"
+              for="comp-dep-install"
+              [required]="true"
+              hint="Sin preguntas ni confirmaciones. Ej: npm ci --no-audit --no-fund"
+            >
+              <input
+                id="comp-dep-install"
+                type="text"
+                class="form-input font-mono"
+                [ngModel]="depForm().install"
+                (ngModelChange)="updateDepForm({ install: $event })"
+              />
+            </form-field>
+
+            <form-field
+              label="Instalación sin versión fija (Opcional)"
+              for="comp-dep-install-nolock"
+              hint="Se usa cuando el proyecto no trae archivo de versión fija."
+            >
+              <input
+                id="comp-dep-install-nolock"
+                type="text"
+                class="form-input font-mono"
+                placeholder="npm install --no-audit --no-fund"
+                [ngModel]="depForm().installWithoutLock"
+                (ngModelChange)="updateDepForm({ installWithoutLock: $event })"
+              />
+            </form-field>
+
+            <div class="form-row">
+              <form-field label="Dónde deja el resultado" for="comp-dep-materialize">
+                <combobox
+                  id="comp-dep-materialize"
+                  [options]="dependencyMaterializeOptions"
+                  [value]="depForm().materialize"
+                  [showSearchIcon]="false"
+                  [showHeader]="false"
+                  [allowClear]="false"
+                  (valueChange)="updateDepForm({ materialize: $any($event) })"
+                />
+              </form-field>
+
+              <form-field
+                label="Rutas que produce"
+                for="comp-dep-paths"
+                [required]="true"
+                hint="node_modules, .venv, vendor o /opt/solv/cache/m2"
+              >
+                <input
+                  id="comp-dep-paths"
+                  type="text"
+                  class="form-input font-mono"
+                  [ngModel]="depForm().paths"
+                  (ngModelChange)="updateDepForm({ paths: $event })"
+                />
+              </form-field>
+            </div>
+
+            <form-field
+              label="Comprobación sin red"
+              for="comp-dep-verify"
+              [required]="true"
+              hint="Corre con la red apagada. Si falla, el árbol no se publica."
+            >
+              <input
+                id="comp-dep-verify"
+                type="text"
+                class="form-input font-mono"
+                placeholder="python -c &quot;import pandas&quot;"
+                [ngModel]="depForm().verify"
+                (ngModelChange)="updateDepForm({ verify: $event })"
+              />
+            </form-field>
+
+            <div class="form-row">
+              <form-field label="Red al preparar" for="comp-dep-network">
+                <combobox
+                  id="comp-dep-network"
+                  [options]="dependencyNetworkOptions"
+                  [value]="depForm().network"
+                  [showSearchIcon]="false"
+                  [showHeader]="false"
+                  [allowClear]="false"
+                  (valueChange)="updateDepForm({ network: $any($event) })"
+                />
+              </form-field>
+
+              <form-field
+                label="Banderas sin red (Opcional)"
+                for="comp-dep-offline-flags"
+                hint="Ej: PIP_NO_INDEX=1 o --offline"
+              >
+                <input
+                  id="comp-dep-offline-flags"
+                  type="text"
+                  class="form-input font-mono"
+                  [ngModel]="depForm().offlineFlags"
+                  (ngModelChange)="updateDepForm({ offlineFlags: $event })"
+                />
+              </form-field>
+            </div>
+
+            <form-field
+              label="Variables de caché (Opcional)"
+              for="comp-dep-cache-env"
+              hint="Una por línea, con formato NOMBRE=/ruta. Se apuntan a la caché compartida."
+            >
+              <textarea
+                id="comp-dep-cache-env"
+                class="form-input font-mono"
+                rows="2"
+                [ngModel]="depForm().cacheEnv"
+                (ngModelChange)="updateDepForm({ cacheEnv: $event })"
+              ></textarea>
+            </form-field>
+
+            <div class="form-row">
+              <form-field
+                label="Usuario efectivo del contenedor"
+                for="comp-dep-user"
+                hint="Formato uid:gid. El árbol se crea con ese dueño; vacío usa 1000:1000."
+              >
+                <input
+                  id="comp-dep-user"
+                  type="text"
+                  class="form-input font-mono"
+                  placeholder="1000:1000"
+                  [ngModel]="depForm().user"
+                  (ngModelChange)="updateDepForm({ user: $event })"
+                />
+              </form-field>
+
+              <form-field
+                label="Home del usuario"
+                for="comp-dep-home"
+                hint="Absoluto. Una ruta bajo /opt/solv/cache se remapea dentro del árbol."
+              >
+                <input
+                  id="comp-dep-home"
+                  type="text"
+                  class="form-input font-mono"
+                  placeholder="/opt/solv/cache/home"
+                  [ngModel]="depForm().home"
+                  (ngModelChange)="updateDepForm({ home: $event })"
+                />
+              </form-field>
+            </div>
+          }
+        </div>
+      }
+
       @if (showExpertMode()) {
         <div class="expert-mode-panel">
           @if (layer() === 'runtime') {

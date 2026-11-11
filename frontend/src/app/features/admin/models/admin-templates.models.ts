@@ -160,6 +160,22 @@ export type InstallMode =
   | 'dotnet'
   | 'custom';
 
+/** Perfil de preparación de dependencias del proyecto (ADR-069). */
+export interface DependencyProfile {
+  version: number;
+  detect: string[];
+  lockfiles?: string[];
+  install: string;
+  install_without_lock?: string;
+  materialize: 'tree' | 'cache' | 'none';
+  dependency_paths: string[];
+  cache_env?: Record<string, string>;
+  verify: string;  network?: 'build' | 'none';
+  offline_flags?: string;
+  user?: string;
+  home?: string;
+}
+
 export interface TemplateComponent {
   id: string;
   tenant_id?: string;
@@ -179,6 +195,7 @@ export interface TemplateComponent {
   tools_provided: string[];
   service_engine: string;
   ram_delta_mb: number;
+  dependency_profile?: DependencyProfile;
   is_system: boolean;
   is_active: boolean;
   sort_order: number;
@@ -201,9 +218,9 @@ export interface CreateTemplateComponentDTO {
   build_layer_snippet?: string;
   setup_snippet?: string;
   judge_entrypoint?: string;
-  tools_provided?: string[];
-  service_engine?: string;
+  tools_provided?: string[];	  service_engine?: string;
   ram_delta_mb?: number;
+  dependency_profile?: DependencyProfile;
 }
 
 export type CreateTechCatalogItemDTO = CreateTemplateComponentDTO;
@@ -223,6 +240,7 @@ export interface UpdateTemplateComponentDTO {
   tools_provided?: string[];
   service_engine?: string;
   ram_delta_mb?: number;
+  dependency_profile?: DependencyProfile;
   is_active?: boolean;
   sort_order?: number;
 }

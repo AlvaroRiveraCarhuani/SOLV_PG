@@ -47,6 +47,123 @@ describe('ComponentFormModalComponent', () => {
     tplService = TestBed.inject(AdminTemplatesService);
   });
 
+  describe('Perfil de dependencias del proyecto', () => {
+    it('envía el perfil al dar de alta un runtime', () => {
+      mockAdminTemplatesService.createTechCatalogItem.mockImplementation(dto =>
+        of({ id: 'rt-new', ...dto })
+      );
+
+      component.defaultLayer = 'runtime';
+      component.ngOnInit();
+      component.name.set('Python 3.12');
+      component.baseImage.set('python:3.12-slim-bookworm');
+      component.depForm.set({
+        ...component.depForm(),
+        enabled: true,
+        detect: 'requirements.txt, pyproject.toml',
+        lockfiles: 'poetry.lock',
+        install: 'pip install -r requirements.txt',
+        paths: '.venv',
+        verify: "python -c 'import pandas'"
+      });
+
+      component.onSave();
+
+      expect(tplService.createTechCatalogItem).toHaveBeenCalledWith(
+        expect.objectContaining({
+          dependency_profile: {
+            version: 1,
+            detect: ['requirements.txt', 'pyproject.toml'],
+            lockfiles: ['poetry.lock'],
+            install: 'pip install -r requirements.txt',
+            materialize: 'tree',
+            dependency_paths: ['.venv'],
+            verify: "python -c 'import pandas'",
+            network: 'build'
+          }
+        })
+      );
+    });
+
+    it('no envía el perfil si falta la comprobación sin red', () => {
+      component.defaultLayer = 'runtime';
+      component.ngOnInit();
+      component.name.set('Python 3.12');
+      component.baseImage.set('python:3.12-slim-bookworm');
+      component.depForm.set({
+        ...component.depForm(),
+        enabled: true,
+        detect: 'requirements.txt',
+        install: 'pip install -r requirements.txt',
+        paths: '.venv',
+        verify: ''
+      });
+
+      component.onSave();
+
+      expect(tplService.createTechCatalogItem).not.toHaveBeenCalled();
+      expect(component.errorMessage()).toContain('comprobación sin red');
+    });
+
+    it('recupera el perfil guardado al editar y lo reenvía', () => {
+      const edited: TemplateComponent = {
+        id: 'rt-node',
+        slug: 'node-22',
+        layer: 'runtime',
+        sub_category: 'web',
+        name: 'Node 22',
+        description: '',
+        icon_key: 'node',
+        base_image: 'node:22-bookworm',
+        compatible_runtimes: ['node'],
+        install_mode: 'npm',
+        package_names: [],
+        build_layer_snippet: '',
+        setup_snippet: '',
+        judge_entrypoint: '',
+        tools_provided: ['node'],
+        service_engine: '',
+        ram_delta_mb: 256,
+        dependency_profile: {
+          version: 1,
+          detect: ['package.json'],
+          lockfiles: ['package-lock.json'],
+          install: 'npm ci --no-audit --no-fund',
+          materialize: 'tree',
+          dependency_paths: ['node_modules'],
+          verify: 'node -e "require(\'express\')"',
+          network: 'build',
+          cache_env: { NPM_CONFIG_CACHE: '/opt/solv/cache/npm' }
+        },
+        is_system: false,
+        is_active: true,
+        sort_order: 20
+      };
+      mockAdminTemplatesService.updateTechCatalogItem.mockReturnValue(of(edited));
+
+      component.editingComponent = edited;
+      component.ngOnInit();
+
+      expect(component.depForm().enabled).toBe(true);
+      expect(component.depForm().install).toBe('npm ci --no-audit --no-fund');
+      expect(component.depForm().cacheEnv).toBe('NPM_CONFIG_CACHE=/opt/solv/cache/npm');
+
+      component.packageNamesInput.set('express');
+      component.onSave();
+
+      expect(tplService.updateTechCatalogItem).toHaveBeenCalledWith(
+        'rt-node',
+        expect.objectContaining({
+          dependency_profile: expect.objectContaining({
+            install: 'npm ci --no-audit --no-fund',
+            dependency_paths: ['node_modules'],
+            cache_env: { NPM_CONFIG_CACHE: '/opt/solv/cache/npm' }
+          })
+        })
+      );
+    });
+  });
+
   it('should initialize with defaultLayer input and populate available runtimes dynamically', () => {
     component.defaultLayer = 'addon';
     component.defaultCompatibleRuntime = 'python';

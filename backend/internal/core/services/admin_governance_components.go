@@ -199,6 +199,15 @@ func (s *AdminGovernanceService) CreateTemplateComponent(ctx context.Context, te
 		return nil, errors.New("el tag :latest está prohibido por reproducibilidad académica")
 	}
 
+	if !dto.DependencyProfile.IsEmpty() {
+		if dto.Layer != domain.ComponentLayerRuntime {
+			return nil, errors.New("solo los componentes de tipo runtime declaran perfil de dependencias")
+		}
+		if errProfile := dto.DependencyProfile.Validate(); errProfile != nil {
+			return nil, errProfile
+		}
+	}
+
 	dto = domain.NormalizeCreateComponentDTO(dto)
 
 	// Gobernanza del catálogo de motores: solo se aceptan los motores canónicos, con
@@ -234,6 +243,7 @@ func (s *AdminGovernanceService) CreateTemplateComponent(ctx context.Context, te
 		ToolsProvided:      dto.ToolsProvided,
 		ServiceEngine:      strings.TrimSpace(dto.ServiceEngine),
 		RamDeltaMB:         dto.RamDeltaMB,
+		DependencyProfile:  dto.DependencyProfile,
 		SortOrder:          dto.SortOrder,
 	}
 
@@ -277,6 +287,11 @@ func (s *AdminGovernanceService) UpdateTemplateComponent(ctx context.Context, te
 			)
 		}
 		dto.ServiceEngine = canonical
+	}
+	if dto.DependencyProfile != nil && !dto.DependencyProfile.IsEmpty() {
+		if errProfile := dto.DependencyProfile.Validate(); errProfile != nil {
+			return nil, errProfile
+		}
 	}
 	var synthesized string
 	if strings.TrimSpace(dto.InstallMode) != "" {
