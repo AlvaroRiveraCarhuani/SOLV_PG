@@ -49,13 +49,6 @@
                 <span>{{ badge.label }}</span>
               </span>
             }
-
-            @if (hasDatabaseService(tpl)) {
-              <span class="satellite-badge active">
-                <svg lucideDatabase class="badge-icon"></svg>
-                <span>Base de datos activa ({{ databaseEngine(tpl) }})</span>
-              </span>
-            }
           </div>
         </div>
       </div>

@@ -1,9 +1,8 @@
-import { Component, input, output } from '@angular/core';
+import { Component, OnInit, inject, input, output, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import {
   LucidePlus,
-  LucideDatabase,
   LucideLayers,
   LucideLaptop
 } from '@lucide/angular';
@@ -11,8 +10,10 @@ import { ComboboxComponent, ComboboxOption } from '@shared/components/combobox/c
 import { TechLogoComponent, TechIconKey } from '@features/admin/templates/components/tech-logo/tech-logo.component';
 import {
   detectTemplateTech,
-  inferTemplateTechnologies
+  inferTemplateTechnologies,
+  resolveTemplateStack
 } from '@features/admin/templates/template-tech-detector.utils';
+import { AdminTemplatesService, TemplateComponent } from '@features/admin/services/admin-templates.service';
 import { ApprovedTemplate } from '../../step-ide-environment.component';
 
 export interface TechBadgeItem {
@@ -27,7 +28,6 @@ export interface TechBadgeItem {
     CommonModule,
     FormsModule,
     LucidePlus,
-    LucideDatabase,
     LucideLayers,
     LucideLaptop,
     ComboboxComponent,
@@ -36,13 +36,24 @@ export interface TechBadgeItem {
   templateUrl: './ide-template-selector.component.html',
   styleUrl: './ide-template-selector.component.scss'
 })
-export class IdeTemplateSelectorComponent {
+export class IdeTemplateSelectorComponent implements OnInit {
+  private templatesService = inject(AdminTemplatesService);
+
   approvedTemplates = input<ApprovedTemplate[]>([]);
   selectedTemplate = input<ApprovedTemplate | null>(null);
   templateOptions = input<ComboboxOption[]>([]);
 
   templateSelected = output<string>();
   requestTemplate = output<void>();
+
+  techCatalog = signal<TemplateComponent[]>([]);
+
+  ngOnInit(): void {
+    this.templatesService.getTechCatalog().subscribe({
+      next: list => this.techCatalog.set(list || []),
+      error: () => this.techCatalog.set([])
+    });
+  }
 
   onTemplateOptionSelected(opt: ComboboxOption): void {
     if (opt?.value) {
@@ -55,19 +66,46 @@ export class IdeTemplateSelectorComponent {
   }
 
   getTechBadges(tpl: ApprovedTemplate): TechBadgeItem[] {
-    const hasDb = this.hasDatabaseService(tpl);
-    const inferred = inferTemplateTechnologies(tpl);
+    const catalog = this.techCatalog();
+    if (catalog.length > 0 && tpl?.stack_config) {
+      const resolved = resolveTemplateStack({ stack_config: tpl.stack_config }, catalog);
+      if (resolved.length > 0) {
+        const badges: TechBadgeItem[] = resolved.map(item => ({
+          label: item.name,
+          icon: item.iconKey as TechIconKey
+        }));
 
-    return inferred
-      .filter(tech => !(hasDb && this.isDatabaseTech(tech.id)))
-      .map(item => ({
-        label: item.name,
-        icon: item.iconType
-      }));
+        const dbEngine = this.databaseEngine(tpl);
+        if (dbEngine && !badges.some(b => this.isDatabaseTech(b.icon) || b.label.toLowerCase().includes(dbEngine.toLowerCase()))) {
+          badges.push({
+            label: dbEngine,
+            icon: this.databaseIconKey(dbEngine)
+          });
+        }
+        return badges;
+      }
+    }
+
+    const inferred = inferTemplateTechnologies(tpl);
+    const badges: TechBadgeItem[] = inferred.map(item => ({
+      label: item.name,
+      icon: item.iconType
+    }));
+
+    const dbEngine = this.databaseEngine(tpl);
+    if (dbEngine && !badges.some(b => this.isDatabaseTech(b.icon) || b.label.toLowerCase().includes(dbEngine.toLowerCase()))) {
+      badges.push({
+        label: dbEngine,
+        icon: this.databaseIconKey(dbEngine)
+      });
+    }
+
+    return badges;
   }
 
-  private isDatabaseTech(techId: string): boolean {
-    return ['postgres', 'mysql', 'mariadb', 'mongodb', 'redis', 'sqlite', 'db'].includes(techId);
+  isDatabaseTech(techId: string): boolean {
+    const lower = (techId || '').toLowerCase();
+    return ['postgres', 'mysql', 'mariadb', 'mongodb', 'redis', 'sqlite', 'db'].includes(lower);
   }
 
   hasDatabaseService(tpl: ApprovedTemplate): boolean {
@@ -85,5 +123,16 @@ export class IdeTemplateSelectorComponent {
     if (!db) return '';
     if (db.engine === 'postgres') return 'PostgreSQL';
     return db.engine || '';
+  }
+
+  databaseIconKey(engine: string): TechIconKey {
+    const lower = (engine || '').toLowerCase();
+    if (lower.includes('postgres')) return 'postgres';
+    if (lower.includes('mysql')) return 'mysql';
+    if (lower.includes('mariadb')) return 'mariadb';
+    if (lower.includes('mongo')) return 'mongodb';
+    if (lower.includes('sqlite')) return 'sqlite';
+    if (lower.includes('redis')) return 'redis';
+    return 'db';
   }
 }
