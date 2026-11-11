@@ -87,6 +87,36 @@ func generatedProposalJSON(t *testing.T, files [][2]string, summary string) stri
 	return string(encoded)
 }
 
+func TestValidateWorkspaceGenerationStack(t *testing.T) {
+	valid := GenerateWorkspaceProjectRequest{
+		Description: "Proyecto",
+		TemplateID:  "tpl-python",
+		StackConfig: &WorkspaceGenerationStackConfig{
+			RuntimeID:     "python-312",
+			WebPlatformID: "none",
+			AddonIDs:      []string{"jupyter", "pandas"},
+			DatabaseID:    "postgres-16",
+		},
+	}
+	if err := validateWorkspaceGenerationRequest(valid); err != nil {
+		t.Fatalf("el stack válido no debía fallar: %v", err)
+	}
+
+	tooMany := valid
+	tooMany.StackConfig = &WorkspaceGenerationStackConfig{AddonIDs: make([]string, 21)}
+	err := validateWorkspaceGenerationRequest(tooMany)
+	var validationErr *AISettingsValidationError
+	if !errors.As(err, &validationErr) || validationErr.Code != "generation_stack_too_large" {
+		t.Fatalf("esperaba generation_stack_too_large, got %v", err)
+	}
+
+	tooLong := valid
+	tooLong.TemplateID = strings.Repeat("x", 101)
+	if err := validateWorkspaceGenerationRequest(tooLong); err == nil {
+		t.Fatal("un template_id de 101 caracteres debía rechazarse")
+	}
+}
+
 // TestWorkspaceGenerateProposal_NormalizesFilesWithoutPersisting comprueba el
 // camino feliz: la propuesta se normaliza y ordena igual que una importación y
 // nunca se guarda un borrador.

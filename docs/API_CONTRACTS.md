@@ -2421,12 +2421,19 @@ El docente describe el proyecto que necesita y el servidor pide una propuesta de
 {
   "description": "Una API en Python con dos endpoints y su README",
   "purpose": "Leer un archivo de entrada y devolver un resumen",
-  "technology": "Python 3.12",
+  "technology": "Python 3.12 (Python)",
+  "template_id": "template-uuid",
+  "stack_config": {
+    "runtime_id": "python-312",
+    "web_platform_id": null,
+    "addon_ids": ["jupyter"],
+    "database_id": null
+  },
   "requirements": "Incluir README y una prueba de ejemplo"
 }
 ```
 
-> `description` es obligatoria (máximo 2000 caracteres); `purpose` llega a 500, `technology` a 300 y `requirements` a 1200. Los cuatro campos juntos no superan 4 KiB y el cuerpo HTTP se corta en 16 KiB. Un campo desconocido invalida la petición (`400 invalid_json`).
+> `description` es obligatoria (máximo 2000 caracteres); `purpose` llega a 500, `technology` a 300 y `requirements` a 1200. `template_id` y cada identificador de `stack_config` llegan a 100 caracteres; `addon_ids` admite hasta 20 elementos. `technology`, `template_id` y `stack_config` son opcionales; el panel envía los tres para que el prompt use el stack estructurado del entorno. Los campos de texto juntos no superan 4 KiB y el cuerpo HTTP se corta en 16 KiB. Un campo desconocido invalida la petición (`400 invalid_json`).
 
 #### Ejemplo de Respuesta (`200 OK`)
 
@@ -2466,6 +2473,7 @@ El docente describe el proyecto que necesita y el servidor pide una propuesta de
 | `400` | `invalid_json` | Cuerpo mal formado o con campos no declarados. |
 | `400` | `generation_description_required` | `description` vacía o solo espacios. |
 | `400` | `generation_input_too_large` | Algún campo o el total de 4 KiB exceden el límite. |
+| `400` | `generation_stack_too_large` | `template_id`, una pieza de `stack_config` o la lista de complementos excede su tope. |
 | `400` | `ai_provider_unavailable` | El servidor arrancó sin el servicio de IA conectado; no se simula una generación. |
 | `403` | `teacher_role_required` | Rol `student` en la ruta. |
 | `403` | `workspace_project_forbidden` | El docente no tiene asignada la materia del ejercicio. |

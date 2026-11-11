@@ -5,7 +5,7 @@ aprovisionamiento del entorno, entrega del proyecto y calificación por rúbrica
 
 ## 1. Configuración docente
 
-El editor de ejercicios (`/teacher/courses/:id/exercises/:exerciseId/edit`) usa el paso
+El editor de ejercicios (`/teacher/cursos/:id/ejercicios/:exerciseId/editar`) usa el paso
 `step-ide-environment` cuando `environment_type === 'IDE_PERSISTENTE'`:
 
 - Plantilla aprobada: se detecta servicio de base de datos con cualquiera de las dos formas

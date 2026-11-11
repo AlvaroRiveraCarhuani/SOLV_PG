@@ -80,11 +80,20 @@ export interface WorkspaceProjectProposalDTO {
   total_bytes: number;
 }
 
+export interface WorkspaceGenerationStackConfigDTO {
+  runtime_id?: string;
+  web_platform_id?: string;
+  addon_ids?: string[];
+  database_id?: string;
+}
+
 export interface WorkspaceProjectGenerationRequestDTO {
   description: string;
   purpose?: string;
   technology?: string;
   requirements?: string;
+  template_id?: string;
+  stack_config?: WorkspaceGenerationStackConfigDTO | null;
 }
 
 interface ApiEnvelope<T> {

@@ -93,6 +93,7 @@ const TECH_RULES: TechRule[] = [
   { id: 'nextjs', name: 'Next.js', iconType: 'nextjs', tokens: ['next', 'nextjs', 'next.js'] },
   { id: 'react', name: 'React', iconType: 'react', tokens: ['react'], unless: ['nextjs'] },
   { id: 'vue', name: 'Vue', iconType: 'vue', tokens: ['vue', 'nuxt'] },
+  { id: 'svelte', name: 'Svelte', iconType: 'svelte', tokens: ['svelte', 'sveltekit'] },
   { id: 'vite', name: 'Vite', iconType: 'vite', tokens: ['vite'] },
   { id: 'typescript', name: 'TypeScript', iconType: 'typescript', tokens: ['typescript', 'ts-node'] },
   { id: 'spring', name: 'Spring Boot', iconType: 'spring', tokens: ['spring'] },
@@ -136,6 +137,53 @@ const TECH_RULES: TechRule[] = [
     unless: ['postgres', 'mysql', 'mariadb', 'mongodb', 'redis', 'sqlite']
   }
 ];
+
+/**
+ * Familias de compatibilidad compartidas por el catálogo y la detección de
+ * proyectos. Una familia agrupa las herramientas que comparten runtime o
+ * framework; el proyecto y el entorno se comparan por familia, no por id.
+ */
+export const TECH_FAMILY_BY_ID: Record<string, string> = {
+  python: 'python',
+  django: 'python',
+  flask: 'python',
+  fastapi: 'python',
+  pandas: 'python',
+  numpy: 'python',
+  streamlit: 'python',
+  pytorch: 'python',
+  jupyter: 'python',
+  'data-science': 'python',
+  java: 'java',
+  spring: 'java',
+  maven: 'java',
+  gradle: 'java',
+  go: 'go',
+  grpc: 'go',
+  rust: 'rust',
+  php: 'php',
+  laravel: 'php',
+  dotnet: 'dotnet',
+  cpp: 'cpp',
+  c: 'cpp',
+  gcc: 'cpp',
+  angular: 'angular',
+  react: 'react',
+  nextjs: 'react',
+  vue: 'vue',
+  svelte: 'svelte',
+  node: 'node',
+  express: 'node',
+  nestjs: 'node',
+  typescript: 'node',
+  bun: 'node',
+  deno: 'node',
+  vite: 'node',
+};
+
+export function familyForTechId(id: string): string | undefined {
+  return TECH_FAMILY_BY_ID[id];
+}
 
 function ruleMeta(rule: TechRule): TechMeta {
   return { id: rule.id, name: rule.name, badgeClass: `tech-${rule.id}`, iconType: rule.iconType };

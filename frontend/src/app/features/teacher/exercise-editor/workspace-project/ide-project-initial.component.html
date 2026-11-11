@@ -138,6 +138,28 @@
         (actionClicked)="reloadAfterConflict()"
       />
     }
+    @if (stackWarning(); as warning) {
+      <field-message
+        variant="warning"
+        [message]="warning"
+        actionLabel="Cambiar entorno"
+        (actionClicked)="focusEnvironmentSelector()"
+      />
+      @if (compatibleEnvironments().length > 0) {
+        <div class="compatible-environments">
+          <span class="compatible-label">Entornos compatibles:</span>
+          @for (environment of compatibleEnvironments(); track environment.id) {
+            <button
+              type="button"
+              class="btn-outline btn-small"
+              (click)="selectEnvironment(environment)"
+            >
+              {{ environment.name }}
+            </button>
+          }
+        </div>
+      }
+    }
     @if (aiOpen()) {
       <section class="ai-panel" aria-label="Generación asistida del proyecto inicial">
         <header class="ai-panel-header">
@@ -178,6 +200,14 @@
         }
 
         @if (aiProposal(); as proposal) {
+          @if (aiStackWarning(); as warning) {
+            <field-message
+              variant="warning"
+              [message]="warning"
+              actionLabel="Cambiar entorno"
+              (actionClicked)="focusEnvironmentSelector()"
+            />
+          }
           <p class="ai-summary">{{ proposal.summary }}</p>
           <div class="ai-proposal">
             <ul class="ai-file-list" aria-label="Archivos propuestos">
@@ -214,7 +244,7 @@
             <button
               type="button"
               class="btn-outline btn-small"
-              [disabled]="aiGenerating()"
+              [disabled]="aiGenerating() || !aiEnvironmentName()"
               (click)="generateProposal()"
             >
               Generar otra propuesta
@@ -227,6 +257,12 @@
             </button>
           </div>
         } @else if (!aiGenerating()) {
+          @if (!aiEnvironmentName()) {
+            <field-message
+              variant="info"
+              message="Elegí un entorno de trabajo para generar el proyecto."
+            />
+          }
           <div class="ai-form">
             <label class="ai-field" for="ai-project-description">
               <span class="inline-label">Qué proyecto necesitás</span>
@@ -252,15 +288,19 @@
             </label>
             <div class="ai-form-row">
               <label class="ai-field" for="ai-project-technology">
-                <span class="inline-label">Lenguaje o tecnología</span>
+                <span class="inline-label">Tecnología del entorno</span>
                 <input
                   id="ai-project-technology"
                   class="form-input"
                   type="text"
-                  placeholder="Python 3.12"
-                  [value]="aiForm().technology"
-                  (input)="onAiFieldInput($event, 'technology')"
+                  readonly
+                  aria-readonly="true"
+                  [value]="aiTechnology()"
+                  placeholder="Elegí un entorno de trabajo"
                 />
+                <span class="project-subtitle">
+                  La propuesta se genera para el entorno seleccionado.
+                </span>
               </label>
               <label class="ai-field" for="ai-project-requirements">
                 <span class="inline-label">Requisitos de los archivos</span>
@@ -279,7 +319,12 @@
             <button type="button" class="btn-outline btn-small" (click)="closeAiGenerator()">
               Cancelar
             </button>
-            <button type="button" class="btn-primary btn-small" (click)="generateProposal()">
+            <button
+              type="button"
+              class="btn-primary btn-small"
+              [disabled]="!aiEnvironmentName()"
+              (click)="generateProposal()"
+            >
               Generar propuesta
             </button>
           </div>
@@ -317,10 +362,12 @@
     @if (pendingImport(); as pending) {
       <div class="replace-confirm" role="status">
         <svg lucideAlertTriangle class="confirm-icon" aria-hidden="true"></svg>
+        @if (pendingImportWarning(); as warning) {
+          <field-message variant="warning" [message]="warning" />
+        }
         <span>
-          Se reemplazará el contenido del borrador con
-          {{ pending.kind === 'folder' ? 'la carpeta seleccionada' : 'el ZIP seleccionado' }}. Los
-          cambios sin guardar se perderán.
+          Se importará {{ pending.kind === 'folder' ? 'la carpeta seleccionada' : 'el ZIP seleccionado' }}
+          al proyecto inicial. Los cambios sin guardar se perderán.
         </span>
         <div class="confirm-actions">
           <button type="button" class="btn-outline btn-small" (click)="cancelReplaceImport()">
@@ -654,6 +701,17 @@
         } @else {
           <p class="publish-change-summary">Será la primera versión publicada.</p>
         }
+        @if (stackWarning(); as warning) {
+          <field-message variant="warning" [message]="warning" />
+          <label class="stack-acknowledgement">
+            <input
+              type="checkbox"
+              [checked]="stackAcknowledged()"
+              (change)="onStackAcknowledged($event)"
+            />
+            <span>Confirmo que revisé la incompatibilidad y quiero publicar esta versión.</span>
+          </label>
+        }
         @if (publishError()) {
           <field-message variant="error" [message]="publishError() || ''" />
         }
@@ -670,7 +728,7 @@
         <button
           type="button"
           class="btn-primary"
-          [disabled]="publishing()"
+          [disabled]="publishing() || (stackWarning() !== null && !stackAcknowledged())"
           (click)="confirmPublish()"
         >
           @if (publishing()) {

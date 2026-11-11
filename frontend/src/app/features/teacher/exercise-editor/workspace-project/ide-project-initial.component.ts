@@ -1,4 +1,4 @@
-import { Component, ElementRef, ViewChild, computed, effect, inject, signal } from '@angular/core';
+import { Component, ElementRef, ViewChild, computed, effect, inject, input, signal } from '@angular/core';
 import { HttpErrorResponse } from '@angular/common/http';
 import { Subscription } from 'rxjs';
 import {
@@ -26,6 +26,7 @@ import { ModalShellComponent } from '@shared/components/modal-shell/modal-shell.
 import { ProjectFile } from '@core/models/project-file.model';
 import { ExerciseEditorStore } from '../exercise-editor.store';
 import {
+  WorkspaceGenerationStackConfigDTO,
   WorkspaceProjectGenerationRequestDTO,
   WorkspaceProjectProposalDTO,
   projectErrorMessage,
@@ -33,6 +34,7 @@ import {
   WorkspaceProjectVersionDTO,
   WorkspaceProjectViewDTO,
 } from '../../services/teacher-project.service';
+import type { ApprovedTemplate } from '../steps/step-ide-environment/step-ide-environment.component';
 import {
   WorkspaceProjectFile,
   WORKSPACE_PROJECT_MAX_FILES,
@@ -45,6 +47,11 @@ import {
   summarizeProjectChanges,
   validateProjectFiles,
 } from './workspace-project.utils';
+import {
+  detectEnvironmentStack,
+  detectProjectStack,
+  findStackMismatch,
+} from './workspace-project-stack';
 import {
   WorkspaceDropEntryLike,
   WorkspaceImportSelection,
@@ -85,6 +92,7 @@ import {
 export class IdeProjectInitialComponent {
   readonly store = inject(ExerciseEditorStore);
   private readonly service = inject(TeacherProjectService);
+  readonly environments = input<ApprovedTemplate[]>([]);
   readonly maxFiles = WORKSPACE_PROJECT_MAX_FILES;
   readonly languageForProjectPath = languageForProjectPath;
 
@@ -118,14 +126,60 @@ export class IdeProjectInitialComponent {
   readonly aiError = signal<string | null>(null);
   readonly aiProposal = signal<WorkspaceProjectProposalDTO | null>(null);
   readonly aiPreviewPath = signal<string | null>(null);
-  readonly aiForm = signal<WorkspaceProjectGenerationRequestDTO>({
+  readonly aiForm = signal<
+    Omit<WorkspaceProjectGenerationRequestDTO, 'technology' | 'template_id' | 'stack_config'>
+  >({
     description: '',
     purpose: '',
-    technology: '',
     requirements: '',
   });
   readonly pendingProposal = signal<WorkspaceProjectProposalDTO | null>(null);
   readonly retrying = signal(false);
+  readonly stackWarning = computed(() => this.stackWarningFor(this.files()));
+  readonly aiStackWarning = computed(() => {
+    const proposal = this.aiProposal();
+    return proposal
+      ? this.stackWarningFor(
+          proposal.files.map((file) => ({ path: file.path, content: file.content })),
+        )
+      : null;
+  });
+  readonly aiEnvironmentName = computed(() => this.store.metadata().template?.name ?? '');
+  readonly aiTechnology = computed(() => {
+    const template = this.store.metadata().template;
+    if (!template) return '';
+    const labels = detectEnvironmentStack(template).techs.map(tech => tech.label);
+    return labels.length > 0 ? `${template.name} (${labels.join(', ')})` : template.name;
+  });
+  readonly aiStackConfig = computed<WorkspaceGenerationStackConfigDTO | null>(() => {
+    const raw = this.store.metadata().template?.stack_config;
+    if (!raw || typeof raw !== 'object') return null;
+    const config = raw as Record<string, unknown>;
+    const result: WorkspaceGenerationStackConfigDTO = {};
+    if (typeof config['runtime_id'] === 'string') result.runtime_id = config['runtime_id'];
+    if (typeof config['web_platform_id'] === 'string') result.web_platform_id = config['web_platform_id'];
+    if (Array.isArray(config['addon_ids'])) {
+      result.addon_ids = config['addon_ids'].filter((id): id is string => typeof id === 'string');
+    }
+    if (typeof config['database_id'] === 'string') result.database_id = config['database_id'];
+    return Object.keys(result).length > 0 ? result : null;
+  });
+  readonly stackAcknowledged = signal(false);
+  readonly pendingImportWarning = signal<string | null>(null);
+  readonly compatibleEnvironments = computed(() => {
+    const currentId = this.store.metadata().template?.id;
+    const project = detectProjectStack(this.files());
+    if (project.techs.length === 0) return [];
+    return this.environments()
+      .filter(environment => environment.id !== currentId)
+      .filter(environment => {
+        const families = new Set(
+          detectEnvironmentStack(environment).techs.map(tech => tech.family),
+        );
+        return project.techs.every(tech => families.has(tech.family));
+      })
+      .slice(0, 3);
+  });
   readonly preparation = computed(() => this.view()?.preparation ?? null);
   readonly preparationLabel = computed(() => {
     switch (this.preparation()?.status) {
@@ -290,10 +344,16 @@ export class IdeProjectInitialComponent {
       this.errorMessage.set(error);
       return;
     }
-    this.prepareImport({
-      kind: 'folder',
-      files: files.map((file) => ({ path: file.path.normalize('NFC'), content: file.content })),
-    });
+    const normalized = files.map((file) => ({ path: file.path.normalize('NFC'), content: file.content }));
+    const warning = this.stackWarningFor(normalized);
+    this.errorMessage.set(null);
+    this.notice.set(null);
+    if (warning) {
+      this.pendingImportWarning.set(warning);
+      this.pendingImport.set({ kind: 'folder', files: normalized });
+      return;
+    }
+    this.prepareImport({ kind: 'folder', files: normalized });
   }
 
   prepareZip(file: File): void {
@@ -313,6 +373,7 @@ export class IdeProjectInitialComponent {
   prepareImport(selection: WorkspaceImportSelection): void {
     this.errorMessage.set(null);
     this.notice.set(null);
+    this.pendingImportWarning.set(null);
     if (this.dirty() || this.conflict()) {
       this.pendingImport.set(selection);
       return;
@@ -323,11 +384,13 @@ export class IdeProjectInitialComponent {
   confirmReplaceImport(): void {
     const selection = this.pendingImport();
     this.pendingImport.set(null);
+    this.pendingImportWarning.set(null);
     if (selection) this.executeImport(selection);
   }
 
   cancelReplaceImport(): void {
     this.pendingImport.set(null);
+    this.pendingImportWarning.set(null);
   }
 
   openAiGenerator(): void {
@@ -341,7 +404,10 @@ export class IdeProjectInitialComponent {
     this.aiOpen.set(false);
   }
 
-  onAiFieldInput(event: Event, field: keyof WorkspaceProjectGenerationRequestDTO): void {
+  onAiFieldInput(
+    event: Event,
+    field: keyof Omit<WorkspaceProjectGenerationRequestDTO, 'technology' | 'template_id' | 'stack_config'>,
+  ): void {
     const value = (event.target as HTMLInputElement | HTMLTextAreaElement).value;
     this.aiForm.update((form) => ({ ...form, [field]: value }));
   }
@@ -353,6 +419,11 @@ export class IdeProjectInitialComponent {
   generateProposal(): void {
     const id = this.exerciseId();
     if (!id || this.aiGenerating()) return;
+    const template = this.store.metadata().template;
+    if (!template) {
+      this.aiError.set('Elegí un entorno de trabajo antes de generar el proyecto.');
+      return;
+    }
     const form = this.aiForm();
     if (!form.description.trim()) {
       this.aiError.set('Describe qué proyecto querés preparar antes de generar.');
@@ -366,7 +437,9 @@ export class IdeProjectInitialComponent {
       .generateProject(id, {
         description: form.description.trim(),
         purpose: form.purpose?.trim() || undefined,
-        technology: form.technology?.trim() || undefined,
+        technology: this.aiTechnology(),
+        template_id: template.id,
+        stack_config: this.aiStackConfig(),
         requirements: form.requirements?.trim() || undefined,
       })
       .subscribe({
@@ -663,17 +736,38 @@ export class IdeProjectInitialComponent {
   openPublish(): void {
     if (!this.canPublish()) return;
     this.publishError.set(null);
+    this.stackAcknowledged.set(false);
     this.publishModal.set(true);
   }
 
   closePublish(): void {
     if (this.publishing()) return;
     this.publishModal.set(false);
+    this.stackAcknowledged.set(false);
+  }
+
+  onStackAcknowledged(event: Event): void {
+    this.stackAcknowledged.set((event.target as HTMLInputElement).checked);
+  }
+
+  focusEnvironmentSelector(): void {
+    const section = document.getElementById('template-section');
+    section?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    section?.querySelector<HTMLElement>('input')?.focus();
+  }
+
+  selectEnvironment(environment: ApprovedTemplate): void {
+    this.store.updateMetadata({
+      template_id: environment.id,
+      template: environment,
+      memory_limit_mb: environment.base_ram_mb,
+    });
   }
 
   confirmPublish(): void {
     const id = this.exerciseId();
     if (!id || !this.canPublish()) return;
+    if (this.stackWarning() && !this.stackAcknowledged()) return;
     this.publishing.set(true);
     this.publishError.set(null);
     this.service.publish(id).subscribe({
@@ -719,6 +813,23 @@ export class IdeProjectInitialComponent {
         );
       },
     });
+  }
+
+  private stackWarningFor(files: WorkspaceProjectFile[]): string | null {
+    const template = this.store.metadata().template;
+    if (!template || files.length === 0) return null;
+    const mismatch = findStackMismatch(
+      detectProjectStack(files),
+      detectEnvironmentStack(template),
+      template.name,
+    );
+    if (!mismatch) return null;
+    const labels = mismatch.unsupportedLabels;
+    const list =
+      labels.length === 1
+        ? labels[0]
+        : `${labels.slice(0, -1).join(', ')} y ${labels[labels.length - 1]}`;
+    return `El proyecto incluye ${list}, pero el entorno «${mismatch.environmentName}» fue preparado para otra tecnología. Esas herramientas pueden no estar disponibles al abrirlo; revisá el proyecto o elegí otro entorno.`;
   }
 
   formatBytes(bytes: number): string {
@@ -778,8 +889,10 @@ export class IdeProjectInitialComponent {
     this.notice.set(null);
     this.conflict.set(false);
     this.publishModal.set(false);
+    this.stackAcknowledged.set(false);
     this.versionPreview.set(null);
     this.pendingImport.set(null);
+    this.pendingImportWarning.set(null);
     this.aiOpen.set(false);
     this.aiGenerating.set(false);
     this.aiError.set(null);

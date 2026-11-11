@@ -103,6 +103,13 @@ describe('IdeProjectInitialComponent', () => {
 
     store = TestBed.inject(ExerciseEditorStore);
     store.exerciseId.set('exercise-1');
+    store.updateMetadata({
+      template: {
+        id: 'tpl-python',
+        name: 'Python 3.12',
+        stack_config: { runtime_id: 'python-312' }
+      }
+    });
     fixture = TestBed.createComponent(IdeProjectInitialComponent);
     component = fixture.componentInstance;
     fixture.detectChanges();
@@ -114,6 +121,31 @@ describe('IdeProjectInitialComponent', () => {
     expect(fixture.nativeElement.textContent).toContain('Revisión 1');
     expect(fixture.nativeElement.textContent).toContain('Deshabilitada');
     expect(fixture.nativeElement.textContent).not.toContain('Publicar versión');
+  });
+
+  it('advierte cuando el proyecto no coincide con el entorno seleccionado', () => {
+    store.updateMetadata({
+      template: {
+        id: 'tpl-react',
+        name: 'React + Vite',
+        stack_config: { runtime_id: 'node', web_platform_id: 'react' }
+      }
+    });
+
+    expect(component.stackWarning()).toContain('Python');
+    expect(component.stackWarning()).toContain('React + Vite');
+  });
+
+  it('no advierte cuando el proyecto coincide con el entorno seleccionado', () => {
+    store.updateMetadata({
+      template: {
+        id: 'tpl-python',
+        name: 'Python 3.12',
+        stack_config: { runtime_id: 'python-312' }
+      }
+    });
+
+    expect(component.stackWarning()).toBeNull();
   });
 
   it('selecciona un archivo y marca el borrador como modificado al editar', () => {
@@ -135,6 +167,25 @@ describe('IdeProjectInitialComponent', () => {
     expect(importFolder).toHaveBeenCalled();
     expect(component.importing()).toBe(false);
     expect(component.notice()).toContain('importados');
+  });
+
+  it('advierte antes de importar una carpeta incompatible y espera confirmación', () => {
+    store.updateMetadata({
+      template: {
+        id: 'tpl-react',
+        name: 'React + Vite',
+        stack_config: { runtime_id: 'node', web_platform_id: 'react' }
+      }
+    });
+
+    component.importFolderFiles([{ path: 'app.py', content: 'print(1)\n' }]);
+
+    expect(importFolder).not.toHaveBeenCalled();
+    expect(component.pendingImportWarning()).toContain('Python');
+
+    component.confirmReplaceImport();
+
+    expect(importFolder).toHaveBeenCalled();
   });
 
   it('rechaza una importación con traversal antes de llamar al backend', () => {
@@ -283,5 +334,83 @@ describe('IdeProjectInitialComponent', () => {
 
     expect(saveDraft).toHaveBeenCalledWith('exercise-1', expect.stringContaining('README.md'), 1);
     expect(component.revision()).toBe(2);
+  });
+
+  it('genera la propuesta con la tecnología del entorno seleccionado', () => {
+    generateWithDescription();
+
+    expect(generateProject).toHaveBeenCalledWith(
+      'exercise-1',
+      expect.objectContaining({
+        technology: expect.stringContaining('Python 3.12'),
+        template_id: 'tpl-python',
+        stack_config: { runtime_id: 'python-312' }
+      })
+    );
+  });
+
+  it('no genera la propuesta sin un entorno seleccionado', () => {
+    store.updateMetadata({ template: null });
+    component.openAiGenerator();
+    component.onAiFieldInput(
+      { target: { value: 'Una API mínima' } } as unknown as Event,
+      'description'
+    );
+    component.generateProposal();
+
+    expect(generateProject).not.toHaveBeenCalled();
+    expect(component.aiError()).toContain('entorno');
+  });
+
+  it('sugiere y aplica un entorno compatible cuando el proyecto no coincide', () => {
+    component.files.set([{ path: 'app.py', content: 'print(1)\n' }]);
+    store.updateMetadata({
+      template: {
+        id: 'tpl-react',
+        name: 'React + Vite',
+        stack_config: { runtime_id: 'node', web_platform_id: 'react' }
+      }
+    });
+    fixture.componentRef.setInput('environments', [
+      {
+        id: 'tpl-python',
+        name: 'Python 3.12',
+        docker_image: 'solv-local/python:3.12',
+        base_ram_mb: 512,
+        target_environment: 'IDE_PERSISTENTE',
+        status: 'approved',
+        stack_config: { runtime_id: 'python-312' }
+      }
+    ]);
+    fixture.detectChanges();
+
+    expect(component.compatibleEnvironments().map(environment => environment.id)).toEqual([
+      'tpl-python'
+    ]);
+
+    component.selectEnvironment(component.compatibleEnvironments()[0]);
+
+    expect(store.metadata().template_id).toBe('tpl-python');
+    expect(component.stackWarning()).toBeNull();
+  });
+
+  it('exige confirmar la incompatibilidad antes de publicar el proyecto', () => {
+    component.view.set(projectView({ publishing_enabled: true }));
+    store.updateMetadata({
+      template: {
+        id: 'tpl-react',
+        name: 'React + Vite',
+        stack_config: { runtime_id: 'node', web_platform_id: 'react' }
+      }
+    });
+    fixture.detectChanges();
+
+    component.openPublish();
+    component.confirmPublish();
+    expect(publish).not.toHaveBeenCalled();
+
+    component.onStackAcknowledged({ target: { checked: true } } as unknown as Event);
+    component.confirmPublish();
+    expect(publish).toHaveBeenCalledWith('exercise-1');
   });
 });

@@ -2,6 +2,7 @@
 
 - **Estado:** Aceptado
 - **Fecha:** 2026-11-10
+- **Actualización:** 2026-11-11 — regla de compatibilidad entre proyecto inicial y entorno.
 - **Ámbito:** Docencia, entornos de práctica, integridad de datos
 
 ## Contexto
@@ -113,9 +114,12 @@ La generación con IA es una tercera fuente de archivos, no un sistema de
 proyectos paralelo. El docente describe lo que necesita y recibe una propuesta
 que revisa antes de incorporarla al editor.
 
-- **Entrada:** JSON `{ description, purpose?, technology?, requirements? }` con
-  cuerpo HTTP máximo de 16 KiB. `description` es obligatoria; los cuatro campos
-  juntos no pasan de 4 KiB y cada uno tiene su propio tope de caracteres.
+- **Entrada:** JSON `{ description, purpose?, technology?, template_id?,
+  stack_config?, requirements? }` con cuerpo HTTP máximo de 16 KiB.
+  `description` es obligatoria; los campos de texto juntos no pasan de 4 KiB y
+  cada uno tiene su propio tope. `template_id` y las piezas de `stack_config`
+  se acotan a 100 caracteres y `addon_ids` a 20 elementos. La etiqueta
+  `technology` queda como respaldo para clientes anteriores.
 - **Proveedor:** el institucional ya configurado (`AISettingsService`). La ruta
   usa `CompleteJSON` con la acción `generate-workspace-project`, de modo que
   hereda cifrado AES-256-GCM de la API Key, cascada BYOK, cuota horaria,
@@ -140,6 +144,67 @@ que revisa antes de incorporarla al editor.
   cumple el contrato o no pasa la normalización. No se registran claves ni el
   prompt completo.
 
+## Compatibilidad entre proyecto inicial y entorno (2026-11-11)
+
+El proyecto inicial y el entorno homologado se eligen por separado. Esa
+separación permite reutilizar un proyecto entre materias, pero también permite
+publicar un proyecto cuyo stack no coincide con las herramientas de la imagen.
+La regla es explícita: el sistema detecta la contradicción, la muestra y pide
+confirmación; no bloquea la publicación ni intenta validar el código. La
+detección de familias vive en el catálogo compartido
+(`TECH_FAMILY_BY_ID`), de modo que el proyecto y el entorno no mantienen listas
+paralelas. Al importar una carpeta, la comprobación ocurre antes de subir los
+archivos y la importación queda a la espera de confirmación si hay
+incompatibilidad; un ZIP solo puede comprobarse después de leer su contenido.
+
+### Regla
+
+1. **Detección del proyecto.** `workspace-project-stack.ts` lee manifiestos y
+extensiones del snapshot: dependencias de `package.json` (Angular, React,
+   Next.js, Vue, Svelte), archivos `.py`, `requirements.txt`, `pyproject.toml`,
+   `pom.xml`, `go.mod`, `Cargo.toml`, `composer.json`, `*.csproj` y fuentes
+   C/C++. Devuelve familias tecnológicas, no una nota de calidad.
+2. **Detección del entorno.** El stack del entorno sale de `stack_config` y,
+   como respaldo, del nombre, la imagen y la descripción de la plantilla, con la
+   misma inferencia que usa el catálogo (`inferTemplateTechnologies`).
+3. **Comparación.** Una familia del proyecto que el entorno no declara produce
+   una advertencia. No se compara versión, no se ejecuta el proyecto y no se
+   inspecciona la calidad del código.
+4. **Aviso y salida.** La tarjeta del proyecto lista las tecnologías sobrantes y
+   sugiere hasta tres entornos compatibles del catálogo. Aplicar uno actualiza
+   la plantilla y el límite de memoria del ejercicio; `[Cambiar entorno]` lleva
+   al selector. La sugerencia solo aparece cuando ambos stacks se reconocen.
+5. **Generación asistida.** El campo de tecnología del panel de IA es de solo
+   lectura y sale del entorno seleccionado. Sin entorno no se genera. La
+   petición envía `template_id` y `stack_config` (runtime, plataforma web,
+   complementos y base de datos) además de la etiqueta legible. El backend
+   valida esos identificadores y arma el prompt con el stack estructurado como
+   «Entorno homologado (stack obligatorio)»; un cliente anterior que solo mande
+   `technology` sigue funcionando.
+6. **Publicación.** Si la incompatibilidad sigue al publicar el proyecto, el
+   modal muestra el aviso y exige una casilla de confirmación; el botón de
+   publicar queda deshabilitado hasta marcarla. Es una confirmación de interfaz:
+   la API no la exige y no se agregó una bandera al contrato de publicación.
+7. **Alcance.** Aplica solo a proyectos iniciales de `IDE_PERSISTENTE`.
+   `JUEZ_EFIMERO` no pasa por este flujo. No valida sintaxis, dependencias ni
+   ejecución; la preparación de dependencias (ADR-069) y la prueba del docente
+   siguen siendo las señales de que el entorno puede trabajar.
+
+### Límites y excepciones
+
+- Si no se reconoce el stack del proyecto o del entorno, no hay aviso. Es
+  preferible callar antes que inventar una incompatibilidad.
+- La detección es heurística. Un `.py` auxiliar dentro de un proyecto JavaScript
+  puede disparar la advertencia; por eso es un aviso y no un bloqueo.
+- Un proyecto mixto puede ser intencional. La confirmación permite publicarlo y
+  la decisión final queda en el docente.
+- El aviso no impide publicar por API ni cambia el contrato HTTP. Tampoco
+  corrige archivos, instala herramientas ni migra el proyecto a otro stack.
+- La sugerencia solo considera los entornos aprobados que ya están en el paso
+  del editor; no crea entornos ni solicita plantillas nuevas.
+- La compatibilidad de stack no garantiza que el proyecto compile o se ejecute.
+  Solo evita que la contradicción entre proyecto y entorno pase inadvertida.
+
 ## Experiencia docente (Fase 2)
 
 El componente `ide-project-initial` se integra dentro de `step-ide-environment`
@@ -158,7 +223,8 @@ del editor de ejercicios:
 - Historial de versiones con fecha y snapshot de solo lectura.
 
 El mismo componente ofrece **Generar con IA** en un panel inline: formulario
-corto (qué proyecto, qué debe hacer, lenguaje y requisitos), estado de espera
+corto (qué proyecto, qué debe hacer, requisitos) y el stack del entorno
+seleccionado como tecnología de solo lectura, estado de espera
 cancelable, propuesta con resumen, lista de archivos y vista de solo lectura, y
 acciones de descartar o usar la propuesta. El panel no bloquea el árbol ni el
 editor: mientras el motor responde, el docente puede seguir trabajando.
@@ -283,6 +349,9 @@ tablas. No se debe borrar una versión para "liberar" una entrega.
 - El coste es un modelo adicional, triggers de integridad y operaciones Docker
   efímeras para sembrar y verificar; la ventaja es que el historial y el trabajo
   del alumno dejan de depender de una edición posterior del ejercicio.
+- La detección de compatibilidad es una advertencia de herramientas, no una
+  garantía de que el proyecto compile o se ejecute; validar el código sigue
+  siendo responsabilidad del docente.
 
 ## Verificación
 
@@ -320,3 +389,7 @@ tablas. No se debe borrar una versión para "liberar" una entrega.
   propuesta visible sin guardar, confirmación por cambios locales, bloqueo en
   conflicto, descarte, error del proveedor y guardado posterior con el flujo
   existente.
+- `workspace-project-stack.spec.ts` cubre la detección de familias y la
+  comparación con el entorno. `ide-project-initial.component.spec.ts` suma los
+  casos de aviso, generación atada al entorno, sugerencia de entornos
+  compatibles y confirmación antes de publicar.

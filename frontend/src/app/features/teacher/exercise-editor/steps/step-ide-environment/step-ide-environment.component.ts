@@ -61,7 +61,7 @@ export interface ApprovedTemplate {
 
       <!-- 2. Proyecto inicial importado como borrador (solo IDE_PERSISTENTE) -->
       <section class="form-section">
-        <ide-project-initial />
+        <ide-project-initial [environments]="approvedTemplates()" />
       </section>
 
       <!-- 3. Script de Base de Datos Satélite (si aplica) -->

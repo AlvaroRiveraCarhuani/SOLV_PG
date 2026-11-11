@@ -1028,7 +1028,7 @@ export class ExerciseEditorStore {
         await this.persistIdeRubric(newId).catch(() => undefined);
         this.exerciseId.set(newId);
         this.initialSnapshot.set(this.serializeState());
-        this.router.navigate(['/teacher/courses', cId, 'exercises', newId, 'edit'], {
+        this.router.navigate(['/teacher/cursos', cId, 'ejercicios', newId, 'editar'], {
           replaceUrl: true
         });
       }

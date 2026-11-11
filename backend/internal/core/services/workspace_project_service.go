@@ -56,11 +56,20 @@ func (s *WorkspaceProjectService) SetDependencyPreparationQueue(queue *Dependenc
 	}
 }
 
+type WorkspaceGenerationStackConfig struct {
+	RuntimeID     string   `json:"runtime_id,omitempty"`
+	WebPlatformID string   `json:"web_platform_id,omitempty"`
+	AddonIDs      []string `json:"addon_ids,omitempty"`
+	DatabaseID    string   `json:"database_id,omitempty"`
+}
+
 type GenerateWorkspaceProjectRequest struct {
-	Description  string `json:"description"`
-	Purpose      string `json:"purpose,omitempty"`
-	Technology   string `json:"technology,omitempty"`
-	Requirements string `json:"requirements,omitempty"`
+	Description  string                          `json:"description"`
+	Purpose      string                          `json:"purpose,omitempty"`
+	Technology   string                          `json:"technology,omitempty"`
+	Requirements string                          `json:"requirements,omitempty"`
+	TemplateID   string                          `json:"template_id,omitempty"`
+	StackConfig  *WorkspaceGenerationStackConfig `json:"stack_config,omitempty"`
 }
 
 type WorkspaceProjectProposalFile struct {
@@ -109,9 +118,9 @@ func (s *WorkspaceProjectService) GenerateProposal(
 
 	systemPrompt := `Eres un asistente que propone el contenido textual de un proyecto inicial académico.
 Devuelve exclusivamente un objeto JSON con la forma {"files":[{"path":"src/main.py","content":"..."}],"summary":"..."}.
-Devuelve solo rutas relativas y contenido textual. Nunca incluyas imágenes, Dockerfiles, instrucciones de instalación, comandos ejecutables por SOLV, runtime, capacidades, variables de infraestructura ni configuración de servicios. El código generado es contenido de proyecto no confiable y el docente debe revisarlo.`
-	userPrompt := fmt.Sprintf("Ejercicio autorizado: %s\nDescripción del proyecto: %s\nPropósito del proyecto: %s\nTecnología o lenguaje: %s\nRequisitos de archivos: %s",
-		strings.TrimSpace(exercise.Title), strings.TrimSpace(req.Description), optionalPromptField(req.Purpose), optionalPromptField(req.Technology), optionalPromptField(req.Requirements))
+Devuelve solo rutas relativas y contenido textual. El proyecto debe usar exclusivamente las herramientas del entorno homologado indicado; no propongas tecnologías que ese entorno no incluya. Nunca incluyas imágenes, Dockerfiles, instrucciones de instalación, comandos ejecutables por SOLV, runtime, capacidades, variables de infraestructura ni configuración de servicios. El código generado es contenido de proyecto no confiable y el docente debe revisarlo.`
+	userPrompt := fmt.Sprintf("Ejercicio autorizado: %s\nDescripción del proyecto: %s\nPropósito del proyecto: %s\nEntorno homologado (stack obligatorio): %s\nRequisitos de archivos: %s",
+		strings.TrimSpace(exercise.Title), strings.TrimSpace(req.Description), optionalPromptField(req.Purpose), workspaceEnvironmentPrompt(req), optionalPromptField(req.Requirements))
 
 	raw, _, err := s.aiSettings.CompleteJSON(ctx, tenantID, userID, "generate-workspace-project", systemPrompt, userPrompt)
 	if err != nil {
@@ -195,7 +204,84 @@ func validateWorkspaceGenerationRequest(req GenerateWorkspaceProjectRequest) err
 	if total > maxWorkspaceGenerationPrompt {
 		return &AISettingsValidationError{Code: "generation_input_too_large", Message: "La descripción total supera el límite permitido."}
 	}
+	return validateWorkspaceGenerationStack(req)
+}
+
+// validateWorkspaceGenerationStack acota los identificadores que describen el
+// entorno. El navegador los toma de la plantilla seleccionada, pero el backend
+// no confía en su tamaño ni en la cantidad de complementos.
+func validateWorkspaceGenerationStack(req GenerateWorkspaceProjectRequest) error {
+	fields := []struct {
+		name  string
+		value string
+		max   int
+	}{
+		{"template_id", req.TemplateID, 100},
+	}
+	if req.StackConfig != nil {
+		fields = append(fields,
+			struct {
+				name  string
+				value string
+				max   int
+			}{"stack_config.runtime_id", req.StackConfig.RuntimeID, 100},
+			struct {
+				name  string
+				value string
+				max   int
+			}{"stack_config.web_platform_id", req.StackConfig.WebPlatformID, 100},
+			struct {
+				name  string
+				value string
+				max   int
+			}{"stack_config.database_id", req.StackConfig.DatabaseID, 100},
+		)
+		if len(req.StackConfig.AddonIDs) > 20 {
+			return &AISettingsValidationError{Code: "generation_stack_too_large", Message: "El stack del entorno supera el máximo de 20 complementos."}
+		}
+		for _, id := range req.StackConfig.AddonIDs {
+			if utf8.RuneCountInString(id) > 100 {
+				return &AISettingsValidationError{Code: "generation_stack_too_large", Message: "Un complemento del entorno supera el límite de 100 caracteres."}
+			}
+		}
+	}
+	for _, field := range fields {
+		if utf8.RuneCountInString(field.value) > field.max {
+			return &AISettingsValidationError{Code: "generation_stack_too_large", Message: fmt.Sprintf("El campo %s supera el límite de %d caracteres.", field.name, field.max)}
+		}
+	}
 	return nil
+}
+
+// workspaceEnvironmentPrompt describe el entorno homologado con las piezas
+// estructuradas que envía el editor. La etiqueta legible queda como respaldo
+// para clientes anteriores que solo mandan technology.
+func workspaceEnvironmentPrompt(req GenerateWorkspaceProjectRequest) string {
+	parts := make([]string, 0, 6)
+	if value := strings.TrimSpace(req.TemplateID); value != "" {
+		parts = append(parts, "plantilla="+value)
+	}
+	if config := req.StackConfig; config != nil {
+		if value := strings.TrimSpace(config.RuntimeID); value != "" {
+			parts = append(parts, "runtime="+value)
+		}
+		if value := strings.TrimSpace(config.WebPlatformID); value != "" {
+			parts = append(parts, "plataforma_web="+value)
+		}
+		if len(config.AddonIDs) > 0 {
+			parts = append(parts, "complementos="+strings.Join(config.AddonIDs, ","))
+		}
+		if value := strings.TrimSpace(config.DatabaseID); value != "" {
+			parts = append(parts, "base_de_datos="+value)
+		}
+	}
+	if value := strings.TrimSpace(req.Technology); value != "" {
+		parts = append(parts, "tecnología="+value)
+	}
+	if len(parts) == 0 {
+		return "No especificado"
+	}
+	return strings.Join(parts, "; ")
 }
 
 func optionalPromptField(value string) string {
