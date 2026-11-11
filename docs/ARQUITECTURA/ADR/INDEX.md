@@ -75,3 +75,4 @@ Este documento consolida todas las Decisiones de Arquitectura (ADRs) tomadas dur
 | 066 | [Veredicto del Juez y Autoría Docente de la Nota](ADR-066-veredicto-del-juez-y-autoria-docente.md) | Implementado | Core |
 | 067 | [Política Terminológica de Modalidades](ADR-067-politica-terminologica-de-modalidades.md) | Aceptado | Core |
 | 068 | [Proyectos Iniciales y Versiones Inmutables en `IDE_PERSISTENTE`](ADR-068-proyectos-iniciales-y-versiones-en-ide-persistente.md) | Aceptado | Docencia |
+| 069 | [Preparación de Dependencias de Proyecto por Ecosistema](ADR-069-preparacion-de-dependencias-de-proyecto-por-ecosistema.md) | Aceptado | Docencia |
