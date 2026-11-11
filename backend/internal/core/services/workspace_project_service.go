@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log"
 	"strings"
 	"unicode/utf8"
 
@@ -29,6 +30,7 @@ type WorkspaceProjectService struct {
 	exercises         domain.ExerciseRepository
 	subjects          domain.SubjectRepository
 	aiSettings        *AISettingsService
+	dependencyQueue   *DependencyPreparationQueue
 	publishingEnabled bool
 }
 
@@ -42,6 +44,15 @@ func NewWorkspaceProjectService(repo domain.WorkspaceProjectRepository, publishi
 func (s *WorkspaceProjectService) SetAISettingsService(service *AISettingsService) {
 	if s != nil {
 		s.aiSettings = service
+	}
+}
+
+// SetDependencyPreparationQueue engancha la cola que prepara las dependencias
+// del proyecto al publicar. Sin cola, publicar sigue funcionando y la versión
+// queda sin preparación, como antes de esta pieza.
+func (s *WorkspaceProjectService) SetDependencyPreparationQueue(queue *DependencyPreparationQueue) {
+	if s != nil {
+		s.dependencyQueue = queue
 	}
 }
 
@@ -202,6 +213,10 @@ type WorkspaceProjectView struct {
 	// PublishingEnabled refleja el flag del servidor para que la interfaz no
 	// ofrezca una acción que el backend rechazará. No autoriza por sí mismo.
 	PublishingEnabled bool `json:"publishing_enabled"`
+	// Preparation describe la preparación de dependencias de la versión
+	// publicada vigente. Sin trabajo queda ausente: la versión se publicó antes
+	// de que la cola existiera.
+	Preparation *WorkspacePreparationView `json:"preparation,omitempty"`
 }
 
 // SetAccessRepositories engancha los repositorios con los que se comprueba que
@@ -246,7 +261,64 @@ func (s *WorkspaceProjectService) GetProject(ctx context.Context, tenantID, exer
 	if err != nil {
 		return nil, err
 	}
-	return &WorkspaceProjectView{Project: project, Draft: draft, Versions: versions, PublishingEnabled: s.publishingEnabled}, nil
+	view := &WorkspaceProjectView{Project: project, Draft: draft, Versions: versions, PublishingEnabled: s.publishingEnabled}
+	if err := s.attachPreparation(ctx, tenantID, view); err != nil {
+		return nil, err
+	}
+	return view, nil
+}
+
+// attachPreparation suma el estado de la versión publicada vigente. Solo esa:
+// el historial no se prepara y la vista no necesita una consulta por versión.
+func (s *WorkspaceProjectService) attachPreparation(
+	ctx context.Context,
+	tenantID string,
+	view *WorkspaceProjectView,
+) error {
+	if s == nil || s.dependencyQueue == nil || view == nil || view.Project == nil {
+		return nil
+	}
+	if view.Project.CurrentPublishedVersionID == nil {
+		return nil
+	}
+	versionID := strings.TrimSpace(*view.Project.CurrentPublishedVersionID)
+	if versionID == "" {
+		return nil
+	}
+	preparation, err := s.dependencyQueue.Preparation(ctx, tenantID, versionID)
+	if err != nil {
+		return err
+	}
+	view.Preparation = preparation
+	return nil
+}
+
+// RetryPreparation vuelve a encolar la preparación de la versión publicada
+// vigente. Solo esa: preparar una versión vieja deja un árbol que ningún alumno
+// va a recibir. La autorización la hizo el llamador con `AuthorizeExercise`.
+func (s *WorkspaceProjectService) RetryPreparation(
+	ctx context.Context,
+	tenantID, exerciseID string,
+) (*WorkspacePreparationView, error) {
+	if s == nil || s.repo == nil {
+		return nil, errors.New("workspace project repository is not configured")
+	}
+	if s.dependencyQueue == nil {
+		return nil, domain.ErrDependencyPreparationDisabled
+	}
+	project, err := s.repo.GetProjectByExercise(ctx, tenantID, exerciseID)
+	if err != nil {
+		return nil, err
+	}
+	if project.CurrentPublishedVersionID == nil || strings.TrimSpace(*project.CurrentPublishedVersionID) == "" {
+		return nil, fmt.Errorf("%w: el proyecto todavía no tiene una versión publicada",
+			domain.ErrDependencyPreparationNotRetryable)
+	}
+	versionID := *project.CurrentPublishedVersionID
+	if _, err := s.dependencyQueue.Retry(ctx, tenantID, exerciseID, versionID); err != nil {
+		return nil, err
+	}
+	return s.dependencyQueue.Preparation(ctx, tenantID, versionID)
 }
 
 // AuthorizeExercise resuelve desde el contexto autenticado la propiedad del
@@ -343,7 +415,18 @@ func (s *WorkspaceProjectService) Publish(ctx context.Context, tenantID, exercis
 	if err := validateWorkspaceProjectSnapshot(draft.TextSnapshot); err != nil {
 		return nil, err
 	}
-	return s.repo.Publish(ctx, tenantID, project.ID, userID)
+	version, err := s.repo.Publish(ctx, tenantID, project.ID, userID)
+	if err != nil {
+		return nil, err
+	}
+	if s.dependencyQueue != nil {
+		if _, enqueueErr := s.dependencyQueue.Enqueue(ctx, tenantID, exerciseID, version.ID); enqueueErr != nil {
+			// La versión ya está publicada y no se deshace por un encolado fallido:
+			// el reconciliador de la cola la recupera en el siguiente arranque.
+			log.Printf("aviso: la versión %s se publicó sin encolar su preparación: %v", version.ID, enqueueErr)
+		}
+	}
+	return version, nil
 }
 
 // HasProject es la comprobación que usa el catálogo de ejercicios para impedir

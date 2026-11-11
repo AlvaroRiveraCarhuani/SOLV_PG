@@ -41,6 +41,7 @@ describe('IdeProjectInitialComponent', () => {
   let importZip: ReturnType<typeof vi.fn>;
   let publish: ReturnType<typeof vi.fn>;
   let generateProject: ReturnType<typeof vi.fn>;
+  let retryPreparation: ReturnType<typeof vi.fn>;
 
   function proposal() {
     return {
@@ -67,6 +68,15 @@ describe('IdeProjectInitialComponent', () => {
     importZip = vi.fn().mockReturnValue(of({ draft: projectView().draft, file_count: 1, total_bytes: 10 }));
     publish = vi.fn().mockReturnValue(of({ id: 'version-1', version_number: 1, text_snapshot: '', content_sha256: '', file_count: 1, total_bytes: 10, published_at: '2026-11-10T10:00:00Z' }));
     generateProject = vi.fn().mockReturnValue(of(proposal()));
+    retryPreparation = vi.fn().mockReturnValue(
+      of({
+        status: 'pending',
+        attempts: 0,
+        bytes: 0,
+        updated_at: '2026-11-10T11:05:00Z',
+        can_retry: false
+      })
+    );
 
     await TestBed.configureTestingModule({
       imports: [IdeProjectInitialComponent],
@@ -78,7 +88,15 @@ describe('IdeProjectInitialComponent', () => {
         { provide: TeacherCourseService, useValue: {} },
         {
           provide: TeacherProjectService,
-          useValue: { getProject, saveDraft, importFolder, importZip, publish, generateProject }
+          useValue: {
+            getProject,
+            saveDraft,
+            importFolder,
+            importZip,
+            publish,
+            generateProject,
+            retryPreparation
+          }
         }
       ]
     }).compileComponents();
@@ -207,6 +225,54 @@ describe('IdeProjectInitialComponent', () => {
     expect(component.aiGenerating()).toBe(false);
     expect(component.aiError()).toContain('tiempo límite');
     expect(component.files().map(file => file.path)).toEqual(['main.py']);
+  });
+
+  it('muestra el estado de la preparación de la versión publicada', () => {
+    component.view.set(
+      projectView({
+        project: { ...projectView().project!, current_published_version_id: 'version-1' },
+        preparation: {
+          status: 'prepared',
+          attempts: 1,
+          message: 'árbol preparado y comprobado sin red',
+          bytes: 2048,
+          updated_at: '2026-11-10T11:00:00Z',
+          can_retry: false
+        }
+      })
+    );
+    fixture.detectChanges();
+
+    const text = fixture.nativeElement.textContent as string;
+    expect(text).toContain('Dependencias preparadas');
+    expect(text).toContain('árbol preparado');
+    expect(text).not.toContain('Reintentar preparación');
+  });
+
+  it('reintenta una preparación fallida y vuelve a leer el estado', () => {
+    component.view.set(
+      projectView({
+        project: { ...projectView().project!, current_published_version_id: 'version-1' },
+        preparation: {
+          status: 'failed',
+          attempts: 3,
+          message: 'la instalación falló',
+          bytes: 0,
+          updated_at: '2026-11-10T11:00:00Z',
+          can_retry: true
+        }
+      })
+    );
+    fixture.detectChanges();
+    expect(fixture.nativeElement.textContent).toContain('Reintentar preparación');
+    getProject.mockClear();
+
+    component.retryPreparation();
+
+    expect(retryPreparation).toHaveBeenCalledWith('exercise-1');
+    expect(getProject).toHaveBeenCalledWith('exercise-1');
+    expect(component.notice()).toContain('encolada');
+    expect(component.retrying()).toBe(false);
   });
 
   it('guarda el borrador con el flujo existente después de aceptar la propuesta', () => {

@@ -92,6 +92,30 @@ func (h *WorkspaceProjectHandler) Publish(w http.ResponseWriter, r *http.Request
 	SendJSON(w, http.StatusCreated, version, "Proyecto publicado")
 }
 
+// RetryPreparation vuelve a encolar la preparación de la versión publicada
+// vigente. La autorización es la de publicar: un reintento consume el mismo
+// worker del nodo y el mismo catálogo que la publicación.
+func (h *WorkspaceProjectHandler) RetryPreparation(w http.ResponseWriter, r *http.Request) {
+	if !workspaceTeacherOrAdmin(w, r) {
+		return
+	}
+	exerciseID := r.PathValue("id")
+	if strings.TrimSpace(exerciseID) == "" {
+		SendError(w, http.StatusBadRequest, "exercise_id_required", "Falta el identificador del ejercicio")
+		return
+	}
+	tenantID := workspaceTenantID(r)
+	if !h.authorize(w, r, tenantID, exerciseID) {
+		return
+	}
+	preparation, err := h.service.RetryPreparation(r.Context(), tenantID, exerciseID)
+	if err != nil {
+		h.writeError(w, err, "No se pudo reintentar la preparación")
+		return
+	}
+	SendJSON(w, http.StatusAccepted, preparation, "Preparación encolada de nuevo")
+}
+
 type workspaceImportManifest struct {
 	Files []workspaceImportManifestFile `json:"files"`
 }
@@ -370,6 +394,12 @@ func (h *WorkspaceProjectHandler) writeError(w http.ResponseWriter, err error, f
 		SendError(w, http.StatusUnprocessableEntity, "invalid_project_import", err.Error())
 	case errors.Is(err, domain.ErrWorkspacePublishingDisabled):
 		SendError(w, http.StatusForbidden, "workspace_publishing_disabled", err.Error())
+	case errors.Is(err, domain.ErrDependencyPreparationNotRetryable):
+		SendError(w, http.StatusConflict, "preparation_not_retryable", err.Error())
+	case errors.Is(err, domain.ErrDependencyPreparationDisabled):
+		SendError(w, http.StatusConflict, "preparation_unavailable", err.Error())
+	case errors.Is(err, domain.ErrDependencyPreparationJobNotFound):
+		SendError(w, http.StatusNotFound, "preparation_not_found", "La versión no tiene preparación registrada")
 	case errors.Is(err, domain.ErrWorkspaceDraftRevisionConflict):
 		SendError(w, http.StatusConflict, "draft_revision_conflict", err.Error())
 	case errors.Is(err, domain.ErrWorkspaceDraftEmpty), errors.Is(err, domain.ErrInvalidResourceID):

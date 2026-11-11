@@ -125,6 +125,24 @@ export class IdeProjectInitialComponent {
     requirements: '',
   });
   readonly pendingProposal = signal<WorkspaceProjectProposalDTO | null>(null);
+  readonly retrying = signal(false);
+  readonly preparation = computed(() => this.view()?.preparation ?? null);
+  readonly preparationLabel = computed(() => {
+    switch (this.preparation()?.status) {
+      case 'prepared':
+        return 'Dependencias preparadas';
+      case 'pending':
+        return 'Preparación en cola';
+      case 'running':
+        return 'Preparando dependencias';
+      case 'failed':
+        return 'La preparación falló';
+      case 'skipped':
+        return 'Esta versión no prepara dependencias';
+      default:
+        return 'Preparación de dependencias';
+    }
+  });
 
   private loadedExerciseId: string | null = null;
   private aiRequest?: Subscription;
@@ -680,6 +698,29 @@ export class IdeProjectInitialComponent {
     this.versionPreview.set(null);
   }
 
+  // Vuelve a encolar la preparación de la versión vigente. El servidor
+  // recalcula la clave con el perfil actual; acá solo se refleja el resultado.
+  retryPreparation(): void {
+    const id = this.exerciseId();
+    const preparation = this.preparation();
+    if (!id || !preparation?.can_retry || this.retrying()) return;
+    this.retrying.set(true);
+    this.errorMessage.set(null);
+    this.service.retryPreparation(id).subscribe({
+      next: () => {
+        this.retrying.set(false);
+        this.notice.set('Preparación encolada de nuevo.');
+        this.load(id);
+      },
+      error: (error) => {
+        this.retrying.set(false);
+        this.errorMessage.set(
+          projectErrorMessage(error, 'No se pudo reintentar la preparación.'),
+        );
+      },
+    });
+  }
+
   formatBytes(bytes: number): string {
     return formatBytes(bytes);
   }
@@ -745,6 +786,7 @@ export class IdeProjectInitialComponent {
     this.aiProposal.set(null);
     this.aiPreviewPath.set(null);
     this.pendingProposal.set(null);
+    this.retrying.set(false);
   }
 }
 

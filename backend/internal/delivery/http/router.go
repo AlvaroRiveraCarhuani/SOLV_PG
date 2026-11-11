@@ -520,6 +520,9 @@ func registerWorkspaceProjectRoutes(mux *http.ServeMux, deps *Handlers) {
 	// propuesta validada y nunca escribe borrador ni publica por su cuenta.
 	mux.Handle("POST /api/v1/teacher/exercises/{id}/project/generate", am(tm(http.HandlerFunc(deps.WorkspaceProjectHandler.GenerateProject))))
 	mux.Handle("POST /api/v1/teacher/exercises/{id}/project/publish", am(tm(http.HandlerFunc(deps.WorkspaceProjectHandler.Publish))))
+	// El reintento vuelve a encolar la versión vigente: no publica nada ni
+	// cambia el contenido, solo repite la preparación con el perfil actual.
+	mux.Handle("POST /api/v1/teacher/exercises/{id}/project/preparation/retry", am(tm(http.HandlerFunc(deps.WorkspaceProjectHandler.RetryPreparation))))
 }
 
 func registerLanguageProfileRoutes(mux *http.ServeMux, deps *Handlers) {

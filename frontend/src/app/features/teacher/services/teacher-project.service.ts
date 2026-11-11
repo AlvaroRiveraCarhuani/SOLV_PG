@@ -37,12 +37,26 @@ export interface WorkspaceLegacyProjectDTO {
   captured_at: string;
 }
 
+export type WorkspacePreparationStatus = 'pending' | 'running' | 'prepared' | 'failed' | 'skipped';
+
+// Estado de la preparación de dependencias de la versión publicada vigente. La
+// ruta del árbol y el log no viajan: son datos del nodo.
+export interface WorkspacePreparationDTO {
+  status: WorkspacePreparationStatus;
+  attempts: number;
+  message?: string;
+  bytes: number;
+  updated_at: string;
+  can_retry: boolean;
+}
+
 export interface WorkspaceProjectViewDTO {
   project: WorkspaceProjectDTO | null;
   draft?: WorkspaceProjectDraftDTO | null;
   versions: WorkspaceProjectVersionDTO[];
   legacy?: WorkspaceLegacyProjectDTO | null;
   publishing_enabled: boolean;
+  preparation?: WorkspacePreparationDTO | null;
 }
 
 export interface WorkspaceProjectImportResultDTO {
@@ -130,6 +144,18 @@ export class TeacherProjectService {
     return this.http
       .post<ApiEnvelope<WorkspaceProjectVersionDTO>>(
         `/api/v1/teacher/exercises/${exerciseId}/project/publish`,
+        {},
+      )
+      .pipe(map((response) => response.data));
+  }
+
+  // Vuelve a encolar la preparación de la versión publicada vigente. No publica
+  // ni cambia el contenido: repite la preparación con el perfil actual, y el
+  // servidor recalcula la clave del árbol.
+  retryPreparation(exerciseId: string): Observable<WorkspacePreparationDTO> {
+    return this.http
+      .post<ApiEnvelope<WorkspacePreparationDTO>>(
+        `/api/v1/teacher/exercises/${exerciseId}/project/preparation/retry`,
         {},
       )
       .pipe(map((response) => response.data));

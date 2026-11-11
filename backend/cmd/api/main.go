@@ -69,6 +69,47 @@ func main() {
 	tenantRepo := postgres.NewPostgresTenantRepository(db.GetDB())
 	subjectRepo := postgres.NewPostgresSubjectRepository(db.GetDB())
 	workspaceProjectService.SetAccessRepositories(exerciseRepo, subjectRepo)
+
+	// Preparación de dependencias del proyecto: la cola vive en la base y el
+	// worker corre en este nodo, una preparación a la vez. Queda apagada hasta
+	// que la puesta en marcha la habilite, porque preparar sin enlazar ocupa
+	// disco sin beneficio inmediato.
+	var dependencyPreparationQueue *services.DependencyPreparationQueue
+	preparationLimits := domain.DependencyPreparationLimits{}
+	// El mínimo de espacio libre se mide en el nodo; hasta que exista la medición
+	// real se puede ajustar por entorno sin recompilar.
+	if raw := strings.TrimSpace(os.Getenv("DEPENDENCY_PREPARATION_MIN_FREE_MB")); raw != "" {
+		if mb, convErr := strconv.Atoi(raw); convErr == nil && mb >= 0 {
+			preparationLimits.MinFreeBytes = int64(mb) << 20
+		}
+	}
+	if os.Getenv("DEPENDENCY_PREPARATION_ENABLED") == "true" {
+		preparationRoot := strings.TrimSpace(os.Getenv("DEPENDENCY_PREPARATION_ROOT"))
+		if preparationRoot == "" {
+			preparationRoot = "/var/lib/solv/deps"
+		}
+		preparationWorker, preparationErr := services.NewDependencyPreparationWorker(
+			docker.NewDependencyPreparationDockerRunner(cli),
+			preparationRoot,
+			preparationLimits,
+		)
+		if preparationErr != nil {
+			log.Printf("aviso: preparación de dependencias deshabilitada: %v", preparationErr)
+		} else {
+			queue, queueErr := services.NewDependencyPreparationQueue(
+				postgres.NewPostgresDependencyPreparationJobRepository(db.GetDB()),
+				postgres.NewPostgresDependencyPreparationTargetResolver(db.GetDB()),
+				workspaceProjectRepo,
+				preparationWorker,
+			)
+			if queueErr != nil {
+				log.Printf("aviso: preparación de dependencias deshabilitada: %v", queueErr)
+			} else {
+				dependencyPreparationQueue = queue
+				workspaceProjectService.SetDependencyPreparationQueue(queue)
+			}
+		}
+	}
 	submissionRepo := postgres.NewPostgresSubmissionRepository(db.GetDB())
 	teacherInvRepo := postgres.NewPostgresTeacherInvitationRepository(db.GetDB())
 	teacherRepo := postgres.NewPostgresTeacherRepository(db.GetDB())
@@ -92,6 +133,9 @@ func main() {
 		WithProvisioning(subjectRepo, templateRepo).
 		WithExerciseSubmission(exerciseRepo, submissionRepo).
 		SetWorkspaceProjects(workspaceProjectRepo)
+	if dependencyPreparationQueue != nil {
+		environmentService.SetDependencyPreparation(dependencyPreparationQueue)
+	}
 	subjectService := services.NewSubjectService(subjectRepo)
 	keystrokeRepo := postgres.NewPostgresKeystrokeRepository(db.GetDB())
 	submissionService := services.NewSubmissionService(submissionRepo)
@@ -128,6 +172,56 @@ func main() {
 	defer cancel()
 	qosWorker.Start(ctx)
 	go zombieCollector.Start(ctx)
+
+	// Un turno cada treinta segundos: el techo de quince minutos es del worker,
+	// no del bucle, así que un trabajo lento no se solapa con el siguiente.
+	if dependencyPreparationQueue != nil {
+		go func() {
+			if created, err := dependencyPreparationQueue.EnqueueMissing(ctx, 200); err != nil {
+				log.Printf("preparación de dependencias: no se pudo reconciliar la cola: %v", err)
+			} else if created > 0 {
+				log.Printf("preparación de dependencias: %d versión(es) encoladas al arrancar", created)
+			}
+			ticker := time.NewTicker(30 * time.Second)
+			defer ticker.Stop()
+			tick := 0
+			for {
+				select {
+				case <-ctx.Done():
+					return
+				case <-ticker.C:
+					tick++
+					// Un nodo caído no avisa: el vencimiento es el único testigo.
+					if reclaimed, err := dependencyPreparationQueue.ReclaimStale(ctx, preparationLimits.Timeout*2); err != nil {
+						log.Printf("preparación de dependencias: no se pudieron recuperar trabajos vencidos: %v", err)
+					} else if reclaimed > 0 {
+						log.Printf("preparación de dependencias: %d trabajo(s) vencidos volvieron a la cola", reclaimed)
+					}
+					job, processed, err := dependencyPreparationQueue.ProcessNext(ctx)
+					if err != nil {
+						log.Printf("preparación de dependencias: %v", err)
+					}
+					if processed && job != nil {
+						log.Printf("preparación de dependencias: versión %s quedó en %s", job.VersionID, job.Status)
+					}
+					// La poda y el uso se revisan cada diez minutos: recorrer la raíz en
+					// cada turno es trabajo de disco que nadie pidió.
+					if tick%20 == 0 {
+						if pruned, err := dependencyPreparationQueue.PruneOrphans(ctx); err != nil {
+							log.Printf("preparación de dependencias: no se pudo podar: %v", err)
+						} else if len(pruned) > 0 {
+							log.Printf("preparación de dependencias: %d árbol(es) podados", len(pruned))
+						}
+						if count, bytes, err := dependencyPreparationQueue.Usage(); err != nil {
+							log.Printf("preparación de dependencias: no se pudo medir el uso: %v", err)
+						} else {
+							log.Printf("preparación de dependencias: %d árbol(es), %d MB en disco", count, bytes/(1<<20))
+						}
+					}
+				}
+			}
+		}()
+	}
 
 	v := validator.New()
 

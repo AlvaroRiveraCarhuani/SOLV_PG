@@ -535,6 +535,37 @@
       </div>
     }
 
+    @if (preparation(); as preparation) {
+      <section class="preparation-status">
+        <div class="preparation-heading">
+          <span class="preparation-chip" [attr.data-status]="preparation.status">
+            {{ preparationLabel() }}
+          </span>
+          <time class="preparation-date" [attr.datetime]="preparation.updated_at">{{
+            preparation.updated_at | dateText: 'datetime'
+          }}</time>
+        </div>
+        @if (preparation.message) {
+          <p class="preparation-message"><code>{{ preparation.message }}</code></p>
+        }
+        @if (preparation.can_retry) {
+          <button
+            type="button"
+            class="btn-outline btn-small"
+            [disabled]="retrying()"
+            (click)="retryPreparation()"
+          >
+            @if (retrying()) {
+              <svg lucideLoader2 class="action-icon motion-spin"></svg>
+              <span>Reintentando...</span>
+            } @else {
+              <span>Reintentar preparación</span>
+            }
+          </button>
+        }
+      </section>
+    }
+
     @if (versions().length > 0) {
       <details class="history-panel">
         <summary class="history-summary">
