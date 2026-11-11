@@ -62,6 +62,13 @@
 
   @if (visibleDraft(); as res) {
     <div class="modal-body-form preview-step">
+      @if (hasExistingContent) {
+        <div class="replace-alert-hint" role="status">
+          <svg lucideInfo class="hint-icon"></svg>
+          <span>Al pulsar <strong>Aplicar al editor</strong>, se actualizarán el título, la consigna pedagógica y la rúbrica con este borrador. El entorno y tus configuraciones adicionales se conservan intactos.</span>
+        </div>
+      }
+
       <section class="exercise-preview-card">
         <header class="preview-header">
           @if (draftStep() === 'edit') {
@@ -230,6 +237,28 @@
   } @else {
     <!-- Paso A: formulario de generación -->
     <div class="modal-body-form">
+      @if (isIde() && currentTemplateName) {
+        <div class="template-context-bar" role="status">
+          <svg lucideLayers class="context-icon"></svg>
+          <div class="context-info">
+            <span class="context-label">Entorno fijado:</span>
+            <strong class="context-name font-mono" machineData>{{ currentTemplateName }}</strong>
+          </div>
+          @if (currentTitle) {
+            <span class="context-separator">·</span>
+            <span class="context-title truncate" [title]="currentTitle">Título: {{ currentTitle }}</span>
+          }
+        </div>
+      } @else if (currentTitle) {
+        <div class="template-context-bar" role="status">
+          <svg lucideInfo class="context-icon"></svg>
+          <div class="context-info">
+            <span class="context-label">Título base:</span>
+            <strong class="context-name">{{ currentTitle }}</strong>
+          </div>
+        </div>
+      }
+
       <form-field
         label="Consigna pedagógica"
         for="ai-prompt"
@@ -243,7 +272,7 @@
           autoGrow
           [minRows]="3"
           [maxRows]="5"
-          [placeholder]="isIde() ? 'Ej.: Práctica de NestJS: crear un CRUD de materias con formulario y tabla de materias registradas...' : 'Ej.: Suma de los N primeros números primos, con límite de tiempo y casos extremos...'"
+          [placeholder]="promptPlaceholder()"
           [ngModel]="prompt()"
           (ngModelChange)="onPromptChange($event)"
           (keydown)="onPromptKeydown($event)"

@@ -378,4 +378,44 @@ describe('AiExerciseGeneratorModalComponent', () => {
     expect(preventRegular).not.toHaveBeenCalled();
     expect(generateSpy).toHaveBeenCalledTimes(2);
   });
+
+  it('envía title cuando el docente ya lo ingresó en el editor', () => {
+    component.environmentType = 'IDE_PERSISTENTE';
+    component.templateId = 'tpl-python-postgres';
+    component.currentTitle = 'Laboratorio de Microservicios';
+    component.prompt.set('Práctica de FastAPI con base de datos');
+
+    component.generate();
+
+    expect(mockService.generateExercise).toHaveBeenCalledWith(
+      expect.objectContaining({
+        title: 'Laboratorio de Microservicios',
+        template_id: 'tpl-python-postgres'
+      })
+    );
+  });
+
+  it('muestra barra de contexto del entorno y placeholder adecuado al template', () => {
+    component.environmentType = 'IDE_PERSISTENTE';
+    component.currentTemplateName = 'IDE Python + Postgres';
+    component.currentTitle = 'Clase 3';
+    fixture.detectChanges();
+
+    const bar = fixture.nativeElement.querySelector('.template-context-bar');
+    expect(bar).toBeTruthy();
+    expect(bar.textContent).toContain('IDE Python + Postgres');
+    expect(bar.textContent).toContain('Clase 3');
+    expect(component.promptPlaceholder()).toContain('Análisis exploratorio de datos');
+  });
+
+  it('muestra advertencia de reemplazo en la revisión cuando hay contenido previo en el editor', () => {
+    component.hasExistingContent = true;
+    component.generatedResult.set(mockDraft);
+    component.draftStep.set('review');
+    fixture.detectChanges();
+
+    const hint = fixture.nativeElement.querySelector('.replace-alert-hint');
+    expect(hint).toBeTruthy();
+    expect(hint.textContent).toContain('se actualizarán el título, la consigna pedagógica y la rúbrica');
+  });
 });

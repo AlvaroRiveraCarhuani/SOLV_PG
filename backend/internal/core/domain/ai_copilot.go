@@ -27,6 +27,7 @@ type AISuggestComponentResponseDTO struct {
 // AIGenerateExerciseRequestDTO es el payload de POST /api/v1/teacher/ai/generate-exercise.
 type AIGenerateExerciseRequestDTO struct {
 	Prompt           string `json:"prompt"`                       // consigna o tema pedagógico (5..1500 chars)
+	Title            string `json:"title,omitempty"`              // título preliminar del docente si ya lo ingresó
 	Language         string `json:"language,omitempty"`           // "python", "cpp", "java", "javascript", "go", "rust", "c", "csharp"
 	Difficulty       string `json:"difficulty"`                   // "easy" | "medium" | "hard" (default "medium")
 	EnvironmentType  string `json:"environment_type,omitempty"`   // "JUEZ_EFIMERO" | "IDE_PERSISTENTE"

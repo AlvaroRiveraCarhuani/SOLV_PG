@@ -13,6 +13,7 @@ export interface AIAvailabilityStatus {
 
 export interface AIGenerateExercisePayload {
   prompt: string;
+  title?: string;
   language?: string;
   difficulty: 'easy' | 'medium' | 'hard';
   environment_type?: 'JUEZ_EFIMERO' | 'IDE_PERSISTENTE';

@@ -233,6 +233,9 @@ import { TeacherCourseService } from '../services/teacher-course.service';
           [defaultLanguage]="store.metadata().language || 'python'"
           [environmentType]="store.isIde() ? 'IDE_PERSISTENTE' : 'JUEZ_EFIMERO'"
           [templateId]="store.metadata().template_id || ''"
+          [currentTitle]="store.metadata().title || ''"
+          [currentTemplateName]="currentTemplateName()"
+          [hasExistingContent]="hasExistingContent()"
           (closed)="aiModalOpen.set(false)"
           (applied)="onAiDraftApplied($event)"
         />
@@ -262,6 +265,19 @@ export class ExerciseEditorComponent implements OnInit {
     const cId = this.store.courseId();
     if (!cId) return '';
     return this.dashboardService.courses().find(c => c.id === cId)?.name || '';
+  });
+
+  readonly currentTemplateName = computed(() => {
+    const meta = this.store.metadata();
+    return meta.template?.name || meta.template_id || '';
+  });
+
+  readonly hasExistingContent = computed(() => {
+    const s = this.store.statement();
+    const hasStatement = !!s.description?.trim();
+    const hasRubric = (this.store.rubric()?.criteria?.length ?? 0) > 0;
+    const hasTitle = !!this.store.metadata().title?.trim();
+    return hasStatement || hasRubric || hasTitle;
   });
 
   showDeleteModal = signal<boolean>(false);

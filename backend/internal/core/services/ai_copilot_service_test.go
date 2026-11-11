@@ -571,6 +571,32 @@ func TestAICopilot_GenerateExerciseDraft_IDEPersistente_PreservesLockedTemplate(
 	}
 }
 
+func TestAICopilot_GenerateExerciseDraft_IDEPersistente_PreservesTitle(t *testing.T) {
+	// Si el LLM devuelve un título vacío, el servicio adopta el título provisto por el docente.
+	server := newCopilotLLMServer(t, `{
+		"title": "",
+		"description": "Crear un servidor básico.",
+		"difficulty": "easy",
+		"language": "javascript",
+		"template_id": "tmpl-node-base",
+		"rubric_criteria": [{"name": "Rutas", "description": "Rutas REST", "weight": 100}]
+	}`)
+	copilot := NewAICopilotService(newEnabledCopilotSettings(t, server), nil, &stubComponentRepoForTesting{})
+
+	draft, err := copilot.GenerateExerciseDraft(context.Background(), "t-1", "u-1", domain.AIGenerateExerciseRequestDTO{
+		Prompt:          "Crear una API simple en Node.js",
+		Title:           "Laboratorio 1: API Node.js",
+		EnvironmentType: "IDE_PERSISTENTE",
+		TemplateID:      "tmpl-node-base",
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if draft.Title != "Laboratorio 1: API Node.js" {
+		t.Fatalf("draft.Title = %q, esperado 'Laboratorio 1: API Node.js'", draft.Title)
+	}
+}
+
 // TestAICopilot_RepairTemplateRepairsDockerfileAndTools cubre la autorreparación
 // diagnóstica: corrige el Dockerfile, fuerza el build local cuando hay capas
 // RUN y devuelve la causa raíz en español.

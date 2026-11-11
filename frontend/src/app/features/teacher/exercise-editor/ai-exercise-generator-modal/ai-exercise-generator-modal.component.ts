@@ -8,7 +8,9 @@ import {
   LucideShieldCheck,
   LucideKeyRound,
   LucideChevronDown,
-  LucideChevronUp
+  LucideChevronUp,
+  LucideLayers,
+  LucideInfo
 } from '@lucide/angular';
 import { ModalShellComponent } from '@shared/components/modal-shell/modal-shell.component';
 import { AiProgressIndicatorComponent } from '@shared/components/ai-progress-indicator/ai-progress-indicator.component';
@@ -74,6 +76,8 @@ const DIFFICULTY_OPTIONS: { value: AIDifficulty; label: string }[] = [
     LucideKeyRound,
     LucideChevronDown,
     LucideChevronUp,
+    LucideLayers,
+    LucideInfo,
     ModalShellComponent,
     AiProgressIndicatorComponent,
     FormFieldComponent,
@@ -95,6 +99,9 @@ export class AiExerciseGeneratorModalComponent implements OnInit {
 
   @Input() defaultLanguage = 'python';
   @Input() templateId = '';
+  @Input() currentTitle = '';
+  @Input() currentTemplateName = '';
+  @Input() hasExistingContent = false;
 
   private readonly _environmentType = signal<'JUEZ_EFIMERO' | 'IDE_PERSISTENTE'>('JUEZ_EFIMERO');
   @Input()
@@ -109,6 +116,23 @@ export class AiExerciseGeneratorModalComponent implements OnInit {
   @Output() applied = new EventEmitter<AIGenerateExerciseResponse>();
 
   readonly isIde = computed(() => this._environmentType() === 'IDE_PERSISTENTE');
+
+  readonly promptPlaceholder = computed(() => {
+    if (!this.isIde()) {
+      return 'Ej.: Suma de los N primeros números primos, con límite de tiempo y casos extremos...';
+    }
+    const tplName = (this.currentTemplateName || '').toLowerCase();
+    if (tplName.includes('python')) {
+      return 'Ej.: Análisis exploratorio de datos: procesar dataset CSV, almacenar métricas en PostgreSQL y graficar resultados...';
+    }
+    if (tplName.includes('postgres') || tplName.includes('sql')) {
+      return 'Ej.: Modelado de base de datos relacional: tablas, índices, consultas con agregación y transacciones seguras...';
+    }
+    if (tplName.includes('node') || tplName.includes('next') || tplName.includes('js') || tplName.includes('full-stack')) {
+      return 'Ej.: API REST de gestión académica con endpoints CRUD, validación de esquemas y persistencia en base de datos...';
+    }
+    return 'Ej.: Práctica de desarrollo guiada con requerimientos estructurados, dependencias instaladas y rúbrica balanceada...';
+  });
 
   readonly languageOptions = LANGUAGE_OPTIONS;
   readonly difficultyOptions = DIFFICULTY_OPTIONS;
@@ -258,6 +282,7 @@ export class AiExerciseGeneratorModalComponent implements OnInit {
     this.operation.run(
       this.copilotService.generateExercise({
         prompt,
+        title: this.currentTitle?.trim() || undefined,
         language: isIdeMode ? undefined : this.language(),
         difficulty: this.difficulty(),
         environment_type: this.environmentType,

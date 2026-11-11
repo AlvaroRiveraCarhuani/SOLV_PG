@@ -685,7 +685,16 @@ func (s *AICopilotService) GenerateExerciseDraft(ctx context.Context, tenantID, 
 	hiddenCount = clampInt(hiddenCount, 1, 10)
 
 	systemPrompt := generateExerciseSystemPrompt(publicCount, hiddenCount, difficulty)
-	userPrompt := fmt.Sprintf("Lenguaje: %s\nDificultad: %s\nConsigna del docente:\n%s", language, difficulty, prompt)
+	judgePromptParts := []string{
+		fmt.Sprintf("Lenguaje: %s", language),
+		fmt.Sprintf("Dificultad: %s", difficulty),
+	}
+	initialJudgeTitle := strings.TrimSpace(req.Title)
+	if initialJudgeTitle != "" {
+		judgePromptParts = append(judgePromptParts, fmt.Sprintf("Título propuesto por el docente: %s", initialJudgeTitle))
+	}
+	judgePromptParts = append(judgePromptParts, fmt.Sprintf("Consigna del docente:\n%s", prompt))
+	userPrompt := strings.Join(judgePromptParts, "\n")
 
 	raw, latencyMS, err := s.aiSettings.CompleteJSON(ctx, tenantID, userID, "generate-exercise", systemPrompt, userPrompt)
 	if err != nil {
@@ -829,10 +838,23 @@ func (s *AICopilotService) generateIdeExerciseDraft(
 	}
 
 	systemPrompt := generateIdeExerciseSystemPrompt(templatesSummary)
-	userPrompt := fmt.Sprintf("Dificultad: %s\nConsigna del docente:\n%s", difficulty, prompt)
+
+	idePromptParts := []string{fmt.Sprintf("Dificultad: %s", difficulty)}
 	if lockedTemplate != nil {
-		userPrompt = fmt.Sprintf("Dificultad: %s\nEntorno homologado obligatorio fijado por el docente: %s (ID: %s)\nConsigna del docente:\n%s\nImportante: Debes mantener exactamente este 'template_id': %q y diseñar la consigna, requerimientos y rúbrica exclusivamente para las tecnologías de este entorno.", difficulty, lockedTemplate.Name, lockedTemplate.ID, prompt, lockedTemplate.ID)
+		idePromptParts = append(idePromptParts, fmt.Sprintf("Entorno homologado obligatorio fijado por el docente: %s (ID: %s)", lockedTemplate.Name, lockedTemplate.ID))
 	}
+	initialIdeTitle := strings.TrimSpace(req.Title)
+	if initialIdeTitle != "" {
+		idePromptParts = append(idePromptParts, fmt.Sprintf("Título propuesto por el docente: %s", initialIdeTitle))
+	}
+	idePromptParts = append(idePromptParts, fmt.Sprintf("Consigna del docente:\n%s", prompt))
+	if lockedTemplate != nil {
+		idePromptParts = append(idePromptParts, fmt.Sprintf("Importante: Debes mantener exactamente este 'template_id': %q y diseñar la consigna, requerimientos y rúbrica exclusivamente para las tecnologías de este entorno.", lockedTemplate.ID))
+	}
+	if initialIdeTitle != "" {
+		idePromptParts = append(idePromptParts, fmt.Sprintf("Importante: El docente ya definió el título %q. Usa ese título o adáptalo ligeramente en 'title' manteniendo su tema.", initialIdeTitle))
+	}
+	userPrompt := strings.Join(idePromptParts, "\n")
 
 	raw, latencyMS, err := s.aiSettings.CompleteJSON(ctx, tenantID, userID, "generate-ide-exercise", systemPrompt, userPrompt)
 	if err != nil {
@@ -861,7 +883,11 @@ func (s *AICopilotService) generateIdeExerciseDraft(
 
 	title := strings.TrimSpace(payload.Title)
 	if title == "" {
-		title = "Práctica de Desarrollo"
+		if initialIdeTitle != "" {
+			title = initialIdeTitle
+		} else {
+			title = "Práctica de Desarrollo"
+		}
 	}
 	description := strings.TrimSpace(payload.Description)
 	if description == "" {

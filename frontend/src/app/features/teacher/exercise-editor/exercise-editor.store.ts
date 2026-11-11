@@ -1103,7 +1103,7 @@ export class ExerciseEditorStore {
       const isIde = (draft.environment_type || m.environment_type) === 'IDE_PERSISTENTE';
       return {
         ...m,
-        title: m.title?.trim() ? m.title : draft.title,
+        title: draft.title?.trim() ? draft.title.trim() : (m.title?.trim() || 'Práctica de Desarrollo'),
         difficulty: (draft.difficulty as 'easy' | 'medium' | 'hard') || m.difficulty || 'medium',
         language: m.language || draft.language || 'python',
         allowed_languages: m.allowed_languages?.length ? m.allowed_languages : (draft.language ? [draft.language] : []),
