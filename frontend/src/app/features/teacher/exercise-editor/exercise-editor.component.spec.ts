@@ -68,6 +68,27 @@ describe('ExerciseEditorComponent', () => {
 
     expect(store.metadata().template_id).toBe('tpl-1');
     expect(store.metadata().environment_type).toBe('IDE_PERSISTENTE');
+    expect(store.metadata().modality).toBe('environment');
+  });
+
+  it('preserva el título y la plantilla previa al aplicar un borrador de IA', () => {
+    mount({ courseId: 'course-1' }, {});
+    store.updateMetadata({ title: 'Título previo del docente', template_id: 'tpl-fijada' });
+
+    store.applyAIGeneratedDraft({
+      title: 'Título generado por IA',
+      description: 'Consigna generada',
+      difficulty: 'medium',
+      language: 'python',
+      template_id: 'tpl-otra-de-ia',
+      environment_type: 'IDE_PERSISTENTE',
+      runner_verified_all: true,
+      latency_ms: 120
+    });
+
+    expect(store.metadata().title).toBe('Título previo del docente');
+    expect(store.metadata().template_id).toBe('tpl-fijada');
+    expect(store.statement().description).toBe('Consigna generada');
   });
 
   it('no preselecciona plantilla cuando falta template_id', () => {

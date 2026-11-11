@@ -94,6 +94,7 @@ export class AiExerciseGeneratorModalComponent implements OnInit {
   private suppressDraftPersistence = false;
 
   @Input() defaultLanguage = 'python';
+  @Input() templateId = '';
 
   private readonly _environmentType = signal<'JUEZ_EFIMERO' | 'IDE_PERSISTENTE'>('JUEZ_EFIMERO');
   @Input()
@@ -260,6 +261,7 @@ export class AiExerciseGeneratorModalComponent implements OnInit {
         language: isIdeMode ? undefined : this.language(),
         difficulty: this.difficulty(),
         environment_type: this.environmentType,
+        template_id: isIdeMode && this.templateId ? this.templateId : undefined,
         public_cases_count: isIdeMode ? 0 : this.publicCasesCount(),
         hidden_cases_count: isIdeMode ? 0 : this.hiddenCasesCount(),
         verify_with_runner: !isIdeMode

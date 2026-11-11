@@ -1,6 +1,6 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { provideHttpClient } from '@angular/common/http';
-import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
+import { provideHttpClientTesting } from '@angular/common/http/testing';
 import { provideRouter } from '@angular/router';
 import { of } from 'rxjs';
 import { AiExerciseGeneratorModalComponent } from './ai-exercise-generator-modal.component';
@@ -168,6 +168,27 @@ describe('AiExerciseGeneratorModalComponent', () => {
       language: undefined,
       difficulty: 'medium',
       environment_type: 'IDE_PERSISTENTE',
+      template_id: undefined,
+      public_cases_count: 0,
+      hidden_cases_count: 0,
+      verify_with_runner: false
+    });
+  });
+
+  it('envía template_id cuando el entorno ya fue preseleccionado por el docente', () => {
+    component.environmentType = 'IDE_PERSISTENTE';
+    component.templateId = 'tpl-python-postgres';
+    component.prompt.set('Práctica de FastAPI con PostgreSQL');
+    component.difficulty.set('hard');
+
+    component.generate();
+
+    expect(mockService.generateExercise).toHaveBeenCalledWith({
+      prompt: 'Práctica de FastAPI con PostgreSQL',
+      language: undefined,
+      difficulty: 'hard',
+      environment_type: 'IDE_PERSISTENTE',
+      template_id: 'tpl-python-postgres',
       public_cases_count: 0,
       hidden_cases_count: 0,
       verify_with_runner: false

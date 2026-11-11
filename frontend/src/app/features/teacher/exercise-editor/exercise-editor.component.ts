@@ -232,6 +232,7 @@ import { TeacherCourseService } from '../services/teacher-course.service';
         <ai-exercise-generator-modal
           [defaultLanguage]="store.metadata().language || 'python'"
           [environmentType]="store.isIde() ? 'IDE_PERSISTENTE' : 'JUEZ_EFIMERO'"
+          [templateId]="store.metadata().template_id || ''"
           (closed)="aiModalOpen.set(false)"
           (applied)="onAiDraftApplied($event)"
         />

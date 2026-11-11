@@ -30,6 +30,7 @@ type AIGenerateExerciseRequestDTO struct {
 	Language         string `json:"language,omitempty"`           // "python", "cpp", "java", "javascript", "go", "rust", "c", "csharp"
 	Difficulty       string `json:"difficulty"`                   // "easy" | "medium" | "hard" (default "medium")
 	EnvironmentType  string `json:"environment_type,omitempty"`   // "JUEZ_EFIMERO" | "IDE_PERSISTENTE"
+	TemplateID       string `json:"template_id,omitempty"`        // plantilla homologada fijada por el docente (opcional)
 	PublicCasesCount int    `json:"public_cases_count"`           // default 2, rango 1..5
 	HiddenCasesCount int    `json:"hidden_cases_count"`           // default 3, rango 1..10
 	VerifyWithRunner *bool  `json:"verify_with_runner,omitempty"` // nil o true ejecuta validación determinista

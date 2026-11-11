@@ -16,6 +16,7 @@ export interface AIGenerateExercisePayload {
   language?: string;
   difficulty: 'easy' | 'medium' | 'hard';
   environment_type?: 'JUEZ_EFIMERO' | 'IDE_PERSISTENTE';
+  template_id?: string;
   public_cases_count?: number;
   hidden_cases_count?: number;
   verify_with_runner?: boolean;

@@ -686,7 +686,10 @@ export class ExerciseEditorStore {
     this.metadata.update(curr => ({
       ...curr,
       template_id: templateId,
-      ...(env ? { environment_type: env } : {})
+      ...(env ? {
+        environment_type: env,
+        modality: env === 'IDE_PERSISTENTE' ? 'environment' : 'judge'
+      } : {})
     }));
   }
 
@@ -1095,21 +1098,25 @@ export class ExerciseEditorStore {
   }
 
   applyAIGeneratedDraft(draft: AIGenerateExerciseResponse): void {
-    this.metadata.update((m) => ({
-      ...m,
-      title: draft.title,
-      difficulty: (draft.difficulty as 'easy' | 'medium' | 'hard') || 'medium',
-      language: draft.language || m.language || 'python',
-      allowed_languages: draft.language ? [draft.language] : m.allowed_languages,
-      template_id: draft.template_id || m.template_id,
-      environment_type: draft.environment_type || m.environment_type,
-      modality: draft.environment_type === 'IDE_PERSISTENTE' ? 'environment' : m.modality
-    }));
+    const alreadyHadTemplate = !!this.metadata().template_id;
+    this.metadata.update((m) => {
+      const isIde = (draft.environment_type || m.environment_type) === 'IDE_PERSISTENTE';
+      return {
+        ...m,
+        title: m.title?.trim() ? m.title : draft.title,
+        difficulty: (draft.difficulty as 'easy' | 'medium' | 'hard') || m.difficulty || 'medium',
+        language: m.language || draft.language || 'python',
+        allowed_languages: m.allowed_languages?.length ? m.allowed_languages : (draft.language ? [draft.language] : []),
+        template_id: m.template_id || draft.template_id || null,
+        environment_type: m.environment_type || draft.environment_type,
+        modality: isIde ? 'environment' : m.modality
+      };
+    });
     this.statement.update((s) => ({ ...s, description: draft.description }));
     if (draft.rubric) {
       this.rubric.set(draft.rubric);
     }
-    if (draft.template_id) {
+    if (draft.template_id && !alreadyHadTemplate) {
       this.preselectTemplate(draft.template_id);
     }
     this.referenceSolution.set(draft.reference_solution || '');

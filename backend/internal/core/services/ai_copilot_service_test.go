@@ -543,6 +543,34 @@ func TestAICopilot_GenerateExerciseDraft_IDEFueraDeCatalogo_NoAsignaPlantillaAlt
 	}
 }
 
+func TestAICopilot_GenerateExerciseDraft_IDEPersistente_PreservesLockedTemplate(t *testing.T) {
+	// Aunque el LLM intente devolver otra plantilla (tmpl-nestjs), el servicio debe forzar la fijada por el docente (tmpl-node-base).
+	server := newCopilotLLMServer(t, `{
+		"title": "API Express Básica",
+		"description": "Crear un servidor básico.",
+		"difficulty": "easy",
+		"language": "javascript",
+		"template_id": "tmpl-nestjs",
+		"rubric_criteria": [{"name": "Rutas", "description": "Rutas REST", "weight": 100}]
+	}`)
+	copilot := NewAICopilotService(newEnabledCopilotSettings(t, server), nil, &stubComponentRepoForTesting{})
+
+	draft, err := copilot.GenerateExerciseDraft(context.Background(), "t-1", "u-1", domain.AIGenerateExerciseRequestDTO{
+		Prompt:          "Crear una API simple en Node.js",
+		EnvironmentType: "IDE_PERSISTENTE",
+		TemplateID:      "tmpl-node-base",
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if draft.TemplateID != "tmpl-node-base" {
+		t.Fatalf("template_id = %q, esperado tmpl-node-base (fijada por el docente)", draft.TemplateID)
+	}
+	if draft.TemplateName != "Node.js Base" {
+		t.Fatalf("template_name = %q, esperado 'Node.js Base'", draft.TemplateName)
+	}
+}
+
 // TestAICopilot_RepairTemplateRepairsDockerfileAndTools cubre la autorreparación
 // diagnóstica: corrige el Dockerfile, fuerza el build local cuando hay capas
 // RUN y devuelve la causa raíz en español.

@@ -816,8 +816,23 @@ func (s *AICopilotService) generateIdeExerciseDraft(
 	}
 
 	templatesSummary, approvedTemplates := s.buildApprovedTemplatesSummary(ctx, tenantID)
+
+	var lockedTemplate *domain.AdminTemplateReviewItem
+	reqTemplateID := strings.TrimSpace(req.TemplateID)
+	if reqTemplateID != "" {
+		for _, tmpl := range approvedTemplates {
+			if tmpl.ID == reqTemplateID {
+				lockedTemplate = tmpl
+				break
+			}
+		}
+	}
+
 	systemPrompt := generateIdeExerciseSystemPrompt(templatesSummary)
 	userPrompt := fmt.Sprintf("Dificultad: %s\nConsigna del docente:\n%s", difficulty, prompt)
+	if lockedTemplate != nil {
+		userPrompt = fmt.Sprintf("Dificultad: %s\nEntorno homologado obligatorio fijado por el docente: %s (ID: %s)\nConsigna del docente:\n%s\nImportante: Debes mantener exactamente este 'template_id': %q y diseñar la consigna, requerimientos y rúbrica exclusivamente para las tecnologías de este entorno.", difficulty, lockedTemplate.Name, lockedTemplate.ID, prompt, lockedTemplate.ID)
+	}
 
 	raw, latencyMS, err := s.aiSettings.CompleteJSON(ctx, tenantID, userID, "generate-ide-exercise", systemPrompt, userPrompt)
 	if err != nil {
@@ -872,7 +887,14 @@ func (s *AICopilotService) generateIdeExerciseDraft(
 	}
 
 	// Filtro 1: Resolución determinista de Plantilla homologada y detección de tecnologías faltantes
-	selectedTemplateID, selectedTemplateName, missingTech := s.resolveIdeTemplate(payload.TemplateID, payload.MissingTechnology, prompt, approvedTemplates)
+	var selectedTemplateID, selectedTemplateName, missingTech string
+	if lockedTemplate != nil {
+		selectedTemplateID = lockedTemplate.ID
+		selectedTemplateName = lockedTemplate.Name
+		missingTech = ""
+	} else {
+		selectedTemplateID, selectedTemplateName, missingTech = s.resolveIdeTemplate(payload.TemplateID, payload.MissingTechnology, prompt, approvedTemplates)
+	}
 	draft.TemplateID = selectedTemplateID
 	draft.TemplateName = selectedTemplateName
 	draft.MissingTechnology = missingTech
