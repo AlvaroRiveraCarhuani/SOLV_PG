@@ -171,10 +171,10 @@ describe('TeacherExercisesComponent', () => {
     const navSpy = vi.spyOn(router, 'navigate').mockResolvedValue(true);
 
     component.openCreateModal();
-    expect(navSpy).toHaveBeenCalledWith(['/teacher/courses', 'course-1', 'exercises', 'new']);
+    expect(navSpy).toHaveBeenCalledWith(['/teacher/cursos', 'course-1', 'ejercicios', 'nuevo']);
 
     component.openEditModal(component.allExercises()[0]);
-    expect(navSpy).toHaveBeenCalledWith(['/teacher/courses', 'course-1', 'exercises', 'lab-1', 'edit']);
+    expect(navSpy).toHaveBeenCalledWith(['/teacher/cursos', 'course-1', 'ejercicios', 'lab-1', 'editar']);
   });
 
   it('should open and close fuzzing modal for a judge exercise', () => {

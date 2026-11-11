@@ -513,14 +513,15 @@ export class TeacherTemplatesComponent implements OnInit {
   createLabFromTemplate(template: PublishedTemplate): void {
     const coursesList = this.courses();
     if (coursesList.length === 1) {
-      this.router.navigate(['/teacher/courses', coursesList[0].id, 'exercises', 'new'], {
+      this.router.navigate(['/teacher/cursos', coursesList[0].id, 'ejercicios', 'nuevo'], {
         queryParams: { template_id: template.id, environment_type: template.environment_type || undefined }
       });
     } else if (coursesList.length > 1) {
       this.targetTemplateForCourse.set(template);
       this.isCoursePickerOpen.set(true);
     } else {
-      this.router.navigate(['/teacher/courses']);
+      // Sin materias no existe una ruta de listado: el dashboard es el punto de partida.
+      this.router.navigate(['/teacher/dashboard']);
     }
   }
 
@@ -528,7 +529,7 @@ export class TeacherTemplatesComponent implements OnInit {
     const tpl = this.targetTemplateForCourse();
     this.closeCoursePicker();
     if (tpl) {
-      this.router.navigate(['/teacher/courses', courseId, 'exercises', 'new'], {
+      this.router.navigate(['/teacher/cursos', courseId, 'ejercicios', 'nuevo'], {
         queryParams: { template_id: tpl.id, environment_type: tpl.environment_type || undefined }
       });
     }

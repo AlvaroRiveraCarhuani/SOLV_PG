@@ -82,10 +82,6 @@ export { getVerdictBadgeClass, getVerdictHumanLabel };
       @if (showAcronym()) {
         <code class="verdict-acronym font-mono" machineData>{{ acronym() }}</code>
       }
-
-      @if (legacyLabel(); as legacyText) {
-        <span class="verdict-origin-tag">{{ legacyText }}</span>
-      }
     </span>
     }
   `,
@@ -159,6 +155,8 @@ export class VerdictBadgeComponent {
 
   readonly fullTitle = computed<string>(() => {
     const detail = getVerdictOutcomeDetail(this.normalizedVerdict());
-    return this.showAcronym() ? `${detail} (${this.acronym()})` : detail;
+    const base = this.showAcronym() ? `${detail} (${this.acronym()})` : detail;
+    const legacy = this.legacyLabel();
+    return legacy ? `${base} — ${legacy}` : base;
   });
 }

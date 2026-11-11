@@ -5,28 +5,30 @@ import { Router, RouterLink } from '@angular/router';
 import {
   LucidePlus,
   LucideSearch,
-  LucideCode,
-  LucideTerminal,
   LucideSparkles,
   LucideEdit,
   LucideExternalLink,
-  LucideClock,
   LucideLayers,
-  LucideUsers,
   LucideBookOpen
 } from '@lucide/angular';
 import { TeacherDashboardService } from '../services/teacher-dashboard.service';
 import { TeacherCourseService } from '../services/teacher-course.service';
 import { TeacherExerciseBankItem, TeacherLabStats } from '../models/teacher.models';
 import { MachineDataDirective } from '@shared/directives/machine-data.directive';
-import { DateTextPipe } from '@shared/pipes/date-text.pipe';
 import { SkeletonLoaderComponent } from '@shared/components/skeleton/skeleton-loader.component';
 import { EnvironmentLabelPipe } from '@shared/pipes/environment-label.pipe';
 import { environmentTypeOptions } from '@shared/constants/environment-types.constants';
 import { ComboboxComponent, ComboboxOption } from '@shared/components/combobox/combobox.component';
 import { FuzzingModalComponent } from '../evaluations/fuzzing-modal/fuzzing-modal.component';
+import { TechLogoComponent, TechIconKey } from '@features/admin/templates/components/tech-logo/tech-logo.component';
+import { inferTemplateTechnologies } from '@features/admin/templates/template-tech-detector.utils';
 
 export type EnrichedLabItem = TeacherExerciseBankItem;
+
+export interface LabTechChip {
+  name: string;
+  iconKey: TechIconKey;
+}
 
 @Component({
   selector: 'teacher-exercises',
@@ -37,21 +39,17 @@ export type EnrichedLabItem = TeacherExerciseBankItem;
     RouterLink,
     LucidePlus,
     LucideSearch,
-    LucideCode,
-    LucideTerminal,
     LucideSparkles,
     LucideEdit,
     LucideExternalLink,
-    LucideClock,
     LucideLayers,
-    LucideUsers,
     LucideBookOpen,
     MachineDataDirective,
-    DateTextPipe,
     SkeletonLoaderComponent,
     ComboboxComponent,
     FuzzingModalComponent,
-    EnvironmentLabelPipe
+    EnvironmentLabelPipe,
+    TechLogoComponent
   ],
   templateUrl: './teacher-exercises.component.html',
   styleUrl: './teacher-exercises.component.scss'
@@ -228,6 +226,20 @@ export class TeacherExercisesComponent implements OnInit {
     return (lab.environment_type || 'JUEZ_EFIMERO').toUpperCase() === 'JUEZ_EFIMERO';
   }
 
+  techChipsFor(lab: EnrichedLabItem): LabTechChip[] {
+    const inferred = inferTemplateTechnologies({
+      name: lab.title,
+      description: lab.language || ''
+    });
+    if (inferred.length > 0) {
+      return inferred.map(t => ({ name: t.name, iconKey: t.iconType }));
+    }
+    if (lab.language) {
+      return [{ name: lab.language, iconKey: 'docker' as TechIconKey }];
+    }
+    return [];
+  }
+
 
 
   openCreateModal(preselectedCourseId?: string): void {
@@ -237,11 +249,11 @@ export class TeacherExercisesComponent implements OnInit {
     const coursesList = this.courses();
     const course = coursesList.find(c => c.id === preselectedCourseId) || coursesList[0];
     const courseId = course ? course.id : 'all';
-    this.router.navigate(['/teacher/courses', courseId, 'exercises', 'new']);
+    this.router.navigate(['/teacher/cursos', courseId, 'ejercicios', 'nuevo']);
   }
 
   openEditModal(lab: EnrichedLabItem): void {
-    this.router.navigate(['/teacher/courses', lab.subject_id, 'exercises', lab.id, 'edit']);
+    this.router.navigate(['/teacher/cursos', lab.subject_id, 'ejercicios', lab.id, 'editar']);
   }
 
   closeEditorModal(): void {

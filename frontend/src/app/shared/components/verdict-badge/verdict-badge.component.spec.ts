@@ -116,15 +116,18 @@ describe('Procedencia del veredicto', () => {
     expect(verdictOriginLabel(undefined)).toBeNull();
   });
 
-  it('conserva el resultado técnico y lo acompaña con la procedencia heredada', () => {
+  it('conserva el resultado técnico y declara la procedencia heredada en el tooltip', () => {
     const fixture = TestBed.createComponent(VerdictBadgeComponent);
     fixture.componentRef.setInput('verdict', 'AC');
     fixture.componentRef.setInput('origin', 'legacy');
     fixture.detectChanges();
 
-    const text = (fixture.nativeElement as HTMLElement).textContent ?? '';
+    const el = fixture.nativeElement as HTMLElement;
+    const text = el.textContent ?? '';
     expect(text).toContain('Cumple');
-    expect(text).toContain('Resultado heredado');
+    expect(text).not.toContain('Resultado heredado');
+    const badge = el.querySelector('.verdict-badge');
+    expect(badge?.getAttribute('title')).toContain('Resultado heredado');
   });
 
   it('no presenta un veredicto escrito por la rúbrica como resultado del juez', () => {

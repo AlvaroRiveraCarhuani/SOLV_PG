@@ -41,62 +41,71 @@
     </div>
   }
 
-  <div class="provider-grid">
-    @for (item of providers(); track item.value) {
-      <button
-        type="button"
-        class="provider-card"
-        [class.selected]="provider() === item.value"
-        [attr.aria-pressed]="provider() === item.value"
-        (click)="onProviderChange(item.value)">
-        <div class="provider-card-header">
-          <div class="provider-title-row">
-            @if (item.iconUrl && !iconErrors()[item.value]) {
-              <img
-                class="provider-logo"
-                [src]="item.iconUrl"
-                [alt]="item.label"
-                (error)="onIconError(item.value)" />
-            } @else {
-              <svg lucideCloud class="provider-icon"></svg>
-            }
-            <span class="provider-label">{{ item.label }}</span>
-          </div>
-          <span class="provider-badge">{{ item.badge }}</span>
-        </div>
+  <div class="byok-split-layout">
+    <div class="byok-providers-column">
+      <span class="column-subtitle">Proveedores disponibles</span>
+      <div class="provider-grid">
+        @for (item of providers(); track item.value) {
+          <button
+            type="button"
+            class="provider-card"
+            [class.selected]="provider() === item.value"
+            [attr.aria-pressed]="provider() === item.value"
+            (click)="onProviderChange(item.value)">
+            <div class="provider-card-header">
+              <div class="provider-title-row">
+                @if (item.iconUrl && !iconErrors()[item.value]) {
+                  <img
+                    class="provider-logo"
+                    [src]="item.iconUrl"
+                    [alt]="item.label"
+                    (error)="onIconError(item.value)" />
+                } @else {
+                  <svg lucideCloud class="provider-icon"></svg>
+                }
+                <span class="provider-label">{{ item.label }}</span>
+              </div>
+              <span class="provider-badge">{{ item.badge }}</span>
+            </div>
 
-        <div class="provider-card-footer">
-          @if (savedKeyProvider() === item.value) {
-            <div class="configured-row">
-              @if (hasSavedKey()) {
-                <span class="saved-key-pill font-mono">Clave guardada</span>
-              }
-              @if (current()?.model) {
-                <span class="model-caption">
-                  Modelo: <code class="font-mono">{{ current()?.model }}</code>
-                </span>
+            <div class="provider-card-footer">
+              @if (savedKeyProvider() === item.value) {
+                <div class="configured-row">
+                  @if (hasSavedKey()) {
+                    <span class="saved-key-pill font-mono">Clave guardada</span>
+                  }
+                  @if (current()?.model) {
+                    <span class="model-caption">
+                      Modelo: <code class="font-mono">{{ current()?.model }}</code>
+                    </span>
+                  }
+                </div>
+              } @else {
+                <span class="model-caption sin-configurar">Sin configurar</span>
               }
             </div>
-          } @else {
-            <span class="model-caption sin-configurar">Sin configurar</span>
-          }
-        </div>
-      </button>
-    }
-  </div>
+          </button>
+        }
+      </div>
+    </div>
 
-  <div class="credential-row">
-    <form-field label="API Key personal" for="byok-api-key" [hint]="apiKeyHint()">
-      <input
-        id="byok-api-key"
-        type="password"
-        class="form-input"
-        autocomplete="off"
-        [placeholder]="apiKeyPlaceholder()"
-        [ngModel]="apiKey()"
-        (ngModelChange)="apiKey.set($event)" />
-    </form-field>
-  </div>
+    <div class="byok-config-column">
+      <span class="column-subtitle">
+        Configuración: <strong>{{ selectedProvider()?.label || 'Proveedor' }}</strong>
+      </span>
+
+      <div class="credential-row">
+        <form-field label="API Key personal" for="byok-api-key" [hint]="apiKeyHint()">
+          <input
+            id="byok-api-key"
+            type="password"
+            class="form-input"
+            autocomplete="off"
+            [placeholder]="apiKeyPlaceholder()"
+            [ngModel]="apiKey()"
+            (ngModelChange)="apiKey.set($event)" />
+        </form-field>
+      </div>
 
   <div class="model-block">
     <form-field label="Modelo" for="byok-model" [hint]="modelHint()">
@@ -265,12 +274,14 @@
     }
   </div>
 
-  <p class="panel-note">
-    @if (institutionalAvailable()) {
-      Al quitar tu clave volvés al motor institucional sin perder nada más de tu configuración.
-    } @else {
-      La institución no tiene la IA habilitada. Quitar tu clave te deja sin copiloto hasta que la
-      habilite un administrador.
-    }
-  </p>
+      <p class="panel-note">
+        @if (institutionalAvailable()) {
+          Al quitar tu clave volvés al motor institucional sin perder nada más de tu configuración.
+        } @else {
+          La institución no tiene la IA habilitada. Quitar tu clave te deja sin copiloto hasta que la
+          habilite un administrador.
+        }
+      </p>
+    </div>
+  </div>
 }

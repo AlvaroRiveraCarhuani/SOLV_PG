@@ -126,45 +126,39 @@
               <span class="course-name">{{ lab.subject_name }}</span>
             </div>
 
-            <span
-              class="status-pill"
-              [class.status-published]="lab.status === 'published'"
-              [class.status-draft]="lab.status === 'draft'"
-            >
-              {{ lab.status === 'published' ? 'Publicado' : 'Borrador' }}
-            </span>
+            <div class="header-badges">
+              <span class="env-type-pill" [class]="(lab.environment_type | environmentLabel:'badgeClass')">
+                {{ lab.environment_type | environmentLabel:'short' }}
+              </span>
+              <span
+                class="status-pill"
+                [class.status-published]="lab.status === 'published'"
+                [class.status-draft]="lab.status === 'draft'"
+              >
+                {{ lab.status === 'published' ? 'Publicado' : 'Borrador' }}
+              </span>
+            </div>
           </div>
 
           <!-- Card Body -->
           <div class="card-body">
             <h2 class="exercise-card-title">{{ lab.title }}</h2>
 
-            <div class="tech-spec-tags">
-              @if (lab.environment_type === 'IDE_PERSISTENTE') {
-                <span class="tech-tag font-mono">
-                  <svg lucideTerminal class="tag-icon"></svg>
-                  <span>{{ lab.environment_type | environmentLabel }}</span>
-                </span>
-              } @else {
-                <span class="tech-tag font-mono">
-                  <svg lucideCode class="tag-icon"></svg>
-                  <span>{{ lab.environment_type | environmentLabel }}</span>
-                </span>
-              }
-
-              @if (lab.language) {
-                <span class="tech-tag font-mono">{{ lab.language }}</span>
-              }
-
-              @if (lab.memory_limit_mb) {
-                <span class="resource-tag font-mono" machineData>{{ lab.memory_limit_mb }} MB RAM</span>
-              }
-
-              @if (lab.time_limit_ms) {
-                <span class="resource-tag font-mono" machineData>{{ lab.time_limit_ms }} ms</span>
-              }
-            </div>
-
+            @if (techChipsFor(lab).length > 0) {
+              <div class="tech-stack-section">
+                <span class="tech-stack-label">Herramientas incluidas:</span>
+                <div class="tech-chips-row">
+                  @for (chip of techChipsFor(lab); track chip.name) {
+                    <span class="tech-chip">
+                      @if (chip.iconKey) {
+                        <tech-logo [iconType]="chip.iconKey" [size]="18" />
+                      }
+                      <span class="chip-label">{{ chip.name }}</span>
+                    </span>
+                  }
+                </div>
+              </div>
+            }
           </div>
 
           <!-- Card Footer Actions -->
