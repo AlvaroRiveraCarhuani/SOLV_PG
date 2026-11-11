@@ -70,6 +70,9 @@ func (s *PracticeEnvironmentService) SetPracticeEnvironmentMount(ctx context.Con
 	}
 
 	envVars := []string{"DONT_PROMPT_WSL_INSTALL=true"}
+	// El contenedor congelado monta el volumen en solo lectura, pero el almacén
+	// sigue en la misma ruta: las variables tienen que viajar igual.
+	envVars = append(envVars, s.workspaceDependencyEnvVars(ctx, instance.TenantID, valueOrEmpty(instance.ExerciseID))...)
 	envVars = append(envVars, provision.Env...)
 
 	config := domain.PracticeEnvironmentContainerConfig{

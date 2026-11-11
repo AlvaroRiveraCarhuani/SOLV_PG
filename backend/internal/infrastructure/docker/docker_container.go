@@ -8,6 +8,7 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 
 	"github.com/docker/docker/api/types/container"
@@ -83,6 +84,59 @@ func (c *Client) StartContainer(ctx context.Context, config domain.LabContainerC
 	}
 
 	return resp.ID, nil
+}
+
+// practiceEnvironmentRuntimeDir es el XDG_RUNTIME_DIR del aula. Es un tmpfs
+// propio de cada contenedor: efímero, fuera del volumen del alumno, y existe
+// desde el arranque aunque el entorno se haya sembrado antes de este cambio.
+const practiceEnvironmentRuntimeDir = "/run/solv"
+
+// withPracticeEnvironmentRuntimeEnv declara el directorio de ejecución del aula
+// salvo que la configuración ya lo traiga. La CLI de .NET crea un mutex con
+// nombre antes de compilar y lo respalda en ese directorio; las imágenes con
+// OpenVSCode corren como 1000:1000, una cuenta sin entrada en passwd ni
+// directorio propio, así que sin esta variable la compilación del alumno muere
+// antes de leer el proyecto.
+func withPracticeEnvironmentRuntimeEnv(env []string) ([]string, bool) {
+	for _, entry := range env {
+		if strings.HasPrefix(entry, "XDG_RUNTIME_DIR=") {
+			return env, false
+		}
+	}
+	return append(env, "XDG_RUNTIME_DIR="+practiceEnvironmentRuntimeDir), true
+}
+
+// practiceEnvironmentRuntimeDirOptions arma el tmpfs del directorio. Con un
+// usuario numérico queda privado y de su dueño; con un nombre que el daemon
+// resuelve dentro de la imagen no se puede fijar dueño, así que queda escribible
+// por todos. En un contenedor de un solo alumno eso no expone nada fuera.
+func practiceEnvironmentRuntimeDirOptions(user string) string {
+	const base = "rw,exec,nosuid,nodev,size=16m"
+	uid, gid, ok := numericContainerUser(user)
+	if !ok {
+		return base + ",mode=1777"
+	}
+	return fmt.Sprintf("%s,mode=0700,uid=%s,gid=%s", base, uid, gid)
+}
+
+// numericContainerUser traduce el usuario declarado a uid y gid. Vacío es root,
+// que es el usuario por defecto del daemon.
+func numericContainerUser(user string) (uid, gid string, ok bool) {
+	trimmed := strings.TrimSpace(user)
+	if trimmed == "" {
+		return "0", "0", true
+	}
+	uid, gid = trimmed, "0"
+	if parts := strings.SplitN(trimmed, ":", 2); len(parts) == 2 {
+		uid, gid = parts[0], parts[1]
+	}
+	if _, err := strconv.Atoi(uid); err != nil {
+		return "", "", false
+	}
+	if _, err := strconv.Atoi(gid); err != nil {
+		return "", "", false
+	}
+	return uid, gid, true
 }
 
 // environmentVolumeBind arma el montaje del volumen del alumno. En un examen
@@ -177,6 +231,17 @@ func (c *Client) StartPracticeEnvironmentContainer(ctx context.Context, config d
 		// contenedor moriría con "executable file not found". El shell prepara el
 		// environment y arranca OpenVSCode solo si está disponible.
 		containerConfig.Cmd = []string{"/bin/sh", "-c", pureRuntimePracticeEnvironmentCmd}
+	}
+
+	// El directorio de ejecución se monta solo si la configuración no lo declaró:
+	// una plantilla puede traer el suyo y entonces lo gobierna el perfil.
+	runtimeUser := containerConfig.User
+	envList, needsRuntimeDir := withPracticeEnvironmentRuntimeEnv(envList)
+	if needsRuntimeDir {
+		hostConfig.Tmpfs = map[string]string{
+			practiceEnvironmentRuntimeDir: practiceEnvironmentRuntimeDirOptions(runtimeUser),
+		}
+		containerConfig.Env = envList
 	}
 
 	cached, _, inspectErr := c.InspectLocalImage(ctx, config.Image)

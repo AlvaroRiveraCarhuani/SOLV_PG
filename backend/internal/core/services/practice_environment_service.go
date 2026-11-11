@@ -42,6 +42,10 @@ type PracticeEnvironmentService struct {
 	// entorno. Sin este repositorio el ciclo anterior sigue funcionando, pero no
 	// se siembra ningún proyecto.
 	workspaceProjects domain.WorkspaceProjectRepository
+	// dependencyPreparation entrega el árbol preparado de una versión para
+	// enlazarlo al volumen recién sembrado. Es opcional: sin él el entorno abre
+	// igual y el alumno instala al empezar.
+	dependencyPreparation workspaceDependencySource
 	// sessionLinker deja constancia de en qué aula nació el entorno. Es opcional:
 	// sin él el ciclo de vida del contenedor funciona igual.
 	sessionLinker domain.ClassSessionPracticeEnvironmentLinker
@@ -92,6 +96,16 @@ func (s *PracticeEnvironmentService) WithExerciseSubmission(exerciseRepo domain.
 // SetWorkspaceProjects inyecta la fuente de versiones publicadas. Es opcional
 // para no romper los dobles de las fases anteriores; en producción se conecta
 // al mismo repositorio que usa el editor docente.
+// SetDependencyPreparation engancha la preparación de dependencias. El enlace
+// solo ocurre al sembrar un volumen: un volumen ya inicializado no se toca.
+func (s *PracticeEnvironmentService) SetDependencyPreparation(source workspaceDependencySource) *PracticeEnvironmentService {
+	if s == nil {
+		return s
+	}
+	s.dependencyPreparation = source
+	return s
+}
+
 func (s *PracticeEnvironmentService) SetWorkspaceProjects(repo domain.WorkspaceProjectRepository) *PracticeEnvironmentService {
 	if s == nil {
 		return s
@@ -664,6 +678,9 @@ func (s *PracticeEnvironmentService) startPracticeEnvironment(ctx context.Contex
 		"DONT_PROMPT_WSL_INSTALL=true",
 	}
 	envVars = append(envVars, s.buildCompanionEnvVars(ctx, tenantID, subjectID, exerciseID, userID)...)
+	// El almacén de dependencias se preparó en /home/workspace: las variables del
+	// perfil son las que hacen que el alumno lo encuentre en esa misma ruta.
+	envVars = append(envVars, s.workspaceDependencyEnvVars(ctx, tenantID, exerciseID)...)
 
 	// 8. Inyección de las credenciales del motor ya asegurado (ADR-030 / ADR-046):
 	// DATABASE_URL y afines del satélite gestionado, o la base del aula en PostgreSQL

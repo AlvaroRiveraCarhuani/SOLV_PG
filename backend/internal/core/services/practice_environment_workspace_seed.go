@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"log"
 	"strings"
 	"sync"
 
@@ -17,6 +18,38 @@ import (
 // con el estado operativo del contenedor.
 type workspaceInitStatusUpdater interface {
 	UpdateWorkspaceInitStatus(ctx context.Context, id, status string) error
+}
+
+// workspaceDependencySource entrega el árbol preparado de una versión. La cola
+// de preparación lo implementa; sin ella no hay enlace y el entorno abre igual.
+type workspaceDependencySource interface {
+	PreparedDependencies(ctx context.Context, tenantID, versionID string) (*domain.WorkspaceDependencyTree, bool, error)
+}
+
+// workspaceDependencyEnvSource entrega el entorno que hace visible el almacén
+// preparado dentro del aula. Es una capacidad aparte para que una fuente que no
+// la implemente siga sirviendo: el entorno abre igual, solo instala al empezar.
+type workspaceDependencyEnvSource interface {
+	RuntimeEnv(ctx context.Context, tenantID, exerciseID string) ([]string, error)
+}
+
+// workspaceDependencyEnvVars resuelve el entorno del perfil para el contenedor
+// del alumno. Un fallo no bloquea la apertura: sin las variables el alumno
+// instala al empezar, que es el comportamiento anterior a la preparación.
+func (s *PracticeEnvironmentService) workspaceDependencyEnvVars(
+	ctx context.Context,
+	tenantID, exerciseID string,
+) []string {
+	source, ok := s.dependencyPreparation.(workspaceDependencyEnvSource)
+	if !ok {
+		return nil
+	}
+	env, err := source.RuntimeEnv(ctx, tenantID, exerciseID)
+	if err != nil {
+		log.Printf("aviso: no se pudieron resolver las variables de dependencias del ejercicio %s: %v", exerciseID, err)
+		return nil
+	}
+	return env
 }
 
 // lockWorkspaceStart serializa las aperturas concurrentes del mismo entorno
@@ -217,10 +250,40 @@ func (s *PracticeEnvironmentService) seedWorkspaceVolume(ctx context.Context, in
 		_ = s.setWorkspaceInitStatus(ctx, instance, status)
 		return err
 	}
+	s.linkWorkspaceDependencies(ctx, instance, seed.VersionID)
 	if err := s.setWorkspaceInitStatus(ctx, instance, domain.WorkspaceInitStatusSetupDone); err != nil {
 		return err
 	}
 	return nil
+}
+
+// linkWorkspaceDependencies copia las dependencias preparadas al volumen que se
+// acaba de sembrar. Un fallo no bloquea la apertura: el proyecto está escrito y
+// el alumno puede instalar al empezar, que es el comportamiento anterior. El
+// enlace es una optimización, no un requisito para abrir el entorno.
+func (s *PracticeEnvironmentService) linkWorkspaceDependencies(
+	ctx context.Context,
+	instance *domain.PracticeEnvironment,
+	versionID string,
+) {
+	if s == nil || s.dependencyPreparation == nil || instance == nil {
+		return
+	}
+	linker, ok := s.docker.(domain.WorkspaceDependencyLinker)
+	if !ok || instance.VolumeName() == "" {
+		return
+	}
+	tree, found, err := s.dependencyPreparation.PreparedDependencies(ctx, instance.TenantID, versionID)
+	if err != nil {
+		log.Printf("aviso: no se pudo resolver el árbol preparado de la versión %s: %v", versionID, err)
+		return
+	}
+	if !found || tree == nil {
+		return
+	}
+	if err := linker.LinkWorkspaceDependencies(ctx, instance.VolumeName(), *tree); err != nil {
+		log.Printf("aviso: el volumen %s quedó sin dependencias enlazadas: %v", instance.VolumeName(), err)
+	}
 }
 
 func (s *PracticeEnvironmentService) setWorkspaceInitStatus(ctx context.Context, instance *domain.PracticeEnvironment, status string) error {

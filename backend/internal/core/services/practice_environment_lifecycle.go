@@ -85,6 +85,9 @@ func (s *PracticeEnvironmentService) reactivatePracticeEnvironment(ctx context.C
 		exerciseIDStr = *instance.ExerciseID
 	}
 	envVars = append(envVars, s.buildCompanionEnvVars(ctx, instance.TenantID, instance.SubjectID, exerciseIDStr, instance.StudentID)...)
+	// Un entorno reanudado también tiene que encontrar el almacén preparado: sin
+	// estas variables la herramienta vuelve a su ruta por defecto.
+	envVars = append(envVars, s.workspaceDependencyEnvVars(ctx, instance.TenantID, exerciseIDStr)...)
 	envVars = append(envVars, provision.Env...)
 
 	config := domain.PracticeEnvironmentContainerConfig{
