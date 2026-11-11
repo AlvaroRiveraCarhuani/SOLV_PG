@@ -11,7 +11,6 @@ import {
 import { DateTextPipe } from '@shared/pipes/date-text.pipe';
 import { MachineDataDirective } from '@shared/directives/machine-data.directive';
 import { SkeletonLoaderComponent } from '@shared/components/skeleton/skeleton-loader.component';
-import { VerdictBadgeComponent } from '@shared/components/verdict-badge/verdict-badge.component';
 import { TeacherCourseService } from '../services/teacher-course.service';
 import { TeacherDashboardService } from '../services/teacher-dashboard.service';
 import { ReviewQueueGroup, SubmissionQueueItem } from '../models/teacher.models';
@@ -25,7 +24,6 @@ import { ReviewQueueGroup, SubmissionQueueItem } from '../models/teacher.models'
     DateTextPipe,
     MachineDataDirective,
     SkeletonLoaderComponent,
-    VerdictBadgeComponent,
     LucideArrowRight,
     LucideCheckCircle2,
     LucideClock,

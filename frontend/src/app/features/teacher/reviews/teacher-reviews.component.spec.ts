@@ -137,6 +137,16 @@ describe('TeacherReviewsComponent', () => {
     expect(fixture.nativeElement.querySelector('.filter-clear')).not.toBeNull();
   });
 
+  it('muestra la espera en lugar del veredicto', async () => {
+    await setup(groups);
+
+    const waitHeader = fixture.nativeElement.querySelector('.col-wait') as HTMLElement | null;
+    expect(waitHeader?.textContent).toContain('ESPERA');
+    expect(fixture.nativeElement.querySelector('.col-verdict')).toBeNull();
+    const waitCell = fixture.nativeElement.querySelector('.submission-wait') as HTMLElement | null;
+    expect(waitCell?.textContent).toContain('hace');
+  });
+
   it('muestra el estado vacío cuando no hay nada por calificar', async () => {
     await setup([]);
 

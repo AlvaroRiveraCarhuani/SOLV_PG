@@ -16,7 +16,8 @@ export type DateTextStyle =
   | 'time'              // HH:mm
   | 'daymonth'          // dd MMM
   | 'daymonthyear'      // dd MMM yyyy
-  | 'long-datetime';    // EEEE dd 'de' MMM, HH:mm:ss
+  | 'long-datetime'     // EEEE dd 'de' MMM, HH:mm:ss
+  | 'relative';         // hace N min / h / d
 
 const MONTHS_ES_SHORT = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'] as const;
 const WEEKDAYS_ES_LONG = ['domingo', 'lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado'] as const;
@@ -126,12 +127,34 @@ export function formatSolvDate(value: unknown, style: DateTextStyle = 'datetime'
 }
 
 /**
+ * Duración transcurrida desde `value` con granularidad humana. Es la vía
+ * canónica para tiempos relativos (esperas, antigüedad): no se calcula en
+ * componentes ni se formatea con Intl.
+ */
+export function formatRelativeTime(value: unknown, now: number = Date.now()): string | null {
+  const date = parseDateValue(value);
+  if (!date) return null;
+  const diffMs = Math.max(0, now - date.getTime());
+  const minutes = Math.floor(diffMs / 60_000);
+  if (minutes < 1) return 'recién';
+  if (minutes < 60) return `hace ${minutes} min`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `hace ${hours} h`;
+  const days = Math.floor(hours / 24);
+  return `hace ${days} d`;
+}
+
+/**
  * Pipe único de fechas. Valores vacíos devuelven el parámetro `empty`
  * (default ''); valores no parseables pasan sin cambios (ej. 'Hace 2d').
  */
 @Pipe({ name: 'dateText' })
 export class DateTextPipe implements PipeTransform {
   transform(value: unknown, style: DateTextStyle = 'datetime', empty = ''): string {
+    if (style === 'relative') {
+      const relative = formatRelativeTime(value);
+      if (relative !== null) return relative;
+    }
     const formatted = formatSolvDate(value, style);
     if (formatted !== null) return formatted;
     if (value === null || value === undefined) return empty;
