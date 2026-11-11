@@ -112,7 +112,7 @@ export async function authorJudgeExercise(teacherPage, opts) {
   const newLabBtn = teacherPage.locator('button.btn-new-lab', { hasText: 'Nuevo Laboratorio' });
   await expect(newLabBtn).toBeVisible({ timeout: 45000 });
   await newLabBtn.click();
-  await expect(teacherPage).toHaveURL(new RegExp(`/teacher/courses/${courseId}/exercises/new`));
+  await expect(teacherPage).toHaveURL(new RegExp(`/teacher/cursos/${courseId}/ejercicios/nuevo`));
 
   // El lenguaje primero: fija template_id antes de que el título habilite el
   // autoguardado remoto del borrador.

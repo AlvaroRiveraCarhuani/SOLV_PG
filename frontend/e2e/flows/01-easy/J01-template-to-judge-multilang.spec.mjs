@@ -129,7 +129,7 @@ test.describe('J01 — Plantilla Homologada Multi-Lenguaje -> Juez Real (Python 
         const newLabBtn = teacherPage.locator('button.btn-new-lab', { hasText: 'Nuevo Laboratorio' });
         await expect(newLabBtn).toBeVisible({ timeout: 15000 });
         await newLabBtn.click();
-        await expect(teacherPage).toHaveURL(new RegExp(`/teacher/courses/${sharedState.courseId}/exercises/new`));
+        await expect(teacherPage).toHaveURL(new RegExp(`/teacher/cursos/${sharedState.courseId}/ejercicios/nuevo`));
 
         const langInput = teacherPage.locator('#exercise-language input[role="combobox"]');
         await langInput.click();

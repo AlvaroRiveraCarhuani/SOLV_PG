@@ -23,38 +23,16 @@ export const TEACHER_ROUTES: Routes = [
     redirectTo: 'dashboard'
   },
   {
+    // Una sola familia de rutas: la materia vive en "cursos" y la práctica en
+    // "practicas". "ejercicios" queda solo para el editor y la previsualización.
     path: 'cursos/:id',
     loadComponent: () =>
       import('./courses/course-detail/teacher-course-detail.component').then(m => m.TeacherCourseDetailComponent)
   },
   {
-    path: 'courses/:id',
-    redirectTo: 'cursos/:id'
-  },
-  {
-    path: 'courses/:courseId/analytics',
-    loadComponent: () =>
-      import('./courses/analytics/analytics-dashboard.component').then(m => m.AnalyticsDashboardComponent)
-  },
-  {
     path: 'cursos/:courseId/analytics',
     loadComponent: () =>
       import('./courses/analytics/analytics-dashboard.component').then(m => m.AnalyticsDashboardComponent)
-  },
-  {
-    path: 'courses/:courseId/exercises/new',
-    loadComponent: () =>
-      import('./exercise-editor/exercise-editor.component').then(m => m.ExerciseEditorComponent)
-  },
-  {
-    path: 'courses/:courseId/exercises/:id/edit',
-    loadComponent: () =>
-      import('./exercise-editor/exercise-editor.component').then(m => m.ExerciseEditorComponent)
-  },
-  {
-    path: 'courses/:courseId/exercises/:id/preview',
-    loadComponent: () =>
-      import('./exercise-preview/exercise-preview.component').then(m => m.ExercisePreviewComponent)
   },
   {
     path: 'cursos/:courseId/ejercicios/nuevo',
@@ -70,11 +48,6 @@ export const TEACHER_ROUTES: Routes = [
     path: 'cursos/:courseId/ejercicios/:id/probar',
     loadComponent: () =>
       import('./exercise-preview/exercise-preview.component').then(m => m.ExercisePreviewComponent)
-  },
-  {
-    path: 'courses/:courseId/exercises/:id',
-    loadComponent: () =>
-      import('./courses/practice-detail/practice-detail.component').then(m => m.PracticeDetailComponent)
   },
   {
     // La auditoría vive dentro de la práctica: la ruta fija materia y práctica.
@@ -99,9 +72,10 @@ export const TEACHER_ROUTES: Routes = [
       import('./reviews/teacher-reviews.component').then(m => m.TeacherReviewsComponent)
   },
   {
+    // El centro global se retiró: la calificación vive en "Por calificar" y en
+    // la materia. Los enlaces y marcadores viejos vuelven a la cola de revisión.
     path: 'evaluaciones',
-    loadComponent: () =>
-      import('./evaluations/teacher-evaluations.component').then(m => m.TeacherEvaluationsComponent)
+    redirectTo: 'por-calificar'
   },
   {
     // El listado global se retiró: los enlaces viejos vuelven a la cola de revisión.

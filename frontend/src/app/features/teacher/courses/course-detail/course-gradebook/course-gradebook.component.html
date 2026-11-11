@@ -1,0 +1,74 @@
+<section class="gradebook">
+  <header class="gradebook-header">
+    <div class="gradebook-titles">
+      <h2 class="gradebook-title">Libreta</h2>
+      <p class="gradebook-subtitle">
+        Notas por estudiante y práctica.
+        <span class="gradebook-hint">«—» significa sin corregir.</span>
+      </p>
+    </div>
+    <span class="gradebook-count" machineData>
+      {{ students().length }} estudiantes · {{ exercises().length }} prácticas
+    </span>
+  </header>
+
+  @if (error()) {
+    <div class="state-panel" role="alert">
+      <p class="state-copy">{{ error() }}</p>
+      <button type="button" class="btn-outline" (click)="load()">Reintentar</button>
+    </div>
+  } @else if (isLoading()) {
+    <skeleton-loader variant="table" [rows]="6" [columns]="4" />
+  } @else if (students().length === 0) {
+    <div class="state-panel">
+      <h3 class="state-title">No hay estudiantes matriculados</h3>
+      <p class="state-copy">Cuando haya alumnos en la materia, la libreta muestra sus notas por práctica.</p>
+    </div>
+  } @else if (exercises().length === 0) {
+    <div class="state-panel">
+      <h3 class="state-title">No hay prácticas en la materia</h3>
+      <p class="state-copy">La libreta se arma con las prácticas de la materia.</p>
+    </div>
+  } @else {
+    <div class="gradebook-scroll">
+      <table class="gradebook-table">
+        <thead>
+          <tr>
+            <th scope="col" class="col-student">Estudiante</th>
+            @for (exercise of exercises(); track exercise.id) {
+              <th scope="col" class="col-grade" [title]="exercise.title">{{ exercise.title }}</th>
+            }
+            <th scope="col" class="col-average">Promedio</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (student of students(); track student.student_id) {
+            <tr>
+              <th scope="row" class="col-student">
+                <span class="student-name">{{ student.student_name }}</span>
+                <span class="student-email">{{ student.student_email }}</span>
+              </th>
+              @for (exercise of exercises(); track exercise.id) {
+                @let grade = gradeOf(student, exercise.id);
+                <td class="col-grade">
+                  @if (grade !== null) {
+                    <span class="grade-value" machineData>{{ grade }}</span>
+                  } @else {
+                    <span class="grade-missing" aria-label="Sin corregir">—</span>
+                  }
+                </td>
+              }
+              <td class="col-average">
+                @if (student.graded_count > 0) {
+                  <span class="grade-value grade-average" machineData>{{ student.average }}</span>
+                } @else {
+                  <span class="grade-missing" aria-label="Sin corregir">—</span>
+                }
+              </td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+  }
+</section>

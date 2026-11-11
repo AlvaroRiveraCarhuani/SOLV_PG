@@ -1,0 +1,161 @@
+.gradebook {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.gradebook-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-4);
+  flex-wrap: wrap;
+}
+
+.gradebook-titles {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.gradebook-title {
+  margin: 0;
+  font-size: var(--text-lg);
+  font-weight: 700;
+  color: var(--text-primary);
+  letter-spacing: -0.01em;
+}
+
+.gradebook-subtitle {
+  margin: 0;
+  font-size: var(--text-sm);
+  color: var(--text-secondary);
+}
+
+.gradebook-hint {
+  color: var(--text-muted);
+}
+
+.gradebook-count {
+  align-self: center;
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.gradebook-scroll {
+  overflow-x: auto;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-xl);
+  background-color: var(--bg-surface);
+}
+
+.gradebook-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--text-sm);
+}
+
+.gradebook-table thead th {
+  padding: var(--space-3) var(--space-4);
+  border-bottom: 1px solid var(--border-subtle);
+  background-color: var(--bg-surface-subtle);
+  text-align: left;
+  font-size: var(--text-xs);
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+}
+
+.gradebook-table tbody th,
+.gradebook-table tbody td {
+  padding: var(--space-3) var(--space-4);
+  border-bottom: 1px solid var(--border-subtle);
+  vertical-align: middle;
+}
+
+.gradebook-table tbody tr:last-child th,
+.gradebook-table tbody tr:last-child td {
+  border-bottom: 0;
+}
+
+.col-student {
+  position: sticky;
+  left: 0;
+  z-index: 1;
+  min-width: 220px;
+  background-color: var(--bg-surface);
+  text-align: left;
+}
+
+.gradebook-table thead .col-student {
+  background-color: var(--bg-surface-subtle);
+}
+
+.student-name {
+  display: block;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.student-email {
+  display: block;
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+.col-grade {
+  max-width: 140px;
+  text-align: center;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.col-average {
+  text-align: center;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.grade-value {
+  font-variant-numeric: tabular-nums;
+  color: var(--text-primary);
+}
+
+.grade-average {
+  color: var(--tenant-primary);
+}
+
+.grade-missing {
+  color: var(--text-muted);
+}
+
+.state-panel {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-8) var(--space-6);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-xl);
+  background-color: var(--bg-surface);
+  text-align: center;
+}
+
+.state-title {
+  margin: 0;
+  font-size: var(--text-base);
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.state-copy {
+  margin: 0;
+  max-width: 46ch;
+  font-size: var(--text-sm);
+  color: var(--text-secondary);
+}

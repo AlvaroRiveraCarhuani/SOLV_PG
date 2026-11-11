@@ -178,7 +178,7 @@ test.describe('J06 — Importación masiva, analíticas y UTF-8 extremo', () => 
         await teacherPage.bringToFront();
         forensic.recordStep('Docente consulta el panel de analíticas del curso');
 
-        await teacherPage.goto(`/teacher/courses/${sharedState.courseId}/analytics`, {
+        await teacherPage.goto(`/teacher/cursos/${sharedState.courseId}/analytics`, {
           waitUntil: 'domcontentloaded'
         });
         await expect(teacherPage.locator('h1.page-heading')).toContainText('Métricas y Analítica del Curso', {

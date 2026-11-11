@@ -30,7 +30,8 @@ Lo que espera tu corrección, agrupado por práctica. 12 entregas en espera
 ```
 
 - **Panel izquierdo:** una fila por práctica con materia, título, `pendientes de inscritos` y la entrega más antigua. La práctica seleccionada se marca con borde izquierdo del color del tenant.
-- **Panel derecho:** las entregas pendientes de la práctica, de la más antigua a la más nueva, con el alumno, el resultado pedagógico (`verdict-badge` con etiqueta humana) y la fecha de entrega. La acción abre el SpeedGrader existente en `/teacher/revision/:submissionId`.
+- **Panel derecho:** las entregas pendientes de la práctica, de la más antigua a la más nueva, con el alumno, la espera desde la entrega y la fecha. La espera se renderiza con `dateText:'relative'` dentro de `<time>`. La acción abre el SpeedGrader existente en `/teacher/revision/:submissionId`.
+- **El estado no se repite.** Todo lo que entra a la cola está sin corregir por definición (`review_status ∈ {pending, in_review}`), así que no hay columna de estado ni de veredicto. El único estado que se muestra es la bandera `En revisión` bajo la fecha, cuando otro docente tomó la entrega.
 - El total de entregas en espera se muestra en el subtítulo y es la suma de todas las prácticas.
 
 ---
@@ -62,7 +63,7 @@ No hay refresco automático: la cola cambia cuando el docente actúa. "Actualiza
 
 - Un solo color de acento (el del tenant) y los tokens semánticos de estado; sin sombras ni gradientes.
 - Fechas con el pipe `dateText` dentro de `<time>`; conteos con `[machineData]`.
-- El `verdict-badge` usa la etiqueta humana de `OUTCOME_COPY` (UX-PRINCIPLES §3): la sigla técnica (`AC`, `WA`, `TLE`, ...) no se muestra salvo pedido explícito.
+- La columna de veredicto no existe en esta vista: la cola solo contiene entregas sin corregir. La espera usa el pipe compartido `dateText` en estilo `relative`; no se calcula ni se formatea en el componente.
 - Sin modales: el detalle de corrección vive en la ruta del SpeedGrader, no encima de la lista.
 - A 1024 px o menos, los paneles se apilan en una columna.
 
@@ -73,3 +74,4 @@ No hay refresco automático: la cola cambia cuando el docente actúa. "Actualiza
 - Calificar dentro de esta vista (se delega en el SpeedGrader existente).
 - Métricas del curso o promedios: eso pertenece a Notas y a la materia.
 - Entregas de juez que no requieren corrección: por definición no aparecen.
+- Entregas ya calificadas: se consultan en la pestaña Entregas de la materia con el filtro `Estado de revisión = Calificadas`.

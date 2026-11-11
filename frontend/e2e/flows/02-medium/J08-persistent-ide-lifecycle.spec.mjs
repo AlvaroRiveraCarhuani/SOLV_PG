@@ -179,7 +179,7 @@ test.describe('J08 — Ciclo de vida completo de IDE Persistente, BD satélite y
         const newLabBtn = teacherPage.locator('button.btn-new-lab', { hasText: 'Nuevo Laboratorio' });
         await expect(newLabBtn).toBeVisible({ timeout: 45000 });
         await newLabBtn.click();
-        await expect(teacherPage).toHaveURL(new RegExp(`/teacher/courses/${sharedState.courseId}/exercises/new`));
+        await expect(teacherPage).toHaveURL(new RegExp(`/teacher/cursos/${sharedState.courseId}/ejercicios/nuevo`));
 
         // Elegir modalidad Entorno de Desarrollo (IDE_PERSISTENTE)
         const workspaceCard = teacherPage.locator('modality-purpose-cards button.segment-btn', {

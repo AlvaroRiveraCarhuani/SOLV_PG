@@ -147,7 +147,7 @@ La lista no repite acciones: toda la fila abre la ficha de la práctica con un c
 
 ### 4.1.1 Ficha de la práctica (detalle del laboratorio)
 
-Toda la fila de cada laboratorio en la lista abre su ficha en `/teacher/cursos/{cursoId}/practicas/{labId}` (alias `/teacher/courses/{cursoId}/exercises/{labId}`). Es el mismo documento para las dos modalidades: la cabecera, la consigna y las métricas de entrega son comunes, y debajo aparece la sección propia del entorno.
+Toda la fila de cada laboratorio en la lista abre su ficha en `/teacher/cursos/{cursoId}/practicas/{labId}`. Es el mismo documento para las dos modalidades: la cabecera, la consigna y las métricas de entrega son comunes, y debajo aparece la sección propia del entorno.
 
 **Juez automático (`JUEZ_EFIMERO`):** firma inicial provista al estudiante (boilerplate) y casos de prueba en pestañas, cada uno con su visibilidad (`Público`, `Oculto`, `Ejemplo`) y su peso. Los casos ocultos se muestran aquí porque la vista es del docente; el estudiante sigue sin verlos.
 

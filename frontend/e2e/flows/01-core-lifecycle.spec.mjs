@@ -221,7 +221,7 @@ test.describe('Flujo Core 01: Admin (Constructor) -> Docente (Curso y Ejercicio)
         // Abrir editor de nuevo ejercicio
         const newLabBtn = teacherPage.locator('button.btn-new-lab', { hasText: 'Nuevo Laboratorio' });
         await newLabBtn.click();
-        await expect(teacherPage).toHaveURL(new RegExp(`/teacher/courses/${sharedState.courseId}/exercises/new`));
+        await expect(teacherPage).toHaveURL(new RegExp(`/teacher/cursos/${sharedState.courseId}/ejercicios/nuevo`));
 
         // Paso 1: Identidad, Lenguaje y Enunciado
         forensic.recordStep('Docente completa Paso 1 del Editor de Ejercicios');

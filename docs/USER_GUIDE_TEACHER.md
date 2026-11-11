@@ -50,7 +50,7 @@ Antes de cambiar el estado de un ejercicio a `Publicado`, el sistema ejecuta un 
 
 ## 4. Mapa Curricular y Prerrequisitos de Módulos
 
-En la ruta `/teacher/courses/:courseId/curriculum` o en el panel del curso:
+En la materia (`/teacher/cursos/:courseId`) o en el panel del curso:
 
 1. **Creación de Módulos:** Estructuración de la materia en unidades temáticas (ej. "Módulo 1: Fundamentos", "Módulo 2: Árboles y Grafos").
 2. **Prerrequisitos de Desbloqueo:** Selección de módulos previos necesarios. El sistema efectúa un chequeo topológico acíclico impidiendo dependencias circulares.
@@ -60,7 +60,7 @@ En la ruta `/teacher/courses/:courseId/curriculum` o en el panel del curso:
 
 ## 5. Panel de Métricas por Tag y Dificultad
 
-Disponible en `/teacher/courses/:courseId/analytics`:
+Disponible en `/teacher/cursos/:courseId/analytics`:
 
 - **Distribución por Dificultad:** Conteo y porcentaje de éxito ($AC / Total$) en ejercicios fáciles, medios y difíciles.
 - **Top Tags:** Tasa de efectividad del curso por temas (ej. 45% de éxito en "recursión").

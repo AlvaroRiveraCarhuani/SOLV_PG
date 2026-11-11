@@ -35,7 +35,7 @@ Validar de punta a punta contra el stack real (Angular + Go + PostgreSQL + Docke
 4. Registra la matrícula del **Estudiante** de prueba en el curso creado (`POST /api/v1/subjects/{id}/enroll`) y verifica su inclusión en la nómina del curso.
 
 ### Etapa 3 — Docente: Creación y Publicación del Ejercicio (`/teacher/cursos/:id`)
-1. Con la sesión aislada del **Docente** (`teacherPage`), navega a `/teacher/cursos/:courseId` y presiona **`Nuevo Laboratorio`** (`/teacher/courses/:courseId/exercises/new`).
+1. Con la sesión aislada del **Docente** (`teacherPage`), navega a `/teacher/cursos/:courseId` y presiona **`Nuevo Laboratorio`** (`/teacher/cursos/:courseId/ejercicios/nuevo`).
 2. **Paso 1 (Identidad y Pedagogía)**:
    - Selecciona modalidad **`Juez Virtual (I/O)`** y propósito **`Clase / Formativo`**.
    - Ingresa el **Título del ejercicio**, selecciona dificultad **`Fácil`**, elige el **Lenguaje de ejecución** (`Python`) vinculado a la plantilla homologada, agrega una etiqueta temática y redacta el **Enunciado del Ejercicio**.

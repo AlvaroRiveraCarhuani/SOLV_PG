@@ -94,7 +94,7 @@
           } @else {
             <a
               class="btn-primary"
-              [routerLink]="['/teacher/courses', courseId(), 'exercises', practice.id, 'preview']"
+              [routerLink]="['/teacher/cursos', courseId(), 'ejercicios', practice.id, 'probar']"
             >
               <svg lucideLaptop class="btn-icon"></svg>
               <span>Probar Solución</span>
@@ -125,7 +125,7 @@
           }
           <a
             class="btn-outline"
-            [routerLink]="['/teacher/courses', courseId(), 'exercises', practice.id, 'edit']"
+            [routerLink]="['/teacher/cursos', courseId(), 'ejercicios', practice.id, 'editar']"
           >
             <svg lucideEdit3 class="btn-icon"></svg>
             <span>Editar Laboratorio</span>

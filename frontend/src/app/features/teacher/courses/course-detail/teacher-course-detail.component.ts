@@ -18,6 +18,7 @@ import {
   LucideCheckCircle,
   LucideShieldAlert,
   LucideBarChart3,
+  LucideAward,
   LucideLayers,
   LucideLock,
   LucideTrash2,
@@ -33,6 +34,7 @@ import { ConfirmModalComponent } from '@shared/components/confirm-modal/confirm-
 import { SkeletonLoaderComponent } from '@shared/components/skeleton/skeleton-loader.component';
 import { PlagiarismModalComponent } from '../../evaluations/plagiarism-modal/plagiarism-modal.component';
 import { GradebookExportModalComponent } from './gradebook-export-modal/gradebook-export-modal.component';
+import { CourseGradebookComponent } from './course-gradebook/course-gradebook.component';
 import { ImportExercisesModalComponent } from './import-exercises-modal/import-exercises-modal.component';
 import { DateTextPipe } from '@shared/pipes/date-text.pipe';
 import { ModalShellComponent } from '@shared/components/modal-shell/modal-shell.component';
@@ -43,6 +45,28 @@ import { VerdictBadgeComponent } from '@shared/components/verdict-badge/verdict-
 import { SortHeaderComponent } from '@shared/components/sort-header/sort-header.component';
 import { SortDirection, SortState } from '@shared/components/sort-header/sort-header.types';
 import { VERDICT_FILTER_OPTIONS, matchesVerdictFilter } from '@core/models/verdict.model';
+
+export type ReviewStatusFilter = 'all' | 'pending' | 'graded';
+
+/**
+ * Estado de revisión de una entrega del historial. Las filas anteriores a
+ * `review_status` caen en la nota: con nota están calificadas, sin nota no.
+ */
+export function matchesReviewStatusFilter(
+  status: string | undefined | null,
+  filter: ReviewStatusFilter,
+  hasScore: boolean
+): boolean {
+  if (filter === 'all') return true;
+  const normalized = (status || '').trim();
+  if (filter === 'pending') {
+    return normalized === 'pending' || normalized === 'in_review';
+  }
+  if (normalized === 'graded' || normalized === 'returned' || normalized === 'not_required') {
+    return true;
+  }
+  return normalized === '' && hasScore;
+}
 
 @Component({
   selector: 'teacher-course-detail',
@@ -66,6 +90,7 @@ import { VERDICT_FILTER_OPTIONS, matchesVerdictFilter } from '@core/models/verdi
     LucideCheckCircle,
     LucideShieldAlert,
     LucideBarChart3,
+    LucideAward,
     LucideLayers,
     LucideLock,
     LucideTrash2,
@@ -81,6 +106,7 @@ import { VERDICT_FILTER_OPTIONS, matchesVerdictFilter } from '@core/models/verdi
     SkeletonLoaderComponent,
     PlagiarismModalComponent,
     GradebookExportModalComponent,
+    CourseGradebookComponent,
     ImportExercisesModalComponent,
     ComboboxComponent,
     VerdictBadgeComponent,
@@ -98,10 +124,17 @@ export class TeacherCourseDetailComponent implements OnInit {
 
   readonly verdictOptions: ComboboxOption[] = VERDICT_FILTER_OPTIONS;
 
+  /** Separa el historial en lo que espera corrección y lo ya calificado. */
+  readonly reviewStatusOptions: ComboboxOption<ReviewStatusFilter>[] = [
+    { id: 'all', label: 'Todos los estados', value: 'all' },
+    { id: 'pending', label: 'Sin corregir', value: 'pending' },
+    { id: 'graded', label: 'Calificadas', value: 'graded' }
+  ];
+
   showMoreActions = signal<boolean>(false);
   subjectId = signal<string>('');
   courseInfo = signal<TeacherCourseSummary | null>(null);
-  activeTab = signal<'labs' | 'submissions' | 'modules'>('labs');
+  activeTab = signal<'labs' | 'submissions' | 'modules' | 'gradebook'>('labs');
   
   labs = this.courseService.labs;
   submissions = this.courseService.submissions;
@@ -118,6 +151,7 @@ export class TeacherCourseDetailComponent implements OnInit {
   isPlagiarismModalOpen = signal<boolean>(false);
 
   verdictFilter = signal<string>('all');
+  reviewStatusFilter = signal<ReviewStatusFilter>('all');
   labFilter = signal<string>('all');
   publishError = signal<string | null>(null);
   publishSuccessMessage = signal<string | null>(null);
@@ -157,12 +191,18 @@ export class TeacherCourseDetailComponent implements OnInit {
 
   filteredSubmissions = computed(() => {
     const verdict = this.verdictFilter();
+    const reviewStatus = this.reviewStatusFilter();
     const labId = this.labFilter();
     const sort = this.sortState();
     let list = this.submissions().filter(s => {
       const matchVerdict = matchesVerdictFilter(s.verdict, verdict);
+      const matchReview = matchesReviewStatusFilter(
+        s.review_status,
+        reviewStatus,
+        s.score !== undefined && s.score !== null
+      );
       const matchLab = labId === 'all' || s.exercise_id === labId;
-      return matchVerdict && matchLab;
+      return matchVerdict && matchReview && matchLab;
     });
 
     if (sort.column && sort.direction !== 'none') {
@@ -193,18 +233,49 @@ export class TeacherCourseDetailComponent implements OnInit {
   });
 
   ngOnInit(): void {
-    const id = this.route.snapshot.paramMap.get('id');
+    const id = this.route.snapshot.paramMap?.get('id');
     if (id) {
       this.subjectId.set(id);
       this.loadData();
     }
-    const tabParam = this.route.snapshot.queryParamMap.get('tab');
-    if (tabParam === 'submissions' || tabParam === 'modules' || tabParam === 'labs') {
+    const tabParam = this.route.snapshot.queryParamMap?.get('tab');
+    if (tabParam === 'submissions' || tabParam === 'modules' || tabParam === 'labs' || tabParam === 'gradebook') {
       this.activeTab.set(tabParam);
     }
-    const labParam = this.route.snapshot.queryParamMap.get('labId');
+    const labParam = this.route.snapshot.queryParamMap?.get('labId');
     if (labParam) {
       this.labFilter.set(labParam);
+    }
+    const statusParam = this.route.snapshot.queryParamMap?.get('status');
+    if (statusParam === 'pending' || statusParam === 'graded' || statusParam === 'all') {
+      this.reviewStatusFilter.set(statusParam);
+    }
+
+    if (this.route.paramMap) {
+      this.route.paramMap.subscribe(params => {
+        const nextId = params.get('id');
+        if (nextId && nextId !== this.subjectId()) {
+          this.subjectId.set(nextId);
+          this.loadData();
+        }
+      });
+    }
+
+    if (this.route.queryParamMap) {
+      this.route.queryParamMap.subscribe(queryParams => {
+        const nextTab = queryParams.get('tab');
+        if (nextTab === 'submissions' || nextTab === 'modules' || nextTab === 'labs' || nextTab === 'gradebook') {
+          this.activeTab.set(nextTab);
+        }
+        const nextLab = queryParams.get('labId');
+        if (nextLab) {
+          this.labFilter.set(nextLab);
+        }
+        const nextStatus = queryParams.get('status');
+        if (nextStatus === 'pending' || nextStatus === 'graded' || nextStatus === 'all') {
+          this.reviewStatusFilter.set(nextStatus);
+        }
+      });
     }
   }
 
@@ -231,7 +302,7 @@ export class TeacherCourseDetailComponent implements OnInit {
   }
 
   openCreateExerciseModal(): void {
-    this.router.navigate(['/teacher/courses', this.subjectId(), 'exercises', 'new']);
+    this.router.navigate(['/teacher/cursos', this.subjectId(), 'ejercicios', 'nuevo']);
   }
 
   closeEditorModal(): void {

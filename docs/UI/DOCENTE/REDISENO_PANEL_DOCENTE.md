@@ -229,7 +229,7 @@ Ruta `/teacher/cursos/:id`. Pregunta: **¿qué contiene y cómo va?** Cuatro pes
 | Prácticas | Módulos como secciones y prácticas como filas con estado y fecha | Existente |
 | Entregas | La misma cola de §5.3, filtrada por la materia y en modo lectura | `GET /teacher/reviews?subject_id=` |
 | Alumnos | Matriculados, último acceso y prácticas sin entregar | Nuevo |
-| Libreta | Tabla de alumnos por prácticas, con `—` en lo no corregido | Existente, migra desde `/teacher/evaluaciones` |
+| Libreta | Tabla de alumnos por prácticas, con `—` en lo no corregido | Implementada en la pestaña de la materia (`course-gradebook`) sobre `GET /teacher/courses/{id}/grades/matrix` |
 
 ### 5.5 Qué se retira
 
@@ -239,7 +239,7 @@ Ruta `/teacher/cursos/:id`. Pregunta: **¿qué contiene y cómo va?** Cuatro pes
 - La tabla de materias del panel: el canvas de tarjetas la sustituye ([ADR-057](../../ARQUITECTURA/ADR/ADR-057-hoy-canvas-de-materias-y-columna-de-pendientes.md)).
 - La cifra de entornos abiertos en el panel: el docente no opera contenedores y no tiene acción sobre ellos.
 - El indicador "En riesgo" en todo el área docente.
-- La pestaña de entregas de `/teacher/evaluaciones`; su planilla se muda a la pestaña Libreta de la materia.
+- `/teacher/evaluaciones` completa: su planilla se mudó a la pestaña Libreta de la materia y la ruta redirige a Por calificar.
 
 ---
 
@@ -420,7 +420,7 @@ Chat o videollamada dentro del aula; edición colaborativa del código; analíti
 | 0 | El panel deja de mentir: sin KPIs, sin banner, sin personalización; la cola lee el estado de revisión; el acceso "Entregas" apunta a un destino real | Franja de KPIs, banner, grilla reordenable | Hecho (2026-10-30): la franja de KPIs, el banner de atención y `Personalizar` salieron del panel |
 | 1 | Pantalla "Hoy" con el resumen agregado: canvas de materias y columna de pendientes | Tabla de materias, columna de tareas anterior, telemetría como widget, "En riesgo" | Hecho (2026-10-30) |
 | 2 | Aula con `class_sessions`, presencia acotada y tablero de faltantes y trabados | Definición doble de "activo" | Hecho (2026-10-30), con pendientes en §12.1 |
-| 3 | Materia con sus cuatro pestañas y la libreta; se retira `/teacher/evaluaciones` | Pestaña de entregas del centro de evaluaciones | Pendiente |
+| 3 | Materia con sus cuatro pestañas y la libreta; se retira `/teacher/evaluaciones` | Pestaña de entregas del centro de evaluaciones | Hecho (2026-11-11): libreta en la materia y `/teacher/evaluaciones` redirige a Por calificar |
 
 Estado verificado en el árbol al 2026-10-30:
 

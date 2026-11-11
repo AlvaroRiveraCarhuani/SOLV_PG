@@ -54,7 +54,8 @@ describe('TeacherCourseDetailComponent', () => {
       execution_time_ms: 120,
       memory_used_mb: 16,
       submitted_at: '2026-03-01T10:00:00Z',
-      comments_count: 0
+      comments_count: 0,
+      review_status: 'graded'
     },
     {
       id: 'sub-2',
@@ -69,7 +70,8 @@ describe('TeacherCourseDetailComponent', () => {
       execution_time_ms: 150,
       memory_used_mb: 20,
       submitted_at: '2026-03-01T10:15:00Z',
-      comments_count: 0
+      comments_count: 0,
+      review_status: 'graded'
     },
     {
       id: 'sub-3',
@@ -83,7 +85,8 @@ describe('TeacherCourseDetailComponent', () => {
       execution_time_ms: 0,
       memory_used_mb: 0,
       submitted_at: '2026-03-01T11:00:00Z',
-      comments_count: 0
+      comments_count: 0,
+      review_status: 'pending'
     }
   ];
 
@@ -153,7 +156,16 @@ describe('TeacherCourseDetailComponent', () => {
     expect(component.subjectId()).toBe('course-101');
     expect(component.labFilter()).toBe('all');
     expect(component.verdictFilter()).toBe('all');
+    expect(component.reviewStatusFilter()).toBe('all');
     expect(component.filteredSubmissions().length).toBe(3);
+  });
+
+  it('debe filtrar entregas por estado de revisión', () => {
+    component.reviewStatusFilter.set('graded');
+    expect(component.filteredSubmissions().map(s => s.id)).toEqual(['sub-1', 'sub-2']);
+
+    component.reviewStatusFilter.set('pending');
+    expect(component.filteredSubmissions().map(s => s.id)).toEqual(['sub-3']);
   });
 
   it('debe generar labOptions incluyendo opción para todos y cada laboratorio', () => {

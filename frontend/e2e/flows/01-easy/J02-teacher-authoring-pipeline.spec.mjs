@@ -79,7 +79,7 @@ test.describe('J02 — Pipeline de Autoría del Docente (UI) y Validación de St
         await expect(newLabBtn).toBeVisible({ timeout: 15000 });
         await newLabBtn.click();
         await expect(teacherPage).toHaveURL(
-          new RegExp(`/teacher/courses/${sharedState.courseId}/exercises/new`)
+          new RegExp(`/teacher/cursos/${sharedState.courseId}/ejercicios/nuevo`)
         );
 
         const langInput = teacherPage.locator('#exercise-language input[role="combobox"]');

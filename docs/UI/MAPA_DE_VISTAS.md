@@ -53,7 +53,10 @@ graph TD
 │   ├── /teacher/dashboard .............. Hoy: canvas de materias y columna de pendientes
 │   ├── /teacher/aula ................... Qué pasa ahora en clase: entornos abiertos y telemetría (ancla permanente)
 │   ├── /teacher/por-calificar .......... Cola de corrección agrupada por práctica
+│   ├── /teacher/evaluaciones ........... Redirige a Por calificar (se retiró el centro global)
 │   ├── /teacher/cursos/:id ............. Materia: prácticas, entregas, alumnos y libreta
+│   ├── /teacher/cursos/:courseId/ejercicios/...
+│   │                                      Editor de práctica (nuevo, editar, probar)
 │   ├── /teacher/revision/:submissionId . SpeedGrader: revisión de una entrega
 │   ├── /teacher/exercises .............. Banco de ejercicios del docente (catálogo; acción Duplicar a otra materia)
 │   ├── /teacher/templates .............. Catálogo de plantillas de entorno
@@ -161,6 +164,7 @@ graph TD
 * **Acciones:**
   * `[Guardar Borrador]` — Guarda los cambios sin hacer visible el laboratorio a los alumnos.
   * `[Publicar a la Clase]` — Habilita el laboratorio en el calendario de los estudiantes.
+* **Proyecto inicial y entorno:** al importar una carpeta o ZIP, generar con IA o editar archivos, la pantalla detecta las tecnologías del proyecto y las compara con el stack del entorno homologado. La generación con IA usa el stack del entorno seleccionado; no acepta un lenguaje libre. Si el proyecto incluye herramientas que ese entorno no trae, muestra una advertencia con las tecnologías sobrantes, sugiere hasta tres entornos compatibles del catálogo y ofrece aplicarlos o ir al selector con `[Cambiar entorno]`. Al publicar el proyecto, la confirmación pide una casilla explícita si la incompatibilidad sigue. No se bloquea la publicación ni se valida el código: un proyecto mixto puede ser intencional, y la decisión final queda en el docente.
 
 ### 4.4. Aula (`/teacher/aula`)
 * **Propósito:** Responder una sola pregunta mientras ocurre la clase: quién está, quién falta y quién se trabó. Con aula abierta muestra el tablero de la sesión; sin aula muestra el formulario de apertura y, si hay entornos encendidos, su telemetría, sin lista de faltantes y sin botón de cerrar.

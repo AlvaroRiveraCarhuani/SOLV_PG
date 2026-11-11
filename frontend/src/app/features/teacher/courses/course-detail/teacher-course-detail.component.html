@@ -128,6 +128,14 @@
       <svg lucideListChecks class="btn-icon-sm"></svg>
       <span>Entregas ({{ submissions().length }})</span>
     </button>
+    <button
+      class="tab-btn"
+      [class.active]="activeTab() === 'gradebook'"
+      (click)="activeTab.set('gradebook')"
+    >
+      <svg lucideAward class="btn-icon-sm"></svg>
+      <span>Libreta</span>
+    </button>
   </div>
 
   <!-- Contenido: Pestaña Laboratorios -->
@@ -226,6 +234,20 @@
               [compact]="true"
               [showSearchIcon]="false"
               placeholder="Todos los laboratorios"
+            />
+          </div>
+        </div>
+
+        <div class="filter-group">
+          <label class="filter-label">Estado de revisión:</label>
+          <div class="filter-combobox-wrapper">
+            <combobox
+              [options]="reviewStatusOptions"
+              [value]="reviewStatusFilter()"
+              (valueChange)="reviewStatusFilter.set($any($event))"
+              [compact]="true"
+              [showSearchIcon]="false"
+              placeholder="Todos los estados"
             />
           </div>
         </div>
@@ -344,6 +366,11 @@
   }
 
   <!-- Contenido: Pestaña Módulos y Currícula -->
+  <!-- Contenido: Pestaña Libreta -->
+  @if (activeTab() === 'gradebook') {
+    <course-gradebook [subjectId]="subjectId()" />
+  }
+
   @if (activeTab() === 'modules') {
     <div class="modules-view">
       <div class="modules-toolbar">
