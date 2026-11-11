@@ -98,6 +98,7 @@ ON notifications (tenant_id, event_type, created_at DESC);
 
 - **Eventos in-app emitidos:** calificación publicada (`grade_published`), recordatorio de vencimiento (`deadline_reminder`), mantenimiento activado/desactivado (`maintenance_enabled`/`maintenance_disabled`), resultados de respaldo (`backup_created`/`backup_failed`) y fin de calentamiento de plantillas (`TEMPLATE_WARMING_COMPLETED`).
 - **Anti-fatiga:** solo los eventos de infraestructura que lo solicitan se consolidan en la ventana de 30 minutos; dos calificaciones o dos recordatorios distintos nunca se funden.
+- **Alcance por rol:** las alertas de infraestructura (memoria agotada, contenedor caído, entorno huérfano) no se entregan al docente ni al estudiante. Su dueño es el admin, que ya las ve en el panel de incidencias con la salida del contenedor; el aviso in-app no reemplaza esa superficie. La campana de docente y estudiante trabaja con eventos académicos (calificaciones, vencimientos, entregas retenidas, bloqueos de reglas de código).
 - **Enlaces:** el backend solo persiste y entrega rutas internas saneadas (`/...`); descarta URLs externas, protocolos y traversal.
 - **Pendiente:** envío de correo desde el despachador y preferencias por usuario. El canal in-app no depende de esa configuración.
 

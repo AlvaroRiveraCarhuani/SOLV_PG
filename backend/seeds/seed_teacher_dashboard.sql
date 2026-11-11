@@ -1600,23 +1600,18 @@ FROM generate_series(1, 24) AS i;
 
 -- ============================================================================
 -- B12. Notificaciones del docente (campana del topbar)
+-- La memoria agotada y los contenedores caídos son del panel de incidencias
+-- del admin: no generan avisos para docente ni estudiante. El DELETE retira
+-- los que hayan quedado de una carga anterior de este seed.
 -- ============================================================================
+DELETE FROM notifications
+WHERE tenant_id = '00000000-0000-0000-0000-000000000001'
+  AND event_type IN ('workspace.oom_killed', 'workspace.failed');
+
 INSERT INTO notifications (
   id, tenant_id, recipient_user_id, channel, severity, title, message,
   event_type, metadata, is_read, read_at, occurrence_count, link, created_at
 ) VALUES
-(
-  '94000000-0000-0000-0000-000000000001',
-  '00000000-0000-0000-0000-000000000001',
-  '0e5e6bde-1933-4084-82b0-d481b4309ca7', 'in_app', 'critical',
-  'Contenedor excedió el límite de memoria',
-  'El entorno de Lucas Benítez (SIS-211) fue detenido por OOM. El workspace quedó hibernado.',
-  'workspace.oom_killed',
-  '{"workspace_id": "c2000000-0000-0000-0000-000000000003", "student": "Lucas Benítez", "subject": "SIS-211"}'::jsonb,
-  false, null, 1,
-  '/teacher/courses/50000000-0000-0000-0000-000000000002',
-  NOW() - INTERVAL '2 hours'
-),
 (
   '94000000-0000-0000-0000-000000000002',
   '00000000-0000-0000-0000-000000000001',
@@ -1626,19 +1621,19 @@ INSERT INTO notifications (
   'submission.pending_review',
   '{"submission_id": "a3000000-0000-0000-0000-000000000024"}'::jsonb,
   false, null, 1,
-  '/teacher/courses/50000000-0000-0000-0000-000000000002',
+  '/teacher/revision/a3000000-0000-0000-0000-000000000024',
   NOW() - INTERVAL '5 hours'
 ),
 (
   '94000000-0000-0000-0000-000000000003',
   '00000000-0000-0000-0000-000000000001',
   '0e5e6bde-1933-4084-82b0-d481b4309ca7', 'in_app', 'warning',
-  'Entrega bloqueada por política AST',
-  'Lucas Benítez usó os.system en "Práctica 2: Pilas y Colas". La entrega quedó retenida para revisión.',
+  'Entrega retenida por una regla de código',
+  'Lucas Benítez usó una instrucción no permitida en «Práctica 2: Pilas y Colas». La entrega quedó retenida para revisión.',
   'submission.ast_blocked',
   '{"submission_id": "a3000000-0000-0000-0000-000000000016", "rule": "python.import-forbidden"}'::jsonb,
   false, null, 1,
-  '/teacher/courses/50000000-0000-0000-0000-000000000002',
+  '/teacher/revision/a3000000-0000-0000-0000-000000000016',
   NOW() - INTERVAL '6 hours'
 ),
 (
@@ -1650,7 +1645,7 @@ INSERT INTO notifications (
   'deadline.reminder',
   '{"exercise_id": "e0000000-0000-0000-0000-000000000013", "sin_entrega": 3}'::jsonb,
   false, null, 1,
-  '/teacher/courses/50000000-0000-0000-0000-000000000001',
+  '/teacher/cursos/50000000-0000-0000-0000-000000000001/practicas/e0000000-0000-0000-0000-000000000013',
   NOW() - INTERVAL '8 hours'
 ),
 (
@@ -1662,7 +1657,7 @@ INSERT INTO notifications (
   'submission.audited',
   '{"submission_id": "a3000000-0000-0000-0000-000000000036"}'::jsonb,
   true, NOW() - INTERVAL '1 day', 1,
-  '/teacher/courses/50000000-0000-0000-0000-000000000001',
+  '/teacher/revision/a3000000-0000-0000-0000-000000000036',
   NOW() - INTERVAL '1 day'
 ),
 (
@@ -1674,12 +1669,38 @@ INSERT INTO notifications (
   'student.inactivity',
   '{"subject_id": "50000000-0000-0000-0000-000000000001", "count": 3}'::jsonb,
   true, NOW() - INTERVAL '2 days', 1,
-  '/teacher/courses/50000000-0000-0000-0000-000000000001',
+  '/teacher/cursos/50000000-0000-0000-0000-000000000001?tab=gradebook',
   NOW() - INTERVAL '2 days'
 )
 ON CONFLICT (id) DO UPDATE
 SET title = EXCLUDED.title, message = EXCLUDED.message, severity = EXCLUDED.severity,
-    is_read = EXCLUDED.is_read, read_at = EXCLUDED.read_at;
+    is_read = EXCLUDED.is_read, read_at = EXCLUDED.read_at, link = EXCLUDED.link;
+
+-- Los avisos ya cargados conservan el enlace de la ruta anterior: se migran a
+-- sus destinos canónicos y contextuales (SpeedGrader, ficha de práctica, Libreta).
+UPDATE notifications
+SET link = '/teacher/revision/a3000000-0000-0000-0000-000000000024'
+WHERE id = '94000000-0000-0000-0000-000000000002';
+
+UPDATE notifications
+SET link = '/teacher/revision/a3000000-0000-0000-0000-000000000016'
+WHERE id = '94000000-0000-0000-0000-000000000003';
+
+UPDATE notifications
+SET link = '/teacher/cursos/50000000-0000-0000-0000-000000000001/practicas/e0000000-0000-0000-0000-000000000013'
+WHERE id = '94000000-0000-0000-0000-000000000004';
+
+UPDATE notifications
+SET link = '/teacher/revision/a3000000-0000-0000-0000-000000000036'
+WHERE id = '94000000-0000-0000-0000-000000000005';
+
+UPDATE notifications
+SET link = '/teacher/cursos/50000000-0000-0000-0000-000000000001?tab=gradebook'
+WHERE id = '94000000-0000-0000-0000-000000000006';
+
+UPDATE notifications
+SET link = replace(link, '/teacher/courses/', '/teacher/cursos/')
+WHERE link LIKE '/teacher/courses/%';
 
 -- ============================================================================
 -- B13. Audit logs (actividad del docente Carlos)
