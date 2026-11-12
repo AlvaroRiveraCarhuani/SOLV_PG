@@ -113,6 +113,21 @@ func TestPureRuntimePracticeEnvironmentCmd_IncludesExtensionsDir(t *testing.T) {
 	}
 }
 
+func TestPureRuntimePracticeEnvironmentCmd_SeedsDefaultSettings(t *testing.T) {
+	if !strings.Contains(pureRuntimePracticeEnvironmentCmd, `[ ! -f /home/workspace/.vscode/settings.json ]`) {
+		t.Errorf("esperado chequeo de existencia previa de settings.json")
+	}
+	if !strings.Contains(pureRuntimePracticeEnvironmentCmd, `"workbench.colorTheme": "Default Dark Modern"`) {
+		t.Errorf("esperado tema oscuro por defecto en settings.json")
+	}
+	if !strings.Contains(pureRuntimePracticeEnvironmentCmd, `"files.autoSave": "afterDelay"`) {
+		t.Errorf("esperado autoguardado de archivos por defecto")
+	}
+	if !strings.Contains(pureRuntimePracticeEnvironmentCmd, `"editor.formatOnSave": true`) {
+		t.Errorf("esperado autoformato al guardar por defecto")
+	}
+}
+
 func TestResolveCompanionExtensionMount(t *testing.T) {
 	tempDir := t.TempDir()
 	t.Setenv("SOLV_COMPANION_HOST_PATH", tempDir)

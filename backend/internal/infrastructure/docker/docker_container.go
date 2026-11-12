@@ -24,11 +24,15 @@ const (
 	// environmentServerPort es el único puerto que un environment expone al host.
 	environmentServerPort = "3000/tcp"
 
+	// defaultWorkspaceSettingsScript siembra preferencias visuales y de autoguardado iniciales
+	// en el workspace para la comodidad del alumno si aún no existe settings.json.
+	defaultWorkspaceSettingsScript = `if [ ! -f /home/workspace/.vscode/settings.json ]; then printf '{\n  "workbench.colorTheme": "Default Dark Modern",\n  "editor.fontSize": 14,\n  "editor.tabSize": 4,\n  "editor.formatOnSave": true,\n  "editor.minimap.enabled": false,\n  "workbench.startupEditor": "none",\n  "files.autoSave": "afterDelay",\n  "files.autoSaveDelay": 1000\n}\n' > /home/workspace/.vscode/settings.json; fi`
+
 	// pureRuntimePracticeEnvironmentCmd se usa en imágenes que no traen OpenVSCode: prepara el
 	// environment, asegura el directorio de extensiones de usuario del workspace,
-	// ejecuta el setup_script de la plantilla una sola vez y arranca OpenVSCode
-	// abriendo directamente el directorio del proyecto y aislando las extensiones del alumno.
-	pureRuntimePracticeEnvironmentCmd = `mkdir -p /home/workspace/.vscode/extensions && chmod 0777 /home/workspace && if [ -n "$SOLV_SETUP_SCRIPT" ] && [ ! -f /home/workspace/.solv_initialized ]; then sh -c "$SOLV_SETUP_SCRIPT" > /home/workspace/.solv_setup.log 2>&1; touch /home/workspace/.solv_initialized; fi && if [ -x /home/.openvscode-server/bin/openvscode-server ]; then exec /home/.openvscode-server/bin/openvscode-server --without-connection-token --host 0.0.0.0 --port 3000 --default-folder /home/workspace --extensions-dir /home/workspace/.vscode/extensions; else exec sleep infinity; fi`
+	// siembra preferencias visuales iniciales, ejecuta el setup_script de la plantilla
+	// una sola vez y arranca OpenVSCode abriendo directamente el directorio del proyecto.
+	pureRuntimePracticeEnvironmentCmd = `mkdir -p /home/workspace/.vscode/extensions && chmod 0777 /home/workspace && if [ ! -f /home/workspace/.vscode/settings.json ]; then printf '{\n  "workbench.colorTheme": "Default Dark Modern",\n  "editor.fontSize": 14,\n  "editor.tabSize": 4,\n  "editor.formatOnSave": true,\n  "editor.minimap.enabled": false,\n  "workbench.startupEditor": "none",\n  "files.autoSave": "afterDelay",\n  "files.autoSaveDelay": 1000\n}\n' > /home/workspace/.vscode/settings.json; fi && if [ -n "$SOLV_SETUP_SCRIPT" ] && [ ! -f /home/workspace/.solv_initialized ]; then sh -c "$SOLV_SETUP_SCRIPT" > /home/workspace/.solv_setup.log 2>&1; touch /home/workspace/.solv_initialized; fi && if [ -x /home/.openvscode-server/bin/openvscode-server ]; then exec /home/.openvscode-server/bin/openvscode-server --without-connection-token --host 0.0.0.0 --port 3000 --default-folder /home/workspace --extensions-dir /home/workspace/.vscode/extensions; else exec sleep infinity; fi`
 )
 
 // imageShipsOpenVSCode detecta si la imagen trae el servidor OpenVSCode como
@@ -218,10 +222,10 @@ func (c *Client) StartPracticeEnvironmentContainer(ctx context.Context, config d
 
 	if shipsOpenVSCode {
 		// En imágenes derivadas de openvscode-server, preparamos el directorio de
-		// extensiones del workspace antes de delegar en el servidor para evitar que el
-		// observador de archivos de VS Code falle sobre un volumen nuevo sin inicializar.
+		// extensiones del workspace y las preferencias visuales base antes de delegar
+		// en el servidor para asegurar comodidad visual y evitar fallos del observador.
 		containerConfig.User = "1000:1000"
-		containerConfig.Entrypoint = []string{"/bin/sh", "-c", "mkdir -p /home/workspace/.vscode/extensions && exec /home/.openvscode-server/bin/openvscode-server --host 0.0.0.0 \"$@\"", "--"}
+		containerConfig.Entrypoint = []string{"/bin/sh", "-c", fmt.Sprintf("mkdir -p /home/workspace/.vscode/extensions && %s && exec /home/.openvscode-server/bin/openvscode-server --host 0.0.0.0 \"$@\"", defaultWorkspaceSettingsScript), "--"}
 		containerConfig.Cmd = []string{
 			"--without-connection-token",
 			"--port", "3000",
