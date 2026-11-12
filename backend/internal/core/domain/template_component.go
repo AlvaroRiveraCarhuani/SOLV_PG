@@ -43,7 +43,9 @@ var (
 	ErrComponentSlugConflict  = errors.New("a technology component with this slug or name already exists")
 	ErrComponentSystemLocked  = errors.New("system technology components cannot be deleted")
 	ErrInvalidPackageName     = errors.New("invalid package name: only alphanumeric characters and @_./=->< are allowed")
+	ErrInvalidExtensionID     = errors.New("invalid extension ID: expected format publisher.name (e.g. golang.go)")
 	packageNameAllowlistRegex = regexp.MustCompile(`^[a-zA-Z0-9@_./=<>-]+$`)
+	extensionIDAllowlistRegex = regexp.MustCompile(`^[a-zA-Z0-9_-]+\.[a-zA-Z0-9_-]+(@[a-zA-Z0-9._-]+)?$`)
 )
 
 // TemplateComponent representa un componente tecnológico del catálogo componible en el Constructor de Entornos.
@@ -132,6 +134,7 @@ type StackConfig struct {
 	Services                   []StackServiceSelection `json:"services,omitempty"`            // Bindings por rol; reemplaza a DatabaseID
 	DatabaseID                 string                  `json:"database_id,omitempty"`         // Alias heredado de un único servicio primario
 	PracticeEnvironmentFolders []string                `json:"environment_folders,omitempty"` // Carpetas iniciales en /home/workspace
+	VSCodeExtensions           []string                `json:"vscode_extensions,omitempty"`   // Identificadores de extensiones de OpenVSX para precarga
 	DockerfileContent          string                  `json:"dockerfile_content,omitempty"`  // Contenido del Dockerfile para auto-healing y reproducibilidad
 }
 
@@ -142,12 +145,15 @@ func (sc StackConfig) Value() (driver.Value, error) {
 	if sc.PracticeEnvironmentFolders == nil {
 		sc.PracticeEnvironmentFolders = []string{}
 	}
+	if sc.VSCodeExtensions == nil {
+		sc.VSCodeExtensions = []string{}
+	}
 	return json.Marshal(sc)
 }
 
 func (sc *StackConfig) Scan(value interface{}) error {
 	if value == nil {
-		*sc = StackConfig{AddonIDs: []string{}, PracticeEnvironmentFolders: []string{}}
+		*sc = StackConfig{AddonIDs: []string{}, PracticeEnvironmentFolders: []string{}, VSCodeExtensions: []string{}}
 		return nil
 	}
 	b, ok := value.([]byte)
@@ -155,10 +161,16 @@ func (sc *StackConfig) Scan(value interface{}) error {
 		return fmt.Errorf("failed to scan StackConfig: expected []byte, got %T", value)
 	}
 	if len(b) == 0 {
-		*sc = StackConfig{AddonIDs: []string{}, PracticeEnvironmentFolders: []string{}}
+		*sc = StackConfig{AddonIDs: []string{}, PracticeEnvironmentFolders: []string{}, VSCodeExtensions: []string{}}
 		return nil
 	}
-	return json.Unmarshal(b, sc)
+	if err := json.Unmarshal(b, sc); err != nil {
+		return err
+	}
+	if sc.VSCodeExtensions == nil {
+		sc.VSCodeExtensions = []string{}
+	}
+	return nil
 }
 
 // ComposedTemplatePlan resultado determinista tras compilar una selección de componentes tecnológicos.
@@ -185,6 +197,20 @@ func ValidatePackageNames(pkgs []string) error {
 		trimmed := strings.TrimSpace(raw)
 		if trimmed == "" || !packageNameAllowlistRegex.MatchString(trimmed) {
 			return fmt.Errorf("%w: %q", ErrInvalidPackageName, raw)
+		}
+	}
+	return nil
+}
+
+// ValidateExtensionIDs verifica que cada ID de extensión cumpla con el formato publisher.name de Open VSX sin metacaracteres.
+func ValidateExtensionIDs(extensions []string) error {
+	for _, raw := range extensions {
+		trimmed := strings.TrimSpace(raw)
+		if trimmed == "" {
+			continue
+		}
+		if !extensionIDAllowlistRegex.MatchString(trimmed) {
+			return fmt.Errorf("%w: %q", ErrInvalidExtensionID, raw)
 		}
 	}
 	return nil

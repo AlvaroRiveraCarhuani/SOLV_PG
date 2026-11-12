@@ -222,6 +222,20 @@ func newStubComponentSource() *stubComponentSource {
 			RamDeltaMB:         256,
 			IsActive:           true,
 		},
+		{
+			ID:                 "rt-rust",
+			Slug:               "rust-180",
+			Layer:              domain.ComponentLayerRuntime,
+			SubCategory:        "backend",
+			Name:               "Rust 1.80",
+			IconKey:            "rust",
+			BaseImage:          "rust:1.80-bookworm",
+			CompatibleRuntimes: []string{"rust"},
+			JudgeEntrypoint:    "rustc solution.rs && ./solution",
+			ToolsProvided:      []string{"rustc", "cargo"},
+			RamDeltaMB:         0,
+			IsActive:           true,
+		},
 	}
 	m := make(map[string]*domain.TemplateComponent, len(items)*2)
 	for _, it := range items {
@@ -908,5 +922,132 @@ func TestComposeUniversityCatalogORMAndHeavyAddonsResidentRAM(t *testing.T) {
 	}
 	if planML.RecommendedRamMB != 768 {
 		t.Fatalf("expected 768 MB for Python + heavy ML addon, got %d", planML.RecommendedRamMB)
+	}
+}
+
+func TestComposeVSCodeExtensions_IDEPersistente_InjectsInstallLayers(t *testing.T) {
+	composer := NewTemplateComposerService(newStubComponentSource())
+
+	plan, err := composer.Compose(context.Background(), "default", "IDE_PERSISTENTE", domain.StackConfig{
+		Mode:             "visual",
+		RuntimeID:        "rt-python",
+		VSCodeExtensions: []string{"golang.go", "ms-python.python"},
+	})
+	if err != nil {
+		t.Fatalf("unexpected error composing with VSCodeExtensions: %v", err)
+	}
+
+	expectedGo := "RUN /home/.openvscode-server/bin/openvscode-server --extensions-dir /home/.openvscode-server/extensions --install-extension golang.go"
+	expectedPy := "RUN /home/.openvscode-server/bin/openvscode-server --extensions-dir /home/.openvscode-server/extensions --install-extension ms-python.python"
+
+	if !strings.Contains(plan.DockerfileContent, expectedGo) {
+		t.Fatalf("expected Dockerfile to include Go extension install layer, got:\n%s", plan.DockerfileContent)
+	}
+	if !strings.Contains(plan.DockerfileContent, expectedPy) {
+		t.Fatalf("expected Dockerfile to include Python extension install layer, got:\n%s", plan.DockerfileContent)
+	}
+	if !plan.NeedsLocalBuild {
+		t.Fatalf("expected NeedsLocalBuild to be true when extensions are declared")
+	}
+}
+
+func TestComposeVSCodeExtensions_JuezEfimero_IgnoresExtensions(t *testing.T) {
+	composer := NewTemplateComposerService(newStubComponentSource())
+
+	plan, err := composer.Compose(context.Background(), "default", "JUEZ_EFIMERO", domain.StackConfig{
+		Mode:             "visual",
+		RuntimeID:        "rt-python",
+		VSCodeExtensions: []string{"golang.go"},
+	})
+	if err != nil {
+		t.Fatalf("unexpected error in judge mode: %v", err)
+	}
+
+	if strings.Contains(plan.DockerfileContent, "openvscode-server") {
+		t.Fatalf("judge Dockerfile must never contain openvscode-server or extension layers, got:\n%s", plan.DockerfileContent)
+	}
+}
+
+func TestComposeVSCodeExtensions_DeterministicSignatureChange(t *testing.T) {
+	composer := NewTemplateComposerService(newStubComponentSource())
+
+	planWithout, err := composer.Compose(context.Background(), "default", "IDE_PERSISTENTE", domain.StackConfig{
+		Mode:      "visual",
+		RuntimeID: "rt-python",
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	planWith, err := composer.Compose(context.Background(), "default", "IDE_PERSISTENTE", domain.StackConfig{
+		Mode:             "visual",
+		RuntimeID:        "rt-python",
+		VSCodeExtensions: []string{"golang.go"},
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if planWithout.SignatureHash == planWith.SignatureHash {
+		t.Fatalf("expected signature to change when extensions are added, got same hash: %s", planWithout.SignatureHash)
+	}
+}
+
+func TestComposeVSCodeExtensions_ValidationRejectsUnsafeInput(t *testing.T) {
+	composer := NewTemplateComposerService(newStubComponentSource())
+
+	_, err := composer.Compose(context.Background(), "default", "IDE_PERSISTENTE", domain.StackConfig{
+		Mode:             "visual",
+		RuntimeID:        "rt-python",
+		VSCodeExtensions: []string{"evil; rm -rf /"},
+	})
+	if err == nil {
+		t.Fatalf("expected error for malicious extension ID, got nil")
+	}
+}
+
+func TestComposeRustRuntime_ClassifiedAsHeavyAndAllocatesHonestRAM(t *testing.T) {
+	composer := NewTemplateComposerService(newStubComponentSource())
+
+	planRust, err := composer.Compose(context.Background(), "default", "IDE_PERSISTENTE", domain.StackConfig{
+		Mode:      "visual",
+		RuntimeID: "rt-rust",
+	})
+	if err != nil {
+		t.Fatalf("unexpected error composing Rust stack: %v", err)
+	}
+
+	// Rust clasifica como heavy runtime: 210 (editor) + 640 (proceso activo) = 850 MB -> preset 1024 MB
+	if planRust.RecommendedRamMB != 1024 {
+		t.Fatalf("expected 1024 MB for Rust heavy runtime in IDE, got %d", planRust.RecommendedRamMB)
+	}
+}
+
+func TestComposeLightRuntime_WithExtensions_IncreasesMemory(t *testing.T) {
+	composer := NewTemplateComposerService(newStubComponentSource())
+
+	// C/C++ pelado: 210 + 128 = 338 MB -> preset 384 MB
+	planWithout, err := composer.Compose(context.Background(), "default", "IDE_PERSISTENTE", domain.StackConfig{
+		Mode:      "visual",
+		RuntimeID: "rt-cpp",
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if planWithout.RecommendedRamMB != 384 {
+		t.Fatalf("expected 384 MB for C/C++ without extensions, got %d", planWithout.RecommendedRamMB)
+	}
+
+	// C/C++ con extensiones precargadas: 210 + 256 = 466 MB -> preset 512 MB
+	planWith, err := composer.Compose(context.Background(), "default", "IDE_PERSISTENTE", domain.StackConfig{
+		Mode:             "visual",
+		RuntimeID:        "rt-cpp",
+		VSCodeExtensions: []string{"llvm-vs-code-extensions.vscode-clangd"},
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if planWith.RecommendedRamMB != 512 {
+		t.Fatalf("expected 512 MB for C/C++ with LSP extensions, got %d", planWith.RecommendedRamMB)
 	}
 }

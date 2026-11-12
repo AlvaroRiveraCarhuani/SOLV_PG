@@ -194,7 +194,7 @@ func (s *TemplateComposerService) Compose(
 	}
 
 	// 5. Cálculo de memoria basado en procesos residentes activos (sin inflación lineal por librerías en disco)
-	recommendedRam := calculateResidentRecommendedRAM(rt, webComp, selectedAddons, dbComp, isJudge)
+	recommendedRam := calculateResidentRecommendedRAM(rt, webComp, selectedAddons, dbComp, cfg.VSCodeExtensions, isJudge)
 
 	// Construcción determinista de imagen y Dockerfile
 	needsBuild := len(buildLayers) > 0
@@ -217,6 +217,22 @@ func (s *TemplateComposerService) Compose(
 		if !baseHasOpenVSCode && !alreadyStacked {
 			buildLayers = append(buildLayers, fmt.Sprintf("COPY --from=%s /home/.openvscode-server /home/.openvscode-server", domain.OpenVSCodeImage))
 			needsBuild = true
+		}
+
+		// Inyección determinista de extensiones oficiales de Open VSX en la capa del sistema
+		if len(cfg.VSCodeExtensions) > 0 {
+			if err := domain.ValidateExtensionIDs(cfg.VSCodeExtensions); err != nil {
+				return nil, err
+			}
+			seenExt := make(map[string]bool)
+			for _, ext := range cfg.VSCodeExtensions {
+				trimmed := strings.TrimSpace(ext)
+				if trimmed != "" && !seenExt[trimmed] {
+					seenExt[trimmed] = true
+					buildLayers = append(buildLayers, fmt.Sprintf("RUN /home/.openvscode-server/bin/openvscode-server --extensions-dir /home/.openvscode-server/extensions --install-extension %s", trimmed))
+					needsBuild = true
+				}
+			}
 		}
 	}
 
@@ -299,11 +315,13 @@ func isHeavyRuntime(rt *domain.TemplateComponent) bool {
 	if rt.RamDeltaMB > 0 {
 		return rt.RamDeltaMB >= 1024
 	}
-	if strings.EqualFold(strings.TrimSpace(rt.IconKey), "java") {
+	icon := strings.ToLower(strings.TrimSpace(rt.IconKey))
+	if icon == "java" || icon == "rust" {
 		return true
 	}
 	for _, fam := range rt.CompatibleRuntimes {
-		if strings.EqualFold(strings.TrimSpace(fam), "java") || strings.EqualFold(strings.TrimSpace(fam), "dotnet") {
+		f := strings.ToLower(strings.TrimSpace(fam))
+		if f == "java" || f == "dotnet" || f == "rust" {
 			return true
 		}
 	}
@@ -327,6 +345,7 @@ func calculateResidentRecommendedRAM(
 	webComp *domain.TemplateComponent,
 	addons []*domain.TemplateComponent,
 	dbComp *domain.TemplateComponent,
+	vscodeExtensions []string,
 	isJudge bool,
 ) int {
 	if isJudge {
@@ -361,6 +380,9 @@ func calculateResidentRecommendedRAM(
 	activeProcessFootprintMB := 256
 	if isLightRuntime(rt) {
 		activeProcessFootprintMB = 128
+		if len(vscodeExtensions) > 0 {
+			activeProcessFootprintMB = 256
+		}
 	}
 	if isHeavyRuntime(rt) {
 		if webComp != nil || len(addons) > 0 || satelliteBaseMB > 0 {

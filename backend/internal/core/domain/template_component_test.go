@@ -81,3 +81,58 @@ func TestComputeStackSignatureDeterministic(t *testing.T) {
 		t.Fatalf("unexpected built image tag: %s", tag)
 	}
 }
+
+func TestValidateExtensionIDs(t *testing.T) {
+	validCases := [][]string{
+		{"golang.go"},
+		{"ms-python.python"},
+		{"rust-lang.rust-analyzer"},
+		{"rust-lang.rust-analyzer@0.4.1"},
+		{"llvm-vs-code-extensions.vscode-clangd"},
+		{"vadimcn.vscode-lldb@1.10.0"},
+	}
+
+	for _, exts := range validCases {
+		if err := ValidateExtensionIDs(exts); err != nil {
+			t.Fatalf("expected valid extension IDs %v, got error: %v", exts, err)
+		}
+	}
+
+	invalidCases := [][]string{
+		{"evil; rm -rf /"},
+		{"bad extension with spaces"},
+		{"golang"},
+		{".onlyname"},
+		{"onlypublisher."},
+		{"foo$bar.baz"},
+		{"foo/bar.baz"},
+	}
+
+	for _, exts := range invalidCases {
+		if err := ValidateExtensionIDs(exts); err == nil {
+			t.Fatalf("expected error for invalid extension IDs %v, got nil", exts)
+		}
+	}
+}
+
+func TestStackConfig_ValueAndScanExtensions(t *testing.T) {
+	cfg := StackConfig{
+		Mode:             "visual",
+		RuntimeID:        "rt-python",
+		VSCodeExtensions: []string{"golang.go", "ms-python.python"},
+	}
+
+	val, err := cfg.Value()
+	if err != nil {
+		t.Fatalf("unexpected error marshaling StackConfig: %v", err)
+	}
+
+	var scanned StackConfig
+	if err := scanned.Scan(val); err != nil {
+		t.Fatalf("unexpected error scanning StackConfig: %v", err)
+	}
+
+	if len(scanned.VSCodeExtensions) != 2 || scanned.VSCodeExtensions[0] != "golang.go" || scanned.VSCodeExtensions[1] != "ms-python.python" {
+		t.Fatalf("expected preserved extensions, got %+v", scanned.VSCodeExtensions)
+	}
+}
