@@ -27,6 +27,13 @@ import {
 import { ExerciseContract } from '../exercise-editor/steps/step-contract/format-builder/format-builder.models';
 
 
+export interface AvailableStudent {
+  id: string;
+  first_name: string;
+  last_name: string;
+  email: string;
+}
+
 interface ApiResponse<T> {
   data: T;
   error?: string;
@@ -351,6 +358,26 @@ export class TeacherCourseService {
       { params }
     ).pipe(
       map(res => res.data)
+    );
+  }
+
+  searchAvailableStudents(subjectId: string, query: string): Observable<AvailableStudent[]> {
+    let params = new HttpParams();
+    if (query && query.trim()) {
+      params = params.set('q', query.trim());
+    }
+    return this.http.get<ApiResponse<AvailableStudent[]>>(
+      `/api/v1/teacher/courses/${subjectId}/available-students`,
+      { params }
+    ).pipe(
+      map(res => res.data || [])
+    );
+  }
+
+  enrollStudent(subjectId: string, studentId: string): Observable<unknown> {
+    return this.http.post<ApiResponse<unknown>>(
+      `/api/v1/teacher/courses/${subjectId}/students`,
+      { student_id: studentId }
     );
   }
 }

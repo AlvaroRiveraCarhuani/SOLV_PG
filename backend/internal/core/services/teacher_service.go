@@ -2,6 +2,7 @@ package services
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	"github.com/google/uuid"
@@ -22,6 +23,7 @@ type TeacherService struct {
 	overviewStore          domain.TeacherOverviewStore
 	classSessionStore      domain.ClassSessionStore
 	auditRepo              domain.AuditLogRepository
+	enrollmentStore        domain.TeacherEnrollmentStore
 }
 
 func NewTeacherService(
@@ -41,11 +43,18 @@ func NewTeacherService(
 	if store, ok := repo.(domain.TeacherOverviewStore); ok {
 		svc.overviewStore = store
 	}
+	if store, ok := repo.(domain.TeacherEnrollmentStore); ok {
+		svc.enrollmentStore = store
+	}
 	return svc
 }
 
 func (s *TeacherService) SetReviewStore(store domain.TeacherReviewStore) {
 	s.reviewStore = store
+}
+
+func (s *TeacherService) SetEnrollmentStore(store domain.TeacherEnrollmentStore) {
+	s.enrollmentStore = store
 }
 
 func (s *TeacherService) SetAuditRepository(auditRepo domain.AuditLogRepository) {
@@ -261,3 +270,30 @@ func (s *TeacherService) GetLivePracticeEnvironmentSessions(ctx context.Context,
 	}
 	return sessions, nil
 }
+
+func (s *TeacherService) SearchAvailableStudents(
+	ctx context.Context,
+	tenantID, teacherID, subjectID, query string,
+) ([]*domain.AvailableStudentItem, error) {
+	if s.enrollmentStore == nil {
+		return nil, errors.New("enrollment store not configured")
+	}
+	if tenantID == "" || subjectID == "" {
+		return nil, errors.New("tenant_id and subject_id are required")
+	}
+	return s.enrollmentStore.SearchAvailableStudentsForCourse(ctx, tenantID, teacherID, subjectID, query, 20)
+}
+
+func (s *TeacherService) EnrollStudentInCourse(
+	ctx context.Context,
+	tenantID, teacherID, subjectID, studentID string,
+) error {
+	if s.enrollmentStore == nil {
+		return errors.New("enrollment store not configured")
+	}
+	if tenantID == "" || subjectID == "" || studentID == "" {
+		return errors.New("tenant_id, subject_id, and student_id are required")
+	}
+	return s.enrollmentStore.EnrollStudentInCourse(ctx, tenantID, teacherID, subjectID, studentID)
+}
+

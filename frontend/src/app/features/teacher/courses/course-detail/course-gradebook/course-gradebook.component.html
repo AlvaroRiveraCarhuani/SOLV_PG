@@ -23,6 +23,9 @@
     <div class="state-panel">
       <h3 class="state-title">No hay estudiantes matriculados</h3>
       <p class="state-copy">Cuando haya alumnos en la materia, la libreta muestra sus notas por práctica.</p>
+      <button type="button" class="btn-outline mt-3" (click)="enrollRequested.emit()">
+        Agregar primer estudiante
+      </button>
     </div>
   } @else if (exercises().length === 0) {
     <div class="state-panel">

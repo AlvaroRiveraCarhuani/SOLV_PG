@@ -25,9 +25,10 @@ import {
   LucideUploadCloud,
   LucideLoader2,
   LucideCheck,
-  LucideChevronDown
+  LucideChevronDown,
+  LucideUserPlus
 } from '@lucide/angular';
-import { TeacherCourseService } from '../../services/teacher-course.service';
+import { TeacherCourseService, AvailableStudent } from '../../services/teacher-course.service';
 import { TeacherDashboardService } from '../../services/teacher-dashboard.service';
 import { TeacherLabStats, TeacherCourseSummary, TeacherCourseModule } from '../../models/teacher.models';
 import { ConfirmModalComponent } from '@shared/components/confirm-modal/confirm-modal.component';
@@ -36,6 +37,7 @@ import { PlagiarismModalComponent } from '../../evaluations/plagiarism-modal/pla
 import { GradebookExportModalComponent } from './gradebook-export-modal/gradebook-export-modal.component';
 import { CourseGradebookComponent } from './course-gradebook/course-gradebook.component';
 import { ImportExercisesModalComponent } from './import-exercises-modal/import-exercises-modal.component';
+import { EnrollStudentModalComponent } from './enroll-student-modal/enroll-student-modal.component';
 import { DateTextPipe } from '@shared/pipes/date-text.pipe';
 import { ModalShellComponent } from '@shared/components/modal-shell/modal-shell.component';
 import { MachineDataDirective } from '@shared/directives/machine-data.directive';
@@ -98,6 +100,7 @@ export function matchesReviewStatusFilter(
     LucideLoader2,
     LucideCheck,
     LucideChevronDown,
+    LucideUserPlus,
     ModalShellComponent,
     ConfirmModalComponent,
     DateTextPipe,
@@ -108,6 +111,7 @@ export function matchesReviewStatusFilter(
     GradebookExportModalComponent,
     CourseGradebookComponent,
     ImportExercisesModalComponent,
+    EnrollStudentModalComponent,
     ComboboxComponent,
     VerdictBadgeComponent,
     SortHeaderComponent
@@ -160,6 +164,8 @@ export class TeacherCourseDetailComponent implements OnInit {
   showExportModal = signal<boolean>(false);
   isExporting = signal<boolean>(false);
   showImportModal = signal<boolean>(false);
+  showEnrollModal = signal<boolean>(false);
+  enrollSuccessMessage = signal<string | null>(null);
 
   // Módulos
   showCreateModuleModal = signal<boolean>(false);
@@ -500,6 +506,21 @@ export class TeacherCourseDetailComponent implements OnInit {
 
   onExercisesImported(_count: number): void {
     this.loadData();
+  }
+
+  openEnrollModal(): void {
+    this.showEnrollModal.set(true);
+  }
+
+  closeEnrollModal(): void {
+    this.showEnrollModal.set(false);
+  }
+
+  onStudentEnrolled(student: AvailableStudent): void {
+    this.showEnrollModal.set(false);
+    this.enrollSuccessMessage.set(`Estudiante ${student.first_name} ${student.last_name} matriculado exitosamente.`);
+    this.loadData();
+    setTimeout(() => this.enrollSuccessMessage.set(null), 5000);
   }
 }
 

@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, OnInit, computed, inject, input, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, OnInit, computed, inject, input, output, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { TeacherCourseService } from '../../../services/teacher-course.service';
 import { CourseGradesMatrix, StudentGradesRow } from '../../../models/teacher.models';
@@ -20,6 +20,7 @@ import { MachineDataDirective } from '@shared/directives/machine-data.directive'
 })
 export class CourseGradebookComponent implements OnInit {
   readonly subjectId = input.required<string>();
+  readonly enrollRequested = output<void>();
 
   private readonly courseService = inject(TeacherCourseService);
 

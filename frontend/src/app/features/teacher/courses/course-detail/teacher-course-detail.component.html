@@ -40,6 +40,11 @@
         <span>Importar</span>
       </button>
 
+      <button class="btn-outline btn-enroll-student" (click)="openEnrollModal()" title="Agregar estudiante matriculado a la materia">
+        <svg lucideUserPlus class="btn-icon-sm"></svg>
+        <span>Agregar Estudiante</span>
+      </button>
+
       <a [routerLink]="['/teacher/cursos', subjectId(), 'analytics']" class="btn-outline btn-analytics" title="Ver analítica y métricas del curso">
         <svg lucideBarChart3 class="btn-icon-sm"></svg>
         <span>Métricas</span>
@@ -67,6 +72,10 @@
               <svg lucideShieldAlert class="btn-icon-xs"></svg>
               <span>Auditoría Anti-Plagio AST</span>
             </button>
+            <button type="button" class="dropdown-item" (click)="openEnrollModal(); showMoreActions.set(false)">
+              <svg lucideUserPlus class="btn-icon-xs"></svg>
+              <span>Agregar Estudiante</span>
+            </button>
             <button type="button" class="dropdown-item" (click)="openPauseConfirmModal(); showMoreActions.set(false)">
               <svg lucidePauseCircle class="btn-icon-xs text-warning"></svg>
               <span>Pausar Entornos de Clase</span>
@@ -85,6 +94,13 @@
     <div class="success-banner">
       <svg lucideCheckCircle class="success-icon"></svg>
       <span>{{ pauseSuccessMessage() }}</span>
+    </div>
+  }
+
+  @if (enrollSuccessMessage()) {
+    <div class="success-banner animate-fade">
+      <svg lucideCheck class="success-icon"></svg>
+      <span>{{ enrollSuccessMessage() }}</span>
     </div>
   }
 
@@ -368,7 +384,7 @@
   <!-- Contenido: Pestaña Módulos y Currícula -->
   <!-- Contenido: Pestaña Libreta -->
   @if (activeTab() === 'gradebook') {
-    <course-gradebook [subjectId]="subjectId()" />
+    <course-gradebook [subjectId]="subjectId()" (enrollRequested)="openEnrollModal()" />
   }
 
   @if (activeTab() === 'modules') {
@@ -601,6 +617,14 @@
     (closed)="closeImportModal()"
     (imported)="onExercisesImported($event)"
   ></import-exercises-modal>
+}
+
+@if (showEnrollModal()) {
+  <enroll-student-modal
+    [subjectId]="subjectId()"
+    (closed)="closeEnrollModal()"
+    (enrolled)="onStudentEnrolled($event)"
+  ></enroll-student-modal>
 }
 
 

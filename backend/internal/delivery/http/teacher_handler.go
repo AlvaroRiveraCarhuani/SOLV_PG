@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
+	"strings"
 
 	"github.com/google/uuid"
 	"github.com/gorilla/websocket"
@@ -214,3 +215,83 @@ func (h *TeacherHandler) GetLiveSessionsMetrics(w http.ResponseWriter, r *http.R
 
 	SendJSON(w, http.StatusOK, metrics, "Métricas de sesiones en vivo obtenidas exitosamente")
 }
+
+func (h *TeacherHandler) SearchAvailableStudents(w http.ResponseWriter, r *http.Request) {
+	if !hasAnyRole(r, "teacher", "admin") {
+		SendError(w, http.StatusForbidden, "Forbidden", "Acceso denegado: solo docentes y administradores pueden acceder a este recurso")
+		return
+	}
+
+	tenantID := getTenantFromCtx(r)
+	subjectID := r.PathValue("id")
+	if subjectID == "" {
+		SendError(w, http.StatusBadRequest, "Missing subject ID", "El identificador de la materia es requerido")
+		return
+	}
+
+	teacherID := requestUserID(r)
+	if hasAnyRole(r, "admin") {
+		teacherID = ""
+	}
+
+	query := r.URL.Query().Get("q")
+
+	students, err := h.service.SearchAvailableStudents(r.Context(), tenantID, teacherID, subjectID, query)
+	if err != nil {
+		if errors.Is(err, domain.ErrNotFound) {
+			SendError(w, http.StatusNotFound, "Subject not found", "La materia solicitada no existe o no pertenece al docente")
+			return
+		}
+		SendError(w, http.StatusInternalServerError, err.Error(), "Error al buscar estudiantes disponibles")
+		return
+	}
+
+	SendJSON(w, http.StatusOK, students, "Estudiantes disponibles obtenidos exitosamente")
+}
+
+func (h *TeacherHandler) EnrollStudent(w http.ResponseWriter, r *http.Request) {
+	if !hasAnyRole(r, "teacher", "admin") {
+		SendError(w, http.StatusForbidden, "Forbidden", "Acceso denegado: solo docentes y administradores pueden acceder a este recurso")
+		return
+	}
+
+	tenantID := getTenantFromCtx(r)
+	subjectID := r.PathValue("id")
+	if subjectID == "" {
+		SendError(w, http.StatusBadRequest, "Missing subject ID", "El identificador de la materia es requerido")
+		return
+	}
+
+	teacherID := requestUserID(r)
+	if hasAnyRole(r, "admin") {
+		teacherID = ""
+	}
+
+	var req struct {
+		StudentID string `json:"student_id"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		SendError(w, http.StatusBadRequest, "Invalid payload", "Cuerpo de solicitud invalido")
+		return
+	}
+	req.StudentID = strings.TrimSpace(req.StudentID)
+	if req.StudentID == "" {
+		SendError(w, http.StatusBadRequest, "Missing student ID", "El identificador del estudiante es requerido")
+		return
+	}
+
+	if err := h.service.EnrollStudentInCourse(r.Context(), tenantID, teacherID, subjectID, req.StudentID); err != nil {
+		if errors.Is(err, domain.ErrNotFound) {
+			SendError(w, http.StatusNotFound, "Not found", "La materia o el estudiante no existen en la institucion")
+			return
+		}
+		SendError(w, http.StatusInternalServerError, err.Error(), "Error al matricular al estudiante")
+		return
+	}
+
+	SendJSON(w, http.StatusCreated, map[string]string{
+		"student_id": req.StudentID,
+		"subject_id": subjectID,
+	}, "Estudiante matriculado exitosamente")
+}
+

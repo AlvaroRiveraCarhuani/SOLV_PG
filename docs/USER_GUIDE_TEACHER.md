@@ -111,3 +111,14 @@ Para evitar la copia entre estudiantes durante parciales o exámenes finales:
 ### Creación Limpia de Laboratorios
 - Al seleccionar **"Nuevo Laboratorio"**, el editor limpia cualquier borrador anterior no publicado y presenta el formulario en blanco listo para comenzar la configuración pedagógica.
 
+---
+
+## 9. Matrícula de Estudiantes a la Materia
+
+Si un estudiante formalmente inscripto en la institución no figura en la lista de tu curso:
+
+1. **Botón Agregar Estudiante:** Disponible en la cabecera del curso y dentro de la pestaña **Libreta**.
+2. **Búsqueda en el Directorio Institucional:** Escribe al menos 2 caracteres del nombre o correo institucional. El sistema busca exclusivamente en el padrón de alumnos del tenant que aún no pertenezcan a tu curso.
+3. **Inscripción Inmediata:** Selecciona al alumno y pulsa **"Agregar a la materia"**. La matrícula se asocia al instante y el estudiante podrá acceder a las guías y laboratorios de tu curso.
+
+

@@ -1,0 +1,98 @@
+<modal-shell
+  title="Agregar estudiante a la materia"
+  subtitle="Busca en el padrón institucional de estudiantes para matricularlo a tu curso"
+  maxWidth="560px"
+  (close)="closed.emit()"
+>
+  @if (errorMessage()) {
+    <div class="alert alert-error" role="alert">
+      <svg lucideAlertCircle class="alert-icon"></svg>
+      <span>{{ errorMessage() }}</span>
+    </div>
+  }
+
+  <div class="search-section">
+    <label for="student-search-input" class="search-label">
+      Buscar por nombre o correo
+    </label>
+    <div class="search-input-wrapper">
+      <svg lucideSearch class="search-icon"></svg>
+      <input
+        id="student-search-input"
+        type="text"
+        class="search-input"
+        placeholder="Ej. Juan Pérez o apellido@institucion..."
+        [ngModel]="searchQuery()"
+        (ngModelChange)="onSearchChange($event)"
+        autocomplete="off"
+        [disabled]="isEnrolling()"
+      />
+      @if (isSearching()) {
+        <svg lucideLoader2 class="loading-icon motion-spin"></svg>
+      }
+    </div>
+    <p class="search-hint">Ingresa al menos 2 caracteres para consultar el directorio.</p>
+  </div>
+
+  <div class="results-container">
+    @if (isSearching()) {
+      <div class="state-message">
+        <svg lucideLoader2 class="state-icon motion-spin"></svg>
+        <span>Buscando estudiantes disponibles...</span>
+      </div>
+    } @else if (searchQuery().trim().length >= 2 && students().length === 0 && hasSearched()) {
+      <div class="state-message empty-state">
+        <svg lucideUsers class="state-icon text-muted"></svg>
+        <span class="state-title">No se encontraron estudiantes</span>
+        <span class="state-desc">Verifica el nombre o correo. Si ya está matriculado en este curso, no aparecerá aquí.</span>
+      </div>
+    } @else if (students().length > 0) {
+      <div class="students-list" role="listbox" aria-label="Estudiantes encontrados">
+        @for (student of students(); track student.id) {
+          <button
+            type="button"
+            class="student-card"
+            [class.selected]="selectedStudent()?.id === student.id"
+            (click)="selectStudent(student)"
+            [disabled]="isEnrolling()"
+          >
+            <div class="student-info">
+              <span class="student-name">{{ student.first_name }} {{ student.last_name }}</span>
+              <span class="student-email">{{ student.email }}</span>
+            </div>
+            @if (selectedStudent()?.id === student.id) {
+              <span class="selection-badge">
+                <svg lucideCheck class="check-icon"></svg>
+              </span>
+            }
+          </button>
+        }
+      </div>
+    }
+  </div>
+
+  <div class="modal-actions">
+    <button
+      type="button"
+      class="btn-cancel"
+      (click)="closed.emit()"
+      [disabled]="isEnrolling()"
+    >
+      Cancelar
+    </button>
+    <button
+      type="button"
+      class="btn-confirm"
+      [disabled]="!selectedStudent() || isEnrolling()"
+      (click)="confirmEnroll()"
+    >
+      @if (isEnrolling()) {
+        <svg lucideLoader2 class="btn-icon motion-spin"></svg>
+        <span>Matriculando...</span>
+      } @else {
+        <svg lucideUserPlus class="btn-icon"></svg>
+        <span>Agregar a la materia</span>
+      }
+    </button>
+  </div>
+</modal-shell>

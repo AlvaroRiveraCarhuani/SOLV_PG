@@ -602,6 +602,8 @@ func registerTeacherRoutes(mux *http.ServeMux, deps *Handlers) {
 	mux.Handle("GET /api/v1/teacher/courses", tm(http.HandlerFunc(deps.TeacherHandler.GetCourses)))
 	mux.Handle("GET /api/v1/teacher/overview", tm(http.HandlerFunc(deps.TeacherHandler.GetOverview)))
 	mux.Handle("GET /api/v1/teacher/courses/{id}/labs", tm(http.HandlerFunc(deps.TeacherHandler.GetCourseLabs)))
+	mux.Handle("GET /api/v1/teacher/courses/{id}/available-students", tm(http.HandlerFunc(deps.TeacherHandler.SearchAvailableStudents)))
+	mux.Handle("POST /api/v1/teacher/courses/{id}/students", am(tm(http.HandlerFunc(deps.TeacherHandler.EnrollStudent))))
 	mux.Handle("GET /api/v1/teacher/exercises/bank", tm(http.HandlerFunc(deps.TeacherHandler.GetExerciseBank)))
 	mux.Handle("POST /api/v1/teacher/exercises/{id}/duplicate", am(tm(http.HandlerFunc(deps.TeacherHandler.DuplicateExercise))))
 	mux.Handle("GET /api/v1/teacher/reviews", tm(http.HandlerFunc(deps.TeacherHandler.GetReviewQueue)))
