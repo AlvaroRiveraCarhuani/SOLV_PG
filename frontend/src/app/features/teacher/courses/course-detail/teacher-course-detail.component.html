@@ -620,7 +620,7 @@
 }
 
 @if (showEnrollModal()) {
-  <enroll-student-modal
+  <enroll-student-modal animate.leave="motion-modal-out"
     [subjectId]="subjectId()"
     (closed)="closeEnrollModal()"
     (enrolled)="onStudentEnrolled($event)"

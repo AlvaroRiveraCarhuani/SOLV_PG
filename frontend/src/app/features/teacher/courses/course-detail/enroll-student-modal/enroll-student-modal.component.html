@@ -1,19 +1,18 @@
-<modal-shell
+<modal-shell animate.leave="motion-modal-out"
   title="Agregar estudiante a la materia"
   subtitle="Busca en el padrón institucional de estudiantes para matricularlo a tu curso"
   maxWidth="560px"
   (close)="closed.emit()"
 >
-  @if (errorMessage()) {
-    <div class="alert alert-error" role="alert">
-      <svg lucideAlertCircle class="alert-icon"></svg>
-      <span>{{ errorMessage() }}</span>
-    </div>
+  <svg modal-icon lucideUserPlus class="modal-icon"></svg>
+
+  @if (errorMessage(); as error) {
+    <field-message variant="error" [message]="error" />
   }
 
   <div class="search-section">
     <label for="student-search-input" class="search-label">
-      Buscar por nombre o correo
+      Buscar estudiante en el padrón
     </label>
     <div class="search-input-wrapper">
       <svg lucideSearch class="search-icon"></svg>
@@ -21,7 +20,7 @@
         id="student-search-input"
         type="text"
         class="search-input"
-        placeholder="Ej. Juan Pérez o apellido@institucion..."
+        placeholder="Ej. Juan Pérez o alumno@institucion.edu"
         [ngModel]="searchQuery()"
         (ngModelChange)="onSearchChange($event)"
         autocomplete="off"
@@ -29,25 +28,56 @@
       />
       @if (isSearching()) {
         <svg lucideLoader2 class="loading-icon motion-spin"></svg>
+      } @else if (searchQuery().length > 0) {
+        <button
+          type="button"
+          class="btn-clear"
+          (click)="clearSearch()"
+          title="Limpiar búsqueda"
+          aria-label="Limpiar búsqueda"
+        >
+          <svg lucideX class="clear-icon"></svg>
+        </button>
       }
     </div>
-    <p class="search-hint">Ingresa al menos 2 caracteres para consultar el directorio.</p>
+    <span class="search-hint">Ingresa al menos 2 caracteres para consultar el directorio institucional.</span>
   </div>
 
   <div class="results-container">
     @if (isSearching()) {
-      <div class="state-message">
+      <div class="state-container">
         <svg lucideLoader2 class="state-icon motion-spin"></svg>
-        <span>Buscando estudiantes disponibles...</span>
+        <p class="state-title">Buscando estudiantes disponibles...</p>
+        <p class="state-desc">Consultando el directorio del tenant</p>
       </div>
-    } @else if (searchQuery().trim().length >= 2 && students().length === 0 && hasSearched()) {
-      <div class="state-message empty-state">
-        <svg lucideUsers class="state-icon text-muted"></svg>
-        <span class="state-title">No se encontraron estudiantes</span>
-        <span class="state-desc">Verifica el nombre o correo. Si ya está matriculado en este curso, no aparecerá aquí.</span>
+    } @else if (!hasSearched() && searchQuery().trim().length < 2) {
+      <div class="state-container initial-state">
+        <div class="state-icon-circle">
+          <svg lucideSearch class="state-icon"></svg>
+        </div>
+        <p class="state-title">Directorio institucional</p>
+        <p class="state-desc">
+          Escribe el nombre, apellido o correo institucional para listar estudiantes no matriculados en este curso.
+        </p>
+      </div>
+    } @else if (hasSearched() && students().length === 0) {
+      <div class="state-container empty-state">
+        <div class="state-icon-circle">
+          <svg lucideUsers class="state-icon"></svg>
+        </div>
+        <p class="state-title">Sin resultados en el padrón</p>
+        <p class="state-desc">
+          No se encontraron estudiantes disponibles. Si el estudiante ya pertenece a este curso, no aparecerá aquí.
+        </p>
       </div>
     } @else if (students().length > 0) {
-      <div class="students-list" role="listbox" aria-label="Estudiantes encontrados">
+      <div class="results-header">
+        <span class="results-count">
+          {{ students().length }} {{ students().length === 1 ? 'estudiante encontrado' : 'estudiantes encontrados' }}
+        </span>
+        <span class="results-hint">Selecciona uno para matricular</span>
+      </div>
+      <div class="students-list" role="listbox" aria-label="Estudiantes disponibles">
         @for (student of students(); track student.id) {
           <button
             type="button"
@@ -55,26 +85,35 @@
             [class.selected]="selectedStudent()?.id === student.id"
             (click)="selectStudent(student)"
             [disabled]="isEnrolling()"
+            role="option"
+            [attr.aria-selected]="selectedStudent()?.id === student.id"
           >
+            <div class="student-avatar" aria-hidden="true">
+              {{ getInitials(student.first_name, student.last_name) }}
+            </div>
             <div class="student-info">
               <span class="student-name">{{ student.first_name }} {{ student.last_name }}</span>
-              <span class="student-email">{{ student.email }}</span>
+              <span class="student-email font-mono">{{ student.email }}</span>
             </div>
-            @if (selectedStudent()?.id === student.id) {
-              <span class="selection-badge">
-                <svg lucideCheck class="check-icon"></svg>
-              </span>
-            }
+            <div class="selection-indicator">
+              @if (selectedStudent()?.id === student.id) {
+                <div class="selection-badge">
+                  <svg lucideCheck class="check-icon"></svg>
+                </div>
+              } @else {
+                <div class="radio-placeholder"></div>
+              }
+            </div>
           </button>
         }
       </div>
     }
   </div>
 
-  <div class="modal-actions">
+  <ng-container modal-footer>
     <button
       type="button"
-      class="btn-cancel"
+      class="btn btn-outline"
       (click)="closed.emit()"
       [disabled]="isEnrolling()"
     >
@@ -82,17 +121,17 @@
     </button>
     <button
       type="button"
-      class="btn-confirm"
+      class="btn btn-primary"
       [disabled]="!selectedStudent() || isEnrolling()"
       (click)="confirmEnroll()"
     >
       @if (isEnrolling()) {
-        <svg lucideLoader2 class="btn-icon motion-spin"></svg>
+        <svg lucideLoader2 class="motion-spin"></svg>
         <span>Matriculando...</span>
       } @else {
-        <svg lucideUserPlus class="btn-icon"></svg>
+        <svg lucideUserPlus></svg>
         <span>Agregar a la materia</span>
       }
     </button>
-  </div>
+  </ng-container>
 </modal-shell>

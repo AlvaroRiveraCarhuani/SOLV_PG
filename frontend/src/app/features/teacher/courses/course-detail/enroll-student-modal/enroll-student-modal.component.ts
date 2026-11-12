@@ -13,10 +13,11 @@ import {
   LucideUserPlus,
   LucideUsers,
   LucideCheck,
-  LucideAlertCircle,
-  LucideLoader2
+  LucideLoader2,
+  LucideX
 } from '@lucide/angular';
 import { ModalShellComponent } from '@shared/components/modal-shell/modal-shell.component';
+import { FieldMessageComponent } from '@shared/components/field-message/field-message.component';
 import { TeacherCourseService, AvailableStudent } from '../../../services/teacher-course.service';
 
 @Component({
@@ -29,9 +30,10 @@ import { TeacherCourseService, AvailableStudent } from '../../../services/teache
     LucideUserPlus,
     LucideUsers,
     LucideCheck,
-    LucideAlertCircle,
     LucideLoader2,
-    ModalShellComponent
+    LucideX,
+    ModalShellComponent,
+    FieldMessageComponent
   ],
   templateUrl: './enroll-student-modal.component.html',
   styleUrl: './enroll-student-modal.component.scss',
@@ -75,6 +77,16 @@ export class EnrollStudentModalComponent {
     this.searchTimeout = setTimeout(() => {
       this.performSearch(trimmed);
     }, 300);
+  }
+
+  clearSearch(): void {
+    this.onSearchChange('');
+  }
+
+  getInitials(firstName: string, lastName: string): string {
+    const first = firstName?.trim().charAt(0) || '';
+    const last = lastName?.trim().charAt(0) || '';
+    return (first + last).toUpperCase() || '?';
   }
 
   performSearch(query: string): void {
