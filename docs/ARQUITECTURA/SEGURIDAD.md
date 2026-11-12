@@ -3,7 +3,9 @@
 ## 1. Terminación TLS y Seguridad de Red
 - **Cifrado en Tránsito:** Todo el tráfico HTTP hacia la plataforma `solv.dedyn.io` y los subdominios `*.solv.dedyn.io` es redirigido automáticamente a HTTPS (puerto 443) mediante Traefik v3.
 - **Certificados TLS:** Certificado Wildcard renovado automáticamente vía desafío ACME DNS-01 utilizando la API de `desec.io`.
-- **Aislamiento Inter-Contenedor (ICC):** Red Docker `solv_net` aislada. Los contenedores de ejecución de código arbitrario no poseen acceso a la red (`NetworkMode: "none"`).
+- **Aislamiento Inter-Contenedor (ICC):** Redes Docker dedicadas y segmentación por tipo de entorno:
+  - Los contenedores de evaluación de código arbitrario del Juez Virtual (`JUEZ_EFIMERO`) operan bajo sandbox estricto sin acceso a red (`NetworkMode: "none"`).
+  - Los entornos interactivos de desarrollo (`IDE_PERSISTENTE`) se conectan a la red interna para publicar su servidor web exclusivamente a través del proxy inverso y comunicarse con la API de la plataforma (`host.docker.internal:host-gateway`), manteniendo activo el aislamiento de privilegios.
 
 ## 2. Politicas de Endurecimiento en Runtimes Docker
 - **No-New-Privileges:** Todos los contenedores levantados por la plataforma (`StartContainer` y `StartEnvironmentContainer`) incluyen la directiva de seguridad:

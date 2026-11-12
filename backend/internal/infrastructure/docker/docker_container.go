@@ -25,9 +25,10 @@ const (
 	environmentServerPort = "3000/tcp"
 
 	// pureRuntimePracticeEnvironmentCmd se usa en imágenes que no traen OpenVSCode: prepara el
-	// environment, ejecuta el setup_script de la plantilla una sola vez y arranca
-	// OpenVSCode abriendo directamente el directorio del proyecto.
-	pureRuntimePracticeEnvironmentCmd = `mkdir -p /home/workspace && chmod 0777 /home/workspace && if [ -n "$SOLV_SETUP_SCRIPT" ] && [ ! -f /home/workspace/.solv_initialized ]; then sh -c "$SOLV_SETUP_SCRIPT" > /home/workspace/.solv_setup.log 2>&1; touch /home/workspace/.solv_initialized; fi && if [ -x /home/.openvscode-server/bin/openvscode-server ]; then exec /home/.openvscode-server/bin/openvscode-server --without-connection-token --host 0.0.0.0 --port 3000 --default-folder /home/workspace --extensions-dir /home/.openvscode-server/extensions; else exec sleep infinity; fi`
+	// environment, asegura el directorio de extensiones de usuario del workspace,
+	// ejecuta el setup_script de la plantilla una sola vez y arranca OpenVSCode
+	// abriendo directamente el directorio del proyecto y aislando las extensiones del alumno.
+	pureRuntimePracticeEnvironmentCmd = `mkdir -p /home/workspace/.vscode/extensions && chmod 0777 /home/workspace && if [ -n "$SOLV_SETUP_SCRIPT" ] && [ ! -f /home/workspace/.solv_initialized ]; then sh -c "$SOLV_SETUP_SCRIPT" > /home/workspace/.solv_setup.log 2>&1; touch /home/workspace/.solv_initialized; fi && if [ -x /home/.openvscode-server/bin/openvscode-server ]; then exec /home/.openvscode-server/bin/openvscode-server --without-connection-token --host 0.0.0.0 --port 3000 --default-folder /home/workspace --extensions-dir /home/workspace/.vscode/extensions; else exec sleep infinity; fi`
 )
 
 // imageShipsOpenVSCode detecta si la imagen trae el servidor OpenVSCode como
@@ -216,14 +217,16 @@ func (c *Client) StartPracticeEnvironmentContainer(ctx context.Context, config d
 	}
 
 	if shipsOpenVSCode {
-		// El entrypoint de la imagen ya es el binario: solo se le pasan flags.
+		// En imágenes derivadas de openvscode-server, preparamos el directorio de
+		// extensiones del workspace antes de delegar en el servidor para evitar que el
+		// observador de archivos de VS Code falle sobre un volumen nuevo sin inicializar.
 		containerConfig.User = "1000:1000"
+		containerConfig.Entrypoint = []string{"/bin/sh", "-c", "mkdir -p /home/workspace/.vscode/extensions && exec /home/.openvscode-server/bin/openvscode-server --host 0.0.0.0 \"$@\"", "--"}
 		containerConfig.Cmd = []string{
 			"--without-connection-token",
-			"--host", "0.0.0.0",
 			"--port", "3000",
 			"--default-folder", "/home/workspace",
-			"--extensions-dir", "/home/.openvscode-server/extensions",
+			"--extensions-dir", "/home/workspace/.vscode/extensions",
 		}
 	} else {
 		// Runtime puro (python, node, solv-local/stack): NO se le pasa

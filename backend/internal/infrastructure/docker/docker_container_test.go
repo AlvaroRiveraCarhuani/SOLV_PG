@@ -105,8 +105,11 @@ func TestIsPracticeEnvironmentManagedContainer(t *testing.T) {
 }
 
 func TestPureRuntimePracticeEnvironmentCmd_IncludesExtensionsDir(t *testing.T) {
-	if !strings.Contains(pureRuntimePracticeEnvironmentCmd, `--extensions-dir /home/.openvscode-server/extensions`) {
-		t.Errorf("esperado flag --extensions-dir en arranque de openvscode-server")
+	if !strings.Contains(pureRuntimePracticeEnvironmentCmd, `--extensions-dir /home/workspace/.vscode/extensions`) {
+		t.Errorf("esperado flag --extensions-dir /home/workspace/.vscode/extensions en arranque de openvscode-server")
+	}
+	if !strings.Contains(pureRuntimePracticeEnvironmentCmd, `mkdir -p /home/workspace/.vscode/extensions`) {
+		t.Errorf("esperado aseguramiento del directorio de extensiones de usuario")
 	}
 }
 
