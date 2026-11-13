@@ -3,6 +3,7 @@ package postgres
 import (
 	"context"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/jmoiron/sqlx"
@@ -109,7 +110,61 @@ func (r *PostgresExerciseRepository) GetByIDAndTenant(ctx context.Context, id, t
 		exercise.Config.Algorithm.TestCases = testCases
 	}
 
+	r.loadDBInitScript(ctx, &exercise)
+
 	return &exercise, nil
+}
+
+// loadDBInitScript reconstruye el script de inicialización desde su tabla. El config
+// persistido ya no lo contiene (ADR-073), así que la lectura por id es el punto donde el
+// ejercicio vuelve a estar completo para el editor docente y para el arranque del
+// laboratorio. Se mantiene el espejo histórico config.database.init_script para no
+// romper a los consumidores que todavía lo consultan.
+func (r *PostgresExerciseRepository) loadDBInitScript(ctx context.Context, exercise *domain.Exercise) {
+	if exercise == nil {
+		return
+	}
+	var content string
+	if err := r.db.GetContext(ctx, &content, `SELECT content FROM exercise_db_init_scripts WHERE exercise_id = $1`, exercise.ID); err != nil {
+		return
+	}
+	if strings.TrimSpace(content) == "" {
+		return
+	}
+	if exercise.Config.IDE == nil {
+		exercise.Config.IDE = &domain.IDEConfig{}
+	}
+	exercise.Config.IDE.DBInitScript = content
+	if exercise.Config.Database != nil {
+		exercise.Config.Database.InitScript = content
+	}
+}
+
+// saveDBInitScript persiste el script de inicialización en su propia tabla. Un script
+// vacío elimina la fila: el docente puede volver a dejar la práctica sin inicialización
+// sin que quede el contenido anterior.
+func (r *PostgresExerciseRepository) saveDBInitScript(ctx context.Context, tx *sqlx.Tx, exercise *domain.Exercise) error {
+	script := ""
+	if exercise.Config.IDE != nil {
+		script = strings.TrimSpace(exercise.Config.IDE.DBInitScript)
+	}
+	if script == "" {
+		if _, err := tx.ExecContext(ctx, `DELETE FROM exercise_db_init_scripts WHERE exercise_id = $1`, exercise.ID); err != nil {
+			return fmt.Errorf("failed to clear db_init_script for %s: %w", exercise.ID, err)
+		}
+		return nil
+	}
+
+	_, err := tx.ExecContext(ctx, `
+		INSERT INTO exercise_db_init_scripts (exercise_id, content, byte_size)
+		VALUES ($1, $2, $3)
+		ON CONFLICT (exercise_id) DO UPDATE
+		SET content = EXCLUDED.content, byte_size = EXCLUDED.byte_size, updated_at = NOW()
+	`, exercise.ID, script, len(script))
+	if err != nil {
+		return fmt.Errorf("failed to save db_init_script for %s: %w", exercise.ID, err)
+	}
+	return nil
 }
 
 func (r *PostgresExerciseRepository) Create(ctx context.Context, exercise *domain.Exercise) error {
@@ -161,6 +216,10 @@ func (r *PostgresExerciseRepository) Create(ctx context.Context, exercise *domai
 	_, err = tx.NamedExecContext(ctx, query, exercise)
 	if err != nil {
 		return fmt.Errorf("failed to create exercise: %w", err)
+	}
+
+	if err := r.saveDBInitScript(ctx, tx, exercise); err != nil {
+		return err
 	}
 
 	if exercise.Config.Algorithm != nil && len(exercise.Config.Algorithm.TestCases) > 0 {
@@ -234,6 +293,10 @@ func (r *PostgresExerciseRepository) Update(ctx context.Context, exercise *domai
 	rows, _ := res.RowsAffected()
 	if rows == 0 {
 		return fmt.Errorf("exercise %s not found in tenant", exercise.ID)
+	}
+
+	if err := r.saveDBInitScript(ctx, tx, exercise); err != nil {
+		return err
 	}
 
 	if exercise.Config.Algorithm != nil && len(exercise.Config.Algorithm.TestCases) > 0 {

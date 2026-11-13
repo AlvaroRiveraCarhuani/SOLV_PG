@@ -204,11 +204,11 @@ type AlgorithmConfig struct {
 }
 
 type DatabaseConfig struct {
-	Engine            string `json:"engine"`             // e.g. "postgres"
-	InitScript        string `json:"init_script"`        // DDL / DML previo
-	ReferenceSolution string `json:"reference_solution"` // Solución de referencia del docente
-	ValidationQuery   string `json:"validation_query"`   // Query para extraer el estado resultante
-	ExpectedJSON      string `json:"expected_json"`      // JSON de referencia (autogenerado vía Dry Run)
+	Engine            string `json:"engine"`                // e.g. "postgres"
+	InitScript        string `json:"init_script,omitempty"` // DDL / DML previo (vive en exercise_db_init_scripts, ADR-073)
+	ReferenceSolution string `json:"reference_solution"`    // Solución de referencia del docente
+	ValidationQuery   string `json:"validation_query"`      // Query para extraer el estado resultante
+	ExpectedJSON      string `json:"expected_json"`         // JSON de referencia (autogenerado vía Dry Run)
 	TimeLimitMS       int    `json:"time_limit_ms"`
 	MemoryLimitMB     int    `json:"memory_limit_mb"`
 }
@@ -231,8 +231,29 @@ type ExerciseConfig struct {
 	InputFormat json.RawMessage  `json:"input_format,omitempty"`
 }
 
+// Value persiste el config sin los scripts de inicialización. Desde ADR-073 el texto
+// del script vive en exercise_db_init_scripts: la columna config deja de cargar con el
+// contenido completo del docente en cada lectura del ejercicio.
 func (ec ExerciseConfig) Value() (driver.Value, error) {
-	return json.Marshal(ec)
+	return json.Marshal(ec.withoutInitScripts())
+}
+
+// withoutInitScripts devuelve una copia del config con los scripts de inicialización en
+// blanco. Copia los punteros que toca para no modificar el ejercicio del llamador, que
+// sigue usando el texto en memoria durante el guardado y el arranque del laboratorio.
+func (ec ExerciseConfig) withoutInitScripts() ExerciseConfig {
+	sanitized := ec
+	if ec.IDE != nil {
+		ide := *ec.IDE
+		ide.DBInitScript = ""
+		sanitized.IDE = &ide
+	}
+	if ec.Database != nil {
+		database := *ec.Database
+		database.InitScript = ""
+		sanitized.Database = &database
+	}
+	return sanitized
 }
 
 func (ec *ExerciseConfig) Scan(value interface{}) error {
