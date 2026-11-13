@@ -32,6 +32,35 @@ export interface StatusInfo {
   kind: 'success' | 'info' | 'error';
 }
 
+/**
+ * Catálogo de acciones de dominio ya persistidas (auditoría histórica).
+ * La clave es el identificador técnico que guarda el backend y no se
+ * modifica; sólo se traduce el texto que ve el administrador.
+ */
+const AUDIT_ACTION_LABELS: Record<string, string> = {
+  CLASS_ADVANCE_APPLIED: 'Avance de clase aplicado',
+  CLASS_ADVANCE_EMITTED: 'Avance de clase emitido',
+  CLASS_ADVANCE_DISMISSED: 'Avance de clase descartado',
+  EXERCISE_CREATED: 'Ejercicio creado',
+  EXERCISE_PUBLISHED: 'Ejercicio publicado',
+  EVALUATOR_RUN: 'Evaluador ejecutado',
+  GRADES_EXPORTED: 'Calificaciones exportadas',
+  SUBMISSION_REVIEWED: 'Entrega revisada',
+  SUBMISSION_OVERRIDDEN: 'Nota de entrega modificada',
+  SUBMISSION_COMMENTED: 'Comentario en entrega',
+  COURSE_WORKSPACES_PAUSED: 'Espacios de materia pausados',
+  EMERGENCY_HIBERNATE_ALL: 'Emergencia: hibernación total',
+  EMERGENCY_TERMINATE_ALL: 'Emergencia: terminación de todos los entornos',
+  EMERGENCY_KILL_ZOMBIES: 'Emergencia: limpieza de contenedores huérfanos',
+  EMERGENCY_PRUNE_DOCKER: 'Emergencia: depuración de Docker',
+  EMERGENCY_RESET_POOLS: 'Emergencia: reinicio de pools'
+};
+
+/** Traduce una constante de dominio conocida; conserva el crudo como respaldo. */
+export function auditActionLabel(action: string): string {
+  return AUDIT_ACTION_LABELS[action] ?? humanizeConstant(action);
+}
+
 /** Traduce la acción técnica (verbo + ruta o constante) a evento legible. */
 export function enrichAction(action: string): EnrichedAction {
   if (action.startsWith('POST')) {
@@ -43,7 +72,7 @@ export function enrichAction(action: string): EnrichedAction {
   if (action.startsWith('DELETE')) {
     return { label: 'Eliminación', kind: 'delete' };
   }
-  return { label: humanizeConstant(action), kind: 'other' };
+  return { label: auditActionLabel(action), kind: 'other' };
 }
 
 /** Convierte constantes de dominio (EMERGENCY_*) a texto legible. */
