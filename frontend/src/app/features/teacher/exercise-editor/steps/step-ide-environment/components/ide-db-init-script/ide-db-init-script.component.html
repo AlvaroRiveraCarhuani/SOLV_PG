@@ -1,22 +1,143 @@
 @if (hasDatabaseService()) {
   <section class="card-section">
-    <div class="title-with-icon">
-      <svg lucideDatabase class="header-icon"></svg>
-      <h3 class="card-title">Script inicial de base de datos</h3>
+    <div class="header-row">
+      <div class="title-with-icon">
+        <svg lucideDatabase class="header-icon"></svg>
+        <h3 class="card-title">
+          Script inicial de base de datos
+          <span class="scope-badge">Exclusivo de esta práctica</span>
+        </h3>
+      </div>
+      @if (hasContent()) {
+        <div class="header-actions">
+          <button
+            type="button"
+            class="btn-ghost-action"
+            (click)="fileInput.click()"
+            title="Cargar otro archivo .sql para reemplazar el actual"
+          >
+            <svg lucideFileUp class="btn-icon"></svg>
+            <span>Reemplazar</span>
+          </button>
+          <button
+            type="button"
+            class="btn-ghost-action"
+            (click)="downloadScript()"
+            title="Descargar este script en tu equipo"
+          >
+            <svg lucideDownload class="btn-icon"></svg>
+            <span>Descargar</span>
+          </button>
+          <button
+            type="button"
+            class="btn-danger-ghost"
+            (click)="clearScript()"
+            title="Limpiar y eliminar este script"
+          >
+            <svg lucideTrash2 class="btn-icon"></svg>
+            <span>Limpiar</span>
+          </button>
+        </div>
+      }
     </div>
+
     <p class="section-desc">
-      Sentencias SQL para crear tablas o cargar datos al iniciar el laboratorio.
+      Sentencias SQL para crear tablas o precargar datos exclusivos de este ejercicio. Se ejecutarán una sola vez en la base de datos de cada alumno al iniciar esta actividad.
     </p>
 
+    <div class="scope-note">
+      <svg lucideInfo class="scope-note-icon"></svg>
+      <p class="scope-note-text">
+        La base de datos es la misma durante toda la materia: lo que crea esta práctica queda disponible en las siguientes. Este script se aplica una sola vez, al inicio de esta práctica.
+      </p>
+    </div>
+
+    <input
+      #fileInput
+      type="file"
+      class="hidden-file-input"
+      accept=".sql,.txt,.js"
+      (change)="onFileSelected($event)"
+    />
+
+    @if (errorMessage(); as err) {
+      <div class="alert-box alert-warning">
+        <svg lucideAlertTriangle class="alert-icon"></svg>
+        <span class="alert-text">{{ err }}</span>
+      </div>
+    }
+
+    <!-- Zona de carga / Drag & Drop -->
+    <div
+      class="dropzone-strip"
+      [class.is-drag-over]="isDragging()"
+      (dragover)="onDragOver($event)"
+      (dragleave)="onDragLeave($event)"
+      (drop)="onDrop($event)"
+    >
+      <div class="dropzone-left">
+        <svg lucideUploadCloud class="dropzone-icon"></svg>
+        <div class="dropzone-texts">
+          <span class="dropzone-label">Cargar archivo .sql de la práctica</span>
+          <span class="dropzone-sub">Arrastrá tu archivo aquí o seleccionalo desde tu equipo (hasta 2 MiB recomendados)</span>
+        </div>
+      </div>
+      <button
+        type="button"
+        class="btn-outline-action"
+        (click)="fileInput.click()"
+      >
+        <svg lucideFileUp class="btn-icon"></svg>
+        <span>Seleccionar archivo .sql</span>
+      </button>
+    </div>
+
+    <!-- Barra de Metadatos del Script Cargado -->
+    @if (hasContent()) {
+      <div class="script-meta-bar">
+        <div class="script-identity">
+          <svg lucideFileCode class="script-file-icon"></svg>
+          <span class="script-filename font-mono" machineData>{{ fileName() || 'script_personalizado.sql' }}</span>
+        </div>
+        <div class="script-chips-row">
+          <span class="meta-chip">
+            <span class="chip-label">Tamaño:</span>
+            <strong class="font-mono" machineData>{{ formattedSize() }}</strong>
+          </span>
+          <span class="meta-chip">
+            <span class="chip-label">Líneas:</span>
+            <strong class="font-mono" machineData>{{ lineCount() }}</strong>
+          </span>
+          <span class="meta-chip">
+            <span class="chip-label">Sentencias aprox.:</span>
+            <strong class="font-mono" machineData>{{ approxStatementsCount() }}</strong>
+          </span>
+        </div>
+      </div>
+    }
+
+    @if (isOversized()) {
+      <div class="alert-box alert-warning">
+        <svg lucideAlertTriangle class="alert-icon"></svg>
+        <span class="alert-text">
+          El script supera los 2 MiB recomendados (<strong class="font-mono" machineData>{{ formattedSize() }}</strong>).
+          Puede provocar lentitud al aprovisionar la base de datos de cada alumno.
+        </span>
+      </div>
+    }
+
+    <!-- Editor de Texto compatible con E2E y edición manual -->
     <div class="form-group">
       <textarea
         class="form-textarea font-mono"
         rows="8"
         placeholder="CREATE TABLE usuarios (id SERIAL PRIMARY KEY, nombre VARCHAR(100));&#10;INSERT INTO usuarios (nombre) VALUES ('Admin');"
         [ngModel]="dbInitScript()"
-        (ngModelChange)="initScriptChange.emit($event)"
+        (ngModelChange)="onTextareaChange($event)"
       ></textarea>
-      <span class="field-hint">Sentencias separadas por punto y coma (;).</span>
+      <span class="field-hint">
+        Sentencias separadas por punto y coma (;). El contenido de este script pertenece únicamente a este ejercicio.
+      </span>
     </div>
   </section>
 }
