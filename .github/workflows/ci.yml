@@ -350,13 +350,13 @@ jobs:
       - name: Run selected integration tests
         run: |
           set -o pipefail
-          node tools/test-impact/run.mjs --partial --suite backend-integration --if-selected --plan impact-plan.json --report impact-report-backend-integration.json 2>&1 | tee integration-tests.log
+          node tools/test-impact/run.mjs --partial --suite backend-integration --if-selected --plan impact-plan.json --report impact-report-backend-integration.json 2>&1 | tee "$RUNNER_TEMP/integration-tests.log"
 
       - name: Annotate integration failures
         if: failure()
         run: |
-          if [ -f integration-tests.log ]; then
-            tail -10 integration-tests.log | while IFS= read -r line; do
+          if [ -f "$RUNNER_TEMP/integration-tests.log" ]; then
+            tail -10 "$RUNNER_TEMP/integration-tests.log" | while IFS= read -r line; do
               echo "::error title=Integración::$line"
             done
           fi
