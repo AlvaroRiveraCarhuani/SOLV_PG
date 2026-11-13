@@ -72,6 +72,11 @@ export interface ApprovedTemplate {
             [hasDatabaseService]="true"
             (initScriptChange)="onInitScriptChange($event)"
           />
+          @if (store.status() === 'published' && store.metadata().db_init_script?.trim()) {
+            <p class="script-published-note">
+              Los alumnos que ya abrieron la práctica conservan su base actual; los nuevos reciben esta versión del script. Podés reiniciar la base de un alumno desde la página de la práctica.
+            </p>
+          }
         </section>
       }
 

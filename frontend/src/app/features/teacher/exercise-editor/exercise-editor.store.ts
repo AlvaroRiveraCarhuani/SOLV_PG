@@ -417,15 +417,7 @@ export class ExerciseEditorStore {
       if (!m.template_id) {
         list.push('Seleccionar un entorno tecnológico (stack) para el laboratorio.');
       }
-      const rub = this.rubric();
-      if (!rub || !rub.criteria || rub.criteria.length === 0) {
-        list.push('Definir al menos un criterio de evaluación en la rúbrica.');
-      } else {
-        const totalWeight = rub.criteria.reduce((sum, c) => sum + (c.weight || 0), 0);
-        if (Math.abs(totalWeight - 100) > 0.01) {
-          list.push(`Ajustar la ponderación de la rúbrica: suma ${totalWeight}%, debe sumar exactamente 100%.`);
-        }
-      }
+      // La rúbrica es opcional: sin criterios se califica a mano. No bloquea publicar.
     } else {
       if (!m.language) {
         list.push('Seleccionar un lenguaje de ejecución.');
@@ -505,11 +497,11 @@ export class ExerciseEditorStore {
 
       const rub = this.rubric();
       if (!rub || !rub.criteria || rub.criteria.length === 0) {
-        warnings.push('Rúbrica de evaluación no definida para este laboratorio.');
+        info.push('Rúbrica opcional: sin criterios definidos, la práctica se califica a mano.');
       } else {
         const totalWeight = rub.criteria.reduce((sum, c) => sum + (c.weight || 0), 0);
         if (Math.abs(totalWeight - 100) > 0.01) {
-          errors.push(`La suma de pesos de la rúbrica es ${totalWeight}%. Debe ser exactamente 100%.`);
+          warnings.push(`La suma de pesos de la rúbrica es ${totalWeight}%; conviene ajustarla a 100% para que las notas cierren.`);
         } else {
           info.push(`Rúbrica configurada correctamente (${rub.criteria.length} criterios, 100% peso).`);
         }

@@ -155,10 +155,10 @@ export class PublicationChecklistComponent {
           stepTarget = 2;
           targetElementId = 'due-date-section';
           actionLabel = 'Fijar Fecha (Paso 2)';
-        } else if (msg.includes('rúbrica')) {
+        } else if (msg.includes('peso') || msg.includes('rúbrica')) {
           stepTarget = 2;
           targetElementId = 'rubric-section';
-          actionLabel = 'Definir Rúbrica (Paso 2)';
+          actionLabel = 'Ajustar Rúbrica (Paso 2)';
         } else {
           stepTarget = 1;
           targetElementId = 'exercise-title';

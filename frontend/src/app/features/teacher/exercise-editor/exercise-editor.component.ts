@@ -1,4 +1,4 @@
-import { Component, OnInit, computed, inject, input, signal } from '@angular/core';
+import { Component, OnDestroy, OnInit, computed, inject, input, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterLink, ActivatedRoute, Router } from '@angular/router';
 import {
@@ -8,7 +8,8 @@ import {
   LucideTrash2,
   LucideGlobe,
   LucideLoader2,
-  LucideSparkles
+  LucideSparkles,
+  LucideTerminal
 } from '@lucide/angular';
 import { ExerciseEditorStore } from './exercise-editor.store';
 import { StepIdentityComponent } from './steps/step-identity/step-identity.component';
@@ -22,6 +23,9 @@ import { ModalShellComponent } from '@shared/components/modal-shell/modal-shell.
 import { TeacherAiCopilotService, AIGenerateExerciseResponse } from '../services/teacher-ai-copilot.service';
 import { TeacherDashboardService } from '../services/teacher-dashboard.service';
 import { TeacherCourseService } from '../services/teacher-course.service';
+import { PracticeEnvTestService } from '../services/practice-env-test.service';
+import { PracticeEnvTestJob } from '../models/practice-env-test.models';
+import { Subscription, catchError, of } from 'rxjs';
 
 @Component({
   selector: 'exercise-editor',
@@ -36,6 +40,7 @@ import { TeacherCourseService } from '../services/teacher-course.service';
     LucideGlobe,
     LucideLoader2,
     LucideSparkles,
+    LucideTerminal,
     StepIdentityComponent,
     StepContractComponent,
     StepIdeEnvironmentComponent,
@@ -84,6 +89,24 @@ import { TeacherCourseService } from '../services/teacher-course.service';
         </div>
 
         <div class="topbar-actions">
+          @if (store.isIde() && store.exerciseId()) {
+            <button
+              type="button"
+              class="btn-outline env-test-btn"
+              [disabled]="isEnvTestRunning()"
+              (click)="runEnvTest()"
+              title="Ejecuta el entorno real, incluido el script de base de datos, como lo verá el alumno"
+            >
+              @if (isEnvTestRunning()) {
+                <svg lucideLoader2 class="btn-icon motion-spin"></svg>
+                <span>Probando...</span>
+              } @else {
+                <svg lucideTerminal class="btn-icon"></svg>
+                <span>Probar entorno</span>
+              }
+            </button>
+          }
+
           <button
             type="button"
             class="btn-outline preview-btn"
@@ -138,6 +161,24 @@ import { TeacherCourseService } from '../services/teacher-course.service';
           }
         </div>
       </header>
+
+      @if (store.status() === 'published') {
+        <div class="published-edit-banner" role="status">
+          <svg lucideGlobe class="banner-icon"></svg>
+          <span>Esta práctica está publicada: cada cambio que guardes se aplica a los alumnos al instante.</span>
+        </div>
+      }
+
+      @if (store.isIde() && (envTestJob() || envTestError())) {
+        <div
+          class="env-test-strip"
+          [class.failed]="envTestJob()?.status === 'failed' || !!envTestError()"
+          [class.success]="envTestJob()?.status === 'success'"
+          role="status"
+        >
+          <span>{{ envTestSummary() }}</span>
+        </div>
+      }
 
       <!-- Lienzo único: la práctica se completa en una sola pasada -->
       <main class="editor-columns-grid">
@@ -209,7 +250,7 @@ import { TeacherCourseService } from '../services/teacher-course.service';
       @if (store.showPublishConfirmModal()) {
         <confirm-modal
           title="Publicar práctica"
-          [message]="'¿Confirmas publicar «' + (store.metadata().title || 'este ejercicio') + '»? Quedará visible inmediatamente para todos los estudiantes inscritos en el curso.'"
+          [message]="publishMessage()"
           confirmText="Publicar ahora"
           cancelText="Cancelar"
           type="primary"
@@ -244,8 +285,9 @@ import { TeacherCourseService } from '../services/teacher-course.service';
   `,
   styleUrl: './exercise-editor.component.scss'
 })
-export class ExerciseEditorComponent implements OnInit {
+export class ExerciseEditorComponent implements OnInit, OnDestroy {
   readonly store = inject(ExerciseEditorStore);
+  private readonly practiceEnvTest = inject(PracticeEnvTestService);
   private readonly aiCopilotService = inject(TeacherAiCopilotService);
   private route = inject(ActivatedRoute);
   private router = inject(Router);
@@ -278,6 +320,54 @@ export class ExerciseEditorComponent implements OnInit {
     const hasRubric = (this.store.rubric()?.criteria?.length ?? 0) > 0;
     const hasTitle = !!this.store.metadata().title?.trim();
     return hasStatement || hasRubric || hasTitle;
+  });
+
+  readonly envTestJob = signal<PracticeEnvTestJob | null>(null);
+  readonly isEnvTestRunning = signal(false);
+  readonly envTestError = signal<string | null>(null);
+  private envTestPoll?: Subscription;
+
+  readonly envTestSummary = computed(() => {
+    const err = this.envTestError();
+    if (err) {
+      return err;
+    }
+    const job = this.envTestJob();
+    if (!job) {
+      return '';
+    }
+    switch (job.status) {
+      case 'success':
+        return 'Entorno probado correctamente: el alumno puede abrirlo tal como está.';
+      case 'failed':
+        return `La prueba falló: ${job.error_message || 'revisá el script de base de datos y el stack.'}`;
+      case 'canceled':
+        return 'La última prueba se canceló.';
+      default:
+        return `Probando el entorno... ${job.progress?.percent ?? 0}%`;
+    }
+  });
+
+  readonly publishMessage = computed(() => {
+    const title = this.store.metadata().title || 'este ejercicio';
+    const base = `¿Confirmas publicar «${title}»? Quedará visible inmediatamente para todos los estudiantes inscritos en el curso.`;
+    if (!this.store.isIde()) {
+      return base;
+    }
+    const job = this.envTestJob();
+    if (this.isEnvTestRunning()) {
+      return `${base} Hay una prueba de entorno en curso.`;
+    }
+    if (!job) {
+      return `${base} Todavía no probaste el entorno.`;
+    }
+    if (job.status === 'success') {
+      return `${base} La última prueba de entorno salió bien.`;
+    }
+    if (job.status === 'failed') {
+      return `${base} La última prueba de entorno falló: ${job.error_message || 'sin detalle'}. Podés publicar igual.`;
+    }
+    return base;
   });
 
   showDeleteModal = signal<boolean>(false);
@@ -318,6 +408,76 @@ export class ExerciseEditorComponent implements OnInit {
     this.store.applyAIGeneratedDraft(draft);
     this.aiModalOpen.set(false);
     this.showToast('Borrador generado por IA aplicado al editor.');
+  }
+
+  async runEnvTest(): Promise<void> {
+    const exerciseId = this.store.exerciseId();
+    const courseId = this.store.courseId();
+    if (!exerciseId || !courseId || this.isEnvTestRunning()) {
+      return;
+    }
+
+    this.envTestError.set(null);
+    this.isEnvTestRunning.set(true);
+
+    if (this.store.dirty()) {
+      await this.store.saveDraft();
+    }
+
+    this.practiceEnvTest.start(courseId, exerciseId).subscribe({
+      next: job => {
+        this.envTestJob.set(job);
+        this.pollEnvTest(job.id);
+      },
+      error: err => {
+        this.isEnvTestRunning.set(false);
+        this.envTestError.set(err?.error?.message || 'No se pudo iniciar la prueba de entorno.');
+      }
+    });
+  }
+
+  private loadLatestEnvTest(exerciseId: string): void {
+    this.practiceEnvTest
+      .latest(exerciseId)
+      .pipe(catchError(() => of(null)))
+      .subscribe(job => {
+        if (!job) {
+          return;
+        }
+        this.envTestJob.set(job);
+        if (!this.practiceEnvTest.isTerminal(job.status)) {
+          this.pollEnvTest(job.id);
+        }
+      });
+  }
+
+  private pollEnvTest(jobId: string): void {
+    this.stopEnvTestPoll();
+    this.isEnvTestRunning.set(true);
+    this.envTestPoll = this.practiceEnvTest.pollJob(jobId).subscribe({
+      next: job => {
+        this.envTestJob.set(job);
+        if (this.practiceEnvTest.isTerminal(job.status)) {
+          this.isEnvTestRunning.set(false);
+        }
+      },
+      error: () => {
+        this.isEnvTestRunning.set(false);
+        this.envTestError.set('Se perdió el estado de la prueba de entorno.');
+      }
+    });
+  }
+
+  private stopEnvTestPoll(): void {
+    this.envTestPoll?.unsubscribe();
+    this.envTestPoll = undefined;
+  }
+
+  ngOnDestroy(): void {
+    this.stopEnvTestPoll();
+    if (this.toastTimer) {
+      clearTimeout(this.toastTimer);
+    }
   }
 
   private showToast(message: string) {
@@ -366,6 +526,7 @@ export class ExerciseEditorComponent implements OnInit {
       if (this.store.exerciseId() !== exId) {
         this.store.loadExercise(exId, cId);
       }
+      this.loadLatestEnvTest(exId);
     } else {
       // Al ingresar a crear nuevo laboratorio, iniciar con formulario completamente limpio
       this.store.resetToNew(cId);
