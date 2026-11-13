@@ -16,6 +16,8 @@ import (
 type stubComponentGovRepo struct {
 	mockCacheGovRepo
 	components map[string]*domain.TemplateComponent
+	deleteErr  error
+	updateErr  error
 }
 
 func newStubComponentGovRepo() *stubComponentGovRepo {
@@ -77,6 +79,9 @@ func (s *stubComponentGovRepo) CreateTemplateComponent(ctx context.Context, tena
 }
 
 func (s *stubComponentGovRepo) UpdateTemplateComponent(ctx context.Context, tenantID, id string, dto domain.UpdateTemplateComponentDTO, synthesizedLayer string) (*domain.TemplateComponent, error) {
+	if s.updateErr != nil {
+		return nil, s.updateErr
+	}
 	it, ok := s.components[id]
 	if !ok {
 		return nil, domain.ErrComponentNotFound
@@ -97,6 +102,9 @@ func (s *stubComponentGovRepo) UpdateTemplateComponent(ctx context.Context, tena
 }
 
 func (s *stubComponentGovRepo) DeleteTemplateComponent(ctx context.Context, tenantID, id string) error {
+	if s.deleteErr != nil {
+		return s.deleteErr
+	}
 	it, ok := s.components[id]
 	if !ok {
 		return domain.ErrComponentNotFound
@@ -160,7 +168,7 @@ func TestAdminAcademicHandler_ComponentsAndComposePreview(t *testing.T) {
 	}
 }
 
-func TestAdminAcademicHandler_UpdateTemplateComponentAndAliases(t *testing.T) {
+func TestAdminAcademicHandler_UpdateTemplateComponentContract(t *testing.T) {
 	repo := newStubComponentGovRepo()
 	govSvc := services.NewAdminGovernanceService(nil, repo)
 	handler := NewAdminAcademicHandler(nil, nil, govSvc)
@@ -207,35 +215,43 @@ func TestAdminAcademicHandler_UpdateTemplateComponentAndAliases(t *testing.T) {
 		t.Fatalf("expected 422 on invalid package name in update, got %d", recBadPkg.Code)
 	}
 
-	// 4. Test all route aliases through the mux (PUT and PATCH on template-components, tech-components, components)
-	routesToTest := []struct {
-		method string
-		path   string
-	}{
-		{http.MethodPut, "/api/v1/admin/template-components/rt-python"},
-		{http.MethodPatch, "/api/v1/admin/template-components/rt-python"},
-		{http.MethodPut, "/api/v1/admin/tech-components/rt-python"},
-		{http.MethodPatch, "/api/v1/admin/tech-components/rt-python"},
-		{http.MethodPut, "/api/v1/admin/components/rt-python"},
-		{http.MethodPatch, "/api/v1/admin/components/rt-python"},
+	// 4. El unico contrato de edicion es PUT /template-components/{id}.
+	body := `{"name":"Python 3.12 Updated","sub_category":"backend","install_mode":"none"}`
+	req := httptest.NewRequest(http.MethodPut, "/api/v1/admin/template-components/rt-python", bytes.NewBufferString(body))
+	rec := httptest.NewRecorder()
+	mux.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200 on the only update route, got %d: %s", rec.Code, rec.Body.String())
+	}
+	var resp struct {
+		Data domain.TemplateComponent `json:"data"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("failed to decode update response: %v", err)
+	}
+	if resp.Data.Name != "Python 3.12 Updated" || resp.Data.SubCategory != "backend" {
+		t.Fatalf("expected updated fields, got: %+v", resp.Data)
 	}
 
-	for _, rt := range routesToTest {
-		body := `{"name":"Python 3.12 Updated","sub_category":"backend","install_mode":"none"}`
-		req := httptest.NewRequest(rt.method, rt.path, bytes.NewBufferString(body))
-		rec := httptest.NewRecorder()
-		mux.ServeHTTP(rec, req)
-		if rec.Code != http.StatusOK {
-			t.Fatalf("expected 200 on %s %s, got %d: %s", rt.method, rt.path, rec.Code, rec.Body.String())
-		}
-		var resp struct {
-			Data domain.TemplateComponent `json:"data"`
-		}
-		if err := json.Unmarshal(rec.Body.Bytes(), &resp); err != nil {
-			t.Fatalf("failed to decode response for %s %s: %v", rt.method, rt.path, err)
-		}
-		if resp.Data.Name != "Python 3.12 Updated" || resp.Data.SubCategory != "backend" {
-			t.Fatalf("expected updated fields for %s %s, got: %+v", rt.method, rt.path, resp.Data)
+	// 5. Los alias retirados ya no resuelven: PATCH sobre una ruta PUT responde
+	// 405 y los prefijos alternativos responden 404.
+	removedRoutes := []struct {
+		method string
+		path   string
+		want   int
+	}{
+		{http.MethodPatch, "/api/v1/admin/template-components/rt-python", http.StatusMethodNotAllowed},
+		{http.MethodPut, "/api/v1/admin/tech-components/rt-python", http.StatusNotFound},
+		{http.MethodPatch, "/api/v1/admin/tech-components/rt-python", http.StatusNotFound},
+		{http.MethodPut, "/api/v1/admin/components/rt-python", http.StatusNotFound},
+		{http.MethodPatch, "/api/v1/admin/components/rt-python", http.StatusNotFound},
+	}
+	for _, rt := range removedRoutes {
+		reqRemoved := httptest.NewRequest(rt.method, rt.path, bytes.NewBufferString(body))
+		recRemoved := httptest.NewRecorder()
+		mux.ServeHTTP(recRemoved, reqRemoved)
+		if recRemoved.Code != rt.want {
+			t.Fatalf("esperado %d en %s %s, obtenido %d", rt.want, rt.method, rt.path, recRemoved.Code)
 		}
 	}
 }
@@ -255,7 +271,7 @@ func TestAdminAcademicHandler_UpdateTemplateComponent_EdgeCases(t *testing.T) {
 	}
 
 	// 2. Subcategory switch from backend to web
-	reqSubCat := httptest.NewRequest(http.MethodPatch, "/api/v1/admin/template-components/rt-python", bytes.NewBufferString(`{"name":"Python 3.12","sub_category":"web"}`))
+	reqSubCat := httptest.NewRequest(http.MethodPut, "/api/v1/admin/template-components/rt-python", bytes.NewBufferString(`{"name":"Python 3.12","sub_category":"web"}`))
 	reqSubCat.SetPathValue("id", "rt-python")
 	recSubCat := httptest.NewRecorder()
 	handler.UpdateTemplateComponent(recSubCat, reqSubCat)
@@ -303,4 +319,81 @@ func TestAdminAcademicHandler_UpdateTemplateComponent_EdgeCases(t *testing.T) {
 	if recLatest.Code != http.StatusUnprocessableEntity {
 		t.Errorf("expected 422 on image with :latest tag, got %d", recLatest.Code)
 	}
+}
+
+func assertComponentErrorCode(t *testing.T, rec *httptest.ResponseRecorder, wantStatus int, wantCode string) {
+	t.Helper()
+	if rec.Code != wantStatus {
+		t.Fatalf("expected status %d, got %d: %s", wantStatus, rec.Code, rec.Body.String())
+	}
+	var resp struct {
+		Error string `json:"error"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("failed to decode error response: %v", err)
+	}
+	if resp.Error != wantCode {
+		t.Fatalf("expected error code %q, got %q", wantCode, resp.Error)
+	}
+}
+
+func TestAdminAcademicHandler_ComponentGovernanceConflicts(t *testing.T) {
+	t.Run("borrado de una tecnologia en uso devuelve 409", func(t *testing.T) {
+		repo := newStubComponentGovRepo()
+		repo.deleteErr = domain.ErrComponentInUse
+		handler := NewAdminAcademicHandler(nil, nil, services.NewAdminGovernanceService(nil, repo))
+
+		req := httptest.NewRequest(http.MethodDelete, "/api/v1/admin/template-components/rt-python", nil)
+		req.SetPathValue("id", "rt-python")
+		rec := httptest.NewRecorder()
+		handler.DeleteTemplateComponent(rec, req)
+
+		assertComponentErrorCode(t, rec, http.StatusConflict, "component_in_use")
+	})
+
+	t.Run("borrado de una tecnologia de otro tenant devuelve 409", func(t *testing.T) {
+		repo := newStubComponentGovRepo()
+		repo.deleteErr = domain.ErrComponentReadOnly
+		handler := NewAdminAcademicHandler(nil, nil, services.NewAdminGovernanceService(nil, repo))
+
+		req := httptest.NewRequest(http.MethodDelete, "/api/v1/admin/template-components/rt-python", nil)
+		req.SetPathValue("id", "rt-python")
+		rec := httptest.NewRecorder()
+		handler.DeleteTemplateComponent(rec, req)
+
+		assertComponentErrorCode(t, rec, http.StatusConflict, "component_read_only")
+	})
+
+	t.Run("borrado sin uso elimina la tecnologia", func(t *testing.T) {
+		repo := newStubComponentGovRepo()
+		repo.components["comp-free"] = &domain.TemplateComponent{
+			ID:    "comp-free",
+			Slug:  "comp-free",
+			Name:  "Libreria libre",
+			Layer: domain.ComponentLayerAddon,
+		}
+		handler := NewAdminAcademicHandler(nil, nil, services.NewAdminGovernanceService(nil, repo))
+
+		req := httptest.NewRequest(http.MethodDelete, "/api/v1/admin/template-components/comp-free", nil)
+		req.SetPathValue("id", "comp-free")
+		rec := httptest.NewRecorder()
+		handler.DeleteTemplateComponent(rec, req)
+
+		if rec.Code != http.StatusOK {
+			t.Fatalf("expected 200 on unused component deletion, got %d: %s", rec.Code, rec.Body.String())
+		}
+	})
+
+	t.Run("edicion de una tecnologia de otro tenant devuelve 409", func(t *testing.T) {
+		repo := newStubComponentGovRepo()
+		repo.updateErr = domain.ErrComponentReadOnly
+		handler := NewAdminAcademicHandler(nil, nil, services.NewAdminGovernanceService(nil, repo))
+
+		req := httptest.NewRequest(http.MethodPut, "/api/v1/admin/template-components/rt-python", bytes.NewBufferString(`{"name":"Python 3.12"}`))
+		req.SetPathValue("id", "rt-python")
+		rec := httptest.NewRecorder()
+		handler.UpdateTemplateComponent(rec, req)
+
+		assertComponentErrorCode(t, rec, http.StatusConflict, "component_read_only")
+	})
 }

@@ -42,6 +42,8 @@ var (
 	ErrComponentNotFound      = errors.New("template component not found")
 	ErrComponentSlugConflict  = errors.New("a technology component with this slug or name already exists")
 	ErrComponentSystemLocked  = errors.New("system technology components cannot be deleted")
+	ErrComponentInUse         = errors.New("technology component is referenced by existing environments")
+	ErrComponentReadOnly      = errors.New("technology component belongs to another tenant catalog and is read-only")
 	ErrInvalidPackageName     = errors.New("invalid package name: only alphanumeric characters and @_./=->< are allowed")
 	ErrInvalidExtensionID     = errors.New("invalid extension ID: expected format publisher.name (e.g. golang.go)")
 	packageNameAllowlistRegex = regexp.MustCompile(`^[a-zA-Z0-9@_./=<>-]+$`)
@@ -72,8 +74,11 @@ type TemplateComponent struct {
 	IsSystem           bool              `db:"is_system" json:"is_system"`
 	IsActive           bool              `db:"is_active" json:"is_active"`
 	SortOrder          int               `db:"sort_order" json:"sort_order"`
-	CreatedAt          time.Time         `db:"created_at" json:"created_at"`
-	UpdatedAt          time.Time         `db:"updated_at" json:"updated_at"`
+	// UsageCount cuenta plantillas y modelos que referencian la tecnología por id o slug.
+	// Se calcula al listar el catálogo; no es una columna persistida.
+	UsageCount int       `db:"-" json:"usage_count"`
+	CreatedAt  time.Time `db:"created_at" json:"created_at"`
+	UpdatedAt  time.Time `db:"updated_at" json:"updated_at"`
 }
 
 // CreateTemplateComponentDTO DTO para registrar un nuevo componente tecnológico en el catálogo.

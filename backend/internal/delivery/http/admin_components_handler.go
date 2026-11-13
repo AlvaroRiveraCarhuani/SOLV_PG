@@ -94,6 +94,10 @@ func (h *AdminAcademicHandler) UpdateTemplateComponent(w http.ResponseWriter, r 
 			SendError(w, http.StatusNotFound, "not_found", "Componente tecnológico no encontrado")
 			return
 		}
+		if errors.Is(err, domain.ErrComponentReadOnly) {
+			SendError(w, http.StatusConflict, "component_read_only", "La tecnología pertenece al catálogo de otro tenant y es de solo lectura")
+			return
+		}
 		SendError(w, http.StatusUnprocessableEntity, "update_failed", err.Error())
 		return
 	}
@@ -114,6 +118,14 @@ func (h *AdminAcademicHandler) DeleteTemplateComponent(w http.ResponseWriter, r 
 	if err := h.govService.DeleteTemplateComponent(r.Context(), tenantID, id); err != nil {
 		if errors.Is(err, domain.ErrComponentSystemLocked) {
 			SendError(w, http.StatusConflict, "system_component_locked", "Las tecnologías base del sistema no se pueden eliminar; puede desactivarlas")
+			return
+		}
+		if errors.Is(err, domain.ErrComponentInUse) {
+			SendError(w, http.StatusConflict, "component_in_use", "La tecnología está en uso por entornos existentes; desactívela en lugar de eliminarla")
+			return
+		}
+		if errors.Is(err, domain.ErrComponentReadOnly) {
+			SendError(w, http.StatusConflict, "component_read_only", "La tecnología pertenece al catálogo de otro tenant y no se puede eliminar")
 			return
 		}
 		if errors.Is(err, domain.ErrComponentNotFound) {

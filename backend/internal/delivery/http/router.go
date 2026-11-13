@@ -261,12 +261,10 @@ func registerAdminRoutes(mux *http.ServeMux, deps *Handlers) {
 		mux.Handle("POST /api/v1/admin/templates/compose-preview", admin(http.HandlerFunc(deps.AdminAcademicHandler.ComposeTemplatePreview)))
 		mux.Handle("GET /api/v1/admin/template-components", staff(http.HandlerFunc(deps.AdminAcademicHandler.ListTemplateComponents)))
 		mux.Handle("POST /api/v1/admin/template-components", adminAudited(http.HandlerFunc(deps.AdminAcademicHandler.CreateTemplateComponent)))
+		// Contrato único de edición del catálogo: PUT reemplaza el recurso completo.
+		// No hay PATCH porque el DTO exige nombre y sobrescribe los campos de texto
+		// omitidos; un alias PATCH borraría descripción y snippets sin avisar.
 		mux.Handle("PUT /api/v1/admin/template-components/{id}", adminAudited(http.HandlerFunc(deps.AdminAcademicHandler.UpdateTemplateComponent)))
-		mux.Handle("PATCH /api/v1/admin/template-components/{id}", adminAudited(http.HandlerFunc(deps.AdminAcademicHandler.UpdateTemplateComponent)))
-		mux.Handle("PUT /api/v1/admin/tech-components/{id}", adminAudited(http.HandlerFunc(deps.AdminAcademicHandler.UpdateTemplateComponent)))
-		mux.Handle("PATCH /api/v1/admin/tech-components/{id}", adminAudited(http.HandlerFunc(deps.AdminAcademicHandler.UpdateTemplateComponent)))
-		mux.Handle("PUT /api/v1/admin/components/{id}", adminAudited(http.HandlerFunc(deps.AdminAcademicHandler.UpdateTemplateComponent)))
-		mux.Handle("PATCH /api/v1/admin/components/{id}", adminAudited(http.HandlerFunc(deps.AdminAcademicHandler.UpdateTemplateComponent)))
 		mux.Handle("DELETE /api/v1/admin/template-components/{id}", adminAudited(http.HandlerFunc(deps.AdminAcademicHandler.DeleteTemplateComponent)))
 		mux.Handle("POST /api/v1/admin/templates/drafts", adminAudited(http.HandlerFunc(deps.AdminAcademicHandler.SaveDraft)))
 		mux.Handle("GET /api/v1/admin/templates/drafts", admin(http.HandlerFunc(deps.AdminAcademicHandler.GetDraftByUser)))

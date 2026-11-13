@@ -15,6 +15,70 @@ import (
 
 var nonAlnumSlugRegex = regexp.MustCompile(`[^a-z0-9]+`)
 
+// componentUsageCountsQuery cuenta cuántas plantillas y modelos referencian cada
+// tecnología de `stack_config`, comparando por id y por slug porque el
+// compositor acepta ambos. Las plantillas rechazadas no cuentan: nunca se
+// aprovisionan.
+const componentUsageCountsQuery = `
+	WITH component_refs AS (
+		SELECT lt.stack_config->>'runtime_id' AS ref, lt.tenant_id
+		FROM lab_templates lt WHERE COALESCE(lt.status, '') <> 'RECHAZADA'
+		UNION ALL
+		SELECT lt.stack_config->>'web_platform_id', lt.tenant_id
+		FROM lab_templates lt WHERE COALESCE(lt.status, '') <> 'RECHAZADA'
+		UNION ALL
+		SELECT lt.stack_config->>'database_id', lt.tenant_id
+		FROM lab_templates lt WHERE COALESCE(lt.status, '') <> 'RECHAZADA'
+		UNION ALL
+		SELECT jsonb_array_elements_text(COALESCE(lt.stack_config->'addon_ids', '[]'::jsonb)), lt.tenant_id
+		FROM lab_templates lt WHERE COALESCE(lt.status, '') <> 'RECHAZADA'
+		UNION ALL
+		SELECT tm.stack_config->>'runtime_id', tm.tenant_id FROM template_models tm
+		UNION ALL
+		SELECT tm.stack_config->>'web_platform_id', tm.tenant_id FROM template_models tm
+		UNION ALL
+		SELECT tm.stack_config->>'database_id', tm.tenant_id FROM template_models tm
+		UNION ALL
+		SELECT jsonb_array_elements_text(COALESCE(tm.stack_config->'addon_ids', '[]'::jsonb)), tm.tenant_id
+		FROM template_models tm
+	)
+	SELECT ref, COUNT(*)
+	FROM component_refs
+	WHERE ref IS NOT NULL AND ref <> ''
+	  AND (tenant_id IS NULL OR tenant_id::text = $1 OR tenant_id::text = $2)
+	GROUP BY ref
+`
+
+// componentReferencesInTemplateSQL arma la condición que decide si una fila de
+// plantilla o modelo referencia el componente `tc`. Comparte la forma con
+// componentUsageCountsQuery para que listado y borrado no discrepen.
+func componentReferencesSQL(alias string) string {
+	return fmt.Sprintf(`(
+		%s.stack_config->>'runtime_id' IN (tc.id::text, tc.slug)
+		OR %s.stack_config->>'web_platform_id' IN (tc.id::text, tc.slug)
+		OR %s.stack_config->>'database_id' IN (tc.id::text, tc.slug)
+		OR EXISTS (
+			SELECT 1 FROM jsonb_array_elements_text(COALESCE(%s.stack_config->'addon_ids', '[]'::jsonb)) AS addon(ref)
+			WHERE addon.ref IN (tc.id::text, tc.slug)
+		)
+	)`, alias, alias, alias, alias)
+}
+
+// applyComponentUsageCounts suma las referencias por id y por slug de cada
+// tecnología. Es pura para poder probarla sin base de datos.
+func applyComponentUsageCounts(items []*domain.TemplateComponent, counts map[string]int) {
+	for _, item := range items {
+		if item == nil {
+			continue
+		}
+		total := counts[item.ID]
+		if item.Slug != item.ID {
+			total += counts[item.Slug]
+		}
+		item.UsageCount = total
+	}
+}
+
 func slugifyComponentName(name string) string {
 	lower := strings.ToLower(strings.TrimSpace(name))
 	slug := strings.Trim(nonAlnumSlugRegex.ReplaceAllString(lower, "-"), "-")
@@ -146,7 +210,35 @@ func (r *PostgresAdminGovernanceRepository) ListTemplateComponents(
 	for i := range rows {
 		result[i] = rows[i].toDomain()
 	}
+
+	counts, err := r.componentUsageCounts(ctx, tenantID)
+	if err != nil {
+		return nil, err
+	}
+	applyComponentUsageCounts(result, counts)
 	return result, nil
+}
+
+func (r *PostgresAdminGovernanceRepository) componentUsageCounts(
+	ctx context.Context,
+	tenantID string,
+) (map[string]int, error) {
+	rows, err := r.db.QueryContext(ctx, componentUsageCountsQuery, tenantID, domain.DefaultTenantID)
+	if err != nil {
+		return nil, fmt.Errorf("error querying component usage counts: %w", err)
+	}
+	defer func() { _ = rows.Close() }()
+
+	counts := make(map[string]int)
+	for rows.Next() {
+		var ref string
+		var count int
+		if err := rows.Scan(&ref, &count); err != nil {
+			return nil, fmt.Errorf("error scanning component usage row: %w", err)
+		}
+		counts[ref] = count
+	}
+	return counts, rows.Err()
 }
 
 func (r *PostgresAdminGovernanceRepository) GetTemplateComponentByIDOrSlug(
@@ -300,6 +392,11 @@ func (r *PostgresAdminGovernanceRepository) UpdateTemplateComponent(
 	if err != nil {
 		return nil, err
 	}
+	// El catálogo global se lee desde cualquier tenant, pero solo lo edita su
+	// dueño. El borrado ya exigía pertenencia; la edición ahora coincide.
+	if existing.TenantID != "" && existing.TenantID != tenantID {
+		return nil, domain.ErrComponentReadOnly
+	}
 
 	if strings.TrimSpace(dto.Name) != "" {
 		existing.Name = strings.TrimSpace(dto.Name)
@@ -383,9 +480,9 @@ func (r *PostgresAdminGovernanceRepository) UpdateTemplateComponent(
 			sub_category = $16,
 			dependency_profile = $17,
 			updated_at = NOW()
-		WHERE id::text = $18 AND (tenant_id::text = $19 OR tenant_id = '00000000-0000-0000-0000-000000000001')
+					WHERE id::text = $18 AND tenant_id::text = $19
 	`
-	_, err = r.db.ExecContext(
+	res, err := r.db.ExecContext(
 		ctx, query,
 		existing.Name, existing.Description, existing.IconKey, existing.BaseImage,
 		compatJSON, string(existing.InstallMode), pkgsJSON, existing.BuildLayerSnippet,
@@ -394,6 +491,9 @@ func (r *PostgresAdminGovernanceRepository) UpdateTemplateComponent(
 	)
 	if err != nil {
 		return nil, fmt.Errorf("error updating template component: %w", err)
+	}
+	if affected, _ := res.RowsAffected(); affected == 0 {
+		return nil, domain.ErrComponentNotFound
 	}
 	return r.GetTemplateComponentByIDOrSlug(ctx, tenantID, existing.ID)
 }
@@ -409,14 +509,38 @@ func (r *PostgresAdminGovernanceRepository) DeleteTemplateComponent(
 	if existing.IsSystem {
 		return domain.ErrComponentSystemLocked
 	}
-	query := `DELETE FROM template_components WHERE id::text = $1 AND tenant_id::text = $2 AND is_system = false`
-	res, err := r.db.ExecContext(ctx, query, existing.ID, tenantID)
+	if existing.TenantID != "" && existing.TenantID != tenantID {
+		return domain.ErrComponentReadOnly
+	}
+
+	// La guarda de uso vive en el propio DELETE: entre leer y borrar no queda
+	// ventana para que una plantilla empiece a referenciar el componente.
+	query := fmt.Sprintf(`
+		DELETE FROM template_components tc
+		WHERE tc.id::text = $1
+		  AND tc.tenant_id::text = $2
+		  AND tc.is_system = false
+		  AND NOT EXISTS (
+			SELECT 1 FROM lab_templates lt
+			WHERE COALESCE(lt.status, '') <> 'RECHAZADA'
+			  AND (lt.tenant_id IS NULL OR lt.tenant_id::text = $2 OR lt.tenant_id::text = $3)
+			  AND %s
+		  )
+		  AND NOT EXISTS (
+			SELECT 1 FROM template_models tm
+			WHERE (tm.tenant_id IS NULL OR tm.tenant_id::text = $2 OR tm.tenant_id::text = $3)
+			  AND %s
+		  )
+	`, componentReferencesSQL("lt"), componentReferencesSQL("tm"))
+
+	res, err := r.db.ExecContext(ctx, query, existing.ID, tenantID, domain.DefaultTenantID)
 	if err != nil {
 		return fmt.Errorf("error deleting template component: %w", err)
 	}
-	rows, _ := res.RowsAffected()
-	if rows == 0 {
-		return domain.ErrComponentNotFound
+	if rows, _ := res.RowsAffected(); rows == 0 {
+		// La fila existe, no es del sistema y pertenece al tenant: si el DELETE no
+		// encontró nada, es porque alguna plantilla o modelo la referencia.
+		return domain.ErrComponentInUse
 	}
 	return nil
 }
