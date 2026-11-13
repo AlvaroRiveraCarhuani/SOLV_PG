@@ -72,6 +72,31 @@ export class IdeDbInitScriptComponent {
     return `${(bytes / (1024 * 1024)).toFixed(2)} MB`;
   });
 
+  /**
+   * Tiempo estimado de aprovisionamiento por alumno. Calibrado con mediciones reales
+   * sobre el PostgreSQL de aula (ADR-075): 100 sentencias 0,14 s; 500 0,18 s;
+   * 1.000 0,22 s; 5.000 0,64 s; 20.000 2,05 s. La curva medida es 0,1 s fijos más
+   * una diezmilésima de segundo por sentencia, con la transacción ya aplicada.
+   */
+  readonly estimatedProvisionSeconds = computed(() => {
+    const statements = this.approxStatementsCount();
+    if (statements <= 0) {
+      return 0;
+    }
+    return 0.1 + statements / 10000;
+  });
+
+  readonly estimatedProvisionLabel = computed(() => {
+    const seconds = this.estimatedProvisionSeconds();
+    if (seconds <= 0) {
+      return '';
+    }
+    if (seconds < 1) {
+      return `≈ ${Math.round(seconds * 1000)} ms por alumno`;
+    }
+    return `≈ ${seconds.toFixed(1).replace('.', ',')} s por alumno`;
+  });
+
   readonly isOversized = computed(() => this.byteSize() > MAX_RECOMMENDED_SQL_BYTES);
 
   onDragOver(event: DragEvent): void {

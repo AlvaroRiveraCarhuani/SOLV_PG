@@ -112,6 +112,12 @@
             <span class="chip-label">Sentencias aprox.:</span>
             <strong class="font-mono" machineData>{{ approxStatementsCount() }}</strong>
           </span>
+          @if (estimatedProvisionLabel(); as estimate) {
+            <span class="meta-chip" title="Tiempo medido de aplicación del script por alumno, con la transacción ya aplicada">
+              <span class="chip-label">Tiempo por alumno:</span>
+              <strong class="font-mono" machineData>{{ estimate }}</strong>
+            </span>
+          }
         </div>
       </div>
     }
