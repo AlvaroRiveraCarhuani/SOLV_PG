@@ -494,6 +494,9 @@ jobs:
       DATABASE_URL: postgres://solv_user:solv_password@127.0.0.1:55432/solv_e2e?sslmode=disable
       TEST_DB_DSN: postgres://solv_user:solv_password@127.0.0.1:55432/solv_e2e?sslmode=disable
       JWT_SECRET: e2e-ci-only-secret
+      GOOGLE_CLIENT_ID: e2e-ci-client
+      GOOGLE_CLIENT_SECRET: e2e-ci-secret
+      GOOGLE_REDIRECT_URL: http://127.0.0.1:3000/api/v1/auth/google/callback
       SEAWEEDFS_ENDPOINT: http://127.0.0.1:58333
       SEAWEEDFS_BUCKET: solv-e2e-advances
       SEAWEEDFS_ACCESS_KEY: e2e-access-key
