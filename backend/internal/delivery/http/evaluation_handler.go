@@ -405,3 +405,33 @@ func (h *EvaluationHandler) PublishExercise(w http.ResponseWriter, r *http.Reque
 
 	SendJSON(w, http.StatusOK, ex, "Ejercicio publicado exitosamente")
 }
+
+// UnpublishExercise devuelve la práctica a borrador sin borrar su contenido.
+// POST /api/v1/exercises/{id}/unpublish
+func (h *EvaluationHandler) UnpublishExercise(w http.ResponseWriter, r *http.Request) {
+	userRole := requestRole(r)
+	if userRole != "teacher" && userRole != "admin" {
+		SendError(w, http.StatusForbidden, "FORBIDDEN", "No tiene permisos para despublicar ejercicios")
+		return
+	}
+
+	exerciseID := r.PathValue("id")
+	if exerciseID == "" {
+		SendError(w, http.StatusBadRequest, "MISSING_EXERCISE_ID", "ID de ejercicio faltante")
+		return
+	}
+
+	tenantID := getTenantFromCtx(r)
+
+	ex, err := h.service.UnpublishExercise(r.Context(), exerciseID, tenantID)
+	if err != nil {
+		if strings.Contains(err.Error(), "not found") {
+			SendError(w, http.StatusNotFound, "NOT_FOUND", "Ejercicio no encontrado")
+			return
+		}
+		SendError(w, http.StatusInternalServerError, "INTERNAL_ERROR", "Error al despublicar el ejercicio: "+err.Error())
+		return
+	}
+
+	SendJSON(w, http.StatusOK, ex, "Ejercicio devuelto a borrador")
+}

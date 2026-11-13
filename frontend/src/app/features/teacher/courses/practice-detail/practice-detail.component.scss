@@ -295,6 +295,12 @@
   font-weight: 600;
 }
 
+.unpublish-error {
+  align-self: center;
+  color: var(--status-failed-color);
+  font-size: var(--text-xs);
+  font-weight: 600;
+}
 
 .env-test-cancel {
   flex-shrink: 0;

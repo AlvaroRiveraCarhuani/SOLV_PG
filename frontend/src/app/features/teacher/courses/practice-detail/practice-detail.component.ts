@@ -143,6 +143,9 @@ export class PracticeDetailComponent implements OnInit, OnDestroy {
   pendingDatabaseReset = signal<StudentPracticeDatabase | null>(null);
   resettingStudentId = signal<string | null>(null);
   databaseMessage = signal<string | null>(null);
+  isUnpublishing = signal<boolean>(false);
+  showUnpublishModal = signal<boolean>(false);
+  unpublishError = signal<string | null>(null);
 
   /** Presentación neutra para un valor que no corresponde a una modalidad conocida. */
   envBadge = computed(() => environmentBadge(this.exercise()?.environment_type));
@@ -489,6 +492,32 @@ export class PracticeDetailComponent implements OnInit, OnDestroy {
   private stopEnvTestPoll(): void {
     this.envTestPoll?.unsubscribe();
     this.envTestPoll = undefined;
+  }
+
+  askUnpublish(): void {
+    this.unpublishError.set(null);
+    this.showUnpublishModal.set(true);
+  }
+
+  confirmUnpublish(): void {
+    const exercise = this.exercise();
+    if (!exercise || this.isUnpublishing()) {
+      return;
+    }
+
+    this.isUnpublishing.set(true);
+    this.courseService.unpublishExercise(exercise.id).subscribe({
+      next: () => {
+        this.isUnpublishing.set(false);
+        this.showUnpublishModal.set(false);
+        this.exercise.update(current => (current ? { ...current, status: 'draft' } : current));
+      },
+      error: err => {
+        this.isUnpublishing.set(false);
+        this.showUnpublishModal.set(false);
+        this.unpublishError.set(err?.error?.message || 'No se pudo devolver la práctica a borrador.');
+      }
+    });
   }
 
   ngOnDestroy(): void {

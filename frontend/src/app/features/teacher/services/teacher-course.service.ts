@@ -134,6 +134,12 @@ export class TeacherCourseService {
     );
   }
 
+  unpublishExercise(exerciseId: string): Observable<void> {
+    return this.http.post<ApiResponse<void>>(`/api/v1/exercises/${exerciseId}/unpublish`, {}).pipe(
+      map(() => void 0)
+    );
+  }
+
   startDryRun(exerciseId: string): Observable<DryRunJobDTO> {
     return this.http.post<ApiResponse<DryRunJobDTO>>(`/api/v1/exercises/${exerciseId}/dry-run`, {}).pipe(
       map(res => res.data)

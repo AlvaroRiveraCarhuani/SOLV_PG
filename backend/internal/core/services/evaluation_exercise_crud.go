@@ -344,3 +344,19 @@ func (s *EvaluationService) PublishExercise(ctx context.Context, exerciseID, ten
 	ex.Status = "published"
 	return ex, nil
 }
+
+// UnpublishExercise devuelve la práctica a borrador. Deja de estar disponible para
+// los alumnos sin borrar contenido, entregas ni las bases que ya se abrieron.
+func (s *EvaluationService) UnpublishExercise(ctx context.Context, exerciseID, tenantID string) (*domain.Exercise, error) {
+	ex, err := s.exerciseRepo.GetByIDAndTenant(ctx, exerciseID, tenantID)
+	if err != nil {
+		return nil, fmt.Errorf("exercise not found: %w", err)
+	}
+
+	if err := s.exerciseRepo.UpdateStatus(ctx, exerciseID, tenantID, "draft"); err != nil {
+		return nil, fmt.Errorf("failed to unpublish exercise: %w", err)
+	}
+
+	ex.Status = "draft"
+	return ex, nil
+}

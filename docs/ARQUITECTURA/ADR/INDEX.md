@@ -82,3 +82,4 @@ Este documento consolida todas las Decisiones de Arquitectura (ADRs) tomadas dur
 | 073 | [Script de Inicialización en Almacenamiento Propio](ADR-073-script-de-inicializacion-en-almacenamiento-propio.md) | Implementado | Core |
 | 074 | [Aplicación del Script de Inicialización en una Transacción](ADR-074-aplicacion-del-script-de-inicializacion-en-una-transaccion.md) | Implementado | Core |
 | 075 | [Reinicio de la Base de una Práctica por Alumno](ADR-075-reinicio-de-base-por-alumno.md) | Implementado | Docencia |
+| 076 | [Despublicar una Práctica Publicada](ADR-076-despublicar-una-practica-publicada.md) | Implementado | Docencia |

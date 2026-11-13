@@ -130,7 +130,26 @@
             <svg lucideEdit3 class="btn-icon"></svg>
             <span>Editar Laboratorio</span>
           </a>
-
+          @if (practice.status === 'published') {
+            <button
+              type="button"
+              class="btn-outline"
+              [disabled]="isUnpublishing()"
+              (click)="askUnpublish()"
+              title="Ocultar la práctica a los estudiantes sin borrar su contenido"
+            >
+              @if (isUnpublishing()) {
+                <svg lucideLoader2 class="btn-icon motion-spin"></svg>
+                <span>Despublicando...</span>
+              } @else {
+                <svg lucideRotateCcw class="btn-icon"></svg>
+                <span>Volver a borrador</span>
+              }
+            </button>
+          }
+          @if (unpublishError(); as error) {
+            <span class="unpublish-error">{{ error }}</span>
+          }
         </div>
       </div>
 
@@ -469,6 +488,18 @@
       </section>
     }
   </div>
+}
+
+@if (showUnpublishModal()) {
+  <confirm-modal
+    type="danger"
+    title="¿Volver la práctica a borrador?"
+    message="Dejará de estar disponible para los estudiantes. No se borran el contenido, las entregas ni las bases que ya abrieron."
+    confirmText="Volver a borrador"
+    [isLoading]="isUnpublishing()"
+    (confirm)="confirmUnpublish()"
+    (cancel)="showUnpublishModal.set(false)"
+  />
 }
 
 @if (pendingDatabaseReset(); as database) {
