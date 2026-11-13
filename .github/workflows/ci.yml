@@ -575,14 +575,14 @@ jobs:
           cd frontend
           setsid npm start -- --host 127.0.0.1 --port 4200 > "$GITHUB_WORKSPACE/frontend-e2e.log" 2>&1 &
           echo $! > "$GITHUB_WORKSPACE/frontend-e2e.pid"
-          for _ in $(seq 1 90); do
+          for _ in $(seq 1 180); do
             if curl -s -o /dev/null http://127.0.0.1:4200/; then
               echo "Frontend listo"
               exit 0
             fi
             sleep 2
           done
-          echo "::error::El frontend no respondió en 180 segundos"
+          echo "::error::El frontend no respondió en 360 segundos"
           tail -100 "$GITHUB_WORKSPACE/frontend-e2e.log"
           exit 1
 
