@@ -199,6 +199,8 @@ export interface TemplateComponent {
   is_system: boolean;
   is_active: boolean;
   sort_order: number;
+  /** Plantillas y modelos que referencian la tecnología; lo calcula el backend al listar. */
+  usage_count?: number;
 }
 
 export type TechCatalogItem = TemplateComponent;

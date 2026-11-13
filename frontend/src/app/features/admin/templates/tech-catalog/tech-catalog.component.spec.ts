@@ -8,6 +8,7 @@ import { vi } from 'vitest';
 import { TechCatalogComponent, TECH_CATALOG_HELP_KEY } from './tech-catalog.component';
 import { AdminTemplatesService, TemplateComponent } from '../../services/admin-templates.service';
 import { ContextHelpService } from '@shared/help/context-help.service';
+import { ToastService } from '@shared/services/toast.service';
 
 describe('TechCatalogComponent', () => {
   let component: TechCatalogComponent;
@@ -119,9 +120,80 @@ describe('TechCatalogComponent', () => {
     expect(component.techComponents().length).toBe(3);
     expect(component.totalComponentsCount()).toBe(3);
     expect(component.activeComponentsCount()).toBe(2);
-    expect(component.runtimesCount()).toBe(1);
+    expect(component.backendRuntimesCount()).toBe(1);
+    expect(component.webRuntimesCount()).toBe(0);
     expect(component.addonsCount()).toBe(1);
     expect(component.databasesCount()).toBe(1);
+  });
+
+  it('resume el catálogo en una línea y mueve los conteos a los filtros, sin tarjetas KPI', () => {
+    expect(compiled.querySelector('kpi-grid')).toBeNull();
+    expect(compiled.querySelector('kpi-card')).toBeNull();
+
+    const summary = compiled.querySelector('.catalog-summary')?.textContent || '';
+    expect(summary).toContain('3');
+    expect(summary).toContain('tecnologías registradas');
+    expect(summary).toContain('activas');
+
+    const profileLabels = component.componentProfileFilterOptions().map(option => option.label);
+    expect(profileLabels).toContain('Lenguaje Principal (1)');
+    expect(profileLabels).toContain('Complemento / Librería (1)');
+    expect(profileLabels).toContain('Base de Datos (1)');
+    expect(profileLabels).toContain('Todos los perfiles (3)');
+  });
+
+  it('muestra el esqueleto de carga y no el estado vacío mientras consulta', () => {
+    component.isLoading.set(true);
+    fixture.detectChanges();
+
+    expect(compiled.querySelector('skeleton-loader')).toBeTruthy();
+    expect(compiled.querySelector('.empty-results-card')).toBeNull();
+  });
+
+  it('pide confirmación antes de eliminar una tecnología sin uso', () => {
+    const service = TestBed.inject(AdminTemplatesService);
+    const deleteSpy = vi.spyOn(service, 'deleteTechCatalogItem');
+    const toast = TestBed.inject(ToastService);
+    const toastSpy = vi.spyOn(toast, 'show');
+    const addon = mockTechItems[1];
+
+    component.openDeleteConfirm(addon);
+    fixture.detectChanges();
+    expect(component.pendingDelete()).toEqual(addon);
+    expect(component.deleteDialog()?.action).toBe('delete');
+    expect(compiled.querySelector('confirm-modal')).toBeTruthy();
+    expect(deleteSpy).not.toHaveBeenCalled();
+
+    component.onDeleteConfirmed();
+
+    expect(deleteSpy).toHaveBeenCalledWith('ad-fastapi');
+    expect(component.pendingDelete()).toBeNull();
+    expect(toastSpy).toHaveBeenCalledWith(expect.stringContaining('eliminada'), 'success');
+  });
+
+  it('no elimina una tecnología en uso: ofrece desactivarla', () => {
+    const service = TestBed.inject(AdminTemplatesService);
+    const deleteSpy = vi.spyOn(service, 'deleteTechCatalogItem');
+    const updateSpy = vi.spyOn(service, 'updateTechCatalogItem');
+    const inUse: TemplateComponent = { ...mockTechItems[1], usage_count: 2 };
+
+    component.openDeleteConfirm(inUse);
+    expect(component.deleteDialog()?.action).toBe('deactivate');
+
+    component.onDeleteConfirmed();
+
+    expect(deleteSpy).not.toHaveBeenCalled();
+    expect(updateSpy).toHaveBeenCalledWith('ad-fastapi', expect.objectContaining({ is_active: false }));
+  });
+
+  it('no ofrece eliminar tecnologías base del sistema', () => {
+    const toast = TestBed.inject(ToastService);
+    const toastSpy = vi.spyOn(toast, 'show');
+
+    component.openDeleteConfirm(mockTechItems[0]);
+
+    expect(component.pendingDelete()).toBeNull();
+    expect(toastSpy).toHaveBeenCalledWith(expect.stringContaining('no se pueden eliminar'), 'error');
   });
 
   it('debe registrar y desregistrar la pantalla en el servicio de ayuda', () => {

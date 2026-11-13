@@ -440,6 +440,10 @@ export const CONTEXT_HELP_ENTRIES: Record<string, ContextHelpEntry> = {
         text: 'Motores integrados o dedicados (PostgreSQL, SQLite, Redis, MySQL) preconfigurados para las prácticas.'
       },
       {
+        label: 'Uso y baja segura',
+        text: 'Cada tecnología indica cuántos entornos la referencian. Si está en uso, se desactiva en lugar de eliminarse para no alterar esos entornos.'
+      },
+      {
         label: 'Mapa del Sistema',
         text: 'Vista gráfica que mapea las relaciones y compatibilidades activas entre runtimes y complementos.'
       }
@@ -464,36 +468,6 @@ export const CONTEXT_HELP_ENTRIES: Record<string, ContextHelpEntry> = {
       {
         label: 'Protección de contenido',
         text: 'No se puede eliminar una categoría que tenga entornos, modelos o materias asociadas.'
-      }
-    ],
-    manualFragment: '8-biblioteca-de-modelos-y-categorias'
-  },
-
-  'model-library': {
-    key: 'model-library',
-    title: 'Qué se administra en esta biblioteca',
-    intro:
-      'Reúne los modelos oficiales que el asistente ofrece a los docentes, el catálogo de tecnologías y las categorías académicas.',
-    items: [
-      {
-        label: 'Modelos Oficiales',
-        text: 'Nacen de una plantilla aprobada. Editar sus datos o desactivarlos no borra el historial de cursos anteriores.'
-      },
-      {
-        label: 'Catálogo de Tecnologías',
-        text: 'Lenguajes, interfaces web, complementos y bases de datos. Activar o desactivar decide si se ofrecen en el constructor.'
-      },
-      {
-        label: 'Tecnologías base',
-        text: 'No se eliminan: sostienen las plantillas y modelos que ya existen.'
-      },
-      {
-        label: 'Categorías Académicas',
-        text: 'Agrupan modelos y plantillas en el catálogo. No se puede eliminar una categoría que tenga contenido asociado.'
-      },
-      {
-        label: 'Mapa del Sistema',
-        text: 'Vista de sólo lectura con las relaciones entre tecnologías y complementos compatibles.'
       }
     ],
     manualFragment: '8-biblioteca-de-modelos-y-categorias'

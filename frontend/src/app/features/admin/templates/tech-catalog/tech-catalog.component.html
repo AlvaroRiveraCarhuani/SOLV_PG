@@ -1,19 +1,15 @@
 <div class="tech-catalog-container">
-  @if (toastMessage(); as msg) {
-    <div class="toast-notification" [class.toast-error]="toastType() === 'error'">
-      @if (toastType() === 'success') {
-        <svg lucideCheckCircle2 class="toast-icon"></svg>
-      } @else {
-        <svg lucideAlertTriangle class="toast-icon"></svg>
-      }
-      <span>{{ msg }}</span>
-    </div>
-  }
-
   <header class="page-header">
     <div class="header-left">
       <h1 class="page-title">Catálogo de Tecnologías</h1>
       <p class="page-subtitle">Gestión centralizada de lenguajes, frameworks, librerías y bases de datos para el constructor de entornos</p>
+      @if (!isLoading()) {
+        <p class="catalog-summary">
+          <span machineData>{{ totalComponentsCount() }}</span> tecnologías registradas
+          <span class="summary-sep">·</span>
+          <span machineData>{{ activeComponentsCount() }}</span> activas
+        </p>
+      }
     </div>
     <div class="header-actions">
       @if (activeTab() === 'components') {
@@ -28,53 +24,6 @@
       }
     </div>
   </header>
-
-  <kpi-grid [columns]="5">
-    <kpi-card
-      label="Total Tecnologías"
-      [value]="totalComponentsCount()"
-      detail="Piezas de software registradas"
-      variant="primary"
-    >
-      <svg lucideBoxes icon></svg>
-    </kpi-card>
-
-    <kpi-card
-      label="Tecnologías Activas"
-      [value]="activeComponentsCount()"
-      detail="Disponibles en el constructor"
-      variant="running"
-    >
-      <svg lucideCheckCircle2 icon></svg>
-    </kpi-card>
-
-    <kpi-card
-      label="Lenguajes Base"
-      [value]="runtimesCount()"
-      detail="Runtimes de ejecución"
-      variant="purple"
-    >
-      <svg lucideCode icon></svg>
-    </kpi-card>
-
-    <kpi-card
-      label="Frameworks y Addons"
-      [value]="addonsCount()"
-      detail="Librerías y complementos"
-      variant="warning"
-    >
-      <svg lucideLayers icon></svg>
-    </kpi-card>
-
-    <kpi-card
-      label="Bases de Datos"
-      [value]="databasesCount()"
-      detail="Motores y persistencia"
-      variant="default"
-    >
-      <svg lucideDatabase icon></svg>
-    </kpi-card>
-  </kpi-grid>
 
   <div class="nav-toolbar">
     <div class="tabs-group">
@@ -136,7 +85,9 @@
         </div>
       </div>
 
-      @if (viewMode() === 'cards') {
+      @if (isLoading()) {
+        <skeleton-loader variant="cards" [count]="6" />
+      } @else if (viewMode() === 'cards') {
         <div class="components-grid">
           @for (comp of filteredTechComponents(); track comp.id) {
             <div class="tech-card" [class.inactive-card]="comp.is_active === false">
@@ -158,6 +109,8 @@
                   <button
                     type="button"
                     class="btn-toggle-switch"
+                    role="switch"
+                    [attr.aria-checked]="comp.is_active !== false"
                     [class.active]="comp.is_active !== false"
                     (click)="toggleComponentActive(comp)"
                     [title]="comp.is_active !== false ? 'Desactivar tecnología' : 'Activar tecnología'"
@@ -196,6 +149,12 @@
                   <span class="tech-badge badge-orphan" title="Ningún runtime activo es compatible con este complemento">
                     <svg lucideAlertTriangle class="badge-icon"></svg>
                     <span>Huérfano</span>
+                  </span>
+                }
+
+                @if ((comp.usage_count ?? 0) > 0) {
+                  <span class="tech-badge badge-usage" [title]="'La referencian ' + comp.usage_count + ' plantilla(s) o modelo(s)'">
+                    En uso: <span machineData>{{ comp.usage_count }}</span>
                   </span>
                 }
               </div>
@@ -266,7 +225,7 @@
                     <button
                       type="button"
                       class="btn-action-icon action-delete"
-                      (click)="deleteTechComponent(comp)"
+                      (click)="openDeleteConfirm(comp)"
                       title="Eliminar tecnología"
                       aria-label="Eliminar tecnología"
                     >
@@ -279,11 +238,19 @@
           } @empty {
             <div class="empty-results-card">
               <svg lucideBoxes class="empty-icon"></svg>
-              <h3 class="empty-title">No se encontraron tecnologías</h3>
-              <p class="empty-text">No existen tecnologías que coincidan con los filtros aplicados.</p>
-              <button type="button" class="btn-secondary" (click)="resetComponentFilters()">
-                Restablecer filtros
-              </button>
+              @if (techComponents().length === 0) {
+                <h3 class="empty-title">El catálogo está vacío</h3>
+                <p class="empty-text">Registra la primera tecnología para que el constructor de entornos pueda usarla.</p>
+                <button type="button" class="btn-primary" (click)="openNewComponentModal()">
+                  Registrar primera tecnología
+                </button>
+              } @else {
+                <h3 class="empty-title">No se encontraron tecnologías</h3>
+                <p class="empty-text">No existen tecnologías que coincidan con los filtros aplicados.</p>
+                <button type="button" class="btn-secondary" (click)="resetComponentFilters()">
+                  Restablecer filtros
+                </button>
+              }
             </div>
           }
         </div>
@@ -297,6 +264,7 @@
                 <th>Ecosistema / Paquetes</th>
                 <th>Imagen / Ejecución</th>
                 <th>Memoria</th>
+                <th>Uso</th>
                 <th>Estado</th>
                 <th class="text-right">Acciones</th>
               </tr>
@@ -374,9 +342,20 @@
                     </span>
                   </td>
                   <td>
+                    @if ((comp.usage_count ?? 0) > 0) {
+                      <span class="usage-chip" [title]="'La referencian ' + comp.usage_count + ' plantilla(s) o modelo(s)'">
+                        <span machineData>{{ comp.usage_count }}</span> entornos
+                      </span>
+                    } @else {
+                      <span class="text-muted text-xs">Sin uso</span>
+                    }
+                  </td>
+                  <td>
                     <button
                       type="button"
                       class="btn-toggle-switch mini"
+                      role="switch"
+                      [attr.aria-checked]="comp.is_active !== false"
                       [class.active]="comp.is_active !== false"
                       (click)="toggleComponentActive(comp)"
                       [title]="comp.is_active !== false ? 'Desactivar tecnología' : 'Activar tecnología'"
@@ -417,7 +396,7 @@
                         <button
                           type="button"
                           class="btn-action-icon action-delete"
-                          (click)="deleteTechComponent(comp)"
+                          (click)="openDeleteConfirm(comp)"
                           title="Eliminar tecnología"
                           aria-label="Eliminar tecnología"
                         >
@@ -429,13 +408,20 @@
                 </tr>
               } @empty {
                 <tr>
-                  <td colspan="7" class="text-center py-8">
+                  <td colspan="8" class="text-center py-8">
                     <div class="empty-state-mini">
                       <svg lucideBoxes class="empty-icon"></svg>
-                      <p class="empty-text">No se encontraron tecnologías con los filtros actuales.</p>
-                      <button type="button" class="btn-secondary" (click)="resetComponentFilters()">
-                        Restablecer filtros
-                      </button>
+                      @if (techComponents().length === 0) {
+                        <p class="empty-text">El catálogo está vacío. Registra la primera tecnología para empezar.</p>
+                        <button type="button" class="btn-primary" (click)="openNewComponentModal()">
+                          Registrar primera tecnología
+                        </button>
+                      } @else {
+                        <p class="empty-text">No se encontraron tecnologías con los filtros actuales.</p>
+                        <button type="button" class="btn-secondary" (click)="resetComponentFilters()">
+                          Restablecer filtros
+                        </button>
+                      }
                     </div>
                   </td>
                 </tr>
@@ -458,6 +444,19 @@
       [availableRuntimes]="techComponents()"
       (closed)="closeComponentModal()"
       (saved)="handleComponentSaved($event)"
+    />
+  }
+
+  @if (deleteDialog(); as dialog) {
+    <confirm-modal
+      [title]="dialog.title"
+      [message]="dialog.message"
+      [confirmText]="dialog.confirmText"
+      cancelText="Cancelar"
+      [type]="dialog.type"
+      [isLoading]="isDeleting()"
+      (confirm)="onDeleteConfirmed()"
+      (cancel)="cancelDelete()"
     />
   }
 </div>

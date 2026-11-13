@@ -10,26 +10,24 @@ import {
 } from '../../services/admin-templates.service';
 import { ComboboxComponent, ComboboxOption } from '@shared/components/combobox/combobox.component';
 import { SearchBarComponent } from '@shared/components/search-bar/search-bar.component';
-import { KpiCardComponent, KpiGridComponent } from '@shared/components/kpi-card/kpi-card.component';
+import { SkeletonLoaderComponent } from '@shared/components/skeleton/skeleton-loader.component';
+import { ConfirmModalComponent } from '@shared/components/confirm-modal/confirm-modal.component';
 import { ViewSwitcherComponent } from '@shared/components/view-switcher/view-switcher.component';
+import { ToastService } from '@shared/services/toast.service';
 import { ComponentFormModalComponent } from '../components/model-library/components/component-form-modal/component-form-modal.component';
 import { CatalogTreeComponent } from '../components/model-library/components/catalog-tree/catalog-tree.component';
 import { TechLogoComponent } from '../components/tech-logo/tech-logo.component';
 import { ContextHelpService } from '@shared/help/context-help.service';
 import {
   LucideCpu,
-  LucideCode,
   LucidePlus,
   LucidePencil,
   LucideTrash2,
   LucideCheck,
   LucidePower,
   LucideAlertTriangle,
-  LucideCheckCircle2,
   LucideNetwork,
-  LucideBoxes,
-  LucideDatabase,
-  LucideLayers
+  LucideBoxes
 } from '@lucide/angular';
 import {
   computeComponentMemoryBadge,
@@ -42,6 +40,14 @@ import {
 
 export const TECH_CATALOG_HELP_KEY = 'tech-catalog';
 
+type DeleteDialog = {
+  title: string;
+  message: string;
+  confirmText: string;
+  type: 'danger' | 'primary';
+  action: 'delete' | 'deactivate' | 'close';
+};
+
 @Component({
   selector: 'tech-catalog',
   standalone: true,
@@ -51,25 +57,21 @@ export const TECH_CATALOG_HELP_KEY = 'tech-catalog';
     MachineDataDirective,
     ComboboxComponent,
     SearchBarComponent,
-    KpiCardComponent,
-    KpiGridComponent,
+    SkeletonLoaderComponent,
+    ConfirmModalComponent,
     ViewSwitcherComponent,
     ComponentFormModalComponent,
     CatalogTreeComponent,
     TechLogoComponent,
     LucideCpu,
-    LucideCode,
     LucidePlus,
     LucidePencil,
     LucideTrash2,
     LucideCheck,
     LucidePower,
     LucideAlertTriangle,
-    LucideCheckCircle2,
     LucideNetwork,
-    LucideBoxes,
-    LucideDatabase,
-    LucideLayers
+    LucideBoxes
   ],
   templateUrl: './tech-catalog.component.html',
   styleUrls: ['./tech-catalog.component.scss']
@@ -77,6 +79,7 @@ export const TECH_CATALOG_HELP_KEY = 'tech-catalog';
 export class TechCatalogComponent implements OnInit, OnDestroy {
   private readonly templatesService = inject(AdminTemplatesService);
   private readonly help = inject(ContextHelpService);
+  private readonly toast = inject(ToastService);
 
   readonly activeTab = signal<'components' | 'map'>('components');
   readonly viewMode = signal<'cards' | 'table'>('cards');
@@ -97,8 +100,11 @@ export class TechCatalogComponent implements OnInit, OnDestroy {
   readonly activeComponentsCount = computed(
     () => this.techComponents().filter(c => c.is_active !== false).length
   );
-  readonly runtimesCount = computed(
-    () => this.techComponents().filter(c => c.layer === 'runtime').length
+  readonly backendRuntimesCount = computed(
+    () => this.techComponents().filter(c => c.layer === 'runtime' && c.sub_category !== 'web').length
+  );
+  readonly webRuntimesCount = computed(
+    () => this.techComponents().filter(c => c.layer === 'runtime' && c.sub_category === 'web').length
   );
   readonly addonsCount = computed(
     () => this.techComponents().filter(c => c.layer === 'addon').length
@@ -107,12 +113,15 @@ export class TechCatalogComponent implements OnInit, OnDestroy {
     () => this.techComponents().filter(c => c.layer === 'database').length
   );
 
+  // Los conteos viven donde se filtra: la opción declara cuántos elementos
+  // selecciona. Antes ocupaban cinco tarjetas KPI que empujaban el catálogo
+  // bajo el pliegue sin aportar una decisión.
   readonly componentProfileFilterOptions = computed<ComboboxOption[]>(() => [
-    { id: 'ALL', label: 'Todos los perfiles', value: 'ALL' },
-    { id: 'BACKEND', label: 'Lenguaje Principal', value: 'BACKEND' },
-    { id: 'WEB', label: 'Interfaz Web / Frontend', value: 'WEB' },
-    { id: 'ADDON', label: 'Complemento / Librería', value: 'ADDON' },
-    { id: 'DATABASE', label: 'Base de Datos', value: 'DATABASE' }
+    { id: 'ALL', label: `Todos los perfiles (${this.totalComponentsCount()})`, value: 'ALL' },
+    { id: 'BACKEND', label: `Lenguaje Principal (${this.backendRuntimesCount()})`, value: 'BACKEND' },
+    { id: 'WEB', label: `Interfaz Web / Frontend (${this.webRuntimesCount()})`, value: 'WEB' },
+    { id: 'ADDON', label: `Complemento / Librería (${this.addonsCount()})`, value: 'ADDON' },
+    { id: 'DATABASE', label: `Base de Datos (${this.databasesCount()})`, value: 'DATABASE' }
   ]);
 
   readonly selectedComponentProfileFilterLabel = computed<string>(() => {
@@ -140,9 +149,41 @@ export class TechCatalogComponent implements OnInit, OnDestroy {
     })
   );
 
-  readonly toastMessage = signal<string | null>(null);
-  readonly toastType = signal<'success' | 'error'>('success');
-  private toastTimer: ReturnType<typeof setTimeout> | null = null;
+  readonly pendingDelete = signal<TemplateComponent | null>(null);
+  readonly isDeleting = signal<boolean>(false);
+
+  readonly deleteDialog = computed<DeleteDialog | null>(() => {
+    const comp = this.pendingDelete();
+    if (!comp) {
+      return null;
+    }
+    const usage = comp.usage_count ?? 0;
+    if (usage > 0) {
+      if (comp.is_active === false) {
+        return {
+          title: 'Tecnología en uso',
+          message: `«${comp.name}» está inactiva, pero ${usage} entorno(s) todavía la referencian. No se puede eliminar mientras la usen.`,
+          confirmText: 'Entendido',
+          type: 'primary',
+          action: 'close'
+        };
+      }
+      return {
+        title: 'No se puede eliminar',
+        message: `«${comp.name}» la usan ${usage} entorno(s). Desactívela para retirarla del constructor sin alterar esos entornos.`,
+        confirmText: 'Desactivar tecnología',
+        type: 'primary',
+        action: 'deactivate'
+      };
+    }
+    return {
+      title: '¿Eliminar tecnología?',
+      message: `«${comp.name}» no la usa ningún entorno. Esta acción no se puede deshacer.`,
+      confirmText: 'Eliminar',
+      type: 'danger',
+      action: 'delete'
+    };
+  });
 
   ngOnInit(): void {
     this.help.registerScreen(TECH_CATALOG_HELP_KEY);
@@ -151,9 +192,6 @@ export class TechCatalogComponent implements OnInit, OnDestroy {
 
   ngOnDestroy(): void {
     this.help.unregisterScreen(TECH_CATALOG_HELP_KEY);
-    if (this.toastTimer) {
-      clearTimeout(this.toastTimer);
-    }
   }
 
   loadData(): void {
@@ -169,7 +207,7 @@ export class TechCatalogComponent implements OnInit, OnDestroy {
       },
       error: () => {
         this.isLoading.set(false);
-        this.showToast('Error al consultar el catálogo de tecnologías', 'error');
+        this.toast.show('Error al consultar el catálogo de tecnologías', 'error');
       }
     });
   }
@@ -264,11 +302,11 @@ export class TechCatalogComponent implements OnInit, OnDestroy {
     this.templatesService.updateTechCatalogItem(comp.id, dto).subscribe({
       next: updated => {
         this.techComponents.update(list => list.map(c => (c.id === comp.id ? updated : c)));
-        this.showToast(`Tecnología "${comp.name}" ${nextActive ? 'activada' : 'desactivada'}.`, 'success');
+        this.toast.show(`Tecnología "${comp.name}" ${nextActive ? 'activada' : 'desactivada'}.`, 'success');
       },
       error: err => {
         this.techComponents.update(list => list.map(c => (c.id === comp.id ? comp : c)));
-        this.showToast(err.error?.error?.message || err.message || 'Error al cambiar estado de tecnología', 'error');
+        this.toast.show(err.error?.message || 'Error al cambiar estado de tecnología', 'error');
       }
     });
   }
@@ -302,37 +340,54 @@ export class TechCatalogComponent implements OnInit, OnDestroy {
 
     if (isEdit) {
       this.techComponents.update(list => list.map(c => (c.id === savedComp.id ? savedComp : c)));
-      this.showToast(`Tecnología "${savedComp.name}" actualizada exitosamente.`, 'success');
+      this.toast.show(`Tecnología "${savedComp.name}" actualizada.`, 'success');
     } else {
-      this.showToast(`Tecnología "${savedComp.name}" registrada en el catálogo de tecnologías.`, 'success');
+      this.toast.show(`Tecnología "${savedComp.name}" registrada en el catálogo de tecnologías.`, 'success');
       this.loadData();
     }
   }
 
-  deleteTechComponent(item: TemplateComponent): void {
+  openDeleteConfirm(item: TemplateComponent): void {
     if (item.is_system) {
-      this.showToast('Las tecnologías base del sistema no se pueden eliminar.', 'error');
+      this.toast.show('Las tecnologías base del sistema no se pueden eliminar.', 'error');
       return;
     }
-    this.templatesService.deleteTechCatalogItem(item.id).subscribe({
+    this.pendingDelete.set(item);
+  }
+
+  cancelDelete(): void {
+    this.pendingDelete.set(null);
+  }
+
+  onDeleteConfirmed(): void {
+    const dialog = this.deleteDialog();
+    const comp = this.pendingDelete();
+    if (!dialog || !comp) {
+      return;
+    }
+    if (dialog.action === 'close') {
+      this.pendingDelete.set(null);
+      return;
+    }
+    if (dialog.action === 'deactivate') {
+      this.pendingDelete.set(null);
+      this.toggleComponentActive(comp);
+      return;
+    }
+
+    this.isDeleting.set(true);
+    this.templatesService.deleteTechCatalogItem(comp.id).subscribe({
       next: () => {
-        this.showToast(`Tecnología "${item.name}" eliminada.`, 'success');
+        this.isDeleting.set(false);
+        this.pendingDelete.set(null);
+        this.toast.show(`Tecnología "${comp.name}" eliminada.`, 'success');
         this.loadData();
       },
       error: err => {
-        this.showToast(err.error?.error?.message || 'Error al eliminar tecnología', 'error');
+        this.isDeleting.set(false);
+        this.pendingDelete.set(null);
+        this.toast.show(err.error?.message || 'Error al eliminar tecnología', 'error');
       }
     });
-  }
-
-  showToast(message: string, type: 'success' | 'error' = 'success'): void {
-    this.toastMessage.set(message);
-    this.toastType.set(type);
-    if (this.toastTimer) {
-      clearTimeout(this.toastTimer);
-    }
-    this.toastTimer = setTimeout(() => {
-      this.toastMessage.set(null);
-    }, 4000);
   }
 }
