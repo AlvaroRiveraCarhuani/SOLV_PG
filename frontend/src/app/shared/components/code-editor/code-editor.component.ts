@@ -24,6 +24,7 @@ import { StreamLanguage, HighlightStyle, syntaxHighlighting } from '@codemirror/
 import { tags as t } from '@lezer/highlight';
 import { dockerFile } from '@codemirror/legacy-modes/mode/dockerfile';
 import { shell } from '@codemirror/legacy-modes/mode/shell';
+import { pgSQL } from '@codemirror/legacy-modes/mode/sql';
 
 export const solvHighlightStyle = HighlightStyle.define([
   { tag: t.keyword, color: 'var(--tenant-primary)', fontWeight: '600' },
@@ -382,6 +383,12 @@ export function codeMirrorLanguageExtension(lang: string) {
     case 'sh':
     case 'bash':
       return StreamLanguage.define(shell);
+    case 'sql':
+    case 'pgsql':
+    case 'postgres':
+    case 'postgresql':
+    case 'mysql':
+      return StreamLanguage.define(pgSQL);
     default:
       return [];
   }
