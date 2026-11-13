@@ -15,6 +15,10 @@ import {
   TemplateComponent
 } from '../../services/admin-templates.service';
 import { EnvTestJob, EnvTestJobService } from '../../services/env-test-job.service';
+import { ProductTourService } from '@shared/help/product-tour.service';
+import { InteractiveTutorialService } from '@shared/help/interactive-tutorial.service';
+import { ContextHelpService } from '@shared/help/context-help.service';
+import { buildStudioTour, buildStudioTutorial } from './studio-help.definitions';
 import { StudioCopilotService, StudioDraft } from './studio-copilot.service';
 import { ToastService } from '@shared/services/toast.service';
 import { AiOperation, AiOperations } from '@shared/services/ai-operation';
@@ -88,6 +92,8 @@ interface StudioAiProposalView extends AiProposalView {
 
 export type { CapacityOption, StudioDatabaseOption, StudioActionBlocker };
 
+const STUDIO_HELP_KEY = 'studio-template-builder';
+
 @Component({
   selector: 'template-studio',
   imports: [
@@ -132,6 +138,9 @@ export class TemplateStudioComponent implements OnInit, OnDestroy {
   private readonly toastService = inject(ToastService);
   private readonly router = inject(Router);
   private readonly route = inject(ActivatedRoute);
+  private readonly productTour = inject(ProductTourService);
+  private readonly help = inject(ContextHelpService);
+  readonly tutorial = inject(InteractiveTutorialService);
 
   private readonly sub = new Subscription();
   private pollSub?: Subscription;
@@ -140,6 +149,21 @@ export class TemplateStudioComponent implements OnInit, OnDestroy {
   private readonly pendingDraft: StudioDraft | null;
 
   constructor() {
+    // El centro de ayuda muestra esta explicación y las dos guías del
+    // constructor mientras la pantalla está montada.
+    this.help.registerScreen(STUDIO_HELP_KEY);
+    this.help.registerGuides(STUDIO_HELP_KEY, {
+      tour: {
+        label: 'Recorrido visual',
+        hint: 'Señala cada parte de la pantalla sin detener su trabajo.',
+        run: () => this.startStudioTour()
+      },
+      tutorial: {
+        label: 'Tutorial guiado',
+        hint: 'Avanza paso a paso y comprueba el estado real antes de continuar.',
+        run: () => this.startStudioTutorial()
+      }
+    });
     // Se lee antes de cualquier flush de effects para no pisar el borrador
     // guardado por una visita anterior al Studio.
     this.pendingDraft = this.copilot.draft();
@@ -635,6 +659,8 @@ export class TemplateStudioComponent implements OnInit, OnDestroy {
   }
 
   ngOnDestroy(): void {
+    this.help.unregisterGuides(STUDIO_HELP_KEY);
+    this.help.unregisterScreen(STUDIO_HELP_KEY);
     this.pollSub?.unsubscribe();
     this.sub.unsubscribe();
   }
@@ -1206,6 +1232,23 @@ export class TemplateStudioComponent implements OnInit, OnDestroy {
     navigator.clipboard.writeText(this.liveManifestJson()).then(() => {
       this.showToast('Manifiesto JSON copiado al portapapeles.');
     });
+  }
+
+  /** Recorrido visual: sólo señala dónde está cada parte del constructor. */
+  startStudioTour(): void {
+    void this.productTour.start(buildStudioTour());
+  }
+
+  /** Tutorial con pasos que comprueban el estado real del formulario. */
+  startStudioTutorial(): void {
+    this.tutorial.start(
+      buildStudioTutorial({
+        templateName: () => this.name(),
+        hasSelectedStack: () => this.hasSelectedStack(),
+        isCapacityValid: () => !this.isRamBelowFloor() && !this.isRamExceedingHost(),
+        publishBlocker: () => this.publishBlocker()
+      })
+    );
   }
 
   publishTemplate(): void {

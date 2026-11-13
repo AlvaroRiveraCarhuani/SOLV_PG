@@ -26,13 +26,12 @@
         Seleccione las tecnologías y complementos que necesita para la materia o edite el manifiesto técnico directamente.
       </p>
     </div>
-
-
   </header>
 
   <div class="studio-grid">
     <div class="studio-left-column">
       <studio-purpose-step
+        data-tour="studio-purpose"
         [targetEnvironment]="targetEnvironment()"
         [name]="name()"
         [description]="description()"
@@ -138,7 +137,7 @@
         </div>
 
         @if (studioMode() === 'visual') {
-          <div class="studio-columns-grid" [class.judge-cols]="targetEnvironment() === 'JUEZ_EFIMERO'">
+          <div class="studio-columns-grid" data-tour="studio-stack" [class.judge-cols]="targetEnvironment() === 'JUEZ_EFIMERO'">
             <div class="studio-column">
               <div class="column-header">
                 <div>
@@ -809,6 +808,7 @@
       </section>
 
       <studio-capacity-selector
+        data-tour="studio-capacity"
         [targetEnvironment]="targetEnvironment()"
         [hasSelectedStack]="hasSelectedStack()"
         [baseRamMB]="baseRamMB()"
@@ -831,6 +831,7 @@
     </div>
 
     <studio-summary-sidebar
+      data-tour="studio-summary"
       [blueprintTab]="blueprintTab()"
       [name]="name()"
       [targetEnvironment]="targetEnvironment()"

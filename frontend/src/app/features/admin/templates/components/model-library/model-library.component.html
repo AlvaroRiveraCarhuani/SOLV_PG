@@ -155,12 +155,19 @@
       [categoryFilterOptions]="categoryFilterComboboxOptions()"
       [selectedStatusFilterLabel]="selectedStatusFilterLabel()"
       [statusFilterOptions]="statusFilterComboboxOptions()"
+      [totalModelsCount]="totalModelsCount()"
+      [hasActiveFilters]="hasActiveModelFilters()"
+      [hasSearch]="hasModelSearch()"
+      [isLoading]="isLoading()"
+      [loadFailed]="modelsLoadFailed()"
       (searchQueryChange)="searchQuery.set($event)"
       (purposeFilterSelect)="onPurposeFilterSelected($event)"
       (categoryFilterSelect)="onCategoryFilterSelected($event)"
       (statusFilterSelect)="onStatusFilterSelected($event)"
       (editModel)="openEditModel($event)"
       (toggleModelActive)="toggleModelActive($event)"
+      (resetFilters)="resetModelFilters()"
+      (reload)="loadData()"
     />
   }
 

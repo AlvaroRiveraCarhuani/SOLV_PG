@@ -1,4 +1,4 @@
-import { Component, OnInit, signal, computed, inject, HostListener } from '@angular/core';
+import { Component, OnInit, OnDestroy, signal, computed, inject, HostListener } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { 
   AdminStudentsService, 
@@ -15,9 +15,12 @@ import { StudentResetOOMModalComponent } from './components/student-reset-oom-mo
 import { StudentRegisterModalComponent } from './components/student-register-modal/student-register-modal.component';
 import { StudentEnrollRosterModalComponent } from './components/student-enroll-roster-modal/student-enroll-roster-modal.component';
 import { ConfirmModalComponent } from '@shared/components/confirm-modal/confirm-modal.component';
+import { ContextHelpService } from '@shared/help/context-help.service';
 import { ComboboxOption } from '@shared/components/combobox/combobox.component';
 import { SortDirection, SortState } from '@shared/components/sort-header/sort-header.types';
 import { LucideCheckCircle2, LucideAlertTriangle, LucideUserPlus, LucideBookOpen } from '@lucide/angular';
+
+const STUDENTS_HELP_KEY = 'students-penalties';
 
 @Component({
   selector: 'admin-students',
@@ -39,8 +42,9 @@ import { LucideCheckCircle2, LucideAlertTriangle, LucideUserPlus, LucideBookOpen
   templateUrl: './admin-students.component.html',
   styleUrls: ['./admin-students.component.scss']
 })
-export class AdminStudentsComponent implements OnInit {
+export class AdminStudentsComponent implements OnInit, OnDestroy {
   private readonly studentsService = inject(AdminStudentsService);
+  private readonly help = inject(ContextHelpService);
 
   readonly students = signal<AdminStudentItem[]>([]);
   readonly subjects = signal<SubjectOption[]>([]);
@@ -175,8 +179,13 @@ export class AdminStudentsComponent implements OnInit {
   }
 
   ngOnInit(): void {
+    this.help.registerScreen(STUDENTS_HELP_KEY);
     this.loadAcademicPeriods();
     this.loadSubjects();
+  }
+
+  ngOnDestroy(): void {
+    this.help.unregisterScreen(STUDENTS_HELP_KEY);
   }
 
   loadAcademicPeriods(): void {

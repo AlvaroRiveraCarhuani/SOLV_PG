@@ -1,4 +1,9 @@
-import { Component, OnInit, signal, computed, inject, HostListener } from '@angular/core';
+import { Component, OnInit, OnDestroy, effect, signal, computed, inject, HostListener } from '@angular/core';
+
+const TEMPLATES_HELP_KEY = 'templates-catalog';
+import { ContextHelpService } from '@shared/help/context-help.service';
+import { InteractiveTutorialService } from '@shared/help/interactive-tutorial.service';
+import { buildCatalogTutorial } from './catalog-help.definitions';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { MachineDataDirective } from '@shared/directives/machine-data.directive';
@@ -110,8 +115,10 @@ import { EnvironmentLabelPipe } from '@shared/pipes/environment-label.pipe';
   templateUrl: './admin-templates.component.html',
   styleUrls: ['./admin-templates.component.scss']
 })
-export class AdminTemplatesComponent implements OnInit {
+export class AdminTemplatesComponent implements OnInit, OnDestroy {
   private templatesService = inject(AdminTemplatesService);
+  private readonly help = inject(ContextHelpService);
+  private readonly tutorial = inject(InteractiveTutorialService);
   private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
 
@@ -260,26 +267,34 @@ export class AdminTemplatesComponent implements OnInit {
     this.allTemplates().filter(t => t.status === 'rejected' || t.status === 'RECHAZADA').length
   );
 
-  templateTabs = computed<StatusTabItem[]>(() => [
-    {
-      id: 'pending',
-      label: 'Solicitudes Pendientes',
-      count: this.pendingCount(),
-      badgeVariant: this.pendingCount() > 0 ? 'warning' : 'default'
-    },
-    {
-      id: 'catalog',
-      label: 'Catálogo Activo',
-      count: this.catalogCount(),
-      badgeVariant: 'neutral'
-    },
-    {
-      id: 'rejected',
-      label: 'Rechazadas',
-      count: this.rejectedCount(),
-      badgeVariant: this.rejectedCount() > 0 ? 'error' : 'default'
+  // La pestaña de aprobación sólo existe cuando hay algo que aprobar: son
+  // copias y plantillas heredadas que esperan auditoría, no peticiones.
+  templateTabs = computed<StatusTabItem[]>(() => {
+    const tabs: StatusTabItem[] = [];
+    if (this.pendingCount() > 0) {
+      tabs.push({
+        id: 'pending',
+        label: 'En aprobación',
+        count: this.pendingCount(),
+        badgeVariant: 'warning'
+      });
     }
-  ]);
+    tabs.push(
+      {
+        id: 'catalog',
+        label: 'Catálogo Activo',
+        count: this.catalogCount(),
+        badgeVariant: 'neutral'
+      },
+      {
+        id: 'rejected',
+        label: 'Rechazadas',
+        count: this.rejectedCount(),
+        badgeVariant: this.rejectedCount() > 0 ? 'error' : 'default'
+      }
+    );
+    return tabs;
+  });
 
   onTabChange(tabId: string): void {
     this.setTab(tabId as TabType);
@@ -292,7 +307,26 @@ export class AdminTemplatesComponent implements OnInit {
     return Math.round(total / activeCatalog.length);
   });
 
+  constructor() {
+    // Si la pestaña de aprobación desaparece (se aprobó lo último que había),
+    // el catálogo pasa a ser la vista activa en lugar de quedar sin pestaña.
+    effect(() => {
+      if (this.isLoading()) return;
+      if (this.activeTab() === 'pending' && this.pendingCount() === 0) {
+        this.activeTab.set('catalog');
+      }
+    });
+  }
+
   ngOnInit(): void {
+    this.help.registerScreen(TEMPLATES_HELP_KEY);
+    this.help.registerGuides(TEMPLATES_HELP_KEY, {
+      tutorial: {
+        label: 'Tutorial guiado',
+        hint: 'Le guía por la bandeja de revisión y comprueba la pestaña abierta.',
+        run: () => this.startCatalogTutorial()
+      }
+    });
     const tabParam = this.route.snapshot.queryParamMap.get('tab');
     if (tabParam === 'catalog' || tabParam === 'pending' || tabParam === 'rejected') {
       this.activeTab.set(tabParam);
@@ -302,6 +336,21 @@ export class AdminTemplatesComponent implements OnInit {
     if (this.route.snapshot.queryParamMap.get('nueva') === '1') {
       this.navigateToCreateStudio();
     }
+  }
+
+  ngOnDestroy(): void {
+    this.help.unregisterGuides(TEMPLATES_HELP_KEY);
+    this.help.unregisterScreen(TEMPLATES_HELP_KEY);
+  }
+
+  /** Tutorial de revisión: sólo avanza cuando la pestaña real lo permite. */
+  startCatalogTutorial(): void {
+    this.tutorial.start(
+      buildCatalogTutorial({
+        activeTab: () => this.activeTab(),
+        pendingCount: () => this.pendingCount()
+      })
+    );
   }
 
   loadTemplates(): void {
@@ -486,6 +535,19 @@ export class AdminTemplatesComponent implements OnInit {
 
   closeEditModal(): void {
     this.selectedTemplateForEdit.set(null);
+  }
+
+  /**
+   * Las plantillas de runner sembradas por el sistema guardan la marca
+   * interna 'SYSTEM_SEED_RUNNER' en description (sirve para ordenarlas en la
+   * base). No es una descripción: se oculta y queda el texto de respaldo.
+   */
+  templateDescription(item: { description?: string | null }): string | null {
+    const raw = (item.description ?? '').trim();
+    if (!raw || raw === 'SYSTEM_SEED_RUNNER') {
+      return null;
+    }
+    return raw;
   }
 
   handleSaveEdit(event: { id: string; base_ram_mb: number; description?: string }): void {

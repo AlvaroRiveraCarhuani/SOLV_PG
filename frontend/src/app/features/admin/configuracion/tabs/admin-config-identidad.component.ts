@@ -1,4 +1,4 @@
-import { Component, inject, signal, computed, OnInit } from '@angular/core';
+import { Component, inject, signal, computed, OnInit, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import {
@@ -10,6 +10,11 @@ import { TenantService } from '@core/services/tenant.service';
 import { TenantConfig } from '@core/models/tenant.model';
 import { ModalIntent } from '@shared/components/modal-shell/modal-shell.component';
 import { FormFieldComponent } from '@shared/components/form-field/form-field.component';
+import { ContextHelpService } from '@shared/help/context-help.service';
+import { InteractiveTutorialService } from '@shared/help/interactive-tutorial.service';
+import { ProductTourService } from '@shared/help/product-tour.service';
+import { configTabTourGuide } from '../config-help.definitions';
+import { buildIdentidadTour, buildIdentidadTutorial } from './identidad-help.definitions';
 import {
   CURATED_FONTS,
   DEFAULT_SANS_SLUG,
@@ -32,6 +37,8 @@ import {
 } from '@lucide/angular';
 import { EVALUATION_ENGINE_NAME } from '@shared/constants/environment-types.constants';
 
+const IDENTIDAD_HELP_KEY = 'config-branding';
+
 @Component({
   selector: 'admin-config-identidad',
   standalone: true,
@@ -52,9 +59,15 @@ import { EVALUATION_ENGINE_NAME } from '@shared/constants/environment-types.cons
   templateUrl: './admin-config-identidad.component.html',
   styleUrls: ['./admin-config-identidad.component.scss']
 })
-export class AdminConfigIdentidadComponent implements OnInit {
+export class AdminConfigIdentidadComponent implements OnInit, OnDestroy {
   private readonly identidadService = inject(AdminConfigIdentidadService);
   private readonly tenantService = inject(TenantService);
+  private readonly help = inject(ContextHelpService);
+  private readonly tutorial = inject(InteractiveTutorialService);
+  private readonly productTour = inject(ProductTourService);
+
+  /** La marca se guardó en esta visita; lo lee el tutorial. */
+  readonly hasSavedBranding = signal(false);
 
   /** Nombre visible del motor; sale del catálogo y no se escribe en la plantilla. */
   readonly evaluationEngineName = EVALUATION_ENGINE_NAME;
@@ -242,7 +255,33 @@ export class AdminConfigIdentidadComponent implements OnInit {
     this.toastTimer = setTimeout(() => this.toast.set(null), 4000);
   }
 
+  ngOnDestroy(): void {
+    this.help.unregisterGuides(IDENTIDAD_HELP_KEY);
+    this.help.unregisterScreen(IDENTIDAD_HELP_KEY);
+  }
+
+  /** Tutorial de la marca: color válido, contraste AA y guardado efectivo. */
+  startIdentidadTutorial(): void {
+    this.tutorial.start(
+      buildIdentidadTutorial({
+        institutionName: () => this.institutionName(),
+        colorValid: () => this.validation().colorError === undefined,
+        contrastOk: () => this.contrastOk(),
+        hasSaved: () => this.hasSavedBranding()
+      })
+    );
+  }
+
   ngOnInit(): void {
+    this.help.registerScreen(IDENTIDAD_HELP_KEY);
+    this.help.registerGuides(IDENTIDAD_HELP_KEY, {
+      tour: configTabTourGuide(() => void this.productTour.start(buildIdentidadTour())),
+      tutorial: {
+        label: 'Tutorial guiado',
+        hint: 'Recorre la marca, el contraste y el guardado con comprobaciones reales.',
+        run: () => this.startIdentidadTutorial()
+      }
+    });
     const initial = this.identidadService.initialValues();
     const cfg = this.identidadService.currentConfig();
     const emailEnabled = initial.support_email.trim() !== '';
@@ -393,6 +432,7 @@ export class AdminConfigIdentidadComponent implements OnInit {
           font_mono_family: mono,
           support_email_enabled: this.supportEmailEnabled()
         });
+        this.hasSavedBranding.set(true);
         // Sesión al día sin recarga: las fuentes guardadas se aplican en el acto.
         const cfg = this.identidadService.currentConfig();
         if (cfg) {

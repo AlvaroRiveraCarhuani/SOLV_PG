@@ -14,6 +14,7 @@
         type="button"
         role="tab"
         class="config-tab"
+        [attr.data-tour]="'config-tab-' + tab.id"
         [class.active]="activeTab() === tab.id"
         [attr.aria-selected]="activeTab() === tab.id"
         (click)="selectTab(tab.id)"
@@ -23,7 +24,7 @@
     }
   </nav>
 
-  <p class="tab-description">{{ activeDef().description }}</p>
+  <p class="tab-description" data-tour="config-description">{{ activeDef().description }}</p>
 
   <div class="config-tab-panel" role="tabpanel">
     @switch (activeTab()) {

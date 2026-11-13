@@ -15,11 +15,11 @@
   <header class="page-header view-header">
     <div class="header-info">
       <div class="title-with-badge">
-        <h1 class="page-title view-title">Plantillas de Entornos</h1>
-        <span class="role-badge">Gobernanza Docker</span>
+        <h1 class="page-title view-title">Catálogo de Entornos</h1>
+        <span class="role-badge">Laboratorios Virtuales</span>
       </div>
       <p class="page-subtitle view-subtitle">
-        Administra los entornos disponibles para las materias y revisa las solicitudes de los docentes
+        Administra los entornos de laboratorio disponibles para las materias y el campus
       </p>
     </div>
     <div class="header-actions">
@@ -28,7 +28,7 @@
         class="btn-secondary" 
         (click)="warmAllTemplates()" 
         [disabled]="isWarmingAll() || activeCount() === 0"
-        [title]="activeCount() === 0 ? 'No hay plantillas activas en el catálogo para preparar' : 'Verifica e instala en el servidor los entornos de las materias activas para que los alumnos no esperen descargas en clase'">
+        [title]="activeCount() === 0 ? 'No hay entornos activos en el catálogo para preparar' : 'Verifica e instala en el servidor los entornos de las materias activas para que los alumnos no esperen descargas en clase'">
         @if (isWarmingAll()) {
           <svg lucideRefreshCw class="btn-icon motion-spin"></svg>
           <span>Preparando entornos...</span>
@@ -39,7 +39,7 @@
       </button>
       <button type="button" class="btn-primary" (click)="navigateToCreateStudio()">
         <svg lucidePlus class="btn-icon"></svg>
-        <span>Nueva Plantilla</span>
+        <span>Nuevo Entorno</span>
       </button>
     </div>
   </header>
@@ -97,7 +97,7 @@
   </kpi-grid>
 
   <!-- Pestañas de Estado y Alternador de Vista -->
-  <div class="nav-toolbar">
+  <div class="nav-toolbar" data-tour="templates-tabs">
     <status-tabs
       [tabs]="templateTabs()"
       [activeTab]="activeTab()"
@@ -195,7 +195,7 @@
     }
   </div>
 
-  <!-- CONTENIDO: Pestaña 1 - Solicitudes Pendientes -->
+  <!-- CONTENIDO: Pestaña 1 - Plantillas en aprobación -->
   @if (activeTab() === 'pending') {
     @if (isLoading()) {
       <div class="loading-state">
@@ -215,7 +215,7 @@
     } @else {
       @if (viewMode() === 'cards') {
         <!-- Modo Tarjetas: Grilla Lado a Lado de 3 columnas -->
-        <div class="cards-grid">
+        <div class="cards-grid" data-tour="templates-list">
           @for (item of pendingTemplates(); track item.id) {
             <div class="template-card">
               <div class="card-header">
@@ -256,7 +256,7 @@
               <div class="card-meta">
                 <div class="meta-row">
                   <span class="meta-text font-medium">
-                    {{ item.requested_by_name || 'Docente de la institución' }}
+                    Creada por {{ item.requested_by_name || 'administración' }}
                   </span>
                 </div>
                 <div class="meta-row">
@@ -295,7 +295,7 @@
               <div class="pedagogical-justification-box">
                 <span class="justification-title">Justificación pedagógica:</span>
                 <p class="justification-text">
-                  {{ item.description || 'Sin justificación técnica especificada por el docente.' }}
+                  {{ templateDescription(item) || 'Sin justificación técnica especificada por el docente.' }}
                 </p>
               </div>
 
@@ -317,8 +317,8 @@
           }
         </div>
       } @else {
-        <!-- Tabla de Solicitudes Pendientes -->
-        <div class="table-card table-responsive">
+        <!-- Tabla de plantillas en aprobación -->
+        <div class="table-card table-responsive" data-tour="templates-list">
           <table class="data-table">
             <thead>
               <tr>
@@ -371,7 +371,7 @@
                     </div>
                   </td>
                   <td>
-                    <span class="cell-text font-medium">{{ item.requested_by_name || 'Docente' }}</span>
+                    <span class="cell-text font-medium">Creada por {{ item.requested_by_name || 'administración' }}</span>
                   </td>
                   <td>
                     <span class="ram-badge"><span machineData>{{ item.base_ram_mb }} MB</span></span>
@@ -380,8 +380,8 @@
                     <time class="cell-text text-secondary font-mono font-date">{{ item.created_at | dateText }}</time>
                   </td>
                   <td>
-                    <span class="cell-desc-subtle" [title]="item.description || 'Sin justificación'">
-                      {{ item.description || 'Sin justificación técnica especificada' }}
+                    <span class="cell-desc-subtle" [title]="templateDescription(item) || 'Sin justificación'">
+                      {{ templateDescription(item) || 'Sin justificación técnica especificada' }}
                     </span>
                   </td>
                   <td class="text-right">
@@ -487,8 +487,8 @@
                 }
               </div>
 
-              @if (item.description) {
-                <p class="card-description">{{ item.description }}</p>
+              @if (templateDescription(item); as description) {
+                <p class="card-description">{{ description }}</p>
               }
 
               <div class="card-meta">
@@ -653,8 +653,8 @@
                             <code machineData>{{ item.entrypoint }}</code>
                           </div>
                         }
-                        @if (item.description) {
-                          <div class="cell-desc-subtle">{{ item.description }}</div>
+                        @if (templateDescription(item); as description) {
+                          <div class="cell-desc-subtle">{{ description }}</div>
                         }
                       </div>
                     </div>
@@ -974,7 +974,7 @@
                     </div>
                   </td>
                   <td>
-                    <span class="cell-text font-medium">{{ item.requested_by_name || 'Docente' }}</span>
+                    <span class="cell-text font-medium">Creada por {{ item.requested_by_name || 'administración' }}</span>
                   </td>
                   <td>
                     <span class="cell-text text-secondary font-mono">

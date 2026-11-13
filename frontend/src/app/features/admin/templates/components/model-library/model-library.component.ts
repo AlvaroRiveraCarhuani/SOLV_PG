@@ -1,7 +1,10 @@
-import { Component, OnInit, computed, inject, signal } from '@angular/core';
+import { Component, OnInit, OnDestroy, computed, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { MachineDataDirective } from '@shared/directives/machine-data.directive';
+import { ContextHelpService } from '@shared/help/context-help.service';
+
+const MODEL_LIBRARY_HELP_KEY = 'model-library';
 import { Router, RouterModule } from '@angular/router';
 import {
   AdminTemplatesService,
@@ -99,13 +102,16 @@ import { EnvironmentLabelPipe } from '@shared/pipes/environment-label.pipe';
   templateUrl: './model-library.component.html',
   styleUrls: ['./model-library.component.scss']
 })
-export class ModelLibraryComponent implements OnInit {
+export class ModelLibraryComponent implements OnInit, OnDestroy {
   private readonly templatesService = inject(AdminTemplatesService);
+  private readonly help = inject(ContextHelpService);
   private readonly router = inject(Router);
 
   readonly activeTab = signal<'models' | 'components' | 'categories' | 'map'>('models');
   readonly viewMode = signal<'cards' | 'table'>('table');
   readonly isLoading = signal<boolean>(false);
+  /** Distingue «no hay modelos» de «el catálogo no se pudo consultar». */
+  readonly modelsLoadFailed = signal<boolean>(false);
 
   readonly models = signal<TemplateModelItem[]>([]);
   readonly categories = signal<TemplateCategory[]>([]);
@@ -258,6 +264,12 @@ export class ModelLibraryComponent implements OnInit {
 
   draggedCategoryIndex: number | null = null;
 
+  readonly hasModelSearch = computed<boolean>(() => this.searchQuery().trim().length > 0);
+
+  readonly hasActiveModelFilters = computed<boolean>(() =>
+    this.filterPurpose() !== 'ALL' || this.filterCategory() !== 'ALL' || this.filterStatus() !== 'ALL'
+  );
+
   readonly filteredModels = computed(() =>
     filterModelsForLibrary({
       models: this.models(),
@@ -278,11 +290,17 @@ export class ModelLibraryComponent implements OnInit {
   );
 
   ngOnInit(): void {
+    this.help.registerScreen(MODEL_LIBRARY_HELP_KEY);
     this.loadData();
+  }
+
+  ngOnDestroy(): void {
+    this.help.unregisterScreen(MODEL_LIBRARY_HELP_KEY);
   }
 
   loadData(): void {
     this.isLoading.set(true);
+    this.modelsLoadFailed.set(false);
     this.templatesService.getModels(undefined, undefined, true).subscribe({
       next: models => {
         this.models.set(models);
@@ -290,9 +308,17 @@ export class ModelLibraryComponent implements OnInit {
       },
       error: err => {
         this.isLoading.set(false);
+        this.modelsLoadFailed.set(true);
         this.showToast('Error al cargar la lista de modelos: ' + (err.message || 'Error de conexión'), 'error');
       }
     });
+  }
+
+  resetModelFilters(): void {
+    this.searchQuery.set('');
+    this.filterPurpose.set('ALL');
+    this.filterCategory.set('ALL');
+    this.filterStatus.set('ALL');
   }
 
   loadCategories(): void {

@@ -51,7 +51,7 @@
         </label>
       </div>
 
-      <div class="provider-grid">
+      <div class="provider-grid" data-tour="ai-providers">
         @for (item of visibleProviderItems(); track item.id) {
           @if (item.kind === 'add') {
             <button
@@ -129,7 +129,7 @@
     </div>
 
     <!-- ================= TARJETA 2: Credenciales, Conexión y Modelo ================= -->
-    <div class="ia-card">
+    <div class="ia-card" data-tour="ai-credentials">
       <div class="card-header">
         <div class="card-title-group">
           <svg lucideKey class="card-icon"></svg>
@@ -462,7 +462,7 @@
         </div>
       }
 
-      <div class="card-actions-row">
+      <div class="card-actions-row" data-tour="ai-test">
         @if (formMode() === 'custom') {
           <button
             type="button"
@@ -484,7 +484,7 @@
     </div>
 
     <!-- ================= TARJETA 3: Gobernanza Autoadaptativa ================= -->
-    <div class="ia-card">
+    <div class="ia-card" data-tour="ai-governance">
       <div class="card-header">
         <div class="card-title-group">
           <svg lucideActivity class="card-icon"></svg>
@@ -587,7 +587,7 @@
         </div>
       }
 
-      <div class="card-actions-row">
+      <div class="card-actions-row" data-tour="ai-save">
         <button
           type="button"
           class="btn-primary"

@@ -23,6 +23,7 @@
       <form-field
         label="Logo de la Institución"
         for="branding-logo"
+        data-tour="branding-identity"
         hint="Imagen PNG, SVG, JPG o WEBP de hasta 2 MB. También puedes pegar una URL https."
         [error]="validation().logoError"
       >
@@ -94,6 +95,7 @@
       <form-field
         label="Color Primario de la Marca"
         for="branding-color"
+        data-tour="branding-color"
         hint="Formato #RRGGBB. El motor HSL deriva hover, foco y badges automáticamente."
         [error]="validation().colorError"
       >
@@ -152,7 +154,7 @@
       </form-field>
 
       <!-- 5. Tipografía white-label -->
-      <div class="typography-section">
+      <div class="typography-section" data-tour="branding-typography">
         <div class="typography-header">
           <svg lucideType></svg>
           <span>Tipografía Institucional</span>
@@ -270,7 +272,7 @@
         </div>
       }
 
-      <div class="panel-actions">
+      <div class="panel-actions" data-tour="branding-save">
         <button type="button" class="btn-outline" (click)="resetForm()" [disabled]="!isDirty() || isSaving()">
           Cancelar Cambios
         </button>
@@ -285,7 +287,7 @@
     </div>
 
     <!-- ================= Panel derecho: preview en vivo ================= -->
-    <div class="preview-panel" aria-label="Vista previa en vivo del branding">
+    <div class="preview-panel" aria-label="Vista previa en vivo del branding" data-tour="branding-preview">
       <div class="preview-header">
         <svg lucideEye class="preview-eye"></svg>
         <span>Vista Previa en Vivo</span>

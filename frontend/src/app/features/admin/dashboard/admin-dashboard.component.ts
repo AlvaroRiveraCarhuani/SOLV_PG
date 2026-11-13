@@ -10,6 +10,7 @@ import { ContainerTableComponent } from './components/container-table/container-
 import { LogViewerModalComponent } from './components/log-viewer-modal/log-viewer-modal.component';
 import { LoadHistoryChartComponent } from './components/load-history-chart/load-history-chart.component';
 import { ConfirmModalComponent } from '@shared/components/confirm-modal/confirm-modal.component';
+import { ContextHelpService } from '@shared/help/context-help.service';
 import { MachineDataDirective } from '@shared/directives/machine-data.directive';
 import { CourseLoadSummary, TechnicalIncident, DockerContainerSummary } from '@core/models/admin.model';
 import { 
@@ -29,6 +30,7 @@ import {
 export type DashboardSectionId = 'kpis' | 'chart' | 'split' | 'containers';
 
 const STORAGE_LAYOUT_KEY = 'solv_admin_dashboard_layout';
+const DASHBOARD_HELP_KEY = 'dashboard-health';
 export const DEFAULT_BLOCK_ORDER: DashboardSectionId[] = ['kpis', 'chart', 'split', 'containers'];
 
 @Component({
@@ -65,6 +67,7 @@ export const DEFAULT_BLOCK_ORDER: DashboardSectionId[] = ['kpis', 'chart', 'spli
 })
 export class AdminDashboardComponent implements OnDestroy {
   private metricsService = inject(AdminMetricsService);
+  private readonly help = inject(ContextHelpService);
 
   health = this.metricsService.health;
   isLoading = this.metricsService.isLoading;
@@ -97,11 +100,19 @@ export class AdminDashboardComponent implements OnDestroy {
     }
   });
 
-  healthReasonsTooltip = computed(() => {
-    const reasons = this.health()?.health_reasons ?? [];
-    if (reasons.length === 0) return '';
-    return reasons.map((r) => healthReasonLabel(r)).join('\n');
-  });
+  /** Motivos traducidos: se muestran junto al indicador, no sólo en el tooltip. */
+  healthReasons = computed<string[]>(() =>
+    (this.health()?.health_reasons ?? []).map((reason) => healthReasonLabel(reason))
+  );
+
+  healthReasonsTooltip = computed(() => this.healthReasons().join('\n'));
+
+  /** Alcance real de «Hibernar Todo», leído del estado que ya muestra el panel. */
+  activeContainersCount = computed<number>(() => this.health()?.metrics?.containers_active ?? 0);
+  affectedCoursesCount = computed<number>(() =>
+    (this.health()?.courses_load ?? []).filter((course) => course.active_students > 0).length
+  );
+  showHibernateConfirm = signal<boolean>(false);
 
   selectedCourse = signal<CourseLoadSummary | null>(null);
   // Se incrementa tras cada pausa correcta para que el modal recargue su lista.
@@ -126,6 +137,7 @@ export class AdminDashboardComponent implements OnDestroy {
   private autoRefreshTimer?: ReturnType<typeof setInterval>;
 
   constructor() {
+    this.help.registerScreen(DASHBOARD_HELP_KEY);
     this.loadLayoutPreference();
   }
 
@@ -265,16 +277,33 @@ export class AdminDashboardComponent implements OnDestroy {
     }, 1000);
   }
 
-  hibernateAll(): void {
-    if (this.isHibernating() || this.hibernateCooldown() > 0) return;
+  /** Abre la confirmación; con cero activos sólo informa, como antes. */
+  requestHibernateAll(): void {
+    if (this.isHibernating() || this.hibernateCooldown() > 0 || this.showHibernateConfirm()) return;
 
-    const active = this.health()?.metrics?.containers_active ?? 0;
-
-    if (active === 0) {
+    if (this.activeContainersCount() === 0) {
       this.showFeedback('info', 'No hay laboratorios activos para hibernar en este momento. Todos los contenedores se encuentran detenidos o en reposo.');
       this.startHibernateCooldown(3);
       return;
     }
+
+    this.showHibernateConfirm.set(true);
+  }
+
+  cancelHibernateAll(): void {
+    this.showHibernateConfirm.set(false);
+  }
+
+  confirmHibernateAll(): void {
+    this.showHibernateConfirm.set(false);
+    this.hibernateAll();
+  }
+
+  private hibernateAll(): void {
+    if (this.isHibernating() || this.hibernateCooldown() > 0) return;
+
+    const active = this.activeContainersCount();
+    if (active === 0) return;
 
     this.isHibernating.set(true);
     this.metricsService.hibernateAll().subscribe({
@@ -385,6 +414,7 @@ export class AdminDashboardComponent implements OnDestroy {
   }
 
   ngOnDestroy(): void {
+    this.help.unregisterScreen(DASHBOARD_HELP_KEY);
     this.stopAutoRefresh();
     if (this.refreshTimer) clearInterval(this.refreshTimer);
     if (this.hibernateTimer) clearInterval(this.hibernateTimer);

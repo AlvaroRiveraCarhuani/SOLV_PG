@@ -1,8 +1,9 @@
-import { Component, OnInit, inject, signal, computed, output } from '@angular/core';
+import { Component, OnInit, inject, input, signal, computed, output } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { Router, RouterLink } from '@angular/router';
 import { TenantService } from '@core/services/tenant.service';
 import { AuthService } from '@core/services/auth.service';
+import { ContextHelpService } from '@shared/help/context-help.service';
 import {
   NotificationItem,
   NotificationService
@@ -11,7 +12,7 @@ import { UserTypographyModalComponent } from '@shared/components/user-typography
 import { DismissibleDirective } from '@shared/directives/dismissible.directive';
 import { DateTextPipe } from '@shared/pipes/date-text.pipe';
 import { MachineDataDirective } from '@shared/directives/machine-data.directive';
-import { LucidePanelLeft, LucideBell, LucideLogOut, LucideUser, LucideType } from '@lucide/angular';
+import { LucidePanelLeft, LucideBell, LucideLogOut, LucideUser, LucideType, LucideCircleHelp } from '@lucide/angular';
 
 @Component({
   selector: 'topbar',
@@ -24,6 +25,7 @@ import { LucidePanelLeft, LucideBell, LucideLogOut, LucideUser, LucideType } fro
     LucideLogOut,
     LucideUser,
     LucideType,
+    LucideCircleHelp,
     UserTypographyModalComponent,
     DismissibleDirective,
     DateTextPipe,
@@ -59,6 +61,18 @@ import { LucidePanelLeft, LucideBell, LucideLogOut, LucideUser, LucideType } fro
       </div>
 
       <div class="topbar-right">
+        @if (showHelpButton() && help.hasContent()) {
+          <button
+            type="button"
+            class="btn-icon"
+            (click)="openHelp($event)"
+            aria-label="Abrir el centro de ayuda"
+            [attr.aria-expanded]="help.isOpen()"
+          >
+            <svg lucideCircleHelp class="icon"></svg>
+          </button>
+        }
+
         <!-- Campana de avisos (ADR-034) -->
         <div class="notif-wrapper">
           <button #notifBtn class="btn-icon" (click)="toggleNotifMenu()" title="Avisos" aria-label="Avisos">
@@ -183,6 +197,11 @@ export class TopbarComponent implements OnInit {
 
   toggleSidebar = output<void>();
 
+  /** El centro de ayuda sólo se ofrece en el área administrativa. */
+  showHelpButton = input<boolean>(false);
+
+  readonly help = inject(ContextHelpService);
+
   logoFailed = signal<boolean>(false);
   profileMenuOpen = signal<boolean>(false);
   notifMenuOpen = signal<boolean>(false);
@@ -214,6 +233,10 @@ export class TopbarComponent implements OnInit {
     if (role === 'admin') return '/admin/notifications';
     if (role === 'teacher') return '/teacher/notifications';
     return '/student/notifications';
+  }
+
+  openHelp(event: MouseEvent): void {
+    this.help.toggle(event.currentTarget as HTMLElement);
   }
 
   toggleProfileMenu(): void {

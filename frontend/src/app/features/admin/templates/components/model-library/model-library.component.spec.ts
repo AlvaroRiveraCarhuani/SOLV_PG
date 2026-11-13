@@ -711,4 +711,20 @@ describe('ModelLibraryComponent Spec', () => {
       expect(component.defaultCompatibleRuntime()).toBe('python');
     });
   });
+  it('resetModelFilters limpia la búsqueda y los tres filtros', () => {
+    component.searchQuery.set('python');
+    component.filterPurpose.set('JUEZ_EFIMERO');
+    component.filterCategory.set('c-1');
+    component.filterStatus.set('INACTIVE');
+
+    expect(component.hasModelSearch()).toBe(true);
+    expect(component.hasActiveModelFilters()).toBe(true);
+
+    component.resetModelFilters();
+
+    expect(component.hasModelSearch()).toBe(false);
+    expect(component.hasActiveModelFilters()).toBe(false);
+    expect(component.filteredModels().length).toBeGreaterThan(0);
+  });
+
 });

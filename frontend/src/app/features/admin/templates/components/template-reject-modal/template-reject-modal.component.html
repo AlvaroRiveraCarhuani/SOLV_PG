@@ -1,6 +1,6 @@
 <modal-shell animate.leave="motion-modal-out"
-  title="Rechazar Solicitud de Plantilla"
-  subtitle="Indique la retroalimentación técnica para el docente solicitante"
+  title="Rechazar plantilla"
+  subtitle="Indique el motivo técnico; el docente lo verá en el catálogo"
   intent="error"
   (close)="closeModal()"
 >
@@ -12,12 +12,12 @@
       <span class="summary-value">{{ template.name }}</span>
     </div>
     <div class="summary-row">
-      <span class="summary-label">Imagen solicitada:</span>
+      <span class="summary-label">Imagen:</span>
       <code class="docker-image-tag">{{ template.docker_image }}</code>
     </div>
     @if (template.requested_by_name) {
       <div class="summary-row">
-        <span class="summary-label">Docente:</span>
+        <span class="summary-label">Creada por:</span>
         <span class="summary-value secondary">{{ template.requested_by_name }}</span>
       </div>
     }

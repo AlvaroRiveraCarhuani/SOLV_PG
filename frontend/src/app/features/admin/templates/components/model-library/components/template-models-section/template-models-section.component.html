@@ -123,8 +123,25 @@
       } @empty {
         <div class="empty-state-card">
           <svg lucideBoxes class="empty-icon"></svg>
-          <h4 class="empty-title">No se encontraron modelos oficiales</h4>
-          <p class="empty-text">Ajuste los filtros de búsqueda o registre un nuevo modelo oficial institucional.</p>
+          @if (loadFailed()) {
+            <h4 class="empty-title">No se pudieron cargar los modelos oficiales</h4>
+            <p class="empty-text">El servidor no respondió a la consulta del catálogo. Vuelve a intentarlo en unos segundos.</p>
+            <button type="button" class="empty-action" (click)="reload.emit()">Reintentar</button>
+          } @else if (isLoading()) {
+            <h4 class="empty-title">Consultando el catálogo de modelos…</h4>
+            <p class="empty-text">La lista se está cargando desde el servidor.</p>
+          } @else if (totalModelsCount() === 0 && !hasActiveFilters() && !hasSearch()) {
+            <h4 class="empty-title">Aún no hay modelos oficiales registrados</h4>
+            <p class="empty-text">Con «Nuevo Modelo Oficial» puedes promover una plantilla aprobada y convertirla en el primer modelo del catálogo.</p>
+          } @else if (hasSearch()) {
+            <h4 class="empty-title">Ningún modelo coincide con la búsqueda</h4>
+            <p class="empty-text">No hay coincidencias para «{{ searchQuery() }}» en el nombre, la descripción ni la imagen Docker.</p>
+            <button type="button" class="empty-action" (click)="resetFilters.emit()">Restablecer filtros</button>
+          } @else {
+            <h4 class="empty-title">Los filtros aplicados no dejan modelos visibles</h4>
+            <p class="empty-text">Cambia el propósito, la categoría o el estado para volver a ver el catálogo completo.</p>
+            <button type="button" class="empty-action" (click)="resetFilters.emit()">Restablecer filtros</button>
+          }
         </div>
       }
     </div>
@@ -232,7 +249,25 @@
               <td colspan="8" class="empty-cell">
                 <div class="empty-state">
                   <svg lucideBoxes class="empty-icon"></svg>
-                  <p class="empty-text">No se encontraron modelos oficiales con los filtros seleccionados.</p>
+                  @if (loadFailed()) {
+                    <p class="empty-title">No se pudieron cargar los modelos oficiales</p>
+                    <p class="empty-text">El servidor no respondió a la consulta del catálogo. Vuelve a intentarlo en unos segundos.</p>
+                    <button type="button" class="empty-action" (click)="reload.emit()">Reintentar</button>
+                  } @else if (isLoading()) {
+                    <p class="empty-title">Consultando el catálogo de modelos…</p>
+                    <p class="empty-text">La lista se está cargando desde el servidor.</p>
+                  } @else if (totalModelsCount() === 0 && !hasActiveFilters() && !hasSearch()) {
+                    <p class="empty-title">Aún no hay modelos oficiales registrados</p>
+                    <p class="empty-text">Con «Nuevo Modelo Oficial» puedes promover una plantilla aprobada y convertirla en el primer modelo del catálogo.</p>
+                  } @else if (hasSearch()) {
+                    <p class="empty-title">Ningún modelo coincide con la búsqueda</p>
+                    <p class="empty-text">No hay coincidencias para «{{ searchQuery() }}» en el nombre, la descripción ni la imagen Docker.</p>
+                    <button type="button" class="empty-action" (click)="resetFilters.emit()">Restablecer filtros</button>
+                  } @else {
+                    <p class="empty-title">Los filtros aplicados no dejan modelos visibles</p>
+                    <p class="empty-text">Cambia el propósito, la categoría o el estado para volver a ver el catálogo completo.</p>
+                    <button type="button" class="empty-action" (click)="resetFilters.emit()">Restablecer filtros</button>
+                  }
                 </div>
               </td>
             </tr>

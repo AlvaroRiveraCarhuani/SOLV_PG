@@ -1,9 +1,14 @@
-import { Component, ChangeDetectionStrategy, OnInit, inject, signal, computed } from '@angular/core';
+import { Component, ChangeDetectionStrategy, OnInit, OnDestroy, inject, signal, computed } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { DateTextPipe } from '@shared/pipes/date-text.pipe';
 import { ModalShellComponent } from '@shared/components/modal-shell/modal-shell.component';
 import { FormFieldComponent } from '@shared/components/form-field/form-field.component';
+import { ContextHelpService } from '@shared/help/context-help.service';
+import { InteractiveTutorialService } from '@shared/help/interactive-tutorial.service';
+import { ProductTourService } from '@shared/help/product-tour.service';
+import { configTabTourGuide } from '../config-help.definitions';
+import { buildAdministradoresTour, buildAdministradoresTutorial } from './administradores-help.definitions';
 import { AuthService } from '@core/services/auth.service';
 import {
   AdminConfigAdministradoresService,
@@ -19,6 +24,8 @@ import {
   LucideCheckCircle2,
   LucideAlertTriangle
 } from '@lucide/angular';
+
+const ADMINISTRADORES_HELP_KEY = 'config-administrators';
 
 @Component({
   selector: 'admin-config-administradores',
@@ -41,9 +48,15 @@ import {
   styleUrl: './admin-config-administradores.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush
 })
-export class AdminConfigAdministradoresComponent implements OnInit {
+export class AdminConfigAdministradoresComponent implements OnInit, OnDestroy {
   private readonly adminService = inject(AdminConfigAdministradoresService);
   private readonly authService = inject(AuthService);
+  private readonly help = inject(ContextHelpService);
+  private readonly tutorial = inject(InteractiveTutorialService);
+  private readonly productTour = inject(ProductTourService);
+
+  /** Se registró un administrador en esta visita; lo lee el tutorial. */
+  readonly hasCreatedAdmin = signal(false);
 
   readonly administrators = this.adminService.administrators;
   readonly isLoading = this.adminService.isLoading;
@@ -65,11 +78,37 @@ export class AdminConfigAdministradoresComponent implements OnInit {
   );
 
   ngOnInit(): void {
+    this.help.registerScreen(ADMINISTRADORES_HELP_KEY);
+    this.help.registerGuides(ADMINISTRADORES_HELP_KEY, {
+      tour: configTabTourGuide(() => void this.productTour.start(buildAdministradoresTour())),
+      tutorial: {
+        label: 'Tutorial guiado',
+        hint: 'Registra un operador y comprueba el correo antes de confirmar.',
+        run: () => this.startAdministradoresTutorial()
+      }
+    });
     this.adminService.loadAdministrators().subscribe({
       error: () => {
         // Error capturado en el signal del servicio
       }
     });
+  }
+
+  ngOnDestroy(): void {
+    this.help.unregisterGuides(ADMINISTRADORES_HELP_KEY);
+    this.help.unregisterScreen(ADMINISTRADORES_HELP_KEY);
+  }
+
+  /** Tutorial del equipo: alta completa, sin ejecutar la revocación. */
+  startAdministradoresTutorial(): void {
+    this.tutorial.start(
+      buildAdministradoresTutorial({
+        isCreateModalOpen: () => this.isCreateModalOpen(),
+        email: () => this.formEmail(),
+        formError: () => this.formError(),
+        hasCreated: () => this.hasCreatedAdmin()
+      })
+    );
   }
 
   isSelf(admin: Administrator): boolean {
@@ -136,6 +175,7 @@ export class AdminConfigAdministradoresComponent implements OnInit {
     this.adminService.createAdministrator(payload).subscribe({
       next: (created) => {
         this.isCreateModalOpen.set(false);
+        this.hasCreatedAdmin.set(true);
         this.showToast('success', `Administrador ${created.first_name} ${created.last_name} registrado exitosamente.`);
       },
       error: (err) => {

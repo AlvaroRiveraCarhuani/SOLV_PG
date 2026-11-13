@@ -1,4 +1,4 @@
-import { Component, inject, signal, computed, OnInit } from '@angular/core';
+import { Component, inject, signal, computed, OnInit, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { HttpClient } from '@angular/common/http';
@@ -16,6 +16,11 @@ import { ModalShellComponent } from '@shared/components/modal-shell/modal-shell.
 import { FormFieldComponent } from '@shared/components/form-field/form-field.component';
 import { MachineDataDirective } from '@shared/directives/machine-data.directive';
 import { PaginationBarComponent } from '@shared/components/pagination-bar/pagination-bar.component';
+import { ContextHelpService } from '@shared/help/context-help.service';
+import { InteractiveTutorialService } from '@shared/help/interactive-tutorial.service';
+import { ProductTourService } from '@shared/help/product-tour.service';
+import { configTabTourGuide } from '../config-help.definitions';
+import { buildPeriodosTour, buildPeriodosTutorial } from './periodos-help.definitions';
 import {
   LucideCalendar,
   LucidePlus,
@@ -35,6 +40,8 @@ interface PeriodRow extends AcademicPeriodConfig {
 interface SubjectCountRow {
   academic_period_id?: string;
 }
+
+const PERIODOS_HELP_KEY = 'config-periods';
 
 @Component({
   selector: 'admin-config-periodos',
@@ -61,9 +68,15 @@ interface SubjectCountRow {
   templateUrl: './admin-config-periodos.component.html',
   styleUrls: ['./admin-config-periodos.component.scss']
 })
-export class AdminConfigPeriodosComponent implements OnInit {
+export class AdminConfigPeriodosComponent implements OnInit, OnDestroy {
   private readonly periodosService = inject(AdminConfigPeriodosService);
   private readonly http = inject(HttpClient);
+  private readonly help = inject(ContextHelpService);
+  private readonly tutorial = inject(InteractiveTutorialService);
+  private readonly productTour = inject(ProductTourService);
+
+  /** Se creó o editó un período en esta visita; lo lee el tutorial. */
+  readonly hasCreatedPeriod = signal(false);
 
   readonly periods = this.periodosService.periods;
   readonly isLoading = this.periodosService.isLoading;
@@ -200,6 +213,7 @@ export class AdminConfigPeriodosComponent implements OnInit {
     call$.subscribe({
       next: (period) => {
         this.isSubmitting.set(false);
+        this.hasCreatedPeriod.set(true);
         this.closeForm();
         this.showToast(
           this.editingId()
@@ -342,7 +356,35 @@ export class AdminConfigPeriodosComponent implements OnInit {
   readonly courseCountByPeriod = signal<Record<string, number>>({});
 
   ngOnInit(): void {
+    this.help.registerScreen(PERIODOS_HELP_KEY);
+    this.help.registerGuides(PERIODOS_HELP_KEY, {
+      tour: configTabTourGuide(() => void this.productTour.start(buildPeriodosTour())),
+      tutorial: {
+        label: 'Tutorial guiado',
+        hint: 'Crea un período y comprueba el formulario antes de continuar.',
+        run: () => this.startPeriodosTutorial()
+      }
+    });
     this.periodosService.fetchPeriods().subscribe(() => this.loadCourseCounts());
+  }
+
+  ngOnDestroy(): void {
+    this.help.unregisterGuides(PERIODOS_HELP_KEY);
+    this.help.unregisterScreen(PERIODOS_HELP_KEY);
+  }
+
+  /** Tutorial del ciclo lectivo: solo avanza con datos reales en el formulario. */
+  startPeriodosTutorial(): void {
+    this.tutorial.start(
+      buildPeriodosTutorial({
+        formOpen: () => this.formOpen(),
+        name: () => this.name(),
+        code: () => this.code(),
+        isFormValid: () => this.isFormValid(),
+        hasCreated: () => this.hasCreatedPeriod(),
+        activeCount: () => this.activeCount()
+      })
+    );
   }
 
   private loadCourseCounts(): void {

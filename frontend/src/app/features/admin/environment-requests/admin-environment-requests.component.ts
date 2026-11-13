@@ -1,4 +1,4 @@
-import { Component, OnInit, computed, inject, signal } from '@angular/core';
+import { Component, OnInit, OnDestroy, computed, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import {
@@ -10,6 +10,9 @@ import {
 } from '@lucide/angular';
 import { DateTextPipe } from '@shared/pipes/date-text.pipe';
 import { SkeletonLoaderComponent } from '@shared/components/skeleton/skeleton-loader.component';
+import { ContextHelpService } from '@shared/help/context-help.service';
+
+const REQUESTS_HELP_KEY = 'environment-requests';
 import { EnvironmentLabelPipe } from '@shared/pipes/environment-label.pipe';
 import { EnvironmentRequestService } from '@features/teacher/services/environment-request.service';
 import {
@@ -46,8 +49,9 @@ import { AdminTemplateItem } from '../models/admin-templates.models';
   templateUrl: './admin-environment-requests.component.html',
   styleUrl: './admin-environment-requests.component.scss'
 })
-export class AdminEnvironmentRequestsComponent implements OnInit {
+export class AdminEnvironmentRequestsComponent implements OnInit, OnDestroy {
   private requestService = inject(EnvironmentRequestService);
+  private readonly help = inject(ContextHelpService);
   private templatesService = inject(AdminTemplatesService);
 
   requests = signal<EnvironmentRequest[]>([]);
@@ -71,6 +75,7 @@ export class AdminEnvironmentRequestsComponent implements OnInit {
   readonly visible = computed(() => (this.filter() === 'pending' ? this.pending() : this.answered()));
 
   ngOnInit(): void {
+    this.help.registerScreen(REQUESTS_HELP_KEY);
     this.load();
     this.templatesService.getTemplates('approved').subscribe({
       next: list => this.templates.set(list || []),
@@ -109,6 +114,10 @@ export class AdminEnvironmentRequestsComponent implements OnInit {
     if (request.uses?.includes('practice')) labels.push('Practicar en clase');
     if (request.uses?.includes('grade')) labels.push('Entregar y calificar');
     return labels.join(' · ') || 'Sin uso declarado';
+  }
+
+  ngOnDestroy(): void {
+    this.help.unregisterScreen(REQUESTS_HELP_KEY);
   }
 
   openReview(request: EnvironmentRequest): void {

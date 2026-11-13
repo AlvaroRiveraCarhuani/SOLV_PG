@@ -25,7 +25,7 @@
     </div>
   } @else {
     <!-- ================= BLOQUE 1: Políticas de Autogestión ================= -->
-    <div class="server-card">
+    <div class="server-card" data-tour="server-policies">
       <div class="card-header">
         <div class="card-title-group">
           <svg lucideServer class="card-icon"></svg>
@@ -95,7 +95,7 @@
     </div>
 
     <!-- ================= BLOQUE 2: Modo Mantenimiento ================= -->
-    <div class="server-card">
+    <div class="server-card" data-tour="server-maintenance">
       <div class="card-header">
         <div class="card-title-group">
           <svg lucideWrench class="card-icon"></svg>
@@ -132,7 +132,7 @@
     </div>
 
     <!-- ================= BLOQUE 3: Respaldos ================= -->
-    <div class="server-card">
+    <div class="server-card" data-tour="server-backups">
       <div class="card-header">
         <div class="card-title-group">
           <svg lucideHardDrive class="card-icon"></svg>
@@ -182,7 +182,7 @@
           </div>
         </div>
 
-        <div class="backup-strategy-grid">
+        <div class="backup-strategy-grid" data-tour="server-backup-strategy">
           <form-field label="Cada Cuántas Horas (automático)" for="backup-freq" hint="Cada cuántas horas se crea un respaldo solo" [error]="backupFrequencyError()">
             <div class="quick-pill-row">
               @for (hours of backupFreqQuick; track hours) {

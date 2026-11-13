@@ -1,10 +1,13 @@
-import { Component, computed, inject, signal } from '@angular/core';
+import { Component, OnDestroy, OnInit, computed, inject, signal } from '@angular/core';
+import { ContextHelpService } from '@shared/help/context-help.service';
 import { CommonModule } from '@angular/common';
 import { TenantService } from '@core/services/tenant.service';
 import { AdminAuditoriaRegistroComponent } from './tabs/admin-auditoria-registro.component';
 import { AdminAuditoriaEmergenciasComponent } from './tabs/admin-auditoria-emergencias.component';
 
 export type AuditoriaTab = 'registro' | 'emergencias';
+
+const AUDITORIA_HELP_KEY = 'auditoria-overview';
 
 interface AuditoriaTabDef {
   id: AuditoriaTab;
@@ -19,8 +22,17 @@ interface AuditoriaTabDef {
   templateUrl: './admin-auditoria.component.html',
   styleUrls: ['./admin-auditoria.component.scss']
 })
-export class AdminAuditoriaComponent {
+export class AdminAuditoriaComponent implements OnInit, OnDestroy {
   private readonly tenantService = inject(TenantService);
+  private readonly help = inject(ContextHelpService);
+
+  ngOnInit(): void {
+    this.help.registerScreen(AUDITORIA_HELP_KEY);
+  }
+
+  ngOnDestroy(): void {
+    this.help.unregisterScreen(AUDITORIA_HELP_KEY);
+  }
 
   readonly tenantName = computed<string>(
     () => this.tenantService.config()?.institution_name || 'la institución'

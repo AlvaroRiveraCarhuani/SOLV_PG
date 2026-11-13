@@ -1,4 +1,4 @@
-import { Component, inject, signal, computed, effect, OnInit } from '@angular/core';
+import { Component, inject, signal, computed, effect, OnInit, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import {
@@ -10,6 +10,11 @@ import { FormFieldComponent } from '@shared/components/form-field/form-field.com
 import { PaginationBarComponent } from '@shared/components/pagination-bar/pagination-bar.component';
 import { DateTextPipe, formatSolvDate } from '@shared/pipes/date-text.pipe';
 import { MachineDataDirective } from '@shared/directives/machine-data.directive';
+import { ContextHelpService } from '@shared/help/context-help.service';
+import { InteractiveTutorialService } from '@shared/help/interactive-tutorial.service';
+import { ProductTourService } from '@shared/help/product-tour.service';
+import { configTabTourGuide } from '../config-help.definitions';
+import { buildServidorTour, buildServidorTutorial } from './servidor-help.definitions';
 import {
   LucideServer,
   LucideHardDrive,
@@ -47,6 +52,8 @@ export function validateBackupInt(raw: unknown, min: number, max: number, field:
   return '';
 }
 
+const SERVIDOR_HELP_KEY = 'config-server';
+
 @Component({
   selector: 'admin-config-servidor',
   standalone: true,
@@ -73,8 +80,16 @@ export function validateBackupInt(raw: unknown, min: number, max: number, field:
   templateUrl: './admin-config-servidor.component.html',
   styleUrls: ['./admin-config-servidor.component.scss']
 })
-export class AdminConfigServidorComponent implements OnInit {
+export class AdminConfigServidorComponent implements OnInit, OnDestroy {
   private readonly servidorService = inject(AdminConfigServidorService);
+  private readonly help = inject(ContextHelpService);
+  private readonly tutorial = inject(InteractiveTutorialService);
+  private readonly productTour = inject(ProductTourService);
+
+  /** Señales de esta visita que el tutorial usa como comprobación. */
+  readonly hasSavedPolicies = signal(false);
+  readonly hasTriggeredBackup = signal(false);
+  readonly hasSavedBackupStrategy = signal(false);
 
   readonly policies = this.servidorService.policies;
   readonly maintenance = this.servidorService.maintenance;
@@ -234,7 +249,33 @@ export class AdminConfigServidorComponent implements OnInit {
   });
 
   ngOnInit(): void {
+    this.help.registerScreen(SERVIDOR_HELP_KEY);
+    this.help.registerGuides(SERVIDOR_HELP_KEY, {
+      tour: configTabTourGuide(() => void this.productTour.start(buildServidorTour())),
+      tutorial: {
+        label: 'Tutorial guiado',
+        hint: 'Recorre políticas, mantenimiento y respaldos con comprobaciones reales.',
+        run: () => this.startServidorTutorial()
+      }
+    });
     this.servidorService.loadAll();
+  }
+
+  ngOnDestroy(): void {
+    this.help.unregisterGuides(SERVIDOR_HELP_KEY);
+    this.help.unregisterScreen(SERVIDOR_HELP_KEY);
+  }
+
+  /** Tutorial de operación: valida guardados y el modal de mantenimiento. */
+  startServidorTutorial(): void {
+    this.tutorial.start(
+      buildServidorTutorial({
+        hasSavedPolicies: () => this.hasSavedPolicies(),
+        maintenanceModalOpen: () => this.maintenanceModalOpen(),
+        hasTriggeredBackup: () => this.hasTriggeredBackup(),
+        hasSavedBackupStrategy: () => this.hasSavedBackupStrategy()
+      })
+    );
   }
 
   // ------------------------------------------------------------------
@@ -259,6 +300,7 @@ export class AdminConfigServidorComponent implements OnInit {
     }).subscribe({
       next: () => {
         this.isSavingPolicies.set(false);
+        this.hasSavedPolicies.set(true);
         this.showToast('Políticas de autogestión guardadas. El worker aplicará la configuración en su próximo ciclo.');
       },
       error: (err) => {
@@ -324,6 +366,7 @@ export class AdminConfigServidorComponent implements OnInit {
     }).subscribe({
       next: () => {
         this.isSavingBackup.set(false);
+        this.hasSavedBackupStrategy.set(true);
         this.showToast('Configuración de respaldos guardada.');
       },
       error: (err) => {
@@ -340,6 +383,7 @@ export class AdminConfigServidorComponent implements OnInit {
     this.servidorService.triggerBackup().subscribe({
       next: () => {
         this.isTriggering.set(false);
+        this.hasTriggeredBackup.set(true);
         this.showToast('Respaldo creado. Integridad sin verificar — usa Verificar para confirmar.');
       },
       error: (err) => {

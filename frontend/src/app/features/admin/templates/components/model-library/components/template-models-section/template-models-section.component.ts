@@ -46,6 +46,11 @@ export class TemplateModelsSectionComponent {
   readonly categoryFilterOptions = input<ComboboxOption[]>([]);
   readonly selectedStatusFilterLabel = input<string>('Todos');
   readonly statusFilterOptions = input<ComboboxOption[]>([]);
+  readonly totalModelsCount = input<number>(0);
+  readonly hasActiveFilters = input<boolean>(false);
+  readonly hasSearch = input<boolean>(false);
+  readonly isLoading = input<boolean>(false);
+  readonly loadFailed = input<boolean>(false);
 
   readonly searchQueryChange = output<string>();
   readonly purposeFilterSelect = output<ComboboxOption>();
@@ -53,6 +58,8 @@ export class TemplateModelsSectionComponent {
   readonly statusFilterSelect = output<ComboboxOption>();
   readonly editModel = output<TemplateModelItem>();
   readonly toggleModelActive = output<TemplateModelItem>();
+  readonly resetFilters = output<void>();
+  readonly reload = output<void>();
 
   getCategoryName(categoryId?: string | null): string {
     if (!categoryId) return 'Sin categoría';

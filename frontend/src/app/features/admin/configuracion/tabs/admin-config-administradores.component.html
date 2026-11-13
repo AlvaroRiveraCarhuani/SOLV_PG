@@ -41,6 +41,7 @@
         <button
           type="button"
           class="btn-primary"
+          data-tour="admins-create"
           (click)="openCreateModal()"
         >
           <svg lucideUserPlus class="btn-icon"></svg>
@@ -58,7 +59,7 @@
         </div>
       </div>
 
-      <div class="table-container">
+      <div class="table-container" data-tour="admins-list">
         <table class="admins-table">
           <thead>
             <tr>
@@ -104,7 +105,7 @@
                     <span>Activo</span>
                   </span>
                 </td>
-                <td class="col-actions">
+                <td class="col-actions" data-tour="admins-row-actions">
                   <button
                     type="button"
                     class="btn-revoke"
@@ -208,6 +209,7 @@
         <button
           type="button"
           class="btn-primary"
+          data-tour="admins-submit"
           [disabled]="isSubmitting()"
           (click)="submitCreate()"
         >

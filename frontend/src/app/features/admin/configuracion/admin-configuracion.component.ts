@@ -1,4 +1,5 @@
-import { Component, computed, inject, signal } from '@angular/core';
+import { Component, OnDestroy, OnInit, computed, inject, signal } from '@angular/core';
+import { ContextHelpService } from '@shared/help/context-help.service';
 import { CommonModule } from '@angular/common';
 import { TenantService } from '@core/services/tenant.service';
 import { AdminConfigPeriodosComponent } from './tabs/admin-config-periodos.component';
@@ -8,6 +9,8 @@ import { AdminConfigIaComponent } from './tabs/admin-config-ia.component';
 import { AdminConfigAdministradoresComponent } from './tabs/admin-config-administradores.component';
 
 export type ConfigTab = 'periodos' | 'identidad' | 'servidor' | 'ia' | 'administradores';
+
+const CONFIG_HELP_KEY = 'config-overview';
 
 interface ConfigTabDef {
   id: ConfigTab;
@@ -29,8 +32,19 @@ interface ConfigTabDef {
   templateUrl: './admin-configuracion.component.html',
   styleUrls: ['./admin-configuracion.component.scss']
 })
-export class AdminConfiguracionComponent {
+export class AdminConfiguracionComponent implements OnInit, OnDestroy {
   private readonly tenantService = inject(TenantService);
+  private readonly help = inject(ContextHelpService);
+
+  ngOnInit(): void {
+    // La página solo aporta su contexto: el recorrido y el tutorial los
+    // registra la pestaña visible, que es la que tiene sus propios bloques.
+    this.help.registerScreen(CONFIG_HELP_KEY);
+  }
+
+  ngOnDestroy(): void {
+    this.help.unregisterScreen(CONFIG_HELP_KEY);
+  }
 
   readonly tenantName = computed<string>(
     () => this.tenantService.config()?.institution_name || 'la institución'

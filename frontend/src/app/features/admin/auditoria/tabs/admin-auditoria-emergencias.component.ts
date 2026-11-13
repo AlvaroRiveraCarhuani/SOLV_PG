@@ -1,8 +1,9 @@
-import { Component, OnInit, computed, inject, signal } from '@angular/core';
+import { Component, OnInit, OnDestroy, computed, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { HttpErrorResponse } from '@angular/common/http';
 import { DateTextPipe } from '@shared/pipes/date-text.pipe';
+import { ContextHelpService } from '@shared/help/context-help.service';
 import { LucideSiren, LucideTriangleAlert } from '@lucide/angular';
 import { ModalShellComponent, ModalIntent } from '@shared/components/modal-shell/modal-shell.component';
 import { FormFieldComponent } from '@shared/components/form-field/form-field.component';
@@ -14,7 +15,7 @@ import {
   EmergencyActionId,
   EmergencyActionResult
 } from '../admin-auditoria.service';
-import { AuditLog, humanizeConstant } from '@core/models/audit-log.model';
+import { AuditLog, auditActionLabel } from '@core/models/audit-log.model';
 
 interface EmergencyActionDef {
   id: EmergencyActionId;
@@ -34,6 +35,8 @@ interface EmergencyHistoryRow {
  * catálogo clasificadas por impacto, doble confirmación por frase tipada,
  * motivo obligatorio y trazabilidad de ejecuciones previas.
  */
+const EMERGENCY_HELP_KEY = 'emergency-console';
+
 @Component({
   selector: 'admin-auditoria-emergencias',
   standalone: true,
@@ -41,7 +44,9 @@ interface EmergencyHistoryRow {
   templateUrl: './admin-auditoria-emergencias.component.html',
   styleUrl: './admin-auditoria-emergencias.component.scss'
 })
-export class AdminAuditoriaEmergenciasComponent implements OnInit {
+export class AdminAuditoriaEmergenciasComponent implements OnInit, OnDestroy {
+
+  private readonly help = inject(ContextHelpService);
   private readonly auditoriaService = inject(AdminAuditoriaService);
   private readonly metricsService = inject(AdminMetricsService);
 
@@ -107,7 +112,12 @@ export class AdminAuditoriaEmergenciasComponent implements OnInit {
   }
 
   ngOnInit(): void {
+    this.help.registerScreen(EMERGENCY_HELP_KEY);
     this.loadHistory();
+  }
+
+  ngOnDestroy(): void {
+    this.help.unregisterScreen(EMERGENCY_HELP_KEY);
   }
 
   openConfirmation(action: EmergencyActionDef): void {
@@ -177,7 +187,7 @@ export class AdminAuditoriaEmergenciasComponent implements OnInit {
       this.auditoriaService.listAuditLogs(1, 100, { action: event }).subscribe({
         next: (resp) => {
           for (const log of resp.data) {
-            merged.push({ log, label: humanizeConstant(log.action) });
+            merged.push({ log, label: auditActionLabel(log.action) });
           }
           pending--;
           if (pending === 0) {

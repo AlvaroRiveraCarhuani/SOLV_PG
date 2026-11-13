@@ -15,6 +15,13 @@
           {{ healthStatusLabel() }}
         </span>
       </div>
+      @if (healthReasons().length > 0) {
+        <ul class="health-reasons" aria-label="Motivos del estado de salud">
+          @for (reason of healthReasons(); track reason) {
+            <li class="health-reason">{{ reason }}</li>
+          }
+        </ul>
+      }
       <div class="meta-row">
         <span class="host-info">
           <svg lucideServer class="meta-icon"></svg>
@@ -56,8 +63,8 @@
 
       <button 
         class="btn-action-hibernate" 
-        (click)="hibernateAll()" 
-        [disabled]="isHibernating() || hibernateCooldown() > 0"
+        (click)="requestHibernateAll()" 
+        [disabled]="isHibernating() || hibernateCooldown() > 0 || showHibernateConfirm()"
         title="Hibernar contenedores inactivos">
         <svg lucideMoon class="btn-icon"></svg>
         <span>{{ isHibernating() ? 'Hibernando...' : (hibernateCooldown() > 0 ? 'Hibernar (' + hibernateCooldown() + 's)' : 'Hibernar Todo') }}</span>
@@ -223,6 +230,17 @@
       [incident]="selectedIncidentForLogs()"
       (closed)="selectedIncidentForLogs.set(null)"
     />
+  }
+
+  @if (showHibernateConfirm()) {
+    <confirm-modal
+      title="Hibernar todos los laboratorios"
+      [message]="'Se suspenderán ' + activeContainersCount() + ' laboratorio(s) activo(s)' + (affectedCoursesCount() > 0 ? ' de ' + affectedCoursesCount() + ' materia(s)' : '') + '. Las sesiones abiertas de los estudiantes se cierran y sus entornos quedan en reposo; podrás reanudarlos desde el detalle de cada materia.'"
+      confirmText="Hibernar Todo"
+      type="danger"
+      (confirm)="confirmHibernateAll()"
+      (cancel)="cancelHibernateAll()">
+    </confirm-modal>
   }
 
   @if (containerToStop(); as c) {

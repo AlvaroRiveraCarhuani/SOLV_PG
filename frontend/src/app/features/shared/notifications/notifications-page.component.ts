@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, OnInit, computed, inject, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, OnDestroy, OnInit, computed, inject, signal } from '@angular/core';
 import { Router } from '@angular/router';
 import {
   NOTIFICATIONS_PAGE_SIZE,
@@ -12,6 +12,9 @@ import { PaginationBarComponent } from '@shared/components/pagination-bar/pagina
 import { StatusTabItem, StatusTabsComponent } from '@shared/components/status-tabs/status-tabs.component';
 import { DateTextPipe } from '@shared/pipes/date-text.pipe';
 import { MachineDataDirective } from '@shared/directives/machine-data.directive';
+import { ContextHelpService } from '@shared/help/context-help.service';
+
+const NOTIFICATIONS_HELP_KEY = 'notifications';
 
 type NotificationTab = 'all' | 'unread';
 type SeverityFilter = NotificationSeverity | 'all';
@@ -30,8 +33,9 @@ type SeverityFilter = NotificationSeverity | 'all';
   templateUrl: './notifications-page.component.html',
   styleUrl: './notifications-page.component.scss'
 })
-export class NotificationsPageComponent implements OnInit {
+export class NotificationsPageComponent implements OnInit, OnDestroy {
   readonly notifService = inject(NotificationService);
+  private readonly help = inject(ContextHelpService);
   private readonly router = inject(Router);
 
   readonly activeTab = signal<NotificationTab>('all');
@@ -65,7 +69,12 @@ export class NotificationsPageComponent implements OnInit {
   readonly pageSize = NOTIFICATIONS_PAGE_SIZE;
 
   ngOnInit(): void {
+    this.help.registerScreen(NOTIFICATIONS_HELP_KEY);
     void this.notifService.loadPage(1, this.currentFilter());
+  }
+
+  ngOnDestroy(): void {
+    this.help.unregisterScreen(NOTIFICATIONS_HELP_KEY);
   }
 
   changeTab(tab: string): void {

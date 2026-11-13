@@ -193,6 +193,55 @@ describe('AdminDashboardComponent', () => {
     expect(component.selectedIncidentForLogs()).toBeNull();
   });
 
+  it('requestHibernateAll pide confirmación sin ejecutar la operación', () => {
+    healthSignal.set(makeHealth({ metrics: { ...makeHealth().metrics, containers_active: 3 } }));
+
+    component.requestHibernateAll();
+
+    expect(component.showHibernateConfirm()).toBe(true);
+    expect(mockMetricsService.hibernateAll).not.toHaveBeenCalled();
+
+    component.cancelHibernateAll();
+
+    expect(component.showHibernateConfirm()).toBe(false);
+    expect(mockMetricsService.hibernateAll).not.toHaveBeenCalled();
+    healthSignal.set(null);
+  });
+
+  it('confirmHibernateAll ejecuta la hibernación una sola vez', () => {
+    healthSignal.set(makeHealth({ metrics: { ...makeHealth().metrics, containers_active: 2 } }));
+    mockMetricsService.hibernateAll.mockReturnValue(of(undefined));
+
+    component.requestHibernateAll();
+    component.confirmHibernateAll();
+    component.confirmHibernateAll();
+
+    expect(component.showHibernateConfirm()).toBe(false);
+    expect(mockMetricsService.hibernateAll).toHaveBeenCalledTimes(1);
+    component.ngOnDestroy();
+    healthSignal.set(null);
+  });
+
+  it('requestHibernateAll con cero activos no abre confirmación', () => {
+    healthSignal.set(makeHealth());
+
+    component.requestHibernateAll();
+
+    expect(component.showHibernateConfirm()).toBe(false);
+    expect(mockMetricsService.hibernateAll).not.toHaveBeenCalled();
+    healthSignal.set(null);
+  });
+
+  it('expone los motivos de salud fuera del tooltip', () => {
+    healthSignal.set(makeHealth({ status: 'degraded', health_reasons: ['oom_killed_environments'] }));
+
+    expect(component.healthReasons()).toEqual(['Laboratorios detenidos por límite de memoria']);
+
+    healthSignal.set(makeHealth());
+    expect(component.healthReasons()).toEqual([]);
+    healthSignal.set(null);
+  });
+
   it('showAllContainers inicia en false', () => {
     expect(component.showAllContainers()).toBe(false);
   });

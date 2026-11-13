@@ -4,6 +4,7 @@ import { FormsModule } from '@angular/forms';
 import { AdminTeachersService, TeacherCourse } from '../services/admin-teachers.service';
 import { TeacherInviteModalComponent } from './components/teacher-invite-modal/teacher-invite-modal.component';
 import { ConfirmModalComponent } from '@shared/components/confirm-modal/confirm-modal.component';
+import { ContextHelpService } from '@shared/help/context-help.service';
 import { TeacherTableComponent } from './components/teacher-table/teacher-table.component';
 import { TeacherCoursesModalComponent } from './components/teacher-courses-modal/teacher-courses-modal.component';
 import { TeacherInviteFeedbackComponent } from './components/teacher-invite-feedback/teacher-invite-feedback.component';
@@ -36,6 +37,8 @@ interface TokenFeedbackData {
   inviteUrl: string;
 }
 
+const TEACHERS_HELP_KEY = 'teachers-invitations';
+
 @Component({
   selector: 'admin-teachers',
   standalone: true,
@@ -57,6 +60,7 @@ interface TokenFeedbackData {
 })
 export class AdminTeachersComponent implements OnInit, OnDestroy {
   private teachersService = inject(AdminTeachersService);
+  private readonly help = inject(ContextHelpService);
 
   teachers = this.teachersService.teachers;
   isLoading = this.teachersService.isLoading;
@@ -291,10 +295,12 @@ export class AdminTeachersComponent implements OnInit, OnDestroy {
   });
 
   ngOnInit(): void {
+    this.help.registerScreen(TEACHERS_HELP_KEY);
     this.loadTeachers();
   }
 
   ngOnDestroy(): void {
+    this.help.unregisterScreen(TEACHERS_HELP_KEY);
     if (this.searchDebounceTimer) clearTimeout(this.searchDebounceTimer);
     if (this.toastDismissTimer) clearTimeout(this.toastDismissTimer);
     if (this.copyResetTimer) clearTimeout(this.copyResetTimer);

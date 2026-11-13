@@ -1,4 +1,6 @@
-import { Component, OnInit, inject, signal, computed, HostListener } from '@angular/core';
+import { Component, OnInit, OnDestroy, inject, signal, computed, HostListener } from '@angular/core';
+
+const COURSES_HELP_KEY = 'courses-directory';
 import { CommonModule } from '@angular/common';
 import { HttpErrorResponse } from '@angular/common/http';
 import { FormsModule } from '@angular/forms';
@@ -9,6 +11,7 @@ import {
 import { CourseCreateModalComponent } from './components/course-create-modal/course-create-modal.component';
 import { CourseReassignModalComponent } from './components/course-reassign-modal/course-reassign-modal.component';
 import { ConfirmModalComponent } from '@shared/components/confirm-modal/confirm-modal.component';
+import { ContextHelpService } from '@shared/help/context-help.service';
 import { ModalShellComponent } from '@shared/components/modal-shell/modal-shell.component';
 import { FormFieldComponent } from '@shared/components/form-field/form-field.component';
 import { MachineDataDirective } from '@shared/directives/machine-data.directive';
@@ -70,8 +73,9 @@ interface ToastState {
   templateUrl: './admin-courses.component.html',
   styleUrls: ['./admin-courses.component.scss']
 })
-export class AdminCoursesComponent implements OnInit {
+export class AdminCoursesComponent implements OnInit, OnDestroy {
   coursesService = inject(AdminCoursesService);
+  private readonly help = inject(ContextHelpService);
 
   // Filtros de búsqueda
   searchQuery = signal<string>('');
@@ -263,7 +267,12 @@ export class AdminCoursesComponent implements OnInit {
   ]);
 
   ngOnInit(): void {
+    this.help.registerScreen(COURSES_HELP_KEY);
     this.coursesService.loadAll();
+  }
+
+  ngOnDestroy(): void {
+    this.help.unregisterScreen(COURSES_HELP_KEY);
   }
 
   onPeriodChange(periodId: string): void {

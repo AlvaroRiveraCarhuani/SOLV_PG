@@ -1,4 +1,4 @@
-import { Component, input, output, HostListener } from '@angular/core';
+import { Component, ElementRef, effect, input, output, HostListener, viewChild } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterModule } from '@angular/router';
 import { LucideBookOpen, LucideX, LucideExternalLink } from '@lucide/angular';
@@ -30,6 +30,7 @@ import { LucideBookOpen, LucideX, LucideExternalLink } from '@lucide/angular';
             </div>
           </div>
           <button 
+            #closeBtn
             type="button" 
             class="btn-close-drawer" 
             (click)="onClose()" 
@@ -68,6 +69,22 @@ export class HelpDrawerComponent {
   manualFragment = input<string | null>(null);
 
   closed = output<void>();
+
+  private readonly closeBtn = viewChild<ElementRef<HTMLButtonElement>>('closeBtn');
+  private wasOpen = false;
+
+  constructor() {
+    // Al abrir, el foco entra al panel para que Tab no recorra la pantalla de
+    // fondo. El foco de retorno lo restaura ContextHelpService, que sigue vivo
+    // cuando este componente ya se destruyó.
+    effect(() => {
+      const open = this.isOpen();
+      if (open && !this.wasOpen) {
+        setTimeout(() => this.closeBtn()?.nativeElement.focus(), 0);
+      }
+      this.wasOpen = open;
+    });
+  }
 
   onClose(): void {
     this.closed.emit();

@@ -11,7 +11,7 @@
 
 <div class="periodos-tab">
   <!-- KPIs del ciclo lectivo -->
-  <kpi-grid [columns]="4">
+  <kpi-grid [columns]="4" data-tour="periods-kpis">
     <kpi-card label="Períodos Registrados" [value]="periods().length" detail="Ciclos lectivos históricos" variant="primary">
       <svg kpi-icon lucideCalendar></svg>
     </kpi-card>
@@ -30,7 +30,7 @@
   <div class="table-card table-responsive">
     <div class="table-toolbar">
       <h2 class="section-title">Semestres y Ciclos Lectivos Registrados</h2>
-      <button type="button" class="btn-primary" (click)="openCreate()">
+      <button type="button" class="btn-primary" data-tour="periods-create" (click)="openCreate()">
         <svg lucidePlus class="btn-icon"></svg>
         <span>Nuevo Período</span>
       </button>
@@ -79,7 +79,7 @@
                   {{ lifecycleLabel(row.lifecycle) }}
                 </span>
               </td>
-              <td class="col-actions">
+              <td class="col-actions" data-tour="periods-row-actions">
                 <div class="action-buttons">
                   @if (row.lifecycle === 'activo') {
                     <button type="button" class="btn-action" (click)="openArchive(row)" title="Archivar período con confirmación fuerte">
@@ -143,7 +143,7 @@
   <modal-shell animate.leave="motion-modal-out" [title]="formTitle()" subtitle="Define el ciclo lectivo institucional" (close)="closeForm()">
     <svg modal-icon lucideCalendar class="icon"></svg>
 
-    <form-field label="Nombre del Semestre / Ciclo" [error]="name().trim() === '' ? 'El nombre es obligatorio.' : ''">
+    <form-field label="Nombre del Semestre / Ciclo" data-tour="periods-identity" [error]="name().trim() === '' ? 'El nombre es obligatorio.' : ''">
       <input
         type="text"
         class="form-input"
@@ -161,7 +161,7 @@
         (ngModelChange)="code.set($event)" />
     </form-field>
 
-    <div class="form-row">
+    <div class="form-row" data-tour="periods-dates">
       <form-field label="Fecha de Inicio" [error]="startDate() === '' ? 'Requerido.' : ''">
         <input type="date" class="form-input" [ngModel]="startDate()" (ngModelChange)="startDate.set($event)" />
       </form-field>
@@ -189,7 +189,7 @@
       <button type="button" class="btn-outline" (click)="closeForm()" [disabled]="isSubmitting()">
         Cancelar
       </button>
-      <button type="button" class="btn-primary" (click)="submitForm()" [disabled]="!isFormValid() || isSubmitting()">
+      <button type="button" class="btn-primary" data-tour="periods-submit" (click)="submitForm()" [disabled]="!isFormValid() || isSubmitting()">
         @if (isSubmitting()) {
           <span>Guardando...</span>
         } @else {

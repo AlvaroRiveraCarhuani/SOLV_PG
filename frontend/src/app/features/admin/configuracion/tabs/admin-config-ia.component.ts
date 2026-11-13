@@ -2,6 +2,11 @@ import { Component, inject, signal, computed, OnInit, OnDestroy } from '@angular
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { FormFieldComponent } from '@shared/components/form-field/form-field.component';
+import { ContextHelpService } from '@shared/help/context-help.service';
+import { InteractiveTutorialService } from '@shared/help/interactive-tutorial.service';
+import { ProductTourService } from '@shared/help/product-tour.service';
+import { configTabTourGuide } from '../config-help.definitions';
+import { buildIaTour, buildIaTutorial } from './ia-help.definitions';
 import { DateTextPipe } from '@shared/pipes/date-text.pipe';
 import { MachineDataDirective } from '@shared/directives/machine-data.directive';
 import {
@@ -161,6 +166,8 @@ const DRAFT_ICON_ERROR_KEY = 'custom-draft-icon';
 
 const CLOUD_PROVIDER_IDS: ReadonlySet<string> = new Set(['gemini', 'openai', 'openrouter', 'deepseek']);
 
+const AI_CONFIG_HELP_KEY = 'ai-config';
+
 @Component({
   selector: 'admin-config-ia',
   standalone: true,
@@ -192,6 +199,9 @@ const CLOUD_PROVIDER_IDS: ReadonlySet<string> = new Set(['gemini', 'openai', 'op
 })
 export class AdminConfigIaComponent implements OnInit, OnDestroy {
   private readonly service = inject(AdminConfigIaService);
+  private readonly help = inject(ContextHelpService);
+  private readonly tutorial = inject(InteractiveTutorialService);
+  private readonly productTour = inject(ProductTourService);
 
   readonly providerCatalog = PROVIDER_CATALOG;
   readonly settings = this.service.settings;
@@ -203,6 +213,9 @@ export class AdminConfigIaComponent implements OnInit, OnDestroy {
   readonly testing = signal(false);
   readonly toast = signal<{ type: 'success' | 'error'; message: string } | null>(null);
   readonly testResult = signal<TestAIConnectionResponse | null>(null);
+
+  /** La configuración de IA se guardó en esta visita; lo lee el tutorial. */
+  readonly hasSavedAi = signal(false);
 
   readonly enabled = signal<boolean>(false);
   readonly provider = signal<AIProviderType>('gemini');
@@ -523,6 +536,15 @@ export class AdminConfigIaComponent implements OnInit, OnDestroy {
   });
 
   ngOnInit(): void {
+    this.help.registerScreen(AI_CONFIG_HELP_KEY);
+    this.help.registerGuides(AI_CONFIG_HELP_KEY, {
+      tour: configTabTourGuide(() => void this.productTour.start(buildIaTour())),
+      tutorial: {
+        label: 'Tutorial guiado',
+        hint: 'Deja el copiloto en uso comprobando proveedor, prueba y guardado.',
+        run: () => this.startIaTutorial()
+      }
+    });
     this.loading.set(true);
     this.service.getSettings().subscribe({
       next: (dto) => {
@@ -540,7 +562,22 @@ export class AdminConfigIaComponent implements OnInit, OnDestroy {
   }
 
   ngOnDestroy(): void {
+    this.help.unregisterGuides(AI_CONFIG_HELP_KEY);
+    this.help.unregisterScreen(AI_CONFIG_HELP_KEY);
     this.clearAutoFetchTimer();
+  }
+
+  /** Tutorial del copiloto: interruptor, proveedor, prueba y guardado reales. */
+  startIaTutorial(): void {
+    this.tutorial.start(
+      buildIaTutorial({
+        enabled: () => this.enabled(),
+        provider: () => this.provider(),
+        model: () => this.model(),
+        testPassed: () => this.testResult()?.ok === true,
+        hasSaved: () => this.hasSavedAi()
+      })
+    );
   }
 
   private clearAutoFetchTimer(): void {
@@ -807,6 +844,7 @@ export class AdminConfigIaComponent implements OnInit, OnDestroy {
           }
         }
         this.saving.set(false);
+        this.hasSavedAi.set(true);
         this.showToast('success', 'Configuración de Inteligencia Artificial guardada.');
       },
       error: (err: unknown) => {

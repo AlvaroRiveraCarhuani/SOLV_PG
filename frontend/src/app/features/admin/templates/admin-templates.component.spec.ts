@@ -523,5 +523,14 @@ describe('AdminTemplatesComponent Spec', () => {
     expect(component.toast()?.type).toBe('success');
     expect(component.toast()?.message).toContain('actualizadas');
   });
+  it('oculta la marca interna SYSTEM_SEED_RUNNER en la descripción', () => {
+    expect(component.templateDescription({ description: 'SYSTEM_SEED_RUNNER' })).toBeNull();
+    expect(component.templateDescription({ description: '   ' })).toBeNull();
+    expect(component.templateDescription({})).toBeNull();
+    expect(component.templateDescription({ description: 'Stack de ciencia de datos' })).toBe(
+      'Stack de ciencia de datos'
+    );
+  });
+
 });
 

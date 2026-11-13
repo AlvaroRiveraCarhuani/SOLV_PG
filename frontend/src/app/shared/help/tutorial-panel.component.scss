@@ -1,0 +1,227 @@
+:host {
+  display: contents;
+}
+
+.tutorial-panel {
+  position: fixed;
+  right: var(--space-6);
+  bottom: var(--space-6);
+  z-index: 60;
+  width: min(360px, calc(100vw - 2 * var(--space-4)));
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: var(--space-4);
+  background-color: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-dropdown);
+  font-family: var(--font-sans);
+
+  // La esquina la decide el componente para dejar libre el control que el paso
+  // señala. El atributo evita que dos reglas de lado se pisen.
+  &[data-placement='bottom-left'] {
+    right: auto;
+    left: var(--space-6);
+  }
+
+  &[data-placement='top-right'] {
+    bottom: auto;
+    top: var(--space-6);
+  }
+
+  &[data-placement='top-left'] {
+    inset: var(--space-6) auto auto var(--space-6);
+  }
+
+  .panel-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: var(--space-2);
+
+    .panel-heading {
+      display: flex;
+      align-items: center;
+      gap: var(--space-2);
+
+      .panel-icon {
+        width: 18px;
+        height: 18px;
+        color: var(--tenant-primary);
+      }
+
+      .panel-titles {
+        display: flex;
+        flex-direction: column;
+
+        .panel-title {
+          font-size: var(--text-sm);
+          font-weight: 600;
+          color: var(--text-primary);
+        }
+
+        .panel-progress {
+          font-size: var(--text-xs);
+          color: var(--text-muted);
+        }
+      }
+    }
+
+    .panel-controls {
+      display: inline-flex;
+      align-items: center;
+      gap: 2px;
+      flex-shrink: 0;
+    }
+
+    .panel-close {
+      display: inline-flex;
+      padding: 4px;
+      border: none;
+      border-radius: var(--radius-sm);
+      background-color: transparent;
+      color: var(--text-muted);
+      cursor: pointer;
+
+      &:hover {
+        background-color: var(--bg-surface-subtle);
+        color: var(--text-primary);
+      }
+
+      &:focus-visible {
+        outline: 2px solid var(--tenant-primary);
+        outline-offset: 2px;
+      }
+
+      .panel-close-icon {
+        width: 16px;
+        height: 16px;
+      }
+    }
+  }
+
+  .panel-body {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+
+    .step-title {
+      margin: 0;
+      font-size: var(--text-base);
+      font-weight: 600;
+      color: var(--text-primary);
+    }
+
+    .step-body {
+      margin: 0;
+      font-size: var(--text-sm);
+      line-height: 1.55;
+      color: var(--text-secondary);
+    }
+
+    .step-status {
+      display: flex;
+      align-items: flex-start;
+      gap: 6px;
+      margin: 0;
+      padding: var(--space-2);
+      border-radius: var(--radius-sm);
+      font-size: var(--text-sm);
+      line-height: 1.45;
+
+      // El texto va en color primario: el tinte y el icono conservan el
+      // significado, pero el mensaje mantiene contraste de lectura.
+      color: var(--text-primary);
+
+      .status-icon {
+        width: 14px;
+        height: 14px;
+        flex-shrink: 0;
+        margin-top: 2px;
+      }
+
+      &.status-pending {
+        background-color: var(--status-pending-bg);
+
+        .status-icon {
+          color: var(--status-pending-color);
+        }
+      }
+
+      &.status-done {
+        background-color: var(--status-running-bg);
+
+        .status-icon {
+          color: var(--status-running-color);
+        }
+      }
+    }
+  }
+
+  .panel-footer {
+    display: flex;
+    justify-content: space-between;
+    gap: var(--space-2);
+
+    .panel-btn {
+      flex: 1;
+      padding: 6px 12px;
+      border: 1px solid var(--border-strong);
+      border-radius: var(--radius-sm);
+      background-color: var(--bg-surface);
+      color: var(--text-primary);
+      font-family: var(--font-sans);
+      font-size: var(--text-sm);
+      cursor: pointer;
+
+      &:hover:not(:disabled) {
+        background-color: var(--bg-surface-subtle);
+      }
+
+      &:disabled {
+        cursor: not-allowed;
+        opacity: 0.55;
+      }
+
+      &:focus-visible {
+        outline: 2px solid var(--tenant-primary);
+        outline-offset: 2px;
+      }
+
+      &.panel-btn-primary {
+        background-color: var(--tenant-primary);
+        border-color: var(--tenant-primary);
+        color: var(--text-inverse);
+
+        &:hover:not(:disabled) {
+          background-color: var(--tenant-primary-hover);
+        }
+      }
+    }
+  }
+
+  .panel-manual-link {
+    font-size: var(--text-xs);
+    color: var(--tenant-primary);
+    text-decoration: none;
+
+    &:hover {
+      text-decoration: underline;
+    }
+
+    &:focus-visible {
+      outline: 2px solid var(--tenant-primary);
+      outline-offset: 2px;
+    }
+  }
+}
+
+.tutorial-panel:focus {
+  outline: none;
+}
+
+.tutorial-panel:focus-visible {
+  outline: 2px solid var(--tenant-primary);
+  outline-offset: 2px;
+}

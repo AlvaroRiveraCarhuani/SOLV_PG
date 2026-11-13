@@ -8,6 +8,7 @@
 @use 'styles/semantic';
 @use 'styles/tenant';
 @use 'styles/animations';
+@use 'styles/help-tour';
 
 *, *::before, *::after {
   box-sizing: border-box;

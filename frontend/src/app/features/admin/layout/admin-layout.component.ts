@@ -4,6 +4,8 @@ import { RouterOutlet } from '@angular/router';
 import { TopbarComponent } from '@shared/components/topbar/topbar.component';
 import { SidebarComponent } from '@shared/components/sidebar/sidebar.component';
 import { ToastHostComponent } from '@shared/components/toast-host/toast-host.component';
+import { HelpCenterComponent } from '@shared/help/help-center.component';
+import { TutorialPanelComponent } from '@shared/help/tutorial-panel.component';
 import { NavSection } from '@shared/components/sidebar/sidebar.model';
 
 export const ADMIN_NAV_SECTIONS: NavSection[] = [
@@ -11,15 +13,16 @@ export const ADMIN_NAV_SECTIONS: NavSection[] = [
     title: 'INFRAESTRUCTURA',
     items: [
       { label: 'Salud y Recursos', route: '/admin/dashboard', iconName: 'activity', exact: true },
-      { label: 'Plantillas Docker', route: '/admin/plantillas', iconName: 'layers' },
-      { label: 'Solicitudes docentes', route: '/admin/solicitudes-entorno', iconName: 'inbox' },
-      { label: 'Modelos y Categorías', route: '/admin/modelos-categorias', iconName: 'boxes' },
+      { label: 'Catálogo de Entornos', route: '/admin/plantillas', iconName: 'layers' },
+      { label: 'Solicitudes de entornos', route: '/admin/solicitudes-entorno', iconName: 'inbox' },
+      { label: 'Catálogo de Tecnologías', route: '/admin/tecnologias', iconName: 'boxes' },
       { label: 'Manual del administrador', route: '/admin/manual', iconName: 'book' }
     ]
   },
   {
     title: 'ACADÉMICO Y GESTIÓN',
     items: [
+      { label: 'Categorías Académicas', route: '/admin/categorias', iconName: 'tag' },
       { label: 'Cursos', route: '/admin/cursos', iconName: 'book' },
       { label: 'Docentes', route: '/admin/docentes', iconName: 'users' },
       { label: 'Estudiantes', route: '/admin/estudiantes', iconName: 'graduation-cap' },
@@ -27,7 +30,7 @@ export const ADMIN_NAV_SECTIONS: NavSection[] = [
     ]
   },
   {
-    isFooter: true,
+    title: 'AUDITORÍA',
     items: [
       { label: 'Auditoría', route: '/admin/auditoria', iconName: 'shield-alert' }
     ]
@@ -37,10 +40,18 @@ export const ADMIN_NAV_SECTIONS: NavSection[] = [
 @Component({
   selector: 'admin-layout',
   standalone: true,
-  imports: [CommonModule, RouterOutlet, TopbarComponent, SidebarComponent, ToastHostComponent],
+  imports: [
+    CommonModule,
+    RouterOutlet,
+    TopbarComponent,
+    SidebarComponent,
+    ToastHostComponent,
+    HelpCenterComponent,
+    TutorialPanelComponent
+  ],
   template: `
     <div class="shell-container">
-      <topbar (toggleSidebar)="toggleSidebar()" />
+      <topbar [showHelpButton]="true" (toggleSidebar)="toggleSidebar()" />
       <div class="shell-body">
         <sidebar 
           [collapsed]="isSidebarCollapsed()" 
@@ -50,6 +61,8 @@ export const ADMIN_NAV_SECTIONS: NavSection[] = [
           <router-outlet />
         </main>
       </div>
+      <help-center />
+      <tutorial-panel />
       <toast-host />
     </div>
   `,
