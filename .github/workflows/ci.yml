@@ -348,7 +348,18 @@ jobs:
           go run ./cmd/migrate -dir ./migrations -action=up
 
       - name: Run selected integration tests
-        run: node tools/test-impact/run.mjs --partial --suite backend-integration --if-selected --plan impact-plan.json --report impact-report-backend-integration.json
+        run: |
+          set -o pipefail
+          node tools/test-impact/run.mjs --partial --suite backend-integration --if-selected --plan impact-plan.json --report impact-report-backend-integration.json 2>&1 | tee integration-tests.log
+
+      - name: Annotate integration failures
+        if: failure()
+        run: |
+          if [ -f integration-tests.log ]; then
+            grep -E "^--- FAIL|^FAIL|panic:" integration-tests.log | head -10 | while IFS= read -r line; do
+              echo "::error title=Integración::$line"
+            done
+          fi
 
       - name: Upload backend integration report
         if: always()
