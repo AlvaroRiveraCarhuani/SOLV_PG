@@ -357,7 +357,7 @@ jobs:
         run: |
           LOG="$RUNNER_TEMP/integration-tests.log"
           if [ -f "$LOG" ]; then
-            grep -inE "killed|signal|out of memory|panic|cannot|undefined|^--- FAIL|^FAIL|^[^ ]*\\.go:[0-9]+" "$LOG" | tail -10 | while IFS= read -r line; do
+            grep -n -B 8 -A 2 -- "--- FAIL" "$LOG" | head -10 | while IFS= read -r line; do
               echo "::error title=Integración::$line"
             done
           fi
