@@ -77,6 +77,7 @@ describe('AcademicCategoriesComponent', () => {
     expect(component.categories().length).toBe(2);
     expect(component.totalCategoriesCount()).toBe(2);
     expect(component.activeCategoriesCount()).toBe(2);
+    expect(compiled.querySelector('template-categories-manager')).toBeTruthy();
   });
 
   it('debe registrar y desregistrar la pantalla en el servicio de ayuda', () => {
