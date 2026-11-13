@@ -6,7 +6,9 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"os"
+	"strings"
 	"testing"
 
 	"github.com/google/uuid"
@@ -71,6 +73,15 @@ func TestTeacher_EnrollStudentInCourse_Integration(t *testing.T) {
 	student2ID := uuid.New().String()
 	subject1ID := uuid.New().String()
 
+	// Correos únicos por corrida: toda la suite comparte la base y otros tests dejan
+	// estudiantes con "alumno" en el correo, así que la búsqueda debe apuntar solo a
+	// los datos que crea este test.
+	suffix := strings.ReplaceAll(uuid.NewString(), "-", "")[:8]
+	teacher1Email := "docente_uno_" + suffix + "@institucion.edu"
+	teacher2Email := "docente_dos_" + suffix + "@institucion.edu"
+	student1Email := "alumno_inscripto_" + suffix + "@institucion.edu"
+	student2Email := "alumno_disponible_" + suffix + "@institucion.edu"
+
 	// Cleanup
 	defer func() {
 		_, _ = db.GetDB().Exec(`DELETE FROM enrollments WHERE subject_id = $1`, subject1ID)
@@ -89,12 +100,12 @@ func TestTeacher_EnrollStudentInCourse_Integration(t *testing.T) {
 	mustExec(`
 		INSERT INTO users (id, tenant_id, first_name, last_name, email, role, status)
 		VALUES 
-			($1, $2, 'Docente', 'Uno', 'docente1@institucion.edu', 'teacher', 'active'),
-			($3, $2, 'Docente', 'Dos', 'docente2@institucion.edu', 'teacher', 'active'),
-			($4, $2, 'Alumno', 'YaInscripto', 'alumno1@institucion.edu', 'student', 'active'),
-			($5, $2, 'Alumno', 'Disponible', 'alumno2@institucion.edu', 'student', 'active')
+			($1, $2, 'Docente', 'Uno', $6, 'teacher', 'active'),
+			($3, $2, 'Docente', 'Dos', $7, 'teacher', 'active'),
+			($4, $2, 'Alumno', 'YaInscripto', $8, 'student', 'active'),
+			($5, $2, 'Alumno', 'Disponible', $9, 'student', 'active')
 		ON CONFLICT (id) DO NOTHING
-	`, teacher1ID, tenantID, teacher2ID, student1ID, student2ID)
+	`, teacher1ID, tenantID, teacher2ID, student1ID, student2ID, teacher1Email, teacher2Email, student1Email, student2Email)
 
 	// 2. Insertar materia del Docente 1
 	mustExec(`
@@ -125,7 +136,7 @@ func TestTeacher_EnrollStudentInCourse_Integration(t *testing.T) {
 		}
 		req.Header.Set("X-Test-Tenant-ID", tenantID)
 		req.Header.Set("X-Test-User-ID", userID)
-		req.Header.Set("X-Test-Role", role)
+		req.Header.Set("X-Test-User-Role", role)
 
 		resp, err := http.DefaultClient.Do(req)
 		if err != nil {
@@ -138,7 +149,7 @@ func TestTeacher_EnrollStudentInCourse_Integration(t *testing.T) {
 
 	// Caso A: Docente 1 busca estudiantes disponibles (debe salir Alumno 2, pero NO Alumno 1)
 	t.Run("Docente busca estudiantes disponibles", func(t *testing.T) {
-		url := fmt.Sprintf("%s/api/v1/teacher/courses/%s/available-students?q=alumno", server.URL, subject1ID)
+		url := fmt.Sprintf("%s/api/v1/teacher/courses/%s/available-students?q=%s", server.URL, subject1ID, url.QueryEscape(student2Email))
 		resp, data := doRequest(http.MethodGet, url, teacher1ID, "teacher", nil)
 		if resp.StatusCode != http.StatusOK {
 			t.Fatalf("Expected 200 OK, got %d: %v", resp.StatusCode, data)
@@ -188,7 +199,7 @@ func TestTeacher_EnrollStudentInCourse_Integration(t *testing.T) {
 
 	// Caso D: Docente 1 vuelve a buscar disponibles (ya no debe figurar Alumno 2)
 	t.Run("Alumno recién matriculado ya no figura como disponible", func(t *testing.T) {
-		url := fmt.Sprintf("%s/api/v1/teacher/courses/%s/available-students?q=alumno", server.URL, subject1ID)
+		url := fmt.Sprintf("%s/api/v1/teacher/courses/%s/available-students?q=%s", server.URL, subject1ID, url.QueryEscape(student2Email))
 		resp, data := doRequest(http.MethodGet, url, teacher1ID, "teacher", nil)
 		if resp.StatusCode != http.StatusOK {
 			t.Fatalf("Expected 200 OK, got %d: %v", resp.StatusCode, data)
