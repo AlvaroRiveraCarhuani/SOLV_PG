@@ -294,6 +294,54 @@ func TestStartPracticeEnvironmentForExercise_ProvisionsManagedSatelliteEngines(t
 	})
 }
 
+// TestStartPracticeEnvironmentForExercise_SendsDBInitScriptByStdin verifica que el
+// script de inicialización viaje por entrada estándar y no como argumento del cliente,
+// para que su tamaño no quede acotado por el límite de argumentos del kernel (ADR-072).
+func TestStartPracticeEnvironmentForExercise_SendsDBInitScriptByStdin(t *testing.T) {
+	const script = "CREATE TABLE IF NOT EXISTS materias (id INT PRIMARY KEY, nombre VARCHAR(80));"
+
+	cases := []struct {
+		engine string
+		binary string
+	}{
+		{engine: "postgres", binary: "psql"},
+		{engine: "mysql", binary: "mysql"},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.engine, func(t *testing.T) {
+			_, orch, svc := managedSatelliteFixture(tc.engine, script)
+			ctx := context.Background()
+
+			if _, err := svc.StartPracticeEnvironmentForExercise(ctx, "std0001", "subj001", "ex-sat"); err != nil {
+				t.Fatalf("error inesperado al iniciar el laboratorio: %v", err)
+			}
+
+			delivered := false
+			for _, exec := range orch.satelliteExecs {
+				if len(exec.cmd) == 0 || exec.cmd[0] != tc.binary {
+					continue
+				}
+				for _, arg := range exec.cmd {
+					if strings.Contains(arg, "CREATE TABLE IF NOT EXISTS materias") {
+						t.Fatalf("el db_init_script no puede viajar como argumento: %q", exec.cmd)
+					}
+				}
+				if exec.input == script {
+					delivered = true
+				}
+			}
+
+			if !delivered {
+				t.Errorf("el db_init_script debe entregarse por entrada estándar al cliente %s", tc.binary)
+			}
+			if orch.satelliteScriptRuns != 1 {
+				t.Fatalf("el db_init_script debe aplicarse una vez, aplicado %d veces", orch.satelliteScriptRuns)
+			}
+		})
+	}
+}
+
 func TestStartPracticeEnvironmentForExercise_AppliesManagedDBInitScriptOnce(t *testing.T) {
 	script := "CREATE TABLE IF NOT EXISTS materias (id INT PRIMARY KEY, nombre VARCHAR(80));"
 	_, orch, svc := managedSatelliteFixture("mysql", script)

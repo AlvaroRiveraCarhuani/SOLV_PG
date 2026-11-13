@@ -3,6 +3,7 @@ package domain
 import (
 	"context"
 	"encoding/json"
+	"io"
 	"time"
 
 	"github.com/google/uuid"
@@ -186,6 +187,10 @@ type ManagedSatelliteOrchestrator interface {
 	EnsureManagedSatelliteRunning(ctx context.Context, spec ManagedSatelliteSpec) (*ManagedSatelliteEndpoint, error)
 	StopManagedSatellite(ctx context.Context, engine string) error
 	ExecInManagedSatellite(ctx context.Context, engine string, cmd []string) (string, error)
+	// ExecInManagedSatelliteWithInput ejecuta un comando entregando input por entrada
+	// estándar. Los scripts de inicialización viajan por ahí para no quedar acotados
+	// por el límite de tamaño de argumentos del kernel (ADR-072).
+	ExecInManagedSatelliteWithInput(ctx context.Context, engine string, cmd []string, input io.Reader) (string, error)
 }
 
 type TenantRepository interface {

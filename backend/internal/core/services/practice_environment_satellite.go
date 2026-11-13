@@ -508,6 +508,14 @@ func execPostgresSQL(ctx context.Context, orchestrator domain.ManagedSatelliteOr
 	return orchestrator.ExecInManagedSatellite(ctx, engine, []string{"psql", url, "-v", "ON_ERROR_STOP=1", "-tAc", sql})
 }
 
+// execPostgresSQLScript aplica un script completo con psql leyendo la entrada estándar
+// (`-f -`). El contenido no viaja como argumento, así que su tamaño no queda acotado por
+// el límite de argumentos del kernel (ADR-072).
+func execPostgresSQLScript(ctx context.Context, orchestrator domain.ManagedSatelliteOrchestrator, engine, url, script string) (string, error) {
+	return orchestrator.ExecInManagedSatelliteWithInput(ctx, engine,
+		[]string{"psql", url, "-v", "ON_ERROR_STOP=1", "-f", "-"}, strings.NewReader(script))
+}
+
 // applyManagedPostgresExerciseDBInitScript aplica el script del ejercicio una sola vez
 // por exercise_id, dentro de la base aislada y con el rol del alumno.
 func (s *PracticeEnvironmentService) applyManagedPostgresExerciseDBInitScript(
@@ -532,7 +540,7 @@ func (s *PracticeEnvironmentService) applyManagedPostgresExerciseDBInitScript(
 		return nil
 	}
 
-	if _, err := execPostgresSQL(ctx, orchestrator, spec.Engine, studentURL, script); err != nil {
+	if _, err := execPostgresSQLScript(ctx, orchestrator, spec.Engine, studentURL, script); err != nil {
 		return fmt.Errorf("db_init_script failed: %w", err)
 	}
 
@@ -604,7 +612,10 @@ func (s *PracticeEnvironmentService) applyManagedExerciseDBInitScript(
 		return nil
 	}
 
-	if _, err := orchestrator.ExecInManagedSatellite(ctx, spec.Engine, mysqlDatabaseArgs(rootPassword, dbName, "-e", script)); err != nil {
+	// El cliente MySQL lee la entrada estándar cuando no recibe `-e`: el script no viaja
+	// como argumento y su tamaño no queda acotado por el kernel (ADR-072).
+	if _, err := orchestrator.ExecInManagedSatelliteWithInput(ctx, spec.Engine,
+		mysqlDatabaseArgs(rootPassword, dbName), strings.NewReader(script)); err != nil {
 		return fmt.Errorf("db_init_script failed: %w", err)
 	}
 

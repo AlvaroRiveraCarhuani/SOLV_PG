@@ -359,6 +359,27 @@ func (c *Client) StopManagedSatellite(ctx context.Context, engine string) error 
 // ExecInManagedSatellite ejecuta un comando dentro del contenedor del motor y devuelve
 // su salida estándar. Se usa para el aprovisionamiento idempotente por alumno.
 func (c *Client) ExecInManagedSatellite(ctx context.Context, engine string, cmd []string) (string, error) {
+	containerID, err := c.managedSatelliteContainerID(ctx, engine)
+	if err != nil {
+		return "", err
+	}
+	return c.execInContainer(ctx, containerID, cmd)
+}
+
+// ExecInManagedSatelliteWithInput ejecuta un comando dentro del contenedor del motor
+// entregando input por entrada estándar. Es el camino de los scripts de inicialización:
+// el contenido no viaja como argumento, así que su tamaño no queda acotado por el límite
+// de argumentos del kernel (ADR-072).
+func (c *Client) ExecInManagedSatelliteWithInput(ctx context.Context, engine string, cmd []string, input io.Reader) (string, error) {
+	containerID, err := c.managedSatelliteContainerID(ctx, engine)
+	if err != nil {
+		return "", err
+	}
+	return c.execInContainerWithInput(ctx, containerID, cmd, input)
+}
+
+// managedSatelliteContainerID resuelve el contenedor en ejecución del motor gestionado.
+func (c *Client) managedSatelliteContainerID(ctx context.Context, engine string) (string, error) {
 	name := "solv-sat-" + strings.ToLower(strings.TrimSpace(engine))
 	inspect, err := c.cli.ContainerInspect(ctx, name)
 	if err != nil {
@@ -370,17 +391,29 @@ func (c *Client) ExecInManagedSatellite(ctx context.Context, engine string, cmd 
 	if inspect.State == nil || !inspect.State.Running {
 		return "", fmt.Errorf("managed satellite %q is not running", name)
 	}
-	return c.execInContainer(ctx, inspect.ID, cmd)
+	return inspect.ID, nil
 }
 
 // execInContainer ejecuta un comando y demuxa stdout/stderr del stream multiplexado de
 // Docker, devolviendo stdout y un error con el stderr cuando el comando falla.
 func (c *Client) execInContainer(ctx context.Context, containerID string, cmd []string) (string, error) {
-	execResp, err := c.cli.ContainerExecCreate(ctx, containerID, container.ExecOptions{
+	return c.execInContainerWithInput(ctx, containerID, cmd, nil)
+}
+
+// execInContainerWithInput agrega la entrada estándar cuando input no es nulo: crea el
+// exec con stdin adjunto, escribe el contenido y cierra el extremo de escritura para que
+// el proceso reciba EOF.
+func (c *Client) execInContainerWithInput(ctx context.Context, containerID string, cmd []string, input io.Reader) (string, error) {
+	execOptions := container.ExecOptions{
 		Cmd:          cmd,
 		AttachStdout: true,
 		AttachStderr: true,
-	})
+	}
+	if input != nil {
+		execOptions.AttachStdin = true
+	}
+
+	execResp, err := c.cli.ContainerExecCreate(ctx, containerID, execOptions)
 	if err != nil {
 		return "", fmt.Errorf("failed to create exec %v in container %s: %w", cmd, containerID, err)
 	}
@@ -396,6 +429,13 @@ func (c *Client) execInContainer(ctx context.Context, containerID string, cmd []
 		_, copyErr := stdcopy.StdCopy(&stdout, &stderr, attach.Reader)
 		done <- copyErr
 	}()
+
+	if input != nil {
+		go func() {
+			_, _ = io.Copy(attach.Conn, input)
+			_ = attach.CloseWrite()
+		}()
+	}
 
 	select {
 	case copyErr := <-done:

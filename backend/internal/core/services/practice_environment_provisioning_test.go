@@ -3,6 +3,7 @@ package services_test
 import (
 	"context"
 	"errors"
+	"io"
 	"strings"
 	"testing"
 	"time"
@@ -109,6 +110,9 @@ func (m *mockPracticeEnvironmentRepo) SaveSemgrepAudit(ctx context.Context, id s
 type satelliteExec struct {
 	engine string
 	cmd    []string
+	// input es lo que el comando recibió por entrada estándar. Los scripts de
+	// inicialización viajan por ahí desde ADR-072.
+	input string
 }
 
 type mockOrchestrator struct {
@@ -203,14 +207,32 @@ func (m *mockOrchestrator) StopManagedSatellite(ctx context.Context, engine stri
 }
 
 func (m *mockOrchestrator) ExecInManagedSatellite(ctx context.Context, engine string, cmd []string) (string, error) {
-	m.satelliteExecs = append(m.satelliteExecs, satelliteExec{engine: engine, cmd: cmd})
+	return m.recordSatelliteExec(engine, cmd, "")
+}
+
+func (m *mockOrchestrator) ExecInManagedSatelliteWithInput(ctx context.Context, engine string, cmd []string, input io.Reader) (string, error) {
+	body := ""
+	if input != nil {
+		raw, err := io.ReadAll(input)
+		if err != nil {
+			return "", err
+		}
+		body = string(raw)
+	}
+	return m.recordSatelliteExec(engine, cmd, body)
+}
+
+func (m *mockOrchestrator) recordSatelliteExec(engine string, cmd []string, input string) (string, error) {
+	m.satelliteExecs = append(m.satelliteExecs, satelliteExec{engine: engine, cmd: cmd, input: input})
 	if engine == "mongodb" {
 		// El init de MongoDB se evalúa dentro de mongosh; el mock solo registra la
 		// invocación para que el test verifique el guard y el sellado.
 		return "", nil
 	}
-	sql := ""
-	if len(cmd) > 0 {
+	// El script puede llegar como argumento (`-e`, `-c`) o por entrada estándar. La
+	// clasificación mira la entrada primero porque es el camino vigente.
+	sql := input
+	if sql == "" && len(cmd) > 0 {
 		sql = cmd[len(cmd)-1]
 	}
 	switch {
@@ -250,6 +272,9 @@ func (m *mockOrchestrator) satelliteExecsWith(binary string) []satelliteExec {
 // satelliteExecutedSQL indica si algún comando ejecutado contiene el fragmento dado.
 func (m *mockOrchestrator) satelliteExecutedSQL(fragment string) bool {
 	for _, exec := range m.satelliteExecs {
+		if strings.Contains(exec.input, fragment) {
+			return true
+		}
 		for _, arg := range exec.cmd {
 			if strings.Contains(arg, fragment) {
 				return true
