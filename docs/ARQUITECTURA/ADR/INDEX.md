@@ -84,3 +84,4 @@ Este documento consolida todas las Decisiones de Arquitectura (ADRs) tomadas dur
 | 075 | [Reinicio de la Base de una Práctica por Alumno](ADR-075-reinicio-de-base-por-alumno.md) | Implementado | Docencia |
 | 076 | [Despublicar una Práctica Publicada](ADR-076-despublicar-una-practica-publicada.md) | Implementado | Docencia |
 | 077 | [Rúbrica Opcional y Avisos en el Editor de Prácticas](ADR-077-rubrica-opcional-y-avisos-en-el-editor.md) | Implementado | Docencia |
+| 078 | [Contrato Único de Edición y Borrado Seguro en el Catálogo de Tecnologías](ADR-078-contrato-unico-y-borrado-seguro-del-catalogo-de-tecnologias.md) | Aceptado | Core |

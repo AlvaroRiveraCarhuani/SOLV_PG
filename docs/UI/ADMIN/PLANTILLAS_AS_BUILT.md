@@ -330,19 +330,19 @@ En cumplimiento de la investigación técnica sobre densidad de entornos en serv
 
 ## 12. Mapa del Sistema (Árbol de Herramientas del Catálogo)
 
-Vista panorámica de **solo lectura** para el administrador: cuarta pestaña «Mapa del Sistema» de la Biblioteca de Modelos (`/admin/plantillas`), junto a Modelos Oficiales, Catálogo de Tecnologías y Categorías Académicas.
+Vista panorámica de **solo lectura** para el administrador: segunda pestaña «Mapa del Sistema» de `/admin/tecnologias` (`TechCatalogComponent`), junto a «Tecnologías y Componentes».
 
 | Aspecto | Detalle |
 | :--- | :--- |
 | Componente | [`catalog-tree.component.ts`](file:///home/alvarorivera/Documentos/Desarrollo/SOLV_PG/frontend/src/app/features/admin/templates/components/model-library/components/catalog-tree/catalog-tree.component.ts) (standalone, `OnPush`, selector `catalog-tree`) |
-| Origen de datos | Signal `techComponents` de [`model-library.component.ts`](file:///home/alvarorivera/Documentos/Desarrollo/SOLV_PG/frontend/src/app/features/admin/templates/components/model-library/model-library.component.ts), el mismo `GET` del catálogo que alimenta la pestaña de edición. **DATO REAL**, sin endpoint nuevo. |
+| Origen de datos | Signal `techComponents` de [`tech-catalog.component.ts`](file:///home/alvarorivera/Documentos/Desarrollo/SOLV_PG/frontend/src/app/features/admin/templates/tech-catalog/tech-catalog.component.ts), el mismo `GET` del catálogo que alimenta la pestaña de edición. **DATO REAL**, sin endpoint nuevo. |
 | Agrupación | Por rol, derivada de `layer` + `sub_category`: Lenguajes Principales (`runtime` ≠ web), Interfaces Web (`runtime` + `web`), Complementos y Librerías (`addon`), Bases de Datos (`database`). |
 | Orden dentro de cada rama | Activas primero, luego `sort_order`, luego nombre alfabético. |
 | Estados por hoja | Chip **Activo** (`--status-running-*`) o **Inactivo** (`--status-hibernated-*`) según `is_active`. |
 | Marcador huérfano | Chip ámbar «Sin runtime compatible» usando `isOrphanAddonInCatalog` de [`model-library.utils.ts`](file:///home/alvarorivera/Documentos/Desarrollo/SOLV_PG/frontend/src/app/features/admin/templates/components/model-library/model-library.utils.ts), el mismo criterio que ya usa la pestaña de Catálogo. |
 | Interacción | Ramas colapsables (`aria-expanded`); sin acciones de edición ni eliminación desde el árbol. |
 | Iconos | `tech-logo` con `icon_key` del catálogo; degrada a monograma si no hay SVG. |
-| Tests | [`catalog-tree.component.spec.ts`](file:///home/alvarorivera/Documentos/Desarrollo/SOLV_PG/frontend/src/app/features/admin/templates/components/model-library/components/catalog-tree/catalog-tree.component.spec.ts): agrupación, conteos, orden, colapso, huérfanos y estado vacío. Integración en [`model-library.component.spec.ts`](file:///home/alvarorivera/Documentos/Desarrollo/SOLV_PG/frontend/src/app/features/admin/templates/components/model-library/model-library.component.spec.ts). |
+| Tests | [`catalog-tree.component.spec.ts`](file:///home/alvarorivera/Documentos/Desarrollo/SOLV_PG/frontend/src/app/features/admin/templates/components/model-library/components/catalog-tree/catalog-tree.component.spec.ts): agrupación, conteos, orden, colapso, huérfanos y estado vacío. Integración en [`tech-catalog.component.spec.ts`](file:///home/alvarorivera/Documentos/Desarrollo/SOLV_PG/frontend/src/app/features/admin/templates/tech-catalog/tech-catalog.component.spec.ts). |
 
 Invariantes de la vista:
 1. **No duplica datos**: es una proyección del mismo catálogo; crear/editar/eliminar tecnología sigue ocurriendo en «Catálogo de Tecnologías».

@@ -1908,7 +1908,7 @@ Los motores de base de datos se ofrecen desde el catálogo y ya no dependen de q
 
 El modo de aprovisionamiento es la clave de lectura de la Columna 3 del Constructor: `embedded` no consume RAM, `shared_host` comparte un motor del aula y `managed_container` explica que la memoria se consume solo mientras hay laboratorios activos, porque el motor se apaga solo cuando nadie lo usa.
 
-### 2. Alta y Edición de Motores en el Catálogo (`POST|PUT|PATCH /api/v1/admin/template-components`)
+### 2. Alta y Edición de Motores en el Catálogo (`POST|PUT /api/v1/admin/template-components`)
 
 El administrador registra, activa y edita motores con `layer: "database"` igual que cualquier otro componente del catálogo:
 

@@ -206,9 +206,7 @@ El encabezado del constructor ofrece dos apoyos:
 
 ## 8. Biblioteca de Modelos y Categorías
 
-La Biblioteca concentra los modelos oficiales que el asistente ofrece a los docentes, el catálogo de tecnologías y las categorías académicas.
-
-Ruta: **Modelos y Categorías**. Cuatro pestañas:
+La gestión se reparte en tres rutas: **Catálogo de Entornos** (`/admin/plantillas`), **Catálogo de Tecnologías** (`/admin/tecnologias`) y **Categorías Académicas** (`/admin/categorias`).
 
 ### 8.1 Modelos Oficiales
 
@@ -222,10 +220,15 @@ Ruta: **Modelos y Categorías**. Cuatro pestañas:
 
 ### 8.2 Catálogo de Tecnologías
 
+Ruta: **Catálogo de Tecnologías** (`/admin/tecnologias`). Dos pestañas: **Tecnologías y Componentes** y **Mapa del Sistema**.
+
 - Registra lenguajes, interfaces web, complementos y bases de datos.
+- **Búsqueda y filtros:** por nombre, slug, herramientas o paquete; por perfil (lenguaje, interfaz web, complemento, base de datos) y por estado. Cada opción de perfil indica cuántas tecnologías agrupa.
 - **Activar / desactivar** decide si la tecnología se ofrece en el constructor.
+- **Uso:** cada tecnología indica cuántos entornos la referencian. Una tecnología en uso no se elimina: se desactiva. El servidor lo comprueba y la pantalla ofrece la desactivación antes de intentarlo.
 - Las tecnologías base del sistema no se pueden eliminar.
 - Un complemento **huérfano** no es compatible con ningún lenguaje activo: conviene revisarlo o desactivarlo.
+- Estados vacíos: se distingue entre catálogo sin tecnologías y filtros sin coincidencias.
 
 ### 8.3 Categorías Académicas
 
@@ -234,7 +237,7 @@ Ruta: **Modelos y Categorías**. Cuatro pestañas:
 
 ### 8.4 Mapa del Sistema
 
-Vista de sólo lectura que relaciona tecnologías, capas y complementos compatibles.
+Segunda pestaña de **Catálogo de Tecnologías** (`/admin/tecnologias`). Vista de solo lectura que relaciona tecnologías, capas y complementos compatibles.
 
 ## 9. Configuración de Inteligencia Artificial
 
