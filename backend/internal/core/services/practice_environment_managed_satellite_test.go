@@ -329,6 +329,18 @@ func TestStartPracticeEnvironmentForExercise_SendsDBInitScriptByStdin(t *testing
 				}
 				if exec.input == script {
 					delivered = true
+					if tc.engine == "postgres" {
+						singleTransaction := false
+						for _, arg := range exec.cmd {
+							if arg == "--single-transaction" {
+								singleTransaction = true
+								break
+							}
+						}
+						if !singleTransaction {
+							t.Errorf("psql debe aplicar el script en una sola transacción: %q", exec.cmd)
+						}
+					}
 				}
 			}
 

@@ -509,11 +509,13 @@ func execPostgresSQL(ctx context.Context, orchestrator domain.ManagedSatelliteOr
 }
 
 // execPostgresSQLScript aplica un script completo con psql leyendo la entrada estándar
-// (`-f -`). El contenido no viaja como argumento, así que su tamaño no queda acotado por
-// el límite de argumentos del kernel (ADR-072).
+// (`-f -`) dentro de una sola transacción (`--single-transaction`). El contenido no viaja
+// como argumento, así que su tamaño no queda acotado por el límite de argumentos del
+// kernel (ADR-072). Confirmar una vez en lugar de una vez por sentencia es lo que evita
+// que un script con miles de INSERT tarde minutos (ADR-074).
 func execPostgresSQLScript(ctx context.Context, orchestrator domain.ManagedSatelliteOrchestrator, engine, url, script string) (string, error) {
 	return orchestrator.ExecInManagedSatelliteWithInput(ctx, engine,
-		[]string{"psql", url, "-v", "ON_ERROR_STOP=1", "-f", "-"}, strings.NewReader(script))
+		[]string{"psql", url, "-v", "ON_ERROR_STOP=1", "--single-transaction", "-f", "-"}, strings.NewReader(script))
 }
 
 // applyManagedPostgresExerciseDBInitScript aplica el script del ejercicio una sola vez
