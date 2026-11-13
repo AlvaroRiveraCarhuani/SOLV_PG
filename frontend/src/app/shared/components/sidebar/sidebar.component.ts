@@ -19,7 +19,8 @@ import {
   LucideBoxes,
   LucideSparkles,
   LucideInbox,
-  LucidePresentation
+  LucidePresentation,
+  LucideTag
 } from '@lucide/angular';
 import { NavSection } from './sidebar.model';
 
@@ -64,7 +65,8 @@ export const DEFAULT_STUDENT_SECTIONS: NavSection[] = [
     LucideBoxes,
     LucideSparkles,
     LucideInbox,
-    LucidePresentation
+    LucidePresentation,
+    LucideTag
   ],
   template: `
     <aside class="sidebar" [class.collapsed]="collapsed()">
@@ -103,6 +105,7 @@ export const DEFAULT_STUDENT_SECTIONS: NavSection[] = [
                   @case ('shield-alert') { <svg lucideShieldAlert class="nav-icon"></svg> }
                   @case ('file-text') { <svg lucideFileText class="nav-icon"></svg> }
                   @case ('sparkles') { <svg lucideSparkles class="nav-icon"></svg> }
+                  @case ('tag') { <svg lucideTag class="nav-icon"></svg> }
                 }
                 <span class="nav-label">{{ item.label }}</span>
               </a>

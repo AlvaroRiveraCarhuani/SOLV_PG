@@ -1,0 +1,78 @@
+<div class="academic-categories-container">
+  @if (toastMessage(); as msg) {
+    <div class="toast-notification" [class.toast-error]="toastType() === 'error'">
+      @if (toastType() === 'success') {
+        <svg lucideCheckCircle2 class="toast-icon"></svg>
+      } @else {
+        <svg lucideAlertTriangle class="toast-icon"></svg>
+      }
+      <span>{{ msg }}</span>
+    </div>
+  }
+
+  <header class="page-header">
+    <div class="header-left">
+      <h1 class="page-title">Categorías Académicas</h1>
+      <p class="page-subtitle">Gestión de áreas de conocimiento y taxonomía para materias y entornos del campus</p>
+    </div>
+    <div class="header-actions">
+      <button
+        type="button"
+        class="btn-primary"
+        (click)="openCreateCategory()"
+      >
+        <svg lucidePlus class="btn-icon"></svg>
+        <span>Nueva Categoría</span>
+      </button>
+    </div>
+  </header>
+
+  <kpi-grid [columns]="2">
+    <kpi-card
+      label="Total Categorías"
+      [value]="totalCategoriesCount()"
+      detail="Áreas académicas configuradas"
+      variant="primary"
+    >
+      <svg lucideTag icon></svg>
+    </kpi-card>
+
+    <kpi-card
+      label="Categorías Activas"
+      [value]="activeCategoriesCount()"
+      detail="Disponibles en el sistema"
+      variant="running"
+    >
+      <svg lucideCheckCircle2 icon></svg>
+    </kpi-card>
+  </kpi-grid>
+
+  <section class="categories-content-card">
+    <template-categories-manager
+      [categories]="categories()"
+      [models]="models()"
+      (moveUp)="moveCategoryUp($event)"
+      (moveDown)="moveCategoryDown($event)"
+      (dragStartIndex)="onDragStart($event)"
+      (dropIndex)="onDrop($event)"
+      (editCategory)="openEditCategory($event)"
+      (deleteCategory)="confirmDeleteCategory($event)"
+    />
+  </section>
+
+  @if (showCategoryModal()) {
+    <category-form-modal animate.leave="motion-modal-out"
+      [category]="editingCategory()"
+      (closed)="closeCategoryModal()"
+      (saved)="handleCategorySaved($event)"
+    />
+  }
+
+  @if (categoryToDelete(); as cat) {
+    <category-delete-modal animate.leave="motion-modal-out"
+      [category]="cat"
+      (cancelled)="cancelDeleteCategory()"
+      (deleted)="handleCategoryDeleted($event)"
+    />
+  }
+</div>

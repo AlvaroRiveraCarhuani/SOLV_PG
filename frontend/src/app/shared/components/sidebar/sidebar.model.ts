@@ -16,7 +16,8 @@ export type SidebarIconName =
   | 'file-text'
   | 'graduation-cap'
   | 'presentation'
-  | 'sparkles';
+  | 'sparkles'
+  | 'tag';
 
 export interface NavItem {
   label: string;

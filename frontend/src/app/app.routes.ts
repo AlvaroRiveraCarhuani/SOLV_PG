@@ -163,9 +163,19 @@ export const routes: Routes = [
           import('@features/admin/environment-requests/admin-environment-requests.component').then((m) => m.AdminEnvironmentRequestsComponent)
       },
       {
-        path: 'modelos-categorias',
+        path: 'tecnologias',
         loadComponent: () =>
-          import('@features/admin/templates/components/model-library/model-library.component').then((m) => m.ModelLibraryComponent)
+          import('@features/admin/templates/tech-catalog/tech-catalog.component').then((m) => m.TechCatalogComponent)
+      },
+      {
+        path: 'categorias',
+        loadComponent: () =>
+          import('@features/admin/categories/academic-categories.component').then((m) => m.AcademicCategoriesComponent)
+      },
+      {
+        path: 'modelos-categorias',
+        redirectTo: 'tecnologias',
+        pathMatch: 'full'
       },
       {
         path: 'configuracion',
