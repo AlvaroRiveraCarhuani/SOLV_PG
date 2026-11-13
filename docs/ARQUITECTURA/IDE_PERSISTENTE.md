@@ -12,6 +12,19 @@ El editor de ejercicios (`/teacher/cursos/:id/ejercicios/:exerciseId/editar`) us
   que el backend puede serializar en `services_config`:
   `{ database: { enabled, engine } }` o `{ services: [{ category: 'database', engine: 'postgres' }] }`.
   Sólo con esa detección se habilita el editor de `db_init_script`.
+- Script inicial de base de datos (`ide-db-init-script`): el docente carga un archivo `.sql`, `.txt`
+  o `.js` por arrastre o por selector, y también puede escribir las sentencias en el editor. Con
+  contenido cargado, la sección muestra nombre del archivo, tamaño, cantidad de líneas y sentencias
+  estimadas, y ofrece reemplazar, descargar y limpiar. El campo es exclusivo de la práctica: no
+  configura la base de la materia (ADR-071).
+- Aviso de tamaño: por encima de 2 MiB se muestra una advertencia, sin bloquear el guardado. El
+  script se entrega al cliente por entrada estándar (ADR-072), así que el umbral es una recomendación
+  de costo de aprovisionamiento y no un límite del sistema (ADR-071).
+- Aclaración de alcance: la sección indica que la base es una sola durante toda la materia y que los
+  datos de una práctica quedan disponibles en las siguientes, además de que el script es exclusivo de
+  la práctica (ADR-071).
+- Persistencia del script: el texto vive en la tabla `exercise_db_init_scripts`, no en
+  `exercises.config`. La lectura por id lo reconstruye y la lista por materia no lo carga (ADR-073).
 - Parámetros de entrega: `due_date`, `allow_resubmit`, `auto_checkpoint`.
 - Rúbrica por criterios y niveles.
 
@@ -33,6 +46,9 @@ guardado; en publicación sí aborta con mensaje explícito.
   satélite `solv_std_<student>_<subject>` cuando la plantilla declara PostgreSQL **o** el ejercicio
   define `config.ide.db_init_script`, y aplica el script una sola vez por `exercise_id` usando
   `_solv_exercise_migrations`.
+- La base es una por alumno y materia, no por práctica: los datos de una práctica siguen disponibles
+  en las siguientes de la misma materia y solo la aplicación del script se sella por `exercise_id`
+  (ADR-071).
 - El `db_init_script` es **hard-fail**: si falla, el inicio o la reactivación se aborta y el alumno
   ve el error; no queda un entorno a medio inicializar.
 - Sin `BASE_DOMAIN` el entorno publica `3000/tcp` en `127.0.0.1:<puerto dinámico>` y

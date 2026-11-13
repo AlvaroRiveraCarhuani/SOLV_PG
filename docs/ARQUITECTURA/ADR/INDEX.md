@@ -76,3 +76,7 @@ Este documento consolida todas las Decisiones de Arquitectura (ADRs) tomadas dur
 | 067 | [Política Terminológica de Modalidades](ADR-067-politica-terminologica-de-modalidades.md) | Aceptado | Core |
 | 068 | [Proyectos Iniciales y Versiones Inmutables en `IDE_PERSISTENTE`](ADR-068-proyectos-iniciales-y-versiones-en-ide-persistente.md) | Aceptado | Docencia |
 | 069 | [Preparación de Dependencias de Proyecto por Ecosistema](ADR-069-preparacion-de-dependencias-de-proyecto-por-ecosistema.md) | Aceptado | Docencia |
+| 071 | [Alcance del Script de Inicialización de Base de Datos y Tope de Tamaño](ADR-071-alcance-del-script-de-inicializacion-de-base-de-datos.md) | Aceptado | Docencia |
+| 072 | [Ejecución del Script de Inicialización por Entrada Estándar](ADR-072-ejecucion-del-script-de-inicializacion-por-entrada-estandar.md) | Implementado | Core |
+| 073 | [Script de Inicialización en Almacenamiento Propio](ADR-073-script-de-inicializacion-en-almacenamiento-propio.md) | Implementado | Core |
+| 074 | [Aplicación del Script de Inicialización en una Transacción](ADR-074-aplicacion-del-script-de-inicializacion-en-una-transaccion.md) | Implementado | Core |
