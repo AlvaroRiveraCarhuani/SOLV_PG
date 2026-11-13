@@ -294,4 +294,3 @@ func (h *TeacherHandler) EnrollStudent(w http.ResponseWriter, r *http.Request) {
 		"subject_id": subjectID,
 	}, "Estudiante matriculado exitosamente")
 }
-

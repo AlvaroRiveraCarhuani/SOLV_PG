@@ -296,4 +296,3 @@ func (s *TeacherService) EnrollStudentInCourse(
 	}
 	return s.enrollmentStore.EnrollStudentInCourse(ctx, tenantID, teacherID, subjectID, studentID)
 }
-
