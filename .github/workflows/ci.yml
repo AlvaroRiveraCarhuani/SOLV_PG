@@ -356,7 +356,7 @@ jobs:
         if: failure()
         run: |
           if [ -f integration-tests.log ]; then
-            grep -E "^--- FAIL|^FAIL|panic:" integration-tests.log | head -10 | while IFS= read -r line; do
+            tail -10 integration-tests.log | while IFS= read -r line; do
               echo "::error title=Integración::$line"
             done
           fi
