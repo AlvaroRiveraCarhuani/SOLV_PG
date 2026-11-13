@@ -469,6 +469,7 @@ func main() {
 		MemoryLimitMB:     256,
 	})
 	envTestService.SetImageBuilder(envTestAdapter)
+	practiceDatabases, _ := environmentRepo.(services.StudentPracticeDatabaseLister)
 	practiceEnvTestService := services.NewPracticeEnvTestService(
 		envTestJobRepo,
 		envTestAdapter,
@@ -477,6 +478,7 @@ func main() {
 		exerciseRepo,
 		subjectRepo,
 		templateRepo,
+		practiceDatabases,
 		services.PracticeEnvTestConfig{
 			MaxConcurrentJobs: 1,
 			TotalJobTimeout:   10 * time.Minute,

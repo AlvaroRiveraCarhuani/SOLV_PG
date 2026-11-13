@@ -3,6 +3,7 @@ package httpdelivery
 import (
 	"encoding/json"
 	"errors"
+	"log"
 	"net/http"
 	"strings"
 
@@ -132,6 +133,90 @@ func (h *EnvTestHandler) GetLatestPracticeEnvTest(w http.ResponseWriter, r *http
 	}
 
 	SendJSON(w, http.StatusOK, job, "Última prueba de entorno de la práctica")
+}
+
+// ListPracticeStudentDatabases lista las bases de los alumnos que ya abrieron la práctica.
+// GET /api/v1/teacher/courses/{courseId}/exercises/{exerciseId}/student-databases
+func (h *EnvTestHandler) ListPracticeStudentDatabases(w http.ResponseWriter, r *http.Request) {
+	if h.practiceSvc == nil {
+		SendError(w, http.StatusServiceUnavailable, "practice_env_test_unavailable", "La prueba de entorno por práctica no está disponible")
+		return
+	}
+
+	role := domain.GetUserRole(r.Context())
+	if role != "teacher" && role != "admin" {
+		SendError(w, http.StatusForbidden, "forbidden", "Solo docentes y administradores pueden ver las bases de la práctica")
+		return
+	}
+
+	databases, err := h.practiceSvc.ListStudentDatabases(
+		r.Context(),
+		domain.GetUserID(r.Context()),
+		getTenantFromCtx(r),
+		role,
+		r.PathValue("courseId"),
+		r.PathValue("exerciseId"),
+	)
+	if err != nil {
+		h.sendPracticeDatabaseError(w, err, "No se pudieron consultar las bases de la práctica")
+		return
+	}
+
+	SendJSON(w, http.StatusOK, databases, "Bases de la práctica por alumno")
+}
+
+// ResetPracticeStudentDatabase borra y recrea la base de un alumno con el script vigente.
+// POST /api/v1/teacher/courses/{courseId}/exercises/{exerciseId}/students/{studentId}/database/reset
+func (h *EnvTestHandler) ResetPracticeStudentDatabase(w http.ResponseWriter, r *http.Request) {
+	if h.practiceSvc == nil {
+		SendError(w, http.StatusServiceUnavailable, "practice_env_test_unavailable", "La prueba de entorno por práctica no está disponible")
+		return
+	}
+
+	role := domain.GetUserRole(r.Context())
+	if role != "teacher" && role != "admin" {
+		SendError(w, http.StatusForbidden, "forbidden", "Solo docentes y administradores pueden reiniciar la base de una práctica")
+		return
+	}
+
+	studentID := strings.TrimSpace(r.PathValue("studentId"))
+	err := h.practiceSvc.ResetStudentDatabase(
+		r.Context(),
+		domain.GetUserID(r.Context()),
+		getTenantFromCtx(r),
+		role,
+		r.PathValue("courseId"),
+		r.PathValue("exerciseId"),
+		studentID,
+	)
+	if err != nil {
+		h.sendPracticeDatabaseError(w, err, "No se pudo reiniciar la base de la práctica")
+		return
+	}
+
+	SendJSON(w, http.StatusOK, map[string]string{"student_id": studentID}, "Base de la práctica reiniciada")
+}
+
+// sendPracticeDatabaseError traduce los errores del ciclo de vida de bases a respuestas
+// HTTP concretas. Los fallos operativos se registran y no se expone el detalle interno.
+func (h *EnvTestHandler) sendPracticeDatabaseError(w http.ResponseWriter, err error, fallback string) {
+	switch {
+	case errors.Is(err, services.ErrPracticeTestForbidden):
+		SendError(w, http.StatusForbidden, "forbidden", err.Error())
+	case errors.Is(err, services.ErrPracticeTestRequiresIDE):
+		SendError(w, http.StatusBadRequest, "invalid_environment", err.Error())
+	case errors.Is(err, services.ErrStudentPracticeNotStarted):
+		SendError(w, http.StatusConflict, "practice_not_started", err.Error())
+	case errors.Is(err, services.ErrPracticeDatabaseNotConfigured):
+		SendError(w, http.StatusBadRequest, "database_not_configured", err.Error())
+	case errors.Is(err, services.ErrPracticeDatabasesUnavailable):
+		SendError(w, http.StatusServiceUnavailable, "databases_unavailable", err.Error())
+	case errors.Is(err, domain.ErrNotFound):
+		SendError(w, http.StatusNotFound, "practice_not_found", "La práctica o su materia no existen")
+	default:
+		log.Printf("[PracticeDatabases] %s: %v", fallback, err)
+		SendError(w, http.StatusInternalServerError, "database_operation_failed", fallback)
+	}
 }
 
 // GetEnvTest consulta el estado y progreso en tiempo real de un job

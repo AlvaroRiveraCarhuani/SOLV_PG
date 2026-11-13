@@ -21,6 +21,9 @@ type PracticeSatelliteProvision struct {
 // identidad de prueba estable, sin crear un environment ni una entrega.
 type PracticeSatelliteProvisioner interface {
 	ProvisionPracticeSatellites(ctx context.Context, exercise *domain.Exercise, template *domain.Template, subjectID string) (PracticeSatelliteProvision, error)
+	// ResetStudentPracticeDatabase borra y recrea la base aislada de un alumno para la
+	// práctica, aplicando el script vigente. No toca su volumen ni su código.
+	ResetStudentPracticeDatabase(ctx context.Context, studentID, subjectID string, template *domain.Template, exercise *domain.Exercise) error
 }
 
 // practiceTestStudentID deriva una identidad de prueba distinta de cualquier UUID de

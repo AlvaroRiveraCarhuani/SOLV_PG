@@ -40,6 +40,31 @@ func (r *PostgresPracticeEnvironmentRepository) GetByStudentSubjectExercise(ctx 
 	return &ws, nil
 }
 
+// ListStudentDatabasesByExercise lista los alumnos que ya tienen un entorno para la
+// práctica, con nombre y correo para que el docente elija a quién reiniciarle la base.
+// Solo entornos con práctica: la materia suelta no tiene base propia que reiniciar.
+func (r *PostgresPracticeEnvironmentRepository) ListStudentDatabasesByExercise(ctx context.Context, tenantID, subjectID, exerciseID string) ([]domain.StudentPracticeDatabase, error) {
+	if tenantID == "" {
+		tenantID = domain.DefaultTenantID
+	}
+	query := `
+		SELECT env.student_id::text AS student_id,
+		       COALESCE(NULLIF(TRIM(u.first_name || ' ' || u.last_name), ''), 'Estudiante') AS student_name,
+		       COALESCE(u.email, '') AS student_email,
+		       env.status AS status,
+		       env.updated_at AS updated_at
+		FROM environments env
+		LEFT JOIN users u ON u.id = env.student_id
+		WHERE env.subject_id = $1 AND env.exercise_id = $2 AND env.tenant_id = $3
+		ORDER BY student_name ASC
+	`
+	databases := make([]domain.StudentPracticeDatabase, 0)
+	if err := r.db.SelectContext(ctx, &databases, query, subjectID, exerciseID, tenantID); err != nil {
+		return nil, fmt.Errorf("failed to list student databases for exercise %s: %w", exerciseID, err)
+	}
+	return databases, nil
+}
+
 func (r *PostgresPracticeEnvironmentRepository) GetByID(ctx context.Context, id string) (*domain.PracticeEnvironment, error) {
 	tenantID := domain.GetTenantID(ctx)
 	if tenantID == "" {

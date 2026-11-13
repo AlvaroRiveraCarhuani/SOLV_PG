@@ -38,6 +38,12 @@ type PracticeEnvTestRequest struct {
 // PracticeEnvTestService valida una práctica IDE sin crear entregas ni environments:
 // aprovisiona sus satélites, ejecuta el setup de la plantilla sobre un volumen temporal
 // y reporta el resultado con el vocabulario de EnvTestStatus.
+// StudentPracticeDatabaseLister lista las bases de los alumnos que ya abrieron una
+// práctica. Es una capacidad opcional: sin ella, el listado responde no disponible.
+type StudentPracticeDatabaseLister interface {
+	ListStudentDatabasesByExercise(ctx context.Context, tenantID, subjectID, exerciseID string) ([]domain.StudentPracticeDatabase, error)
+}
+
 type PracticeEnvTestService struct {
 	repo       domain.EnvTestJobRepository
 	registry   domain.ImageRegistryPort
@@ -46,6 +52,7 @@ type PracticeEnvTestService struct {
 	exercises  domain.ExerciseRepository
 	subjects   domain.SubjectRepository
 	templates  domain.TemplateRepository
+	databases  StudentPracticeDatabaseLister
 	config     PracticeEnvTestConfig
 
 	sem         chan struct{}
@@ -61,6 +68,7 @@ func NewPracticeEnvTestService(
 	exercises domain.ExerciseRepository,
 	subjects domain.SubjectRepository,
 	templates domain.TemplateRepository,
+	databases StudentPracticeDatabaseLister,
 	config PracticeEnvTestConfig,
 ) *PracticeEnvTestService {
 	if config.MaxConcurrentJobs <= 0 {
@@ -80,6 +88,7 @@ func NewPracticeEnvTestService(
 		exercises:   exercises,
 		subjects:    subjects,
 		templates:   templates,
+		databases:   databases,
 		config:      config,
 		sem:         make(chan struct{}, config.MaxConcurrentJobs),
 		cancelFuncs: make(map[string]context.CancelFunc),
@@ -97,33 +106,9 @@ func (s *PracticeEnvTestService) Start(ctx context.Context, req PracticeEnvTestR
 		tenantID = domain.DefaultTenantID
 	}
 
-	exercise, err := s.exercises.GetByIDAndTenant(ctx, exerciseID, tenantID)
-	if err != nil || exercise == nil {
-		return nil, domain.ErrNotFound
-	}
-	if exercise.EnvironmentType != string(domain.EnvironmentTypeIDEPersistente) {
-		return nil, ErrPracticeTestRequiresIDE
-	}
-
-	subjectID := strings.TrimSpace(req.CourseID)
-	if subjectID == "" && exercise.SubjectID != nil {
-		subjectID = strings.TrimSpace(*exercise.SubjectID)
-	}
-	if subjectID == "" {
-		return nil, errors.New("la práctica no tiene materia asociada")
-	}
-	if exercise.SubjectID != nil && strings.TrimSpace(*exercise.SubjectID) != "" && strings.TrimSpace(*exercise.SubjectID) != subjectID {
-		return nil, domain.ErrNotFound
-	}
-
-	subject, err := s.subjects.GetByID(ctx, tenantID, subjectID)
-	if err != nil || subject == nil {
-		return nil, domain.ErrNotFound
-	}
-	if req.Role != "admin" {
-		if subject.TeacherID == nil || strings.TrimSpace(*subject.TeacherID) != strings.TrimSpace(req.TeacherID) {
-			return nil, ErrPracticeTestForbidden
-		}
+	exercise, subject, subjectID, err := s.resolvePracticeScope(ctx, req.TeacherID, req.Role, tenantID, req.CourseID, exerciseID)
+	if err != nil {
+		return nil, err
 	}
 
 	template, err := s.resolveTemplate(ctx, exercise, subject)
@@ -414,4 +399,107 @@ func setupLogExcerpt(output string) string {
 		lines = append(lines, line)
 	}
 	return strings.TrimSpace(strings.Join(lines, "\n"))
+}
+
+// resolvePracticeScope valida que la práctica exista, sea IDE, pertenezca a la materia
+// indicada y que el docente sea su titular. Lo comparten la prueba de entorno y el
+// reinicio de bases para que ambas puertas apliquen la misma política.
+func (s *PracticeEnvTestService) resolvePracticeScope(
+	ctx context.Context,
+	teacherID, role, tenantID, courseID, exerciseID string,
+) (*domain.Exercise, *domain.Subject, string, error) {
+	exerciseID = strings.TrimSpace(exerciseID)
+	if exerciseID == "" {
+		return nil, nil, "", errors.New("la práctica es requerida")
+	}
+	exercise, err := s.exercises.GetByIDAndTenant(ctx, exerciseID, tenantID)
+	if err != nil || exercise == nil {
+		return nil, nil, "", domain.ErrNotFound
+	}
+	if exercise.EnvironmentType != string(domain.EnvironmentTypeIDEPersistente) {
+		return nil, nil, "", ErrPracticeTestRequiresIDE
+	}
+
+	subjectID := strings.TrimSpace(courseID)
+	if subjectID == "" && exercise.SubjectID != nil {
+		subjectID = strings.TrimSpace(*exercise.SubjectID)
+	}
+	if subjectID == "" {
+		return nil, nil, "", errors.New("la práctica no tiene materia asociada")
+	}
+	if exercise.SubjectID != nil && strings.TrimSpace(*exercise.SubjectID) != "" && strings.TrimSpace(*exercise.SubjectID) != subjectID {
+		return nil, nil, "", domain.ErrNotFound
+	}
+
+	subject, err := s.subjects.GetByID(ctx, tenantID, subjectID)
+	if err != nil || subject == nil {
+		return nil, nil, "", domain.ErrNotFound
+	}
+	if role != "admin" {
+		if subject.TeacherID == nil || strings.TrimSpace(*subject.TeacherID) != strings.TrimSpace(teacherID) {
+			return nil, nil, "", ErrPracticeTestForbidden
+		}
+	}
+	return exercise, subject, subjectID, nil
+}
+
+var (
+	// ErrPracticeDatabasesUnavailable indica que el servicio no puede listar las bases.
+	ErrPracticeDatabasesUnavailable = errors.New("el listado de bases de la práctica no está disponible")
+	// ErrStudentPracticeNotStarted indica que el alumno todavía no abrió la práctica,
+	// así que no tiene una base propia que reiniciar.
+	ErrStudentPracticeNotStarted = errors.New("el alumno todavía no abrió esta práctica")
+)
+
+// ListStudentDatabases devuelve quiénes ya abrieron la práctica y tienen base propia.
+func (s *PracticeEnvTestService) ListStudentDatabases(
+	ctx context.Context,
+	teacherID, tenantID, role, courseID, exerciseID string,
+) ([]domain.StudentPracticeDatabase, error) {
+	exercise, _, subjectID, err := s.resolvePracticeScope(ctx, teacherID, role, tenantID, courseID, exerciseID)
+	if err != nil {
+		return nil, err
+	}
+	if s.databases == nil {
+		return nil, ErrPracticeDatabasesUnavailable
+	}
+	return s.databases.ListStudentDatabasesByExercise(ctx, tenantID, subjectID, exercise.ID)
+}
+
+// ResetStudentDatabase borra la base de un alumno y la recrea con el script vigente.
+// Solo opera sobre alumnos que ya abrieron la práctica: no se crean bases al azar.
+func (s *PracticeEnvTestService) ResetStudentDatabase(
+	ctx context.Context,
+	teacherID, tenantID, role, courseID, exerciseID, studentID string,
+) error {
+	studentID = strings.TrimSpace(studentID)
+	if studentID == "" {
+		return errors.New("el alumno es requerido")
+	}
+	exercise, subject, subjectID, err := s.resolvePracticeScope(ctx, teacherID, role, tenantID, courseID, exerciseID)
+	if err != nil {
+		return err
+	}
+	if s.databases == nil {
+		return ErrPracticeDatabasesUnavailable
+	}
+	databases, err := s.databases.ListStudentDatabasesByExercise(ctx, tenantID, subjectID, exercise.ID)
+	if err != nil {
+		return err
+	}
+	started := false
+	for _, database := range databases {
+		if database.StudentID == studentID {
+			started = true
+			break
+		}
+	}
+	if !started {
+		return ErrStudentPracticeNotStarted
+	}
+	template, err := s.resolveTemplate(ctx, exercise, subject)
+	if err != nil {
+		return err
+	}
+	return s.satellites.ResetStudentPracticeDatabase(ctx, studentID, subjectID, template, exercise)
 }

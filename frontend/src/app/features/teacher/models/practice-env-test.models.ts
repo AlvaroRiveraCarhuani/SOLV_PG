@@ -28,6 +28,15 @@ export interface PracticeEnvTestResult {
   duration_ms: number;
 }
 
+/** Base aislada que un alumno ya tiene para la práctica. */
+export interface StudentPracticeDatabase {
+  student_id: string;
+  student_name: string;
+  student_email: string;
+  status: string;
+  updated_at: string;
+}
+
 export interface PracticeEnvTestJob {
   id: string;
   exercise_id?: string;

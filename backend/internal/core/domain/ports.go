@@ -121,6 +121,17 @@ type HostMonitor interface {
 	CanAllocateMemory(requiredMB int64) bool
 }
 
+// StudentPracticeDatabase es la base aislada que un alumno tiene para una práctica.
+// La usa el docente para ver quiénes ya abrieron el laboratorio y reiniciar una base
+// puntual cuando corrige el script de inicialización (ADR-075).
+type StudentPracticeDatabase struct {
+	StudentID    string    `json:"student_id" db:"student_id"`
+	StudentName  string    `json:"student_name" db:"student_name"`
+	StudentEmail string    `json:"student_email" db:"student_email"`
+	Status       string    `json:"status" db:"status"`
+	UpdatedAt    time.Time `json:"updated_at" db:"updated_at"`
+}
+
 type PracticeEnvironmentRepository interface {
 	GetByID(ctx context.Context, id string) (*PracticeEnvironment, error)
 	Create(ctx context.Context, environment *PracticeEnvironment) error

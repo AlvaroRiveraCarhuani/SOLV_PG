@@ -27,7 +27,7 @@ import katex from 'katex';
 import { TeacherCourseService } from '../../services/teacher-course.service';
 import { TeacherEnvironmentService } from '../../services/teacher-environment.service';
 import { PracticeEnvTestService } from '../../services/practice-env-test.service';
-import { PracticeEnvTestJob } from '../../models/practice-env-test.models';
+import { PracticeEnvTestJob, StudentPracticeDatabase } from '../../models/practice-env-test.models';
 import { ExerciseDetailDTO, TeacherLabStats, TestCaseDTO } from '../../models/teacher.models';
 import type { RubricDTO } from '../../exercise-editor/exercise-editor.store';
 import { DateTextPipe } from '@shared/pipes/date-text.pipe';
@@ -40,6 +40,7 @@ import {
   type ResolvableStackConfig
 } from '@features/admin/templates/template-tech-detector.utils';
 import { FuzzingModalComponent } from '../../evaluations/fuzzing-modal/fuzzing-modal.component';
+import { ConfirmModalComponent } from '@shared/components/confirm-modal/confirm-modal.component';
 
 interface ApiResponse<T> {
   data: T;
@@ -108,7 +109,8 @@ import { environmentBadge } from '@shared/constants/environment-types.constants'
     LucideShieldAlert,
     LucideSparkles,
     LucideTerminal,
-    FuzzingModalComponent
+    FuzzingModalComponent,
+    ConfirmModalComponent
   ],
   templateUrl: './practice-detail.component.html',
   styleUrl: './practice-detail.component.scss'
@@ -120,6 +122,7 @@ export class PracticeDetailComponent implements OnInit, OnDestroy {
   private environment = inject(TeacherEnvironmentService);
   private http = inject(HttpClient);
   private envTestPoll?: Subscription;
+  private databasesSub?: Subscription;
 
   courseId = signal<string>('');
   exercise = signal<ExerciseDetailDTO | null>(null);
@@ -134,6 +137,12 @@ export class PracticeDetailComponent implements OnInit, OnDestroy {
   envTestError = signal<string | null>(null);
   isOpeningIde = signal<boolean>(false);
   ideError = signal<string | null>(null);
+  studentDatabases = signal<StudentPracticeDatabase[]>([]);
+  isLoadingDatabases = signal<boolean>(false);
+  databasesError = signal<string | null>(null);
+  pendingDatabaseReset = signal<StudentPracticeDatabase | null>(null);
+  resettingStudentId = signal<string | null>(null);
+  databaseMessage = signal<string | null>(null);
 
   /** Presentación neutra para un valor que no corresponde a una modalidad conocida. */
   envBadge = computed(() => environmentBadge(this.exercise()?.environment_type));
@@ -286,6 +295,9 @@ export class PracticeDetailComponent implements OnInit, OnDestroy {
         this.loadRubric(exerciseId);
         if (exercise.environment_type === 'IDE_PERSISTENTE') {
           this.loadLatestEnvTest(exerciseId);
+          if (this.hasDatabase()) {
+            this.loadStudentDatabases(exerciseId);
+          }
         }
       },
       error: () => {
@@ -481,6 +493,69 @@ export class PracticeDetailComponent implements OnInit, OnDestroy {
 
   ngOnDestroy(): void {
     this.stopEnvTestPoll();
+    this.databasesSub?.unsubscribe();
+  }
+
+  loadStudentDatabases(exerciseId = this.exercise()?.id ?? ''): void {
+    const courseId = this.courseId();
+    if (!exerciseId || !courseId) {
+      return;
+    }
+    this.isLoadingDatabases.set(true);
+    this.databasesError.set(null);
+    this.databasesSub?.unsubscribe();
+    this.databasesSub = this.practiceEnvTest
+      .listStudentDatabases(courseId, exerciseId)
+      .subscribe({
+        next: databases => {
+          this.studentDatabases.set(databases);
+          this.isLoadingDatabases.set(false);
+        },
+        error: err => {
+          this.isLoadingDatabases.set(false);
+          this.databasesError.set(
+            err?.error?.message || 'No se pudieron cargar las bases de los alumnos.'
+          );
+        }
+      });
+  }
+
+  askResetDatabase(database: StudentPracticeDatabase): void {
+    this.databaseMessage.set(null);
+    this.pendingDatabaseReset.set(database);
+  }
+
+  cancelResetDatabase(): void {
+    this.pendingDatabaseReset.set(null);
+  }
+
+  confirmResetDatabase(): void {
+    const pending = this.pendingDatabaseReset();
+    const exerciseId = this.exercise()?.id;
+    if (!pending || !exerciseId) {
+      return;
+    }
+
+    this.resettingStudentId.set(pending.student_id);
+    this.practiceEnvTest
+      .resetStudentDatabase(this.courseId(), exerciseId, pending.student_id)
+      .subscribe({
+        next: () => {
+          this.resettingStudentId.set(null);
+          this.pendingDatabaseReset.set(null);
+          this.databaseMessage.set(
+            `Base de ${pending.student_name} reiniciada con el script vigente.`
+          );
+          this.loadStudentDatabases(exerciseId);
+        },
+        error: err => {
+          this.resettingStudentId.set(null);
+          this.pendingDatabaseReset.set(null);
+          this.databasesError.set(
+            err?.error?.message || 'No se pudo reiniciar la base del alumno.'
+          );
+        }
+      });
   }
 
   private loadRubric(exerciseId: string): void {

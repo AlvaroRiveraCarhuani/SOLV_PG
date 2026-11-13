@@ -130,6 +130,7 @@
             <svg lucideEdit3 class="btn-icon"></svg>
             <span>Editar Laboratorio</span>
           </a>
+
         </div>
       </div>
 
@@ -298,6 +299,55 @@
       </div>
     }
 
+    <!-- Bases de los alumnos -->
+    @if (isIde() && hasDatabase()) {
+      <section class="section-card">
+        <h2 class="section-title">
+          <span>Bases de Datos de los Alumnos</span>
+        </h2>
+        <p class="section-hint">
+          Reiniciar una base la borra y la vuelve a crear con el script vigente. El código del alumno no se toca.
+        </p>
+
+        @if (databasesError(); as error) {
+          <p class="empty-note">{{ error }}</p>
+        } @else if (isLoadingDatabases()) {
+          <p class="empty-note">Cargando bases…</p>
+        } @else if (studentDatabases().length === 0) {
+          <p class="empty-note">Todavía ningún alumno abrió esta práctica.</p>
+        } @else {
+          <ul class="database-list">
+            @for (database of studentDatabases(); track database.student_id) {
+              <li class="database-row">
+                <div class="database-copy">
+                  <strong>{{ database.student_name }}</strong>
+                  <span class="database-email">{{ database.student_email }}</span>
+                </div>
+                <span class="database-status">{{ database.status }}</span>
+                <button
+                  type="button"
+                  class="btn-outline database-reset"
+                  [disabled]="resettingStudentId() === database.student_id"
+                  (click)="askResetDatabase(database)"
+                >
+                  @if (resettingStudentId() === database.student_id) {
+                    <svg lucideLoader2 class="btn-icon motion-spin"></svg>
+                  } @else {
+                    <svg lucideRotateCcw class="btn-icon"></svg>
+                  }
+                  <span>Reiniciar base</span>
+                </button>
+              </li>
+            }
+          </ul>
+        }
+
+        @if (databaseMessage(); as message) {
+          <p class="database-message">{{ message }}</p>
+        }
+      </section>
+    }
+
     <!-- Consigna y boilerplate -->
     <section class="section-card">
       <h2 class="section-title">
@@ -419,6 +469,18 @@
       </section>
     }
   </div>
+}
+
+@if (pendingDatabaseReset(); as database) {
+  <confirm-modal
+    type="danger"
+    title="¿Reiniciar la base del alumno?"
+    [message]="'Se borra la base de ' + database.student_name + ' y se vuelve a crear con el script vigente. Su código y su repositorio no se tocan.'"
+    confirmText="Reiniciar base"
+    [isLoading]="resettingStudentId() === database.student_id"
+    (confirm)="confirmResetDatabase()"
+    (cancel)="cancelResetDatabase()"
+  />
 }
 
 @if (selectedFuzzExercise(); as fuzz) {

@@ -5,7 +5,8 @@ import { catchError, map, switchMap, takeWhile } from 'rxjs/operators';
 
 import {
   PracticeEnvTestJob,
-  PracticeEnvTestStatus
+  PracticeEnvTestStatus,
+  StudentPracticeDatabase
 } from '../models/practice-env-test.models';
 
 interface ApiResponse<T> {
@@ -38,6 +39,27 @@ export class PracticeEnvTestService {
         map(res => res.data ?? null),
         catchError(err => (err?.status === 404 ? of(null) : throwError(() => err)))
       );
+  }
+
+  listStudentDatabases(courseId: string, exerciseId: string): Observable<StudentPracticeDatabase[]> {
+    return this.http
+      .get<ApiResponse<StudentPracticeDatabase[]>>(
+        `/api/v1/teacher/courses/${courseId}/exercises/${exerciseId}/student-databases`
+      )
+      .pipe(map(res => res.data ?? []));
+  }
+
+  resetStudentDatabase(
+    courseId: string,
+    exerciseId: string,
+    studentId: string
+  ): Observable<{ student_id: string }> {
+    return this.http
+      .post<ApiResponse<{ student_id: string }>>(
+        `/api/v1/teacher/courses/${courseId}/exercises/${exerciseId}/students/${studentId}/database/reset`,
+        {}
+      )
+      .pipe(map(res => res.data));
   }
 
   getJob(jobId: string): Observable<PracticeEnvTestJob> {

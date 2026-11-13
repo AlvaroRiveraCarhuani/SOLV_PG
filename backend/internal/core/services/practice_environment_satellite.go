@@ -5,6 +5,7 @@ import (
 	"crypto/hmac"
 	"crypto/sha256"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"log"
 	"os"
@@ -729,4 +730,96 @@ func (s *PracticeEnvironmentService) managedEnginesForPracticeEnvironment(ctx co
 		}
 	}
 	return templateManagedEngines(s.resolveTemplate(ctx, environment.SubjectID))
+}
+
+// ErrPracticeDatabaseNotConfigured indica que la práctica no declara una base que se
+// pueda reiniciar: ni la plantilla pide un motor, ni el ejercicio trae script.
+var ErrPracticeDatabaseNotConfigured = errors.New("la práctica no tiene una base de datos para reiniciar")
+
+// ResetStudentPracticeDatabase borra la base aislada de un alumno y la vuelve a crear
+// con el script vigente del ejercicio. Es la salida cuando el docente corrige el script
+// después de que el alumno ya abrió la práctica: el sello _solv_exercise_migrations vive
+// dentro de esa base, así que al recrearla el script se aplica de nuevo (ADR-075).
+// No toca el volumen del alumno: su código y su repositorio quedan intactos.
+func (s *PracticeEnvironmentService) ResetStudentPracticeDatabase(
+	ctx context.Context,
+	studentID, subjectID string,
+	template *domain.Template,
+	exercise *domain.Exercise,
+) error {
+	studentID = strings.TrimSpace(studentID)
+	subjectID = strings.TrimSpace(subjectID)
+	if studentID == "" || subjectID == "" {
+		return errors.New("el alumno y la materia son requeridos para reiniciar la base")
+	}
+	if exercise == nil {
+		return errors.New("la práctica es requerida para reiniciar la base")
+	}
+
+	engines := templateManagedEngines(template)
+	if len(engines) == 0 {
+		if exerciseDBInitScript(exercise) == "" {
+			return ErrPracticeDatabaseNotConfigured
+		}
+		// Un script sin servicios declarados usa el PostgreSQL de aula como satélite
+		// dedicado, igual que el arranque del laboratorio (ADR-051).
+		engines = []string{"postgres"}
+	}
+
+	reset := 0
+	for _, rawEngine := range engines {
+		engine := domain.CanonicalServiceEngine(rawEngine)
+		if !isManagedSatelliteEngine(engine) {
+			continue
+		}
+		if managedSatelliteHostOverride(engine) != "" {
+			return fmt.Errorf("el motor %s de la práctica no corre en un satélite gestionado y no se puede reiniciar desde aquí", engine)
+		}
+		spec, hasSpec := managedSatelliteSpec(engine)
+		orchestrator, hasOrchestrator := s.docker.(domain.ManagedSatelliteOrchestrator)
+		if !hasSpec || !hasOrchestrator {
+			return fmt.Errorf("el motor %s de la práctica no está disponible en este despliegue", engine)
+		}
+
+		s.noteManagedSatelliteUse(engine)
+		if _, err := orchestrator.EnsureManagedSatelliteRunning(ctx, spec); err != nil {
+			return fmt.Errorf("no se pudo levantar el satélite %s: %w", engine, err)
+		}
+
+		dbName := satelliteDatabaseName(studentID, subjectID)
+		user, password := satelliteIsolationIdentity(studentID, subjectID)
+		switch engine {
+		case "postgres":
+			port := spec.Port
+			if port == 0 {
+				port = 5432
+			}
+			rootURL := fmt.Sprintf("postgresql://postgres:%s@127.0.0.1:%d/postgres?sslmode=disable", satelliteRootPassword(), port)
+			dropSQL := fmt.Sprintf(`DROP DATABASE IF EXISTS "%s" WITH (FORCE);`, escapeSQLString(dbName))
+			if _, err := execPostgresSQL(ctx, orchestrator, spec.Engine, rootURL, dropSQL); err != nil {
+				return fmt.Errorf("no se pudo borrar la base %s: %w", dbName, err)
+			}
+			if err := s.ensurePostgresIsolatedDatabase(ctx, orchestrator, spec, dbName, user, password, exercise); err != nil {
+				return err
+			}
+		case "mysql", "mariadb":
+			dropSQL := fmt.Sprintf("DROP DATABASE IF EXISTS `%s`;", strings.ReplaceAll(dbName, "`", ""))
+			if _, err := orchestrator.ExecInManagedSatellite(ctx, spec.Engine, mysqlAdminArgs(satelliteRootPassword(), "-e", dropSQL)); err != nil {
+				return fmt.Errorf("no se pudo borrar la base %s: %w", dbName, err)
+			}
+			if err := s.ensureMySQLIsolatedDatabase(ctx, orchestrator, spec, dbName, user, password, exercise); err != nil {
+				return err
+			}
+		default:
+			// Un motor sin base aislada por alumno (Redis, por ejemplo) no tiene nada
+			// que reiniciar: se omite y el resto de los motores sigue su curso.
+			continue
+		}
+		reset++
+	}
+
+	if reset == 0 {
+		return ErrPracticeDatabaseNotConfigured
+	}
+	return nil
 }

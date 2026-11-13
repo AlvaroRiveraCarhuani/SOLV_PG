@@ -78,11 +78,28 @@ type practiceSatellites struct {
 	provision services.PracticeSatelliteProvision
 	err       error
 	calls     int
+	resets    int
+	resetID   string
 }
 
 func (p *practiceSatellites) ProvisionPracticeSatellites(context.Context, *domain.Exercise, *domain.Template, string) (services.PracticeSatelliteProvision, error) {
 	p.calls++
 	return p.provision, p.err
+}
+
+func (p *practiceSatellites) ResetStudentPracticeDatabase(_ context.Context, studentID, _ string, _ *domain.Template, _ *domain.Exercise) error {
+	p.resets++
+	p.resetID = studentID
+	return p.err
+}
+
+type practiceDatabases struct {
+	items []domain.StudentPracticeDatabase
+	err   error
+}
+
+func (p *practiceDatabases) ListStudentDatabasesByExercise(context.Context, string, string, string) ([]domain.StudentPracticeDatabase, error) {
+	return p.items, p.err
 }
 
 func newPracticeTestService(t *testing.T, opts ...func(*practiceTestFixture)) (*services.PracticeEnvTestService, *practiceTestFixture) {
@@ -120,6 +137,9 @@ func newPracticeTestService(t *testing.T, opts ...func(*practiceTestFixture)) (*
 			NetworkName: "solv-satellites-net",
 			Engines:     []string{"postgres"},
 		}},
+		databases: &practiceDatabases{items: []domain.StudentPracticeDatabase{
+			{StudentID: "student-1", StudentName: "Alumna Uno", StudentEmail: "alumna@example.com", Status: "running"},
+		}},
 		repo: memory.NewEnvTestJobMemoryRepository(time.Hour),
 	}
 	for _, opt := range opts {
@@ -134,6 +154,7 @@ func newPracticeTestService(t *testing.T, opts ...func(*practiceTestFixture)) (*
 		fixture.exerciseRepo,
 		fixture.subjectRepo,
 		fixture.templateRepo,
+		fixture.databases,
 		services.PracticeEnvTestConfig{
 			MaxConcurrentJobs: 1,
 			TotalJobTimeout:   5 * time.Second,
@@ -150,6 +171,7 @@ type practiceTestFixture struct {
 	registry     *practiceRegistry
 	runner       *practiceSetupRunner
 	satellites   *practiceSatellites
+	databases    *practiceDatabases
 	repo         *memory.EnvTestJobMemoryRepository
 }
 
