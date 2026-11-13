@@ -110,6 +110,15 @@ graph TD
 
 ---
 
+### 4.4 Invitaciones a Docentes
+
+Al registrar un docente, SOLV envía una invitación por correo para que cree su cuenta institucional.
+
+- **Vigencia:** cada invitación vence a las 72 horas. Pasado ese plazo, el enlace ya no permite completar el registro.
+- **Reenviar:** genera una invitación nueva con otras 72 horas de vigencia para el mismo correo.
+- **Revocar:** anula el enlace vigente; el docente no podrá crear la cuenta con esa invitación.
+- **Pendientes (72h):** la pestaña cuenta sólo invitaciones vigentes que todavía no fueron aceptadas.
+
 ## 5. Monitoreo, Salud y Auditoría
 
 ### 5.1 Métricas de Hardware en Tiempo Real
@@ -151,3 +160,135 @@ Las acciones sensibles quedan registradas con identificación de usuario, fecha,
 ### 6.4 Conflicto al crear materia o periodo
 - **Causa:** Se intenta registrar una materia con un código duplicado o activar un periodo académico cuya fecha de fin ya expiró.
 - **Solución:** Verificar que el código de la materia sea único y que las fechas del periodo correspondan al calendario académico vigente.
+
+## 7. Constructor de Plantillas de Entornos
+
+El Constructor de Plantillas crea los entornos que los docentes eligen al preparar un ejercicio. Cada plantilla se registra una vez y se reutiliza en todas las materias: define la modalidad, las tecnologías disponibles y la memoria que recibe cada estudiante.
+
+Se abre desde **Plantillas Docker → Nueva Plantilla**. Mientras navega por la aplicación, el constructor conserva un borrador del formulario; al publicar, el borrador se descarta.
+
+### 7.1 Paso 1 — Propósito y Datos del Entorno
+
+- **Modalidad:** con editor, para que el estudiante trabaje en un entorno de desarrollo completo; o de evaluación, para corregir código automáticamente por consola.
+- **Habilitar también la evaluación:** convierte la plantilla en dual; el mismo entorno sirve para práctica y para corrección.
+- **Nombre:** es lo que ve el docente en el catálogo y en el asistente. Debe tener al menos tres caracteres.
+- **Categoría académica:** agrupa la plantilla en la biblioteca.
+- **Descripción pedagógica:** opcional; explica para qué sirve.
+
+### 7.2 Paso 2 — Arquitectura y Tecnologías
+
+- **Lenguaje principal:** obligatorio. Al elegirlo se fija la imagen base y la memoria mínima.
+- **Interfaz web, complementos y base de datos:** opcionales; sólo se ofrecen tecnologías del catálogo homologado.
+- **Mapa de Herramientas:** muestra cómo se relacionan las tecnologías del catálogo.
+- **Modo Visual / Modo Avanzado:** el modo avanzado expone el Dockerfile y los scripts generados para revisarlos o editarlos.
+- **Asistir con IA:** disponible cuando la IA institucional está habilitada; propone una combinación de tecnologías y puede crear componentes faltantes.
+
+### 7.3 Paso 3 — Capacidad del Aula y Memoria
+
+- Cada opción indica la memoria por alumno y cuántos estudiantes caben a la vez.
+- **Sugerido** marca la opción recomendada para la combinación elegida.
+- El **mínimo requerido** lo fijan las tecnologías; el **máximo permitido** lo fija el servidor. El ajuste manual debe quedar dentro de ese rango.
+- Si la memoria elegida supera la libre actual del servidor, aparece un aviso de concurrencia: la plantilla es válida, pero el cupo simultáneo dependerá de la memoria disponible al momento de la clase.
+
+### 7.4 Comprobar funcionamiento y publicar
+
+- **Comprobar funcionamiento** construye la imagen cuando la combinación lo requiere y verifica que los programas declarados respondan. Muestra las versiones detectadas.
+- Si la configuración cambia después de la comprobación, hay que repetirla: el panel avisa y bloquea la publicación hasta entonces.
+- **Publicar Plantilla Oficial** registra la plantilla en el catálogo para que los docentes puedan usarla. El panel indica el motivo exacto cuando la publicación está bloqueada (nombre incompleto, memoria fuera de rango o comprobación pendiente).
+- El resultado de la comprobación se guarda con la plantilla; publicar no crea contenedores para estudiantes.
+
+### 7.5 Guías dentro del constructor
+
+El encabezado del constructor ofrece dos apoyos:
+
+- **Recorrido visual:** señala dónde está cada parte de la pantalla, sin pedir datos.
+- **Tutorial guiado:** explica paso a paso y comprueba el estado real del formulario; no deja avanzar mientras falte el nombre, la tecnología o la memoria válida. Se puede cerrar en cualquier momento y seguir trabajando.
+
+## 8. Biblioteca de Modelos y Categorías
+
+La Biblioteca concentra los modelos oficiales que el asistente ofrece a los docentes, el catálogo de tecnologías y las categorías académicas.
+
+Ruta: **Modelos y Categorías**. Cuatro pestañas:
+
+### 8.1 Modelos Oficiales
+
+- Los indicadores superiores cuentan modelos totales, activos y por modalidad, además de las categorías.
+- **Búsqueda:** por nombre, descripción o imagen Docker.
+- **Filtros:** propósito, categoría y estado (activos o inactivos).
+- **Nuevo Modelo Oficial:** promueve una plantilla aprobada a modelo del catálogo. Sin plantillas aprobadas no hay nada que promover.
+- **Editar metadatos:** título, descripción y categoría.
+- **Activar / desactivar:** un modelo inactivo deja de ofrecerse sin borrar su historial.
+- Estados vacíos: la pantalla distingue entre catálogo sin modelos, búsqueda sin coincidencias, filtros que excluyen todo y error de carga.
+
+### 8.2 Catálogo de Tecnologías
+
+- Registra lenguajes, interfaces web, complementos y bases de datos.
+- **Activar / desactivar** decide si la tecnología se ofrece en el constructor.
+- Las tecnologías base del sistema no se pueden eliminar.
+- Un complemento **huérfano** no es compatible con ningún lenguaje activo: conviene revisarlo o desactivarlo.
+
+### 8.3 Categorías Académicas
+
+- Crear, editar y ordenar categorías con las flechas o arrastrando.
+- No se puede eliminar una categoría con modelos o plantillas asociadas.
+
+### 8.4 Mapa del Sistema
+
+Vista de sólo lectura que relaciona tecnologías, capas y complementos compatibles.
+
+## 9. Configuración de Inteligencia Artificial
+
+Ruta: **Configuración → Inteligencia Artificial**.
+
+- **Interruptor institucional:** habilita o deshabilita la IA para toda la institución. Deshabilitada, el copiloto del constructor y las tareas asistidas dejan de ofrecerse.
+- **En uso:** proveedor que recibe las solicitudes. Sólo uno puede estar en uso; al seleccionar otro, el cambio es inmediato.
+- **Clave guardada:** el proveedor tiene credencial pero no está activo.
+- **Sin configurar:** no tiene clave ni modelo; hay que guardar una clave para poder seleccionarlo.
+- **Clave:** se almacena en el servidor y no se muestra completa. Para cambiarla se escribe una nueva y se guarda.
+- **Modelo:** cada proveedor permite elegir el modelo que se usará.
+- **Agregar proveedor / Ver más proveedores:** incorpora un endpoint compatible con la API de OpenAI o muestra los proveedores adicionales.
+
+La IA nunca se ofrece a estudiantes durante una evaluación; asiste a administradores y docentes.
+
+## 10. Mantenimiento y Consola de Emergencias
+
+Ruta: **Auditoría → Emergencias**.
+
+Cada operación exige la frase de confirmación exacta y un motivo de al menos 10 caracteres. La ejecución, el actor y el motivo quedan en el Registro de Auditoría.
+
+| Operación | Impacto | Qué hace |
+| :--- | :--- | :--- |
+| Terminar todos los entornos | Destructiva | Detiene y destruye los contenedores activos del tenant. |
+| Hibernar todos los entornos | Operativa | Pausa los contenedores activos preservando su estado. |
+| Limpiar contenedores huérfanos | Operativa | Elimina contenedores que ya no pertenecen a ningún entorno registrado. |
+| Purgar capas huérfanas | Operativa | Libera disco eliminando capas sin uso; no toca volúmenes nombrados. |
+| Reiniciar pools | Operativa | Reinicia el pool de conexiones de PostgreSQL y los contadores de corte. |
+
+- **Frase de confirmación:** debe escribirse tal como aparece en el diálogo; si no coincide, la operación no se ejecuta.
+- **Aviso de memoria:** cuando la RAM del host supera el 90 %, el panel recomienda hibernar antes de una acción destructiva.
+- **Historial:** las últimas emergencias se listan con fecha, acción y responsable, con paginación.
+
+## 11. Guías dentro del panel administrativo
+
+El botón `?` de la barra superior abre el Centro de ayuda de la pantalla visible. El panel reúne la explicación contextual de esa vista, las guías disponibles y el enlace a la sección correspondiente de este manual. El botón solo aparece en el área administrativa y solo cuando la pantalla tiene contenido registrado.
+
+Cada pantalla puede ofrecer hasta dos guías:
+
+- **Recorrido visual:** señala los elementos reales de la pantalla sin pedir datos ni detener el trabajo.
+- **Tutorial guiado:** avanza paso a paso y comprueba el estado real antes de permitir el siguiente paso. Se puede cerrar en cualquier momento.
+
+| Pantalla | Recorrido visual | Tutorial guiado |
+| :--- | :---: | :---: |
+| Períodos académicos | Sí | Crear y activar un período |
+| Identidad (White-Label) | Sí | Aplicar la identidad institucional |
+| Servidor y respaldos | Sí | Políticas, mantenimiento y respaldos |
+| Inteligencia Artificial | Sí | Dejar el copiloto en uso |
+| Administradores | Sí | Sumar un administrador |
+| Constructor de plantillas | Sí | Sí |
+| Catálogo de plantillas | — | Sí |
+
+En Configuración cada pestaña ofrece su propio recorrido: señala únicamente los bloques de esa pestaña y no comparte pasos con las demás. Al cambiar de pestaña, el centro de ayuda muestra las guías de la pestaña abierta, no las de la página completa.
+
+Las guías de configuración no ejecutan operaciones destructivas: archivar un período, activar el mantenimiento, revocar privilegios o eliminar un período solo se explican y quedan en manos del administrador. Cada paso que exige datos comprueba el formulario real; si falta algo, el panel indica qué completar.
+
+El panel del tutorial se ubica en la esquina que no tapa el elemento señalado y se puede minimizar a su cabecera cuando hace falta ver una tarjeta completa; al abrir otra guía vuelve a aparecer desplegado.
