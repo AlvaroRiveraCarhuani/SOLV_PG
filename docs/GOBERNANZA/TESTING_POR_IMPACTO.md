@@ -654,7 +654,9 @@ porque el plan deja de pagar infraestructura que no aporta señal.
 - Un plan `source.kind: files` es sintético y no valida el árbol de trabajo. Es
   útil para diagnosticar, no para cerrar un cambio.
 - La granularidad de Go es por paquete. Un cambio ejecuta todos los tests de
-  integración del paquete `tests/integration`, no un subconjunto por archivo.
+  integración del paquete correspondiente (`tests/integration` o
+  `internal/core/services` con el tag `integration`), no un subconjunto por
+  archivo.
 - Un archivo nuevo sin spec no se puede cubrir con una suite que no existe. El
   plan lo reporta como no cubierto para que se agregue la prueba.
 - Las pruebas unitarias cubren aislamiento del hub, expiración/revocación,

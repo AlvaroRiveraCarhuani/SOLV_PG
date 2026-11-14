@@ -282,6 +282,20 @@
       "level": "L3"
     },
     {
+      "id": "template-audit",
+      "globs": [
+        "backend/internal/core/services/template_audit_*.go"
+      ],
+      "backendUnit": false,
+      "backendIntegration": true,
+      "frontendUnit": false,
+      "backendDocker": true,
+      "migrations": false,
+      "e2e": [],
+      "reason": "auditoría de plantillas que ejecuta contenedores y Trivy",
+      "level": "L2"
+    },
+    {
       "id": "shared-contracts",
       "globs": [
         "backend/internal/delivery/http/dto/**",

@@ -232,39 +232,45 @@ function runBackendDocker(repoRoot, plan, options) {
     process.stdout.write('backend-docker: nada que ejecutar\n');
     return 0;
   }
-  if (options.dryRun) {
-    return run('go', ['test', '-count=1', './tests/integration/...', '-timeout', '1500s'], {
-      cwd: path.join(repoRoot, 'backend'),
-      ...options
-    });
+  let env = {};
+  let runId = null;
+  if (!options.dryRun) {
+    requireDocker();
+    const dsn = requireTestDatabase({ ...process.env, ...(options.env || {}) });
+    runId = testRunID();
+    const initialCleanup = cleanupDocker(repoRoot, runId, options, 'inicio');
+    if (initialCleanup !== 0) return initialCleanup;
+    env = {
+      TEST_DB_DSN: dsn,
+      TEST_DATABASE_URL: dsn,
+      DATABASE_URL: dsn,
+      SOLV_TEST_RUN_ID: runId,
+      SOLV_REQUIRE_INFRA: '1',
+      SOLV_REQUIRE_DOCKER: '1'
+    };
   }
-  requireDocker();
-  const dsn = requireTestDatabase({ ...process.env, ...(options.env || {}) });
-  const runId = testRunID();
-  const initialCleanup = cleanupDocker(repoRoot, runId, options, 'inicio');
-  if (initialCleanup !== 0) return initialCleanup;
   // Sin -short se ejecutan todos los tests de integración, incluidos los que
-  // arrancan contenedores. No se mantiene una lista de nombres: una prueba
-  // nueva de Docker quedaría fuera de la suite sin que nadie lo note.
-  const status = run(
-    'go',
+  // arrancan contenedores. La auditoría de plantillas vive en core/services y
+  // usa métodos no exportados, por eso se ejecuta aquí con el tag integration.
+  // No se mantiene una lista de nombres: una prueba nueva de Docker quedaría
+  // fuera de la suite sin que nadie lo note.
+  const commands = [
     ['test', '-count=1', './tests/integration/...', '-timeout', '1500s'],
-    {
+    ['test', '-count=1', '-tags', 'integration', './internal/core/services', '-timeout', '900s']
+  ];
+  let status = 0;
+  for (const commandArgs of commands) {
+    const commandStatus = run('go', commandArgs, {
       cwd: path.join(repoRoot, 'backend'),
       ...options,
-      env: {
-        ...(options.env || {}),
-        TEST_DB_DSN: dsn,
-        TEST_DATABASE_URL: dsn,
-        DATABASE_URL: dsn,
-        SOLV_TEST_RUN_ID: runId,
-        SOLV_REQUIRE_INFRA: '1',
-        SOLV_REQUIRE_DOCKER: '1'
-      }
-    }
-  );
-  const finalCleanup = cleanupDocker(repoRoot, runId, options, 'cierre');
-  if (finalCleanup !== 0) return finalCleanup;
+      env: { ...(options.env || {}), ...env }
+    });
+    if (commandStatus !== 0) status = commandStatus;
+  }
+  if (runId) {
+    const finalCleanup = cleanupDocker(repoRoot, runId, options, 'cierre');
+    if (finalCleanup !== 0) return finalCleanup;
+  }
   return status;
 }
 

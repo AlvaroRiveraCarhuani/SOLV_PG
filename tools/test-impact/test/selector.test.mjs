@@ -300,6 +300,12 @@ test('un test de integración ejecuta la suite de integración', () => {
   assert.equal(plan.suites['backend-unit'].selected, false);
 });
 
+test('una prueba Docker de auditoría ejecuta la suite Docker', () => {
+  const plan = planForFile('backend/internal/core/services/template_audit_worker_docker_test.go');
+  assert.equal(plan.suites['backend-docker'].selected, true);
+  assert.equal(plan.suites['backend-integration'].selected, true);
+});
+
 test('una spec de E2E se ejecuta a sí misma y no compila la aplicación', () => {
   const spec = 'frontend/e2e/flows/02-medium/J04-ast-security-barrier.spec.mjs';
   const plan = planForFile(spec);

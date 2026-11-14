@@ -312,7 +312,7 @@ jobs:
         ports:
           - 55432:5432
         options: >-
-          --health-cmd pg_isready
+          --health-cmd "pg_isready -U solv_user -d solv_test"
           --health-interval 5s
           --health-timeout 5s
           --health-retries 5
@@ -390,7 +390,7 @@ jobs:
         ports:
           - 55432:5432
         options: >-
-          --health-cmd pg_isready
+          --health-cmd "pg_isready -U solv_user -d solv_test"
           --health-interval 5s
           --health-timeout 5s
           --health-retries 5
@@ -398,6 +398,7 @@ jobs:
       TEST_DB_DSN: "postgres://solv_user:solv_password@localhost:55432/solv_test?sslmode=disable"
       DATABASE_URL: "postgres://solv_user:solv_password@localhost:55432/solv_test?sslmode=disable"
       SOLV_TEST_RUN_ID: "solv-ci-${{ github.run_id }}-${{ github.run_attempt }}"
+      SOLV_TRIVY_INTEGRATION: "1"
       SOLV_TEST_RECEIPT_KEY_TEST_BACKEND_DOCKER: ${{ secrets.SOLV_TEST_RECEIPT_KEY_TEST_BACKEND_DOCKER }}
     steps:
       - name: Checkout repository
@@ -653,7 +654,7 @@ jobs:
         ports:
           - 55432:5432
         options: >-
-          --health-cmd pg_isready
+          --health-cmd "pg_isready -U solv_user -d solv_migration_test"
           --health-interval 5s
           --health-timeout 5s
           --health-retries 5
