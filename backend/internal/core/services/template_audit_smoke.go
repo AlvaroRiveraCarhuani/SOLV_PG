@@ -4,17 +4,46 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"io"
 	"strings"
 	"time"
 
 	"github.com/docker/docker/api/types/container"
+	"github.com/docker/docker/api/types/image"
+	"github.com/docker/docker/errdefs"
 	"github.com/docker/docker/pkg/stdcopy"
 
 	"solv-backend/internal/core/domain"
 )
 
+// ensureImageAvailable comprueba que la imagen esté en el daemon y la descarga
+// si falta. Es el paso previo del smoke para imágenes públicas.
+func (w *TemplateAuditWorker) ensureImageAvailable(ctx context.Context, imageRef string) error {
+	if _, _, err := w.dockerCli.ImageInspectWithRaw(ctx, imageRef); err == nil {
+		return nil
+	} else if !errdefs.IsNotFound(err) {
+		return err
+	}
+
+	pullCtx, cancel := context.WithTimeout(ctx, 2*time.Minute)
+	defer cancel()
+	reader, err := w.dockerCli.ImagePull(pullCtx, imageRef, image.PullOptions{})
+	if err != nil {
+		return err
+	}
+	defer func() { _ = reader.Close() }()
+	_, err = io.Copy(io.Discard, reader)
+	return err
+}
+
 // runSmokeTest ejecuta un contenedor efímero aislado sin red ni permisos para chequear binarios declarados
 func (w *TemplateAuditWorker) runSmokeTest(ctx context.Context, item *domain.AdminTemplateReviewItem) (string, string) {
+	// La imagen debe estar en el daemon antes del smoke y del escaneo. Una
+	// imagen pública puede faltar; se descarga una sola vez.
+	if err := w.ensureImageAvailable(ctx, item.DockerImage); err != nil {
+		return "failed", fmt.Sprintf("No se pudo preparar la imagen para la comprobación: %v", err)
+	}
+
 	if len(item.ToolsDeclared) == 0 {
 		return "skipped", "No se declararon herramientas requeridas (prueba no aplicable)"
 	}

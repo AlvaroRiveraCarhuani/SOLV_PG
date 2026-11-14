@@ -1267,10 +1267,16 @@ export class TemplateStudioComponent implements OnInit, OnDestroy {
       : this.templatesService.createOfficialTemplate(dto);
 
     obs$.subscribe({
-      next: () => {
+      next: saved => {
         this.isSubmitting.set(false);
         this.copilot.clearDraft();
-        this.router.navigate(['/admin/plantillas'], { queryParams: { tab: 'catalog' } });
+        // Una imagen pública no se publica por tener stack_config: queda en
+        // auditoría hasta que el worker complete el smoke y Trivy. La imagen
+        // local ya comprobada sí entra al catálogo.
+        const pending = saved?.status === 'PENDIENTE_AUDITORIA' || saved?.status === 'pending';
+        this.router.navigate(['/admin/plantillas'], {
+          queryParams: { tab: pending ? 'pending' : 'catalog' }
+        });
       },
       error: err => {
         this.isSubmitting.set(false);

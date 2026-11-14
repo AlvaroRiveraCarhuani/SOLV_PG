@@ -258,7 +258,7 @@ type AdminGovernanceRepository interface {
 	ReviewTemplate(ctx context.Context, tenantID, templateID, adminID, status, rejectionReason string, baseRamMB *int) (*AdminTemplateReviewItem, error)
 	CreateOfficialTemplate(ctx context.Context, tenantID, adminID string, dto CreateOfficialTemplateDTO) (*AdminTemplateReviewItem, error)
 	ListPendingAuditTemplates(ctx context.Context) ([]*AdminTemplateReviewItem, error)
-	UpdateAuditResults(ctx context.Context, templateID string, smokeStatus, smokeOutput, secStatus string, cveCritical, cveHigh int, secReportJSON []byte, finalStatus string) error
+	UpdateAuditResults(ctx context.Context, templateID string, smokeStatus, smokeOutput, secStatus string, cveCritical, cveHigh int, secReportJSON []byte, finalStatus, rejectionReason string) error
 	DuplicateTemplate(ctx context.Context, tenantID, templateID, adminID string) (*AdminTemplateReviewItem, error)
 	UpdateEOLStatus(ctx context.Context, templateID string, status, eolDate, message string) error
 	TerminateAllPracticeEnvironments(ctx context.Context, tenantID string) (int64, error)

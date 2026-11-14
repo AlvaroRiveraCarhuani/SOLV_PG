@@ -290,6 +290,17 @@ func IsBuiltStackImageTag(imageRef string) bool {
 	return strings.HasPrefix(strings.TrimSpace(imageRef), "solv-local/stack:")
 }
 
+// InitialTemplateStatus decide si un alta puede publicarse de inmediato. Solo
+// una imagen construida localmente, que ya pasó por la comprobación del
+// Constructor, entra aprobada. Una imagen pública espera la auditoría del
+// worker: su procedencia es externa y el smoke/Trivy todavía no corrió.
+func InitialTemplateStatus(dockerImage string, hasStackConfig bool) string {
+	if hasStackConfig && IsBuiltStackImageTag(dockerImage) {
+		return "APROBADA"
+	}
+	return "PENDIENTE_AUDITORIA"
+}
+
 // canonicalServiceEngines son los motores de base de datos gobernados por el catálogo.
 // El catálogo no admite motores fuera de esta lista: cada uno tiene un modo de
 // aprovisionamiento conocido (archivo local, host compartido de aula o contenedor

@@ -168,7 +168,7 @@ El detector vive en el catálogo (`dependency_profile.detect`), así que una fam
 | Pieza | Qué existe hoy | Límite que importa para esta decisión |
 | :--- | :--- | :--- |
 | Prueba de humo | `TemplateAuditWorker.runSmokeTest` levanta un contenedor y comprueba los binarios de `tools_declared` | Esa lista la infiere Go por nombre, slug, icono e imagen (`InferRuntimeTools`). Una tecnología nueva sin preset entra sin binarios declarados y la prueba no comprueba nada. |
-| Escaneo de vulnerabilidades | `runTrivyScan` con `aquasec/trivy:0.55.0` y base CVE sincronizada a diario | El resultado se guarda como telemetría (`warning`) y no rechaza una imagen ya aprobada. No inspecciona el árbol de dependencias preparado. |
+| Escaneo de vulnerabilidades | `runTrivyScan` con `aquasec/trivy:0.55.0` y base CVE sincronizada a diario | Un hallazgo crítico o un escaneo que no se puede completar retira la plantilla del catálogo (`RECHAZADA`); los hallazgos altos quedan como `warning`. No inspecciona el árbol de dependencias preparado. |
 | Fin de ciclo | `checkEOL` contra `endoflife.date`, cada siete días | Registra estado y fecha; no bloquea la publicación. |
 | Construcción de imagen | `BuildLocalStackImage` con tag `solv-local/stack:<sha256>` | Construye una imagen por combinación de tecnologías, no un árbol de dependencias por versión de proyecto. |
 | Caché de gestores | No existe. El contenedor no recibe `PIP_CACHE_DIR`, `GOMODCACHE`, `CARGO_HOME` ni `npm_config_cache` | Sin esas rutas, precargar una caché en la imagen no la vuelve usable desde el home del alumno. |

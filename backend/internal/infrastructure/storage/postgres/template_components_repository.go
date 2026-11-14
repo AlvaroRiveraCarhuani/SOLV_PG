@@ -582,14 +582,22 @@ func (r *PostgresAdminGovernanceRepository) UpdateOfficialTemplate(
 		catParam = strings.TrimSpace(*dto.CategoryID)
 	}
 
-	query := `
+	// Un cambio de imagen, cuota, modalidad, herramientas o receta invalida la
+	// auditoría anterior. La plantilla vuelve a la cola salvo que esté pausada o
+	// suspendida: esos estados los decide una persona, no el worker.
+	technicalChange := `(COALESCE(docker_image, '')::varchar <> $2::varchar
+		OR COALESCE(base_ram_mb, 0) <> $3
+		OR COALESCE(target_environment, 'IDE_PERSISTENTE')::varchar <> $5::varchar
+		OR COALESCE(tools_declared, '[]'::jsonb) <> $13::jsonb
+		OR COALESCE(stack_config, '{}'::jsonb) <> $14::jsonb)`
+	query := fmt.Sprintf(`
 		UPDATE lab_templates
 		SET
 			name = $1,
-			docker_image = $2,
+			docker_image = $2::varchar,
 			base_ram_mb = $3,
 			description = $4,
-			target_environment = $5,
+			target_environment = $5::varchar,
 			entrypoint = $6,
 			timeout_ms = $7,
 			sample_input = $8,
@@ -599,10 +607,17 @@ func (r *PostgresAdminGovernanceRepository) UpdateOfficialTemplate(
 			setup_script = $12,
 			tools_declared = $13,
 			stack_config = $14,
+			status = CASE
+				WHEN %s AND status NOT IN ('PAUSADA', 'SUSPENDIDA', 'paused', 'suspended') THEN 'PENDIENTE_AUDITORIA'
+				ELSE status
+			END,
+			smoke_test_status = CASE WHEN %s THEN 'pending' ELSE smoke_test_status END,
+			smoke_test_output = CASE WHEN %s THEN '' ELSE smoke_test_output END,
+			security_audit_status = CASE WHEN %s THEN 'pending' ELSE security_audit_status END,
 			reviewed_by = NULLIF($15, '')::uuid,
 			updated_at = NOW()
 		WHERE id::text = $16 AND (tenant_id::text = $17 OR tenant_id IS NULL)
-	`
+	`, technicalChange, technicalChange, technicalChange, technicalChange)
 	res, err := r.db.ExecContext(
 		ctx, query,
 		strings.TrimSpace(dto.Name),

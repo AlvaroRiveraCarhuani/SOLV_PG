@@ -323,17 +323,16 @@ func (r *PostgresAdminGovernanceRepository) CreateOfficialTemplate(
 		toolsDeclaredJSON = []byte(`[]`)
 	}
 	stackConfigJSON := []byte(`{}`)
-	initialStatus := "PENDIENTE_AUDITORIA"
-	initialSmokeStatus := "pending"
-	initialSmokeOutput := ""
 	if dto.StackConfig != nil {
 		if b, errM := json.Marshal(dto.StackConfig); errM == nil {
 			stackConfigJSON = b
 		}
-		initialStatus = "APROBADA"
-		initialSmokeStatus = "passed"
-		initialSmokeOutput = "Verificado en Constructor de Entornos"
 	}
+	initialStatus := domain.InitialTemplateStatus(dto.DockerImage, dto.StackConfig != nil)
+	// El alta no declara una comprobación que no ocurrió: el worker de
+	// auditoría escribe el resultado real del smoke test y de Trivy.
+	initialSmokeStatus := "pending"
+	initialSmokeOutput := ""
 
 	targetEnv := dto.TargetEnvironment
 	if targetEnv == "" {
@@ -350,13 +349,15 @@ func (r *PostgresAdminGovernanceRepository) CreateOfficialTemplate(
 			target_environment, entrypoint, timeout_ms, sample_input, category_id, model_id,
 			services_config, resource_profile, setup_script,
 			tools_declared, stack_config, smoke_test_status, smoke_test_output, security_audit_status,
-			cve_critical_count, cve_high_count, eol_status, eol_date, eol_message, reviewed_by, reviewed_at
+			cve_critical_count, cve_high_count, eol_status, eol_date, eol_message,
+			requested_by, reviewed_by, reviewed_at
 		) VALUES (
 			gen_random_uuid(), $1, $2, $3, $4, $18, $5,
 			$6, $7, $8, $9, NULLIF($10, '')::uuid, NULLIF($11, '')::uuid,
 			$12, $13, $14,
 			$15, $16, $19, $20, 'pending',
-			0, 0, 'supported', '', '', NULLIF($17, '')::uuid, NOW()
+			0, 0, 'supported', '', '',
+			NULLIF($17, '')::uuid, NULL, NULL
 		)
 		ON CONFLICT (tenant_id, name) DO NOTHING
 		RETURNING 
@@ -503,7 +504,9 @@ func (r *PostgresAdminGovernanceRepository) ListPendingAuditTemplates(ctx contex
 			lt.created_at
 		FROM lab_templates lt
 		LEFT JOIN users u ON u.id = lt.requested_by
-		WHERE lt.status = 'PENDIENTE_AUDITORIA' OR lt.security_audit_status = 'pending'
+		WHERE lt.status = 'PENDIENTE_AUDITORIA'
+		   OR lt.security_audit_status = 'pending'
+		   OR lt.smoke_test_status = 'pending'
 		ORDER BY lt.created_at ASC
 	`
 	var rows []adminTemplateRow

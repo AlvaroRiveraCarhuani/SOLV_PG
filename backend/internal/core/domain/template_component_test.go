@@ -136,3 +136,28 @@ func TestStackConfig_ValueAndScanExtensions(t *testing.T) {
 		t.Fatalf("expected preserved extensions, got %+v", scanned.VSCodeExtensions)
 	}
 }
+
+// La imagen pública no se publica por tener stack_config: su procedencia es
+// externa y el smoke/Trivy todavía no corrió. La local sí, porque el Studio ya
+// la comprobó antes de enviarla.
+func TestInitialTemplateStatus(t *testing.T) {
+	cases := []struct {
+		name     string
+		image    string
+		hasStack bool
+		want     string
+	}{
+		{name: "local construida y comprobada", image: "solv-local/stack:abc123def456", hasStack: true, want: "APROBADA"},
+		{name: "local sin stack", image: "solv-local/stack:abc123def456", hasStack: false, want: "PENDIENTE_AUDITORIA"},
+		{name: "pública desde el Constructor", image: "python:3.12-slim", hasStack: true, want: "PENDIENTE_AUDITORIA"},
+		{name: "pública sin stack", image: "python:3.12-slim", hasStack: false, want: "PENDIENTE_AUDITORIA"},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := InitialTemplateStatus(tc.image, tc.hasStack); got != tc.want {
+				t.Fatalf("InitialTemplateStatus(%q, %v) = %q, quiero %q", tc.image, tc.hasStack, got, tc.want)
+			}
+		})
+	}
+}

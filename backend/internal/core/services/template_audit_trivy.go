@@ -104,7 +104,8 @@ func (w *TemplateAuditWorker) runTrivyScan(ctx context.Context, dockerImage stri
 	var report trivyReport
 	if err := json.Unmarshal(rawJSON, &report); err != nil {
 		log.Printf("[TemplateAuditWorker] Error parseando JSON de Trivy: %v", err)
-		return "passed", 0, 0, rawJSON
+		// Sin un informe legible no se puede afirmar que la imagen esté limpia.
+		return "failed", 0, 0, rawJSON
 	}
 
 	criticalCount := 0

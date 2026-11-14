@@ -120,7 +120,7 @@ func (m *mockGovRepoForCache) CreateOfficialTemplate(ctx context.Context, tenant
 func (m *mockGovRepoForCache) ListPendingAuditTemplates(ctx context.Context) ([]*domain.AdminTemplateReviewItem, error) {
 	return nil, nil
 }
-func (m *mockGovRepoForCache) UpdateAuditResults(ctx context.Context, templateID string, smokeStatus, smokeOutput, secStatus string, cveCritical, cveHigh int, secReportJSON []byte, finalStatus string) error {
+func (m *mockGovRepoForCache) UpdateAuditResults(ctx context.Context, templateID string, smokeStatus, smokeOutput, secStatus string, cveCritical, cveHigh int, secReportJSON []byte, finalStatus, rejectionReason string) error {
 	return nil
 }
 func (m *mockGovRepoForCache) DuplicateTemplate(ctx context.Context, tenantID, templateID, adminID string) (*domain.AdminTemplateReviewItem, error) {

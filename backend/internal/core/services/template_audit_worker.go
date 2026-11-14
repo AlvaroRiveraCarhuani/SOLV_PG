@@ -181,6 +181,7 @@ func (w *TemplateAuditWorker) AuditTemplate(ctx context.Context, item *domain.Ad
 				0,
 				reportJSON,
 				finalStatus,
+				smokeOutput,
 			)
 			return err
 		}
@@ -192,15 +193,12 @@ func (w *TemplateAuditWorker) AuditTemplate(ctx context.Context, item *domain.Ad
 	// Paso 2: Escaneo de vulnerabilidades CVE con Trivy (B-03)
 	secStatus, cveCritical, cveHigh, reportJSON := w.runTrivyScan(ctx, item.DockerImage)
 
-	// Paso 3: Resolución de máquina de estados
-	// Solo se rechaza automáticamente cuando falla el smoke test funcional (salvo que ya haya sido aprobada desde el Constructor).
-	// Los hallazgos de Trivy (CVEs del sistema base) se registran como telemetría ("warning" / conteos) sin auto-rechazar imágenes oficiales.
-	alreadyApproved := strings.EqualFold(item.Status, "APROBADA") || strings.EqualFold(item.Status, "approved")
-	finalStatus := "APROBADA"
-	if smokeStatus == "failed" && !alreadyApproved {
-		finalStatus = "RECHAZADA"
-	}
-	if cveCritical > 0 && secStatus != "failed" {
+	// Paso 3: Resolución de máquina de estados. Un smoke o un Trivy fallido
+	// retira la plantilla del catálogo, incluso si ya estaba aprobada. Los
+	// estados que decide una persona (pausada, suspendida, rechazada) no se
+	// auto-reactivan con una auditoría.
+	finalStatus, failureReason := resolveAuditOutcome(item.Status, smokeStatus, smokeOutput, secStatus, cveCritical)
+	if secStatus == "passed" && cveHigh > 0 {
 		secStatus = "warning"
 	}
 
@@ -215,6 +213,7 @@ func (w *TemplateAuditWorker) AuditTemplate(ctx context.Context, item *domain.Ad
 		cveHigh,
 		reportJSON,
 		finalStatus,
+		failureReason,
 	)
 	if err != nil {
 		return fmt.Errorf("error persistiendo auditoría: %w", err)
@@ -230,6 +229,53 @@ func (w *TemplateAuditWorker) AuditTemplate(ctx context.Context, item *domain.Ad
 	}
 
 	return nil
+}
+
+// resolveAuditOutcome decide el estado final de una auditoría. Devuelve el
+// estado que se persiste y el motivo que verá el administrador.
+func resolveAuditOutcome(currentStatus, smokeStatus, smokeOutput, secStatus string, cveCritical int) (string, string) {
+	current := strings.ToUpper(strings.TrimSpace(currentStatus))
+	smokeFailed := strings.EqualFold(smokeStatus, "failed")
+	securityFailed := strings.EqualFold(secStatus, "failed")
+
+	if !smokeFailed && !securityFailed {
+		switch current {
+		case "PENDIENTE_AUDITORIA", "PENDING":
+			return "APROBADA", ""
+		default:
+			// Aprobada sigue aprobada; pausada, suspendida o rechazada espera
+			// una decisión humana.
+			return currentStatus, ""
+		}
+	}
+
+	reasons := make([]string, 0, 2)
+	if smokeFailed {
+		reason := strings.TrimSpace(smokeOutput)
+		if reason == "" {
+			reason = "La comprobación de arranque no superó las herramientas declaradas"
+		}
+		reasons = append(reasons, reason)
+	}
+	if securityFailed {
+		if cveCritical > 0 {
+			label := "vulnerabilidades críticas"
+			if cveCritical == 1 {
+				label = "vulnerabilidad crítica"
+			}
+			reasons = append(reasons, fmt.Sprintf("Trivy detectó %d %s", cveCritical, label))
+		} else {
+			reasons = append(reasons, "No se pudo completar el escaneo de seguridad")
+		}
+	}
+	reason := strings.Join(reasons, ". ")
+
+	switch current {
+	case "PAUSADA", "PAUSED", "SUSPENDIDA", "SUSPENDED", "RECHAZADA", "REJECTED":
+		return currentStatus, reason
+	default:
+		return "RECHAZADA", reason
+	}
 }
 
 type EOLResult struct {

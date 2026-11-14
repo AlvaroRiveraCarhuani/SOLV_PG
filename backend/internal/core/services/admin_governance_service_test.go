@@ -86,7 +86,7 @@ func (m *mockAdminGovernanceRepo) HibernateAllPracticeEnvironments(ctx context.C
 func (m *mockAdminGovernanceRepo) ListPendingAuditTemplates(ctx context.Context) ([]*domain.AdminTemplateReviewItem, error) {
 	return nil, nil
 }
-func (m *mockAdminGovernanceRepo) UpdateAuditResults(ctx context.Context, templateID string, smokeStatus, smokeOutput, secStatus string, cveCritical, cveHigh int, secReportJSON []byte, finalStatus string) error {
+func (m *mockAdminGovernanceRepo) UpdateAuditResults(ctx context.Context, templateID string, smokeStatus, smokeOutput, secStatus string, cveCritical, cveHigh int, secReportJSON []byte, finalStatus, rejectionReason string) error {
 	return nil
 }
 func (m *mockAdminGovernanceRepo) DuplicateTemplate(ctx context.Context, tenantID, templateID, adminID string) (*domain.AdminTemplateReviewItem, error) {

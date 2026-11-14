@@ -65,7 +65,7 @@ func (m *mockAdminGovRepoForHTTP) CreateOfficialTemplate(ctx context.Context, te
 func (m *mockAdminGovRepoForHTTP) ListPendingAuditTemplates(ctx context.Context) ([]*domain.AdminTemplateReviewItem, error) {
 	return nil, nil
 }
-func (m *mockAdminGovRepoForHTTP) UpdateAuditResults(ctx context.Context, templateID string, smokeStatus, smokeOutput, secStatus string, cveCritical, cveHigh int, secReportJSON []byte, finalStatus string) error {
+func (m *mockAdminGovRepoForHTTP) UpdateAuditResults(ctx context.Context, templateID string, smokeStatus, smokeOutput, secStatus string, cveCritical, cveHigh int, secReportJSON []byte, finalStatus, rejectionReason string) error {
 	return nil
 }
 func (m *mockAdminGovRepoForHTTP) DuplicateTemplate(ctx context.Context, tenantID, templateID, adminID string) (*domain.AdminTemplateReviewItem, error) {

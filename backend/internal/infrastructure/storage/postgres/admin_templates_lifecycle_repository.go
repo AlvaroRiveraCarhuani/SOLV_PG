@@ -203,7 +203,7 @@ func (r *PostgresAdminGovernanceRepository) UpdateAuditResults(
 	smokeStatus, smokeOutput, secStatus string,
 	cveCritical, cveHigh int,
 	secReportJSON []byte,
-	finalStatus string,
+	finalStatus, rejectionReason string,
 ) error {
 	if len(secReportJSON) == 0 {
 		secReportJSON = []byte(`{}`)
@@ -220,13 +220,14 @@ func (r *PostgresAdminGovernanceRepository) UpdateAuditResults(
 			security_audited_at = NOW(),
 			status = CAST($7 AS VARCHAR),
 			rejection_reason = CASE
-				WHEN CAST($7 AS VARCHAR) = 'RECHAZADA' AND COALESCE(rejection_reason, '') = '' THEN COALESCE(NULLIF($2, ''), 'Auditoría técnica de seguridad no superada')
+				WHEN CAST($7 AS VARCHAR) = 'RECHAZADA' THEN COALESCE(NULLIF($9, ''), NULLIF(rejection_reason, ''), 'Auditoría técnica no superada')
+				WHEN CAST($7 AS VARCHAR) = 'APROBADA' THEN ''
 				ELSE rejection_reason
 			END,
 			updated_at = NOW()
 		WHERE id = $8
 	`
-	_, err := r.db.ExecContext(ctx, query, smokeStatus, smokeOutput, secStatus, cveCritical, cveHigh, secReportJSON, finalStatus, templateID)
+	_, err := r.db.ExecContext(ctx, query, smokeStatus, smokeOutput, secStatus, cveCritical, cveHigh, secReportJSON, finalStatus, templateID, rejectionReason)
 	if err != nil {
 		return fmt.Errorf("error updating audit results: %w", err)
 	}
