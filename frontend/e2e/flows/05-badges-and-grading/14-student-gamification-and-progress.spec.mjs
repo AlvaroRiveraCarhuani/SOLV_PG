@@ -75,6 +75,7 @@ test.describe('Categoría 05 (Badges & Calificación): Progreso del Estudiante y
           const judgeRunners = (Array.isArray(tplItems) ? tplItems : []).filter(
             (t) =>
               /python/i.test(t.name || '') &&
+              ['approved', 'APROBADA'].includes(t.status) &&
               ['JUEZ_EFIMERO', 'AMBOS'].includes(t.target_environment || t.environment_type)
           );
           const runner =

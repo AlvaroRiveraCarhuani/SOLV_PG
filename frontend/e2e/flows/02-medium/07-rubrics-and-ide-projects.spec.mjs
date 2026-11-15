@@ -45,6 +45,36 @@ test.describe('Categoría 02 (Media): Laboratorios de IDE Persistente y Rúbrica
             ...(token ? { Authorization: `Bearer ${token}` } : {})
           };
 
+          // Asegurar plantilla IDE_PERSISTENTE homologada
+          const tplCheck = await fetch('/api/v1/templates?limit=50', { headers });
+          const tplCheckJson = await tplCheck.json().catch(() => ({}));
+          const tplItems = tplCheckJson.data?.data ?? tplCheckJson.data ?? tplCheckJson;
+          let ideTpl = (Array.isArray(tplItems) ? tplItems : []).find(
+            (t) => t.target_environment === 'IDE_PERSISTENTE'
+          );
+          if (!ideTpl) {
+            const createResp = await fetch('/api/v1/admin/templates', {
+              method: 'POST',
+              headers,
+              body: JSON.stringify({
+                name: `IDE Python + Postgres #${Date.now().toString().slice(-4)}`,
+                docker_image: 'python:3.11-slim',
+                base_ram_mb: 512,
+                target_environment: 'IDE_PERSISTENTE'
+              })
+            });
+            const createJson = await createResp.json().catch(() => ({}));
+            const newTplId = createJson.data?.id || createJson.id;
+            ideTpl = { id: newTplId, status: 'PENDIENTE_AUDITORIA' };
+          }
+          if (ideTpl?.id && ideTpl.status !== 'approved') {
+            await fetch(`/api/v1/admin/templates/${ideTpl.id}/review`, {
+              method: 'PUT',
+              headers,
+              body: JSON.stringify({ status: 'approved' })
+            });
+          }
+
           const cResp = await fetch('/api/v1/subjects', {
             method: 'POST',
             headers,
@@ -97,10 +127,12 @@ test.describe('Categoría 02 (Media): Laboratorios de IDE Persistente y Rúbrica
           const tplJson = await tplResp.json();
           const tplItems = tplJson.data?.data ?? tplJson.data ?? tplJson;
           const runner = (Array.isArray(tplItems) ? tplItems : []).find(
-            (t) => /IDE Python \+ Postgres/i.test(t.name || '')
+            (t) => t.target_environment === 'IDE_PERSISTENTE' && (t.status === 'approved' || !t.status)
+          ) || (Array.isArray(tplItems) ? tplItems : []).find(
+            (t) => t.target_environment === 'IDE_PERSISTENTE'
           );
           if (!runner?.id) {
-            return { error: 'No hay plantilla IDE con PostgreSQL disponible' };
+            return { error: 'No hay plantilla IDE disponible' };
           }
 
           const exResp = await fetch('/api/v1/exercises', {

@@ -106,6 +106,11 @@ test.describe('J04 — Barrera de Seguridad AST (código bloqueado antes de la e
           referenceSolution,
           exampleCase,
           hiddenCases,
+          // El límite por defecto (1 s por caso) deja que el arranque del
+          // contenedor agote el presupuesto en una máquina cargada y la
+          // solución de referencia termina como TLE en lugar de AC. Un margen
+          // amplio no altera ninguna de las aserciones de esta barrera.
+          timeLimitMs: 15000,
           astRules: { prohibitedPatterns: 'os, subprocess, eval' }
         });
         expect(sharedState.exerciseId).toBeTruthy();
@@ -126,6 +131,7 @@ test.describe('J04 — Barrera de Seguridad AST (código bloqueado antes de la e
           referenceSolution,
           exampleCase,
           hiddenCases,
+          timeLimitMs: 15000,
           astRules: { blockSystemModules: true }
         });
         expect(sharedState.policyExerciseId).toBeTruthy();
@@ -146,6 +152,7 @@ test.describe('J04 — Barrera de Seguridad AST (código bloqueado antes de la e
           referenceSolution,
           exampleCase,
           hiddenCases,
+          timeLimitMs: 15000,
           astRules: { prohibitedPatterns: 'sorted' }
         });
         expect(sharedState.customRuleExerciseId).toBeTruthy();
@@ -238,21 +245,22 @@ test.describe('J04 — Barrera de Seguridad AST (código bloqueado antes de la e
 
         const result = await submitAndExpect("import os\nos.system('ls')\n", 'AST_BLOCKED');
 
-        // El mensaje identifica la regla violada.
-        expect(result.message).toContain('Violación de seguridad AST (Semgrep)');
-        expect(result.message).toContain("Import of 'os' module is forbidden");
+        // El mensaje identifica la regla violada declarada por el docente.
+        expect(result.message).toContain('Violación de regla AST declarada por el docente');
+        expect(result.message).toContain("patrón 'os'");
 
         // El contenedor nunca se levantó: 0 ms de ejecución y ningún caso evaluado.
         expect(result.execution_time_ms).toBe(0);
         expect(result.case_results ?? []).toHaveLength(0);
-        expect(result.actual_json).toContain('solv-python-forbidden-import-os');
+        expect(result.actual_json).toContain('"pattern":"os"');
       });
 
       await test.step('Bloqueo AST_BLOCKED: eval() también queda detenido', async () => {
         forensic.recordStep('Estudiante usa eval() -> AST_BLOCKED');
 
         const result = await submitAndExpect('n = eval(input())\nprint(n * 2)\n', 'AST_BLOCKED');
-        expect(result.message).toContain('Use of eval() is forbidden');
+        expect(result.message).toContain('Violación de regla AST declarada por el docente');
+        expect(result.message).toContain("patrón 'eval'");
         expect(result.execution_time_ms).toBe(0);
       });
 

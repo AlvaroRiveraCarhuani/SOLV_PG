@@ -239,10 +239,9 @@ func (a *EnvTestDockerAdapter) RunJudgeSmokeTest(ctx context.Context, imageRef s
 		Cmd:        cmd,
 	}
 
-	execCtx, cancel := context.WithTimeout(ctx, time.Duration(timeoutMS)*time.Millisecond)
-	defer cancel()
-
-	resp, err := a.cli.ContainerCreate(execCtx, containerConfig, hostConfig, nil, nil, "")
+	// La creación e inicio usan ctx para no colapsar ante demoras del daemon de Docker bajo carga.
+	// El timeout específico (timeoutMS) gobierna únicamente la ejecución interna del código (ContainerWait).
+	resp, err := a.cli.ContainerCreate(ctx, containerConfig, hostConfig, nil, nil, "")
 	if err != nil {
 		return "", 0, 1, fmt.Errorf("error al crear contenedor efímero de juez: %w", err)
 	}
@@ -253,9 +252,12 @@ func (a *EnvTestDockerAdapter) RunJudgeSmokeTest(ctx context.Context, imageRef s
 	}()
 
 	startTime := time.Now()
-	if err := a.cli.ContainerStart(execCtx, containerID, container.StartOptions{}); err != nil {
+	if err := a.cli.ContainerStart(ctx, containerID, container.StartOptions{}); err != nil {
 		return "", 0, 1, fmt.Errorf("error al iniciar contenedor efímero de juez: %w", err)
 	}
+
+	execCtx, cancel := context.WithTimeout(ctx, time.Duration(timeoutMS)*time.Millisecond)
+	defer cancel()
 
 	statusCh, errCh := a.cli.ContainerWait(execCtx, containerID, container.WaitConditionNotRunning)
 	var exitCode int

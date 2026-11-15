@@ -23,18 +23,10 @@ export async function selectTeacherOption(adminPage, modal, teacherEmail) {
   const teacherComboInput = teacherField.locator('input[role="combobox"]');
   const teacherOption = teacherField.locator('[role="option"]').first();
 
-  for (let attempt = 0; attempt < 8; attempt += 1) {
-    await teacherComboInput.click();
-    await teacherComboInput.fill(teacherEmail);
-    if (await teacherOption.isVisible().catch(() => false)) {
-      await teacherOption.click();
-      return;
-    }
-    await teacherComboInput.press('Escape');
-    await adminPage.waitForTimeout(2500);
-  }
-
-  throw new Error(`El docente ${teacherEmail} no apareció en el desplegable del modal`);
+  await teacherComboInput.click();
+  await teacherComboInput.fill(teacherEmail);
+  await expect(teacherOption).toBeVisible({ timeout: 15_000 });
+  await teacherOption.click();
 }
 
 export async function createCourseViaAdminUI(adminPage, { courseName, courseCode, teacherEmail }) {
