@@ -1,4 +1,4 @@
-import { Component, OnInit, OnDestroy, inject, signal, computed, HostListener } from '@angular/core';
+import { Component, OnInit, OnDestroy, inject, signal, computed, viewChild, HostListener } from '@angular/core';
 
 const COURSES_HELP_KEY = 'courses-directory';
 import { CommonModule } from '@angular/common';
@@ -12,12 +12,14 @@ import { CourseCreateModalComponent } from './components/course-create-modal/cou
 import { CourseReassignModalComponent } from './components/course-reassign-modal/course-reassign-modal.component';
 import { ConfirmModalComponent } from '@shared/components/confirm-modal/confirm-modal.component';
 import { ContextHelpService } from '@shared/help/context-help.service';
+import { ProductTourService } from '@shared/help/product-tour.service';
+import { InteractiveTutorialService } from '@shared/help/interactive-tutorial.service';
+import { buildCoursesTour, buildCoursesTutorial } from './courses-help.definitions';
 import { ModalShellComponent } from '@shared/components/modal-shell/modal-shell.component';
 import { FormFieldComponent } from '@shared/components/form-field/form-field.component';
 import { MachineDataDirective } from '@shared/directives/machine-data.directive';
 import { ComboboxComponent, ComboboxOption } from '@shared/components/combobox/combobox.component';
 import { SearchBarComponent } from '@shared/components/search-bar/search-bar.component';
-import { KpiCardComponent, KpiGridComponent } from '@shared/components/kpi-card/kpi-card.component';
 import { StatusTabsComponent, StatusTabItem } from '@shared/components/status-tabs/status-tabs.component';
 import { PaginationBarComponent } from '@shared/components/pagination-bar/pagination-bar.component';
 import { SortHeaderComponent } from '@shared/components/sort-header/sort-header.component';
@@ -31,7 +33,6 @@ import {
   LucideArrowRightLeft, 
   LucideArchive, 
   LucideArchiveRestore,
-  LucideAlertTriangle,
   LucidePencil
 } from '@lucide/angular';
 
@@ -49,8 +50,6 @@ interface ToastState {
     MachineDataDirective,
     ComboboxComponent,
     SearchBarComponent,
-    KpiCardComponent,
-    KpiGridComponent,
     StatusTabsComponent,
     PaginationBarComponent,
     SortHeaderComponent,
@@ -67,7 +66,6 @@ interface ToastState {
     LucideArrowRightLeft,
     LucideArchive,
     LucideArchiveRestore,
-    LucideAlertTriangle,
     LucidePencil,
   ],
   templateUrl: './admin-courses.component.html',
@@ -76,6 +74,10 @@ interface ToastState {
 export class AdminCoursesComponent implements OnInit, OnDestroy {
   coursesService = inject(AdminCoursesService);
   private readonly help = inject(ContextHelpService);
+  private readonly productTour = inject(ProductTourService);
+  private readonly tutorial = inject(InteractiveTutorialService);
+  /** Modal de alta visible, para que el tutorial lea el formulario real. */
+  readonly createModal = viewChild(CourseCreateModalComponent);
 
   // Filtros de búsqueda
   searchQuery = signal<string>('');
@@ -244,35 +246,52 @@ export class AdminCoursesComponent implements OnInit, OnDestroy {
 
     return {
       totalCourses,
+      activeCourses: totalCourses - archivedCourses,
       unassignedCourses,
       archivedCourses
     };
   });
 
-  coursesCounts = computed(() => {
-    const kpis = this.periodKpis();
-    return {
-      all: kpis.totalCourses,
-      active: kpis.totalCourses - kpis.archivedCourses,
-      unassigned: kpis.unassignedCourses,
-      archived: kpis.archivedCourses
-    };
-  });
-
   courseStatusTabs = computed<StatusTabItem[]>(() => [
-    { id: 'all', label: 'Todos', count: this.coursesCounts().all },
-    { id: 'active', label: 'Activos', count: this.coursesCounts().active, badgeVariant: 'active' },
-    { id: 'unassigned', label: 'Sin Docente', count: this.coursesCounts().unassigned, badgeVariant: 'warning' },
-    { id: 'archived', label: 'Archivados', count: this.coursesCounts().archived, badgeVariant: 'neutral' }
+    { id: 'all', label: 'Todos' },
+    { id: 'active', label: 'Activos' },
+    { id: 'unassigned', label: 'Sin Docente' },
+    { id: 'archived', label: 'Archivados' }
   ]);
 
   ngOnInit(): void {
     this.help.registerScreen(COURSES_HELP_KEY);
+    this.help.registerGuides(COURSES_HELP_KEY, {
+      tour: {
+        label: 'Recorrido visual',
+        hint: 'Señala el período, los estados, la tabla y las acciones.',
+        run: () => void this.productTour.start(buildCoursesTour())
+      },
+      tutorial: {
+        label: 'Tutorial guiado',
+        hint: 'Registra una materia y comprueba el formulario.',
+        run: () => this.startCoursesTutorial()
+      }
+    });
     this.coursesService.loadAll();
   }
 
   ngOnDestroy(): void {
+    this.help.unregisterGuides(COURSES_HELP_KEY);
     this.help.unregisterScreen(COURSES_HELP_KEY);
+  }
+
+  /** Tutorial del alta: exige modal abierto y nombre y código; no confirma el alta. */
+  startCoursesTutorial(): void {
+    this.tutorial.start(
+      buildCoursesTutorial({
+        createModalOpen: () => this.showCreateCourseModal(),
+        identityComplete: () => {
+          const modal = this.createModal();
+          return !!modal && modal.name().trim().length > 0 && modal.code().trim().length > 0;
+        }
+      })
+    );
   }
 
   onPeriodChange(periodId: string): void {

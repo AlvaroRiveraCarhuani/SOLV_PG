@@ -4,8 +4,13 @@
       <h2 class="section-title">3. Capacidad del Aula y Memoria por Alumno</h2>
       @if (hasSelectedStack()) {
         <p class="section-subtitle">
-          Asignación de memoria optimizada según las tecnologías seleccionadas. Con esta capacidad el aula soporta aproximadamente
-          <strong><span machineData>{{ nominalConcurrentStudents() }}</span> {{ targetEnvironment() === 'JUEZ_EFIMERO' ? 'evaluaciones simultáneas' : 'alumnos simultáneos' }}</strong> con el servidor disponible.
+          Asignación de memoria optimizada según las tecnologías seleccionadas.
+          @if (nominalConcurrentStudents(); as nominal) {
+            Con esta capacidad el aula soporta aproximadamente
+            <strong><span machineData>{{ nominal }}</span> {{ targetEnvironment() === 'JUEZ_EFIMERO' ? 'evaluaciones simultáneas' : 'alumnos simultáneos' }}</strong> con el servidor disponible.
+          } @else {
+            La capacidad simultánea se informará cuando el servidor publique su memoria medida.
+          }
         </p>
       }
     </div>
@@ -35,8 +40,13 @@
           </div>
           <span class="cap-desc">{{ opt.desc }}</span>
           <span class="cap-students">
-            <span machineData>{{ opt.mb }} MB</span> por alumno · ~<span machineData>{{ estimateStudentsForPreset(opt.mb) }}</span>
-            {{ targetEnvironment() === 'JUEZ_EFIMERO' ? 'evaluaciones simultáneas' : 'alumnos simultáneos' }}
+            <span machineData>{{ opt.mb }} MB</span> por alumno ·
+            @if (estimateStudentsForPreset(opt.mb); as presetStudents) {
+              ~<span machineData>{{ presetStudents }}</span>
+              {{ targetEnvironment() === 'JUEZ_EFIMERO' ? 'evaluaciones simultáneas' : 'alumnos simultáneos' }}
+            } @else {
+              capacidad simultánea sin medición
+            }
           </span>
         </button>
       }
@@ -68,7 +78,12 @@
             />
           </div>
           <span class="custom-ram-hint">
-            Mínimo requerido por las tecnologías elegidas: <strong machineData>{{ minimumFloorMB() }} MB</strong> · Máximo permitido por el servidor: <strong machineData>{{ maxAllowedRamMB() }} MB</strong>
+            Mínimo requerido por las tecnologías elegidas: <strong machineData>{{ minimumFloorMB() }} MB</strong> ·
+            @if (maxAllowedRamMB(); as maxHost) {
+              Máximo permitido por el servidor: <strong machineData>{{ maxHost }} MB</strong>
+            } @else {
+              máximo por servidor sin medición
+            }
           </span>
         </div>
       }
@@ -108,8 +123,12 @@
           </span>
         </div>
         <span class="profile-capacity">
-          Capacidad nominal del servidor: ~<strong machineData>{{ nominalConcurrentStudents() }}</strong>
-          {{ targetEnvironment() === 'JUEZ_EFIMERO' ? 'evaluaciones simultáneas' : 'alumnos simultáneos' }}
+          @if (nominalConcurrentStudents(); as nominal) {
+            Capacidad nominal del servidor: ~<strong machineData>{{ nominal }}</strong>
+            {{ targetEnvironment() === 'JUEZ_EFIMERO' ? 'evaluaciones simultáneas' : 'alumnos simultáneos' }}
+          } @else {
+            Capacidad nominal del servidor: sin medición
+          }
         </span>
       </div>
 

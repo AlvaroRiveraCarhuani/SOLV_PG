@@ -19,24 +19,6 @@
     display: flex;
     flex-direction: column;
     gap: 4px;
-
-    .page-title {
-      font-family: var(--font-sans);
-      font-size: var(--text-xl);
-      font-weight: 700;
-      color: var(--text-primary);
-      margin: 0;
-      letter-spacing: -0.01em;
-      line-height: var(--leading-tight);
-    }
-
-    .page-subtitle {
-      font-family: var(--font-sans);
-      font-size: var(--text-sm);
-      color: var(--text-secondary);
-      margin: 2px 0 0;
-      line-height: var(--leading-normal);
-    }
   }
 
   .header-actions {

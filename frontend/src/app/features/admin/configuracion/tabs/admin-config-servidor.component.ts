@@ -110,16 +110,37 @@ export class AdminConfigServidorComponent implements OnInit, OnDestroy {
   readonly selectedMaxContainers = signal<number>(40);
   readonly isSavingPolicies = signal(false);
 
+  /** Techo que el backend calcula para la RAM de este servidor. */
+  readonly recommendedMaxContainers = computed(
+    () => this.policies()?.recommendation?.recommended_max_containers ?? 0
+  );
+  readonly hostTotalGB = computed(() => {
+    const mb = this.policies()?.recommendation?.host_total_mb ?? 0;
+    return mb > 0 ? Math.round((mb / 1024) * 10) / 10 : 0;
+  });
+
+  readonly maxContainersError = computed(() =>
+    validateBackupInt(this.selectedMaxContainers(), 1, 500, 'concurrencia')
+  );
+
   readonly policiesDirty = computed(() => {
     const p = this.policies();
     if (!p) return false;
     return (
       this.selectedCeilingPct() !== (p.host_safety_ceiling_pct ?? 85) ||
-      this.selectedInactivity() !== p.inactivity_minutes
+      this.selectedInactivity() !== p.inactivity_minutes ||
+      this.selectedMaxContainers() !== (p.max_containers ?? 0)
     );
   });
 
-  readonly canSavePolicies = computed(() => this.policiesDirty() && !this.isSavingPolicies());
+  readonly canSavePolicies = computed(
+    () => this.policiesDirty() && !this.maxContainersError() && !this.isSavingPolicies()
+  );
+
+  adoptRecommendedMaxContainers(): void {
+    const recommended = this.recommendedMaxContainers();
+    if (recommended > 0) this.selectedMaxContainers.set(recommended);
+  }
 
   // Respaldos: estrategia local (frecuencia/retención)
   readonly backupFrequency = signal(6);
@@ -296,7 +317,8 @@ export class AdminConfigServidorComponent implements OnInit, OnDestroy {
 
     this.servidorService.updatePolicies({
       host_safety_ceiling_pct: this.selectedCeilingPct(),
-      inactivity_minutes: this.selectedInactivity()
+      inactivity_minutes: this.selectedInactivity(),
+      max_containers: Number(this.selectedMaxContainers())
     }).subscribe({
       next: () => {
         this.isSavingPolicies.set(false);

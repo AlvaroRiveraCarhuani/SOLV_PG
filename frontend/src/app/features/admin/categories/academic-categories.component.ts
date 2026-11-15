@@ -1,19 +1,20 @@
 import { Component, OnInit, OnDestroy, computed, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { MachineDataDirective } from '@shared/directives/machine-data.directive';
 import {
   AdminTemplatesService,
   TemplateCategory,
   ReorderCategoryItem,
   TemplateModelItem
 } from '../services/admin-templates.service';
-import { KpiCardComponent, KpiGridComponent } from '@shared/components/kpi-card/kpi-card.component';
 import { TemplateCategoriesManagerComponent } from '../templates/components/model-library/components/template-categories-manager/template-categories-manager.component';
 import { CategoryFormModalComponent } from '../templates/components/model-library/components/category-form-modal/category-form-modal.component';
 import { CategoryDeleteModalComponent } from '../templates/components/model-library/components/category-delete-modal/category-delete-modal.component';
 import { ContextHelpService } from '@shared/help/context-help.service';
+import { ProductTourService } from '@shared/help/product-tour.service';
+import { buildCategoriesTour } from './categories-help.definitions';
 import {
-  LucideTag,
   LucidePlus,
   LucideAlertTriangle,
   LucideCheckCircle2
@@ -27,12 +28,10 @@ export const ACADEMIC_CATEGORIES_HELP_KEY = 'academic-categories';
   imports: [
     CommonModule,
     FormsModule,
-    KpiCardComponent,
-    KpiGridComponent,
+    MachineDataDirective,
     TemplateCategoriesManagerComponent,
     CategoryFormModalComponent,
     CategoryDeleteModalComponent,
-    LucideTag,
     LucidePlus,
     LucideAlertTriangle,
     LucideCheckCircle2
@@ -43,6 +42,7 @@ export const ACADEMIC_CATEGORIES_HELP_KEY = 'academic-categories';
 export class AcademicCategoriesComponent implements OnInit, OnDestroy {
   private readonly templatesService = inject(AdminTemplatesService);
   private readonly help = inject(ContextHelpService);
+  private readonly productTour = inject(ProductTourService);
 
   readonly isLoading = signal<boolean>(false);
   readonly categories = signal<TemplateCategory[]>([]);
@@ -65,10 +65,18 @@ export class AcademicCategoriesComponent implements OnInit, OnDestroy {
 
   ngOnInit(): void {
     this.help.registerScreen(ACADEMIC_CATEGORIES_HELP_KEY);
+    this.help.registerGuides(ACADEMIC_CATEGORIES_HELP_KEY, {
+      tour: {
+        label: 'Recorrido visual',
+        hint: 'Señala el resumen, el alta y las reglas de la lista.',
+        run: () => void this.productTour.start(buildCategoriesTour())
+      }
+    });
     this.loadData();
   }
 
   ngOnDestroy(): void {
+    this.help.unregisterGuides(ACADEMIC_CATEGORIES_HELP_KEY);
     this.help.unregisterScreen(ACADEMIC_CATEGORIES_HELP_KEY);
     if (this.toastTimer) {
       clearTimeout(this.toastTimer);

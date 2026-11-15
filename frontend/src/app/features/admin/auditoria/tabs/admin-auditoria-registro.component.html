@@ -1,5 +1,5 @@
 <div class="registro-panel">
-  <div class="toolbar">
+  <div class="toolbar" data-tour="audit-toolbar">
     <search-bar
       [query]="searchQuery()"
       placeholder="Buscar evento, actor o recurso..."
@@ -34,7 +34,7 @@
       <p>No hay eventos de auditoría que coincidan con la búsqueda.</p>
     </div>
   } @else {
-    <div class="table-wrapper">
+    <div class="table-wrapper" data-tour="audit-table">
       <table class="audit-table">
         <thead>
           <tr>
@@ -43,7 +43,7 @@
             <th>Acción</th>
             <th>Recurso</th>
             <th>Status</th>
-            <th class="cell-open-header">
+            <th class="cell-open-header" data-tour="audit-timeline">
               <span class="visually-hidden">Ver cronología</span>
               <div class="header-icon-wrapper" title="Ver cronología del actor">
                 <svg lucidePanelRightOpen class="header-icon" aria-hidden="true"></svg>
@@ -68,7 +68,7 @@
                 <span [class]="'status-pill status-' + row.status.kind">{{ row.status.label }}</span>
               </td>
               <td class="cell-open">
-                <button type="button" class="open-drawer-btn" (click)="openDrawer(row)" aria-label="Ver cronología del actor">
+                <button type="button" class="open-drawer-btn" data-tour="audit-open" (click)="openDrawer(row)" aria-label="Ver cronología del actor">
                   <svg lucidePanelRightOpen aria-hidden="true"></svg>
                 </button>
               </td>
@@ -79,6 +79,7 @@
     </div>
 
     <pagination-bar
+      data-tour="audit-pagination"
       [currentPage]="currentPage()"
       [totalPages]="totalPages()"
       [totalItems]="totalKnown()"
@@ -93,6 +94,7 @@
     <div class="drawer-backdrop" (click)="onDrawerBackdropClick($event)">
       <aside 
         class="drawer" 
+        data-tour="audit-drawer"
         dismissible 
         (dismiss)="closeDrawer()" 
         role="dialog" 

@@ -1,6 +1,6 @@
 <modal-shell animate.leave="motion-modal-out"
-  title="Aprobar Plantilla y Fijar Cuotas"
-  subtitle="Asignación de recursos de hardware y alcance institucional"
+  title="Revisar Cuota y Enviar a Auditoría"
+  subtitle="La plantilla se publicará cuando termine la comprobación técnica"
   (close)="closeModal()"
 >
   <svg modal-icon lucideLayers class="icon"></svg>
@@ -43,7 +43,19 @@
       }
     </div>
     <div class="capacity-hint-row">
-      <span class="capacity-hint">Máx host: <span machineData>{{ maxAllowedRamMB() }} MB</span> · Libre: <span machineData>{{ hostFreeRamMB() }} MB</span></span>
+      <span class="capacity-hint">
+        @if (maxAllowedRamMB(); as maxHost) {
+          Máx host: <span machineData>{{ maxHost }} MB</span>
+        } @else {
+          Máx host: sin medición
+        }
+        ·
+        @if (hostFreeRamMB(); as freeRam) {
+          Libre: <span machineData>{{ freeRam }} MB</span>
+        } @else {
+          Libre: sin medición
+        }
+      </span>
     </div>
 
     @if (isDual()) {
@@ -89,7 +101,7 @@
   <div class="notice-box">
     <svg lucideInfo class="notice-icon"></svg>
     <span>
-      Al confirmar, el estado cambiará a <strong>Aprobada</strong> y la plantilla se publicará en el catálogo institucional para la creación de prácticas.
+      Al confirmar, se fijará la cuota y la plantilla pasará a <strong>auditoría técnica</strong>. Se publicará en el catálogo cuando la comprobación de arranque termine bien.
     </span>
   </div>
 
@@ -103,10 +115,10 @@
       (click)="confirmApprove()"
       [disabled]="!canApprove()">
       @if (isSubmitting()) {
-        <span>Publicando...</span>
+        <span>Enviando...</span>
       } @else {
         <svg lucideCheckCircle2 class="btn-icon"></svg>
-        <span>Confirmar y Publicar en Catálogo</span>
+        <span>Confirmar y Enviar a Auditoría</span>
       }
     </button>
   </ng-container>

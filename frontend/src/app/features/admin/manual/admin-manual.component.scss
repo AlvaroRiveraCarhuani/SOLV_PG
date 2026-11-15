@@ -50,14 +50,6 @@
       gap: var(--space-3);
       flex-wrap: wrap;
 
-      .page-title {
-        font-size: var(--text-xl);
-        font-weight: 700;
-        color: var(--text-primary);
-        letter-spacing: -0.01em;
-        margin: 0;
-      }
-
       .role-badge {
         display: inline-block;
         padding: var(--space-1) var(--space-3);
@@ -72,9 +64,8 @@
       }
     }
 
+    // Variante: el subtítulo va pegado al título dentro del bloque de identidad.
     .page-subtitle {
-      font-size: var(--text-sm);
-      color: var(--text-secondary);
       margin: 0;
     }
   }

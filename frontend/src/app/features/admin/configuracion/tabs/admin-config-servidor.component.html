@@ -30,7 +30,7 @@
         <div class="card-title-group">
           <svg lucideServer class="card-icon"></svg>
           <div>
-            <h2 class="section-title">Políticas de Autogestión y Ciclo de Vida de Laboratorios</h2>
+            <h2 class="section-title section-title-flush">Políticas de Autogestión y Ciclo de Vida de Laboratorios</h2>
             <p class="card-hint">
               La memoria RAM de cada laboratorio la define automáticamente su Plantilla Docente (384 MB a 2048 MB). El servidor calcula cuántos laboratorios simultáneos admitir según la memoria física disponible.
             </p>
@@ -75,6 +75,38 @@
         </form-field>
       </div>
 
+      <div class="qos-grid">
+        <form-field
+          label="Laboratorios Simultáneos por Institución"
+          for="policy-max-containers"
+          hint="Techo de admisión: al alcanzarlo, los entornos nuevos responden «Cupo institucional lleno» hasta que uno se libere.">
+          <div class="max-containers-control">
+            <input
+              id="policy-max-containers"
+              type="number"
+              class="form-input"
+              min="1"
+              max="500"
+              [ngModel]="selectedMaxContainers()"
+              (ngModelChange)="selectedMaxContainers.set($event)" />
+            @if (recommendedMaxContainers() > 0) {
+              <p class="capacity-hint">
+                Recomendado para este servidor ({{ hostTotalGB() }} GB de RAM):
+                <code>{{ recommendedMaxContainers() }}</code>
+                @if (selectedMaxContainers() !== recommendedMaxContainers()) {
+                  <button type="button" class="btn-outline" (click)="adoptRecommendedMaxContainers()">
+                    Usar recomendado
+                  </button>
+                }
+              </p>
+            }
+            @if (maxContainersError()) {
+              <p class="capacity-error">{{ maxContainersError() }}</p>
+            }
+          </div>
+        </form-field>
+      </div>
+
       <div class="card-actions-row">
         <button
           type="button"
@@ -100,7 +132,7 @@
         <div class="card-title-group">
           <svg lucideWrench class="card-icon"></svg>
           <div>
-            <h2 class="section-title">Modo Mantenimiento Global</h2>
+            <h2 class="section-title section-title-flush">Modo Mantenimiento Global</h2>
             <p class="card-hint">
               Bloquea sesiones de estudiantes y docentes con pantalla de mantenimiento.
               Los administradores conservan acceso completo.
@@ -137,7 +169,7 @@
         <div class="card-title-group">
           <svg lucideHardDrive class="card-icon"></svg>
           <div>
-            <h2 class="section-title">Respaldos y Contingencia</h2>
+            <h2 class="section-title section-title-flush">Respaldos y Contingencia</h2>
             <p class="card-hint">
               Copias de seguridad automáticas de la plataforma, con verificación
               de integridad y eliminación automática de los archivos más antiguos.

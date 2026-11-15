@@ -76,6 +76,9 @@ export interface BatchStudentsResult {
 export interface RosterEnrollResult {
   created_students: number;
   enrolled_students: number;
+  removed_students: number;
+  skipped_not_found: number;
+  matched_by_external_id: number;
   duplicate_emails: string[];
   invalid_emails: string[];
   total_detected: number;
@@ -184,7 +187,11 @@ export class AdminStudentsService {
     return this.http.post<BatchStudentsResult>('/api/v1/admin/students/batch', { emails });
   }
 
-  rosterEnroll(subjectId: string, emails: string[]): Observable<RosterEnrollResult> {
-    return this.http.post<RosterEnrollResult>(`/api/v1/admin/subjects/${subjectId}/roster`, { emails });
+  rosterEnroll(subjectId: string, emails: string[], reconcile = false): Observable<RosterEnrollResult> {
+    return this.http.post<RosterEnrollResult>(`/api/v1/admin/subjects/${subjectId}/roster`, {
+      emails,
+      reconcile,
+      source_system: 'planilla'
+    });
   }
 }

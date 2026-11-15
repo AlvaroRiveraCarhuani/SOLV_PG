@@ -3,7 +3,7 @@ import '@angular/localize/init';
 import { describe, it, expect, beforeEach } from 'vitest';
 import { TestBed } from '@angular/core/testing';
 import { TemplateEditModalComponent } from './template-edit-modal.component';
-import { AdminTemplateItem } from '../../../services/admin-templates.service';
+import { AdminTemplateItem, RuntimeCapabilities } from '../../../services/admin-templates.service';
 
 const mockTemplate: AdminTemplateItem = {
   id: 'tpl-edit-1',
@@ -47,6 +47,15 @@ describe('TemplateEditModalComponent', () => {
     c.template = templateWithoutRam;
     c.ngOnInit();
     expect(c.selectedRam()).toBe(512);
+  });
+
+  it('no inventa el máximo del host cuando no hay medición', () => {
+    component.runtimeCapabilities.set({ max_allowed_ram_mb: 0 } as RuntimeCapabilities);
+
+    expect(component.maxAllowedRamMB()).toBeNull();
+    expect(component.hostFreeRamMB()).toBeNull();
+    expect(component.isRamExceedingHost()).toBe(false);
+    expect(component.canSave()).toBe(true);
   });
 
   it('setRam actualiza selectedRam correctamente', () => {

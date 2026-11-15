@@ -23,9 +23,10 @@ import {
   TemplateComponent,
   TemplateDraft,
   TemplateDraftFormData,
-  TemplateModelItem,
-  UpdateCategoryDTO,
-  UpdateTemplateModelDTO,
+  	TemplateModelItem,
+	UpdateCategoryDTO,
+	UpdateTemplateModelDTO,
+	UpdateTemplateQuotaDTO,
   WarmAllSummary
 } from '../models/admin-templates.models';
 
@@ -63,6 +64,16 @@ export class AdminTemplatesService {
 
   createOfficialTemplate(dto: CreateOfficialTemplateDTO): Observable<AdminTemplateItem> {
     return this.http.post<ApiResponse<AdminTemplateItem>>(this.apiUrl, dto).pipe(
+      map(res => res.data)
+    );
+  }
+
+  /**
+   * Ajusta cuota y descripción sin reconstruir la imagen ni exigir un job de
+   * verificación. La comprobación de arranque se repite en segundo plano.
+   */
+  updateTemplateQuota(id: string, dto: UpdateTemplateQuotaDTO): Observable<AdminTemplateItem> {
+    return this.http.patch<ApiResponse<AdminTemplateItem>>(`${this.apiUrl}/${id}/quota`, dto).pipe(
       map(res => res.data)
     );
   }

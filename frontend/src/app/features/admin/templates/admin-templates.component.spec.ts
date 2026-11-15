@@ -164,6 +164,7 @@ describe('AdminTemplatesComponent Spec', () => {
     warmTemplate: ReturnType<typeof vi.fn>;
     warmAllTemplates: ReturnType<typeof vi.fn>;
     updateOfficialTemplate: ReturnType<typeof vi.fn>;
+    updateTemplateQuota: ReturnType<typeof vi.fn>;
   };
 
   let routerMock: { navigate: ReturnType<typeof vi.fn> };
@@ -174,6 +175,11 @@ describe('AdminTemplatesComponent Spec', () => {
       updateOfficialTemplate: vi.fn().mockImplementation((id: string, dto: CreateOfficialTemplateDTO) => of({
         ...mockTemplates.find(t => t.id === id),
         ...dto
+      })),
+      updateTemplateQuota: vi.fn().mockImplementation((id: string, dto: { base_ram_mb: number; description?: string }) => of({
+        ...mockTemplates.find(t => t.id === id),
+        base_ram_mb: dto.base_ram_mb,
+        description: dto.description
       })),
       getTemplates: vi.fn().mockReturnValue(of([...mockTemplates])),
       getTechCatalog: vi.fn().mockReturnValue(of([...mockTechCatalog])),
@@ -318,6 +324,25 @@ describe('AdminTemplatesComponent Spec', () => {
       status: 'paused',
       rejection_reason: validReason
     });
+  });
+
+  it('reenviar una rechazada avisa que vuelve a auditoría y no al catálogo', () => {
+    const tplRejected = mockTemplates[2];
+    mockTemplatesService.reviewTemplate.mockReturnValueOnce(of({
+      ...tplRejected,
+      status: 'PENDIENTE_AUDITORIA',
+      rejection_reason: undefined
+    }));
+
+    component.confirmToggleStatus(tplRejected);
+
+    expect(mockTemplatesService.reviewTemplate).toHaveBeenCalledWith(tplRejected.id, {
+      status: 'approved',
+      rejection_reason: undefined
+    });
+    expect(component.toast()?.message).toContain('enviada a auditoría');
+    expect(component.toast()?.message).toContain('Volverá al catálogo si pasa');
+    expect(component.toast()?.message).not.toContain('reactivada en el catálogo');
   });
 
   it('el KPI de activas en catálogo y promedio RAM excluyen las plantillas pausadas/suspendidas', () => {
@@ -497,7 +522,7 @@ describe('AdminTemplatesComponent Spec', () => {
     expect(tech.name).toBe('Rust');
   });
 
-  it('handleSaveEdit persiste vía updateOfficialTemplate enviando el DTO completo y actualiza el estado local', () => {
+  it('handleSaveEdit ajusta la cuota sin exigir una verificación de build', () => {
     const target = mockTemplates[0]; // tpl-1 (APROBADA, 1024 MB)
     component.openEditModal(target);
     expect(component.selectedTemplateForEdit()).toEqual(target);
@@ -508,15 +533,11 @@ describe('AdminTemplatesComponent Spec', () => {
       description: 'Descripción actualizada con cuotas ampliadas'
     });
 
-    expect(mockTemplatesService.updateOfficialTemplate).toHaveBeenCalledWith(
-      target.id,
-      expect.objectContaining({
-        name: target.name,
-        docker_image: target.docker_image,
-        base_ram_mb: 2048,
-        description: 'Descripción actualizada con cuotas ampliadas'
-      })
-    );
+    expect(mockTemplatesService.updateTemplateQuota).toHaveBeenCalledWith(target.id, {
+      base_ram_mb: 2048,
+      description: 'Descripción actualizada con cuotas ampliadas'
+    });
+    expect(mockTemplatesService.updateOfficialTemplate).not.toHaveBeenCalled();
 
     // Modal cerrado y toast disparado
     expect(component.selectedTemplateForEdit()).toBeNull();

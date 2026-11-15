@@ -24,6 +24,10 @@ export class TemplateStatusModalComponent {
     return this.template.status === 'approved' || this.template.status === 'APROBADA';
   });
 
+  isReaudit = computed(() => {
+    return this.template.status === 'RECHAZADA' || this.template.status === 'rejected';
+  });
+
   isValid = computed(() => {
     if (!this.isPausing()) return true;
     return this.reason().trim().length >= 10;

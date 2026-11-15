@@ -52,7 +52,7 @@ describe('StudentEnrollRosterModalComponent', () => {
   });
 
   it('emite rosterSubmit con materia y correos', () => {
-    let emitted: { subjectId: string; emails: string[] } | undefined;
+    let emitted: { subjectId: string; emails: string[]; reconcile: boolean } | undefined;
     component.rosterSubmit.subscribe(p => { emitted = p; });
 
     component.selectedSubjectId.set('s1');
@@ -61,7 +61,8 @@ describe('StudentEnrollRosterModalComponent', () => {
 
     expect(emitted).toEqual({
       subjectId: 's1',
-      emails: SAMPLE_ROSTER.valid_emails
+      emails: SAMPLE_ROSTER.valid_emails,
+      reconcile: false
     });
   });
 });

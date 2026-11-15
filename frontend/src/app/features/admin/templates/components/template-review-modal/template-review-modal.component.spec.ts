@@ -46,6 +46,15 @@ describe('TemplateReviewModalComponent Spec', () => {
     getRuntimeCapabilities: ReturnType<typeof vi.fn>;
   };
 
+  it('no inventa el máximo del host cuando no hay medición', () => {
+    component.runtimeCapabilities.set({ max_allowed_ram_mb: 0 } as RuntimeCapabilities);
+
+    expect(component.maxAllowedRamMB()).toBeNull();
+    expect(component.hostFreeRamMB()).toBeNull();
+    expect(component.isRamExceedingHost()).toBe(false);
+    expect(component.canApprove()).toBe(true);
+  });
+
   beforeEach(async () => {
     mockTemplatesService = {
       getRuntimeCapabilities: vi.fn().mockReturnValue(of(mockCapabilities))

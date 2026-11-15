@@ -1,7 +1,7 @@
 <div class="dashboard-page">
   <!-- Header Superior de Operaciones -->
   <header class="page-header">
-    <div class="header-left">
+    <div class="header-left" data-tour="dashboard-health">
       <div class="title-row">
         <h1 class="page-title">Salud del Servidor y Recursos</h1>
         <span
@@ -32,7 +32,7 @@
       </div>
     </div>
 
-    <div class="header-actions">
+    <div class="header-actions" data-tour="dashboard-actions">
       <!-- Botón Personalizar Vista (Drag & Drop) -->
       <button 
         class="btn-secondary"
@@ -151,18 +151,18 @@
         @switch (blockId) {
           @case ('kpis') {
             @if (health()?.metrics) {
-              <hardware-kpi [metrics]="health()!.metrics" />
+              <hardware-kpi [metrics]="health()!.metrics" data-tour="dashboard-kpis" />
             }
           }
 
           @case ('chart') {
             @if (health()?.load_history) {
-              <load-history-chart [history]="health()!.load_history!" />
+              <load-history-chart [history]="health()!.load_history!" data-tour="dashboard-chart" />
             }
           }
 
           @case ('split') {
-            <div class="grid-split-macro">
+            <div class="grid-split-macro" data-tour="dashboard-load">
               <!-- Columna Izquierda (2/3): Carga por Materia -->
               <div class="col-course-load">
                 @if (health()?.courses_load) {
@@ -188,7 +188,7 @@
           }
 
           @case ('containers') {
-            <div class="section-collapsible">
+            <div class="section-collapsible" data-tour="dashboard-containers">
               <button class="btn-toggle-section" (click)="showAllContainers.set(!showAllContainers())">
                 <span>Ver todas las instancias activas del clúster ({{ health()?.containers?.length || 0 }})</span>
                 @if (showAllContainers()) {

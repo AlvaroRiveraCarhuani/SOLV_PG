@@ -37,7 +37,7 @@ export class AuthService {
 
   /**
    * Inicia el flujo OAuth2 con Google Workspace redirigiendo al backend.
-   * Traefik y Go gestionan la verificación de dominio permitido (@uab.edu.bo)
+   * Traefik y Go gestionan la verificación de dominio permitido (allowed_domains del tenant)
    * y depositan la cookie HttpOnly 'solv_session' (ADR-017).
    */
   loginWithGoogle(): void {

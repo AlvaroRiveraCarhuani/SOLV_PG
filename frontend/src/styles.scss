@@ -404,6 +404,49 @@ input, select, textarea, optgroup, option, button {
   line-height: var(--leading-normal);
 }
 
+.page-summary {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 2px 0 0;
+  font-family: var(--font-sans);
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+
+  .page-summary-sep {
+    color: var(--border-strong);
+  }
+
+  .summary-filter {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 0;
+    border: 0;
+    border-bottom: 1px solid transparent;
+    background: none;
+    font: inherit;
+    color: inherit;
+    cursor: pointer;
+
+    &:hover {
+      color: var(--text-primary);
+      border-bottom-color: var(--border-strong);
+    }
+
+    &:focus-visible {
+      outline: 2px solid var(--tenant-primary-border);
+      outline-offset: 2px;
+    }
+
+    &.is-active {
+      color: var(--tenant-primary);
+      border-bottom-color: var(--tenant-primary);
+    }
+  }
+}
+
 .info-banner {
   margin: 0;
   padding: var(--space-4) var(--space-5);
@@ -434,6 +477,19 @@ h2, .section-title {
   color: var(--text-primary);
   line-height: var(--leading-tight);
   margin: 0 0 var(--space-3, 12px);
+}
+
+// Modificadores de título de sección: escala menor y sin margen inferior.
+.section-title-flush {
+  margin: 0;
+}
+
+.section-title-sm {
+  font-size: var(--text-sm);
+}
+
+.section-title-base {
+  font-size: var(--text-base);
 }
 
 h3, .card-title {

@@ -30,7 +30,7 @@
           <svg lucideShield class="card-icon"></svg>
           <div>
             <div class="title-with-badge">
-              <h2 class="section-title">Equipo con Rol Administrador</h2>
+              <h2 class="section-title section-title-flush">Equipo con Rol Administrador</h2>
               <span class="count-badge">{{ activeAdminsCount() }} activos</span>
             </div>
             <p class="card-hint">
@@ -189,7 +189,7 @@
             id="admin-email"
             type="email"
             class="form-input font-mono"
-            placeholder="operador@uab.edu.bo"
+            placeholder="operador@midominio.edu"
             [disabled]="isSubmitting()"
             [ngModel]="formEmail()"
             (ngModelChange)="formEmail.set($event)"

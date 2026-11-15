@@ -98,7 +98,11 @@
           </div>
           <p class="bp-capacity-note">
             @if (hasSelectedStack()) {
-              Capacidad del aula: soporta ~<strong machineData>{{ nominalConcurrentStudents() }}</strong> {{ targetEnvironment() === 'JUEZ_EFIMERO' ? 'evaluaciones simultáneas' : 'estudiantes simultáneos' }}.
+              @if (nominalConcurrentStudents(); as nominal) {
+                Capacidad del aula: soporta ~<strong machineData>{{ nominal }}</strong> {{ targetEnvironment() === 'JUEZ_EFIMERO' ? 'evaluaciones simultáneas' : 'estudiantes simultáneos' }}.
+              } @else {
+                Capacidad del aula: <span class="bp-pending-text">sin medición del servidor</span>
+              }
             } @else {
               Capacidad del aula: <span class="bp-pending-text">Seleccione tecnologías en el Paso 2</span>
             }

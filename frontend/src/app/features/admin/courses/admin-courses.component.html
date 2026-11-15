@@ -13,14 +13,26 @@
 
   <!-- Header Superior Limpio -->
   <header class="page-header">
-    <div class="header-left">
+    <div class="header-left" data-tour="courses-summary">
       <h1 class="page-title">Cursos y Periodos Académicos</h1>
       <p class="page-subtitle">Supervisión institucional de materias, cursos y periodos semestrales.</p>
+      @if (!coursesService.isLoading()) {
+        <p class="page-summary">
+          <span machineData>{{ periodKpis().totalCourses }}</span> cursos en el período
+          <span class="page-summary-sep">·</span>
+          <span machineData>{{ periodKpis().activeCourses }}</span> activos
+          <span class="page-summary-sep">·</span>
+          <span machineData>{{ periodKpis().unassignedCourses }}</span> sin docente
+          <span class="page-summary-sep">·</span>
+          <span machineData>{{ periodKpis().archivedCourses }}</span>
+          {{ periodKpis().archivedCourses === 1 ? 'archivado' : 'archivados' }}
+        </p>
+      }
     </div>
 
     <div class="header-actions">
        <!-- Selector de Periodo Activo -->
-       <div class="period-selector-box">
+       <div class="period-selector-box" data-tour="courses-period">
          <combobox
            [compact]="true"
            [value]="selectedPeriodHeaderLabel()"
@@ -31,56 +43,23 @@
        </div>
 
       <!-- Botón Alta Curso -->
-      <button class="btn-primary" (click)="openCreateCourseModal()">
+      <button class="btn-primary" data-tour="courses-create" (click)="openCreateCourseModal()">
         <svg lucidePlus class="btn-icon"></svg>
         <span>Nuevo Curso</span>
       </button>
     </div>
   </header>
 
-  <!-- Tarjetas de KPIs del Periodo (100% enfocadas en Cursos) -->
-  <kpi-grid [columns]="3">
-    <kpi-card
-      label="Cursos en el Ciclo"
-      [value]="periodKpis().totalCourses"
-      detail="Cursos registrados en el periodo"
-      variant="primary"
-    >
-      <svg kpi-icon lucideBookOpen></svg>
-    </kpi-card>
-
-    <kpi-card
-      label="Sin Docente"
-      [value]="periodKpis().unassignedCourses"
-      [detail]="periodKpis().unassignedCourses === 0 ? 'Todos los cursos con docente asignado' : 'Requieren asignación de docente'"
-      [variant]="periodKpis().unassignedCourses > 0 ? 'warning' : 'running'"
-    >
-      @if (periodKpis().unassignedCourses > 0) {
-        <svg kpi-icon lucideAlertTriangle></svg>
-      } @else {
-        <svg kpi-icon lucideCheckCircle></svg>
-      }
-    </kpi-card>
-
-    <kpi-card
-      label="Cursos Archivados"
-      [value]="periodKpis().archivedCourses"
-      detail="Materias inactivas en este ciclo"
-      variant="default"
-    >
-      <svg kpi-icon lucideArchive></svg>
-    </kpi-card>
-  </kpi-grid>
-
   <!-- Pestañas de Estado con Contadores (Patrón unificado con Docentes) -->
   <status-tabs
+    data-tour="courses-tabs"
     [tabs]="courseStatusTabs()"
     [activeTab]="statusFilter()"
     (tabChange)="onStatusFilterChange($event)"
   />
 
   <!-- Contenedor Card de Tabla (Patrón unificado con Docentes) -->
-  <div class="table-card table-responsive">
+  <div class="table-card table-responsive" data-tour="courses-table">
     <div class="filter-toolbar">
       <div class="search-box">
         <search-bar
@@ -191,7 +170,7 @@
 
               <!-- Acciones -->
               <td class="col-actions">
-                <div class="action-buttons">
+                <div class="action-buttons" data-tour="courses-actions">
                   <button 
                     class="btn-action" 
                     (click)="openReassignModal(course)" 

@@ -1,15 +1,18 @@
-import { Component, inject, signal, computed, OnInit, OnDestroy, HostListener } from '@angular/core';
+import { Component, inject, signal, computed, viewChild, OnInit, OnDestroy, HostListener } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { AdminTeachersService, TeacherCourse } from '../services/admin-teachers.service';
 import { TeacherInviteModalComponent } from './components/teacher-invite-modal/teacher-invite-modal.component';
 import { ConfirmModalComponent } from '@shared/components/confirm-modal/confirm-modal.component';
 import { ContextHelpService } from '@shared/help/context-help.service';
+import { ProductTourService } from '@shared/help/product-tour.service';
+import { InteractiveTutorialService } from '@shared/help/interactive-tutorial.service';
+import { buildTeachersTour, buildTeachersTutorial } from './teachers-help.definitions';
 import { TeacherTableComponent } from './components/teacher-table/teacher-table.component';
 import { TeacherCoursesModalComponent } from './components/teacher-courses-modal/teacher-courses-modal.component';
 import { TeacherInviteFeedbackComponent } from './components/teacher-invite-feedback/teacher-invite-feedback.component';
-import { TeacherKpiCardsComponent } from './components/teacher-kpi-cards/teacher-kpi-cards.component';
 import { ComboboxOption } from '@shared/components/combobox/combobox.component';
+import { MachineDataDirective } from '@shared/directives/machine-data.directive';
 import { StatusTabItem } from '@shared/components/status-tabs/status-tabs.component';
 import { SortDirection, SortState } from '@shared/components/sort-header/sort-header.types';
 import {
@@ -45,12 +48,12 @@ const TEACHERS_HELP_KEY = 'teachers-invitations';
   imports: [
     CommonModule,
     FormsModule,
+    MachineDataDirective,
     TeacherInviteModalComponent,
     ConfirmModalComponent,
     TeacherTableComponent,
     TeacherCoursesModalComponent,
     TeacherInviteFeedbackComponent,
-    TeacherKpiCardsComponent,
     LucideUserPlus,
     LucideCheckCircle,
     LucideAlertCircle
@@ -61,11 +64,17 @@ const TEACHERS_HELP_KEY = 'teachers-invitations';
 export class AdminTeachersComponent implements OnInit, OnDestroy {
   private teachersService = inject(AdminTeachersService);
   private readonly help = inject(ContextHelpService);
+  private readonly productTour = inject(ProductTourService);
+  private readonly tutorial = inject(InteractiveTutorialService);
 
   teachers = this.teachersService.teachers;
   isLoading = this.teachersService.isLoading;
 
   showInviteModal = signal<boolean>(false);
+  /** Modal de alta visible, para que el tutorial compruebe el correo real. */
+  readonly inviteModal = viewChild(TeacherInviteModalComponent);
+  /** Se registró un docente en esta visita; lo lee el tutorial. */
+  readonly registeredInSession = signal<boolean>(false);
   searchTerm = signal<string>('');
   statusFilter = signal<string>('all');
   originFilter = signal<string>('all');
@@ -206,11 +215,11 @@ export class AdminTeachersComponent implements OnInit, OnDestroy {
   });
 
   teacherStatusTabs = computed<StatusTabItem[]>(() => [
-    { id: 'all', label: 'Todos', count: this.counts().all },
-    { id: 'active', label: 'Activos', count: this.counts().active, badgeVariant: 'active' },
-    { id: 'no_courses', label: 'Sin materias', count: this.counts().noCourses, badgeVariant: 'warning' },
-    { id: 'pending', label: 'Pendientes (72h)', count: this.counts().pending, badgeVariant: 'warning' },
-    { id: 'expired', label: 'Expirados', count: this.counts().expired, badgeVariant: 'neutral' }
+    { id: 'all', label: 'Todos' },
+    { id: 'active', label: 'Activos' },
+    { id: 'no_courses', label: 'Sin materias' },
+    { id: 'pending', label: 'Pendientes (72h)' },
+    { id: 'expired', label: 'Expirados' }
   ]);
 
   // Lista filtrada y ordenada en cliente por si la búsqueda/estado cambia en vista
@@ -296,10 +305,23 @@ export class AdminTeachersComponent implements OnInit, OnDestroy {
 
   ngOnInit(): void {
     this.help.registerScreen(TEACHERS_HELP_KEY);
+    this.help.registerGuides(TEACHERS_HELP_KEY, {
+      tour: {
+        label: 'Recorrido visual',
+        hint: 'Señala los contadores, el alta y las acciones por fila.',
+        run: () => void this.productTour.start(buildTeachersTour())
+      },
+      tutorial: {
+        label: 'Tutorial guiado',
+        hint: 'Registra un docente y comprueba el correo antes de continuar.',
+        run: () => this.startTeachersTutorial()
+      }
+    });
     this.loadTeachers();
   }
 
   ngOnDestroy(): void {
+    this.help.unregisterGuides(TEACHERS_HELP_KEY);
     this.help.unregisterScreen(TEACHERS_HELP_KEY);
     if (this.searchDebounceTimer) clearTimeout(this.searchDebounceTimer);
     if (this.toastDismissTimer) clearTimeout(this.toastDismissTimer);
@@ -359,6 +381,17 @@ export class AdminTeachersComponent implements OnInit, OnDestroy {
     if (page >= 1 && page <= this.totalPages()) {
       this.currentPage.set(page);
     }
+  }
+
+  /** Tutorial del alta: exige modal abierto, correo válido y registro confirmado. */
+  startTeachersTutorial(): void {
+    this.tutorial.start(
+      buildTeachersTutorial({
+        inviteModalOpen: () => this.showInviteModal(),
+        emailValid: () => this.inviteModal()?.isValidEmail() ?? false,
+        hasRegistered: () => this.registeredInSession()
+      })
+    );
   }
 
   openInviteModal(): void {
@@ -442,6 +475,7 @@ export class AdminTeachersComponent implements OnInit, OnDestroy {
     this.teachersService.directRegisterTeacher(payload).subscribe(res => {
       this.showInviteModal.set(false);
       if (res) {
+        this.registeredInSession.set(true);
         this.showToast(`Docente ${payload.email} registrado exitosamente`);
         this.loadTeachers();
       } else {
@@ -454,6 +488,7 @@ export class AdminTeachersComponent implements OnInit, OnDestroy {
     this.teachersService.batchDirectRegister(payload).subscribe(res => {
       this.showInviteModal.set(false);
       if (res) {
+        this.registeredInSession.set(true);
         this.showToast(`${res.created_count} docentes registrados exitosamente`);
         this.loadTeachers();
       } else {

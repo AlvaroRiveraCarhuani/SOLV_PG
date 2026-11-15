@@ -18,6 +18,12 @@ import { ComponentFormModalComponent } from '../components/model-library/compone
 import { CatalogTreeComponent } from '../components/model-library/components/catalog-tree/catalog-tree.component';
 import { TechLogoComponent } from '../components/tech-logo/tech-logo.component';
 import { ContextHelpService } from '@shared/help/context-help.service';
+import { ProductTourService } from '@shared/help/product-tour.service';
+import { InteractiveTutorialService } from '@shared/help/interactive-tutorial.service';
+import {
+  buildTechCatalogTour,
+  buildTechCatalogTutorial
+} from './tech-catalog-help.definitions';
 import {
   LucideCpu,
   LucidePlus,
@@ -79,6 +85,8 @@ type DeleteDialog = {
 export class TechCatalogComponent implements OnInit, OnDestroy {
   private readonly templatesService = inject(AdminTemplatesService);
   private readonly help = inject(ContextHelpService);
+  private readonly productTour = inject(ProductTourService);
+  private readonly tutorial = inject(InteractiveTutorialService);
   private readonly toast = inject(ToastService);
 
   readonly activeTab = signal<'components' | 'map'>('components');
@@ -187,11 +195,33 @@ export class TechCatalogComponent implements OnInit, OnDestroy {
 
   ngOnInit(): void {
     this.help.registerScreen(TECH_CATALOG_HELP_KEY);
+    this.help.registerGuides(TECH_CATALOG_HELP_KEY, {
+      tour: {
+        label: 'Recorrido visual',
+        hint: 'Señala pestañas, filtros, tarjetas y acciones de baja.',
+        run: () => void this.productTour.start(buildTechCatalogTour())
+      },
+      tutorial: {
+        label: 'Tutorial guiado',
+        hint: 'Enseña a retirar una tecnología que está en uso sin eliminar historial.',
+        run: () => this.startTechCatalogTutorial()
+      }
+    });
     this.loadData();
   }
 
   ngOnDestroy(): void {
+    this.help.unregisterGuides(TECH_CATALOG_HELP_KEY);
     this.help.unregisterScreen(TECH_CATALOG_HELP_KEY);
+  }
+
+  /** Tutorial de retiro seguro: no exige un botón que el catálogo oficial no tiene. */
+  startTechCatalogTutorial(): void {
+    this.tutorial.start(
+      buildTechCatalogTutorial({
+        hasSearchQuery: () => this.componentSearchQuery().trim().length > 0
+      })
+    );
   }
 
   loadData(): void {

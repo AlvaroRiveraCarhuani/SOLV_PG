@@ -2,8 +2,9 @@ import {
   ALL_ENVIRONMENT_TYPE_KEYS,
   ENVIRONMENT_TYPES,
   EVALUATION_ENGINE_NAME,
-  environmentBadge,
-  environmentTypeOptions,
+  	environmentBadge,
+	environmentCovers,
+	environmentTypeOptions,
   isEnvironmentType,
   resolveEnvironmentType,
 } from './environment-types.constants';
@@ -56,6 +57,18 @@ describe('catálogo de tipos de entorno', () => {
 
     const libraryOptions = environmentTypeOptions({ include: ALL_ENVIRONMENT_TYPE_KEYS, includeAll: true });
     expect(libraryOptions.map(option => option.value)).toEqual(['all', 'IDE_PERSISTENTE', 'JUEZ_EFIMERO', 'AMBOS']);
+  });
+
+  it('solo considera compatible una plantilla que cubre la modalidad pedida', () => {
+    expect(environmentCovers('IDE_PERSISTENTE', 'IDE_PERSISTENTE')).toBe(true);
+    expect(environmentCovers('JUEZ_EFIMERO', 'JUEZ_EFIMERO')).toBe(true);
+    expect(environmentCovers('AMBOS', 'IDE_PERSISTENTE')).toBe(true);
+    expect(environmentCovers('AMBOS', 'JUEZ_EFIMERO')).toBe(true);
+    expect(environmentCovers('AMBOS', 'AMBOS')).toBe(true);
+    expect(environmentCovers('IDE_PERSISTENTE', 'JUEZ_EFIMERO')).toBe(false);
+    expect(environmentCovers('JUEZ_EFIMERO', 'IDE_PERSISTENTE')).toBe(false);
+    expect(environmentCovers('IDE_PERSISTENTE', 'AMBOS')).toBe(false);
+    expect(environmentCovers('OTRO', 'IDE_PERSISTENTE')).toBe(false);
   });
 
   it('mantiene el nombre del motor fuera de las etiquetas de modalidad', () => {

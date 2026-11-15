@@ -5,7 +5,7 @@
     (tabChange)="statusChange.emit($event)"
   />
 
-  <div class="filter-toolbar">
+  <div class="filter-toolbar" data-tour="teachers-filters">
     <div class="search-box">
       <search-bar
         [query]="searchTerm()"
@@ -159,7 +159,7 @@
               </td>
 
               <!-- Acciones -->
-              <td class="text-right">
+              <td class="text-right" data-tour="teachers-row-actions">
                 <div class="actions-cell">
                   @if (teacher.status === 'pending') {
                     <button

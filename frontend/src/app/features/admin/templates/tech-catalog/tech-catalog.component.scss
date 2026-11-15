@@ -19,24 +19,6 @@
     display: flex;
     flex-direction: column;
     gap: 4px;
-
-    .page-title {
-      font-family: var(--font-sans);
-      font-size: var(--text-xl);
-      font-weight: 700;
-      color: var(--text-primary);
-      margin: 0;
-      letter-spacing: -0.01em;
-      line-height: var(--leading-tight);
-    }
-
-    .page-subtitle {
-      font-family: var(--font-sans);
-      font-size: var(--text-sm);
-      color: var(--text-secondary);
-      margin: 2px 0 0;
-      line-height: var(--leading-normal);
-    }
   }
 
   .header-actions {
@@ -776,21 +758,6 @@
     font-size: var(--text-sm);
     color: var(--text-secondary);
     margin: 0 0 8px;
-  }
-}
-
-.catalog-summary {
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 6px;
-  margin: 2px 0 0;
-  font-family: var(--font-sans);
-  font-size: var(--text-xs);
-  color: var(--text-muted);
-
-  .summary-sep {
-    color: var(--border-strong);
   }
 }
 

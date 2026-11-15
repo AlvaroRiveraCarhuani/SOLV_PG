@@ -11,6 +11,8 @@ import { LogViewerModalComponent } from './components/log-viewer-modal/log-viewe
 import { LoadHistoryChartComponent } from './components/load-history-chart/load-history-chart.component';
 import { ConfirmModalComponent } from '@shared/components/confirm-modal/confirm-modal.component';
 import { ContextHelpService } from '@shared/help/context-help.service';
+import { ProductTourService } from '@shared/help/product-tour.service';
+import { buildDashboardTour } from './dashboard-help.definitions';
 import { MachineDataDirective } from '@shared/directives/machine-data.directive';
 import { CourseLoadSummary, TechnicalIncident, DockerContainerSummary } from '@core/models/admin.model';
 import { 
@@ -68,6 +70,7 @@ export const DEFAULT_BLOCK_ORDER: DashboardSectionId[] = ['kpis', 'chart', 'spli
 export class AdminDashboardComponent implements OnDestroy {
   private metricsService = inject(AdminMetricsService);
   private readonly help = inject(ContextHelpService);
+  private readonly productTour = inject(ProductTourService);
 
   health = this.metricsService.health;
   isLoading = this.metricsService.isLoading;
@@ -138,6 +141,13 @@ export class AdminDashboardComponent implements OnDestroy {
 
   constructor() {
     this.help.registerScreen(DASHBOARD_HELP_KEY);
+    this.help.registerGuides(DASHBOARD_HELP_KEY, {
+      tour: {
+        label: 'Recorrido visual',
+        hint: 'Señala el veredicto, los recursos y la tabla de contenedores.',
+        run: () => void this.productTour.start(buildDashboardTour())
+      }
+    });
     this.loadLayoutPreference();
   }
 
@@ -414,6 +424,7 @@ export class AdminDashboardComponent implements OnDestroy {
   }
 
   ngOnDestroy(): void {
+    this.help.unregisterGuides(DASHBOARD_HELP_KEY);
     this.help.unregisterScreen(DASHBOARD_HELP_KEY);
     this.stopAutoRefresh();
     if (this.refreshTimer) clearInterval(this.refreshTimer);

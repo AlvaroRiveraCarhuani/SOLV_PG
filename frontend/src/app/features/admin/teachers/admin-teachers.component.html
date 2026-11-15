@@ -13,12 +13,27 @@
 
   <!-- Header Superior Limpio -->
   <header class="page-header">
-    <div class="header-left">
+    <div class="header-left" data-tour="teachers-summary">
       <h1 class="page-title">Gestión de Docentes</h1>
       <p class="page-subtitle">Administración de profesores, invitaciones y asignación de materias.</p>
+      @if (!isLoading()) {
+        <p class="page-summary">
+          <span machineData>{{ counts().all }}</span> docentes registrados
+          <span class="page-summary-sep">·</span>
+          <span machineData>{{ counts().active }}</span> activos
+          <span class="page-summary-sep">·</span>
+          <span machineData>{{ counts().noCourses }}</span> sin materias
+          <span class="page-summary-sep">·</span>
+          <span machineData>{{ counts().pending }}</span>
+          {{ counts().pending === 1 ? 'pendiente' : 'pendientes' }}
+          <span class="page-summary-sep">·</span>
+          <span machineData>{{ counts().expired }}</span>
+          {{ counts().expired === 1 ? 'expirado' : 'expirados' }}
+        </p>
+      }
     </div>
 
-    <div class="header-actions">
+    <div class="header-actions" data-tour="teachers-create">
       <button class="btn-primary" (click)="openInviteModal()">
         <svg lucideUserPlus class="btn-icon"></svg>
         <span>Registrar Docente</span>
@@ -26,11 +41,9 @@
     </div>
   </header>
 
-  <!-- Tarjetas de Resumen KPI -->
-  <teacher-kpi-cards [counts]="counts()"></teacher-kpi-cards>
-
   <!-- Tabla y Barra de Filtros (subcomponente presentacional) -->
   <teacher-table
+    data-tour="teachers-table"
     [teachers]="paginatedTeachers()"
     [isLoading]="isLoading()"
     [searchTerm]="searchTerm()"

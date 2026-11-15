@@ -152,9 +152,48 @@ describe('AdminConfigServidorComponent', () => {
 
     expect(mockService.updatePolicies).toHaveBeenCalledWith({
       host_safety_ceiling_pct: 90,
-      inactivity_minutes: 30
+      inactivity_minutes: 30,
+      max_containers: 40
     });
     expect(component.toast()?.message).toContain('próximo ciclo');
+  });
+
+  it('concurrencia: adopta el techo recomendado por el servidor y lo guarda', async () => {
+    await setup();
+    policiesSignal.set(
+      makePolicies({
+        max_containers: 40,
+        recommendation: {
+          recommended_max_containers: 213,
+          host_total_mb: 131072,
+          platform_reserve_mb: 2048,
+          ram_per_lab_mb: 512,
+          host_safety_ceiling_pct: 85,
+          capacity_basis: 'host_ram'
+        }
+      })
+    );
+
+    expect(component.recommendedMaxContainers()).toBe(213);
+    expect(component.hostTotalGB()).toBe(128);
+
+    component.adoptRecommendedMaxContainers();
+    expect(component.selectedMaxContainers()).toBe(213);
+    expect(component.policiesDirty()).toBe(true);
+
+    component.savePolicies();
+
+    expect(mockService.updatePolicies).toHaveBeenCalledWith(
+      expect.objectContaining({ max_containers: 213 })
+    );
+  });
+
+  it('concurrencia: rechaza un valor fuera del rango de la política', async () => {
+    await setup();
+
+    component.selectedMaxContainers.set(0);
+    expect(component.maxContainersError()).not.toBe('');
+    expect(component.canSavePolicies()).toBe(false);
   });
 
   it('estrategia de respaldos: frecuencia y retención se guardan', async () => {

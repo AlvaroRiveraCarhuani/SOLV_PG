@@ -11,9 +11,16 @@ import {
 import { DateTextPipe } from '@shared/pipes/date-text.pipe';
 import { SkeletonLoaderComponent } from '@shared/components/skeleton/skeleton-loader.component';
 import { ContextHelpService } from '@shared/help/context-help.service';
+import { ProductTourService } from '@shared/help/product-tour.service';
+import { InteractiveTutorialService } from '@shared/help/interactive-tutorial.service';
 
 const REQUESTS_HELP_KEY = 'environment-requests';
 import { EnvironmentLabelPipe } from '@shared/pipes/environment-label.pipe';
+import {
+  buildEnvironmentRequestsTour,
+  buildEnvironmentRequestsTutorial
+} from './environment-requests-help.definitions';
+import { environmentCovers } from '@shared/constants/environment-types.constants';
 import { EnvironmentRequestService } from '@features/teacher/services/environment-request.service';
 import {
   ENVIRONMENT_REQUEST_STATUS_LABEL,
@@ -52,6 +59,8 @@ import { AdminTemplateItem } from '../models/admin-templates.models';
 export class AdminEnvironmentRequestsComponent implements OnInit, OnDestroy {
   private requestService = inject(EnvironmentRequestService);
   private readonly help = inject(ContextHelpService);
+  private readonly productTour = inject(ProductTourService);
+  private readonly tutorial = inject(InteractiveTutorialService);
   private templatesService = inject(AdminTemplatesService);
 
   requests = signal<EnvironmentRequest[]>([]);
@@ -74,8 +83,30 @@ export class AdminEnvironmentRequestsComponent implements OnInit, OnDestroy {
   );
   readonly visible = computed(() => (this.filter() === 'pending' ? this.pending() : this.answered()));
 
+  // Aprobar con una plantilla que no cubre la modalidad pedida deja al docente
+  // con un entorno que no puede usar. La cola solo ofrece lo que sí sirve.
+  readonly compatibleTemplates = computed(() => {
+    const request = this.selected();
+    if (!request) return [];
+    return this.templates().filter(template =>
+      environmentCovers(template.target_environment, request.target_environment)
+    );
+  });
+
   ngOnInit(): void {
     this.help.registerScreen(REQUESTS_HELP_KEY);
+    this.help.registerGuides(REQUESTS_HELP_KEY, {
+      tour: {
+        label: 'Recorrido visual',
+        hint: 'Señala cómo se lee una ficha y dónde se responde.',
+        run: () => void this.productTour.start(buildEnvironmentRequestsTour())
+      },
+      tutorial: {
+        label: 'Tutorial guiado',
+        hint: 'Abre una solicitud y comprueba la plantilla antes de continuar.',
+        run: () => this.startRequestsTutorial()
+      }
+    });
     this.load();
     this.templatesService.getTemplates('approved').subscribe({
       next: list => this.templates.set(list || []),
@@ -117,7 +148,19 @@ export class AdminEnvironmentRequestsComponent implements OnInit, OnDestroy {
   }
 
   ngOnDestroy(): void {
+    this.help.unregisterGuides(REQUESTS_HELP_KEY);
     this.help.unregisterScreen(REQUESTS_HELP_KEY);
+  }
+
+  /** Tutorial de la cola: valida ficha abierta y plantilla; no ejecuta la decisión. */
+  startRequestsTutorial(): void {
+    this.tutorial.start(
+      buildEnvironmentRequestsTutorial({
+        reviewOpen: () => this.selected() !== null,
+        hasTemplate: () => this.selectedTemplateId() !== '',
+        note: () => this.reviewNote()
+      })
+    );
   }
 
   openReview(request: EnvironmentRequest): void {

@@ -126,6 +126,21 @@ export function isEnvironmentType(value: string | null | undefined, key: Environ
   return resolveEnvironmentType(value) === key;
 }
 
+/**
+ * Indica si un entorno disponible cubre la modalidad que se necesita. Un
+ * entorno de Desarrollo y Evaluación sirve para ambas; uno específico no cubre
+ * la otra modalidad ni el modo combinado.
+ */
+export function environmentCovers(
+  available: string | null | undefined,
+  required: string | null | undefined,
+): boolean {
+  const availableKey = resolveEnvironmentType(available);
+  const requiredKey = resolveEnvironmentType(required);
+  if (!availableKey || !requiredKey) return false;
+  return availableKey === 'AMBOS' || availableKey === requiredKey;
+}
+
 /** Presentación de un valor guardado. Un valor desconocido devuelve el estado neutro. */
 export function environmentBadge(value?: string | null): EnvironmentBadge {
   const meta = getEnvironmentMeta(value);

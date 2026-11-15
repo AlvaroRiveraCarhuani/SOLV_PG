@@ -67,18 +67,24 @@ export class TemplateReviewModalComponent implements OnInit {
     return this.selectedRam() >= 1024 ? 256 : 128;
   });
 
-  maxAllowedRamMB = computed<number>(() => {
+  // Sin medición del servidor no se inventa un techo: el panel lo declara y el
+  // backend aplica su propia validación al aprobar.
+  maxAllowedRamMB = computed<number | null>(() => {
     const caps = this.runtimeCapabilities();
     if (caps?.max_allowed_ram_mb && caps.max_allowed_ram_mb > 0) {
       return caps.max_allowed_ram_mb;
     }
-    const total = caps?.host_memory?.total_ram_mb ?? 8192;
+    const total = caps?.host_memory?.total_ram_mb;
+    if (!total || total <= 0) {
+      return null;
+    }
     const derived = Math.floor(total * 0.75);
     return derived < 512 ? 512 : derived;
   });
 
-  hostFreeRamMB = computed<number>(() => {
-    return this.runtimeCapabilities()?.host_memory?.available_ram_mb ?? 2048;
+  hostFreeRamMB = computed<number | null>(() => {
+    const free = this.runtimeCapabilities()?.host_memory?.available_ram_mb;
+    return free && free > 0 ? free : null;
   });
 
   minimumFloorMB = computed<number>(() => {
@@ -103,16 +109,19 @@ export class TemplateReviewModalComponent implements OnInit {
   });
 
   isRamExceedingHost = computed<boolean>(() => {
-    return this.selectedRam() > this.maxAllowedRamMB();
+    const max = this.maxAllowedRamMB();
+    return max !== null && this.selectedRam() > max;
   });
 
   ramExcessMB = computed<number>(() => {
-    return Math.max(0, this.selectedRam() - this.maxAllowedRamMB());
+    const max = this.maxAllowedRamMB();
+    return max === null ? 0 : Math.max(0, this.selectedRam() - max);
   });
 
   isRamExceedingCurrentFree = computed<boolean>(() => {
     if (this.isRamExceedingHost()) return false;
-    return this.selectedRam() > this.hostFreeRamMB();
+    const free = this.hostFreeRamMB();
+    return free !== null && this.selectedRam() > free;
   });
 
   hasLatestTag = computed(() => {

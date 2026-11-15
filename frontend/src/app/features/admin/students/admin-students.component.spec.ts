@@ -122,6 +122,16 @@ describe('AdminStudentsComponent Unit Tests', () => {
     expect(component.blockedStudentsCount()).toBe(1);
   });
 
+  it('debe aplicar y limpiar el filtro de estado desde la línea de resumen', () => {
+    component.currentPage.set(2);
+    component.applyStatusFilter('strikes');
+    expect(component.selectedStatus()).toBe('strikes');
+    expect(component.currentPage()).toBe(1);
+
+    component.applyStatusFilter('strikes');
+    expect(component.selectedStatus()).toBe('all');
+  });
+
   it('debe filtrar estudiantes al escribir en el buscador y reiniciar la página', () => {
     component.currentPage.set(2);
     component.onSearchChange('gomez');

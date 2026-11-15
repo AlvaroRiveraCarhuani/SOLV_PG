@@ -4,7 +4,7 @@ import { provideRouter } from '@angular/router';
 import { of, throwError } from 'rxjs';
 import { vi } from 'vitest';
 import { TemplateStudioComponent } from './template-studio.component';
-import { AdminTemplatesService } from '../../services/admin-templates.service';
+import { AdminTemplatesService, RuntimeCapabilities } from '../../services/admin-templates.service';
 import { AdminConfigIaService } from '../../configuracion/admin-config-ia.service';
 import { AdminTemplateItem, TemplateComponent } from '@features/admin/models/admin-templates.models';
 import { EnvTestJobService } from '../../services/env-test-job.service';
@@ -700,6 +700,23 @@ describe('TemplateStudioComponent', () => {
     // Panel derecho
     expect(hostEl.textContent).toContain('Pendiente de selección');
     expect(hostEl.textContent).toContain('Seleccione tecnologías en el Paso 2');
+  });
+
+  it('no inventa RAM cuando el servidor no informó su memoria', () => {
+    component.runtimeCapabilities.set({
+      host_memory: undefined,
+      satellite_services: [],
+      ide_presets: [],
+      judge_presets: []
+    } as unknown as RuntimeCapabilities);
+    component.selectRuntime('rt-python-312');
+    fixture.detectChanges();
+
+    expect(component.maxAllowedRamMB()).toBeNull();
+    expect(component.hostFreeRamMB()).toBeNull();
+    expect(component.isRamExceedingHost()).toBe(false);
+    expect(component.nominalConcurrentStudents()).toBeNull();
+    expect(component.estimateStudentsForPreset(512)).toBeNull();
   });
 
   it('should calculate 2 academic profile options without fixed language names and without charging postgresql to the student quota', () => {

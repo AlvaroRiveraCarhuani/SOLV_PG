@@ -6,12 +6,24 @@ import { Observable, tap, catchError, of, forkJoin } from 'rxjs';
 // Contratos alineados al backend real
 // ---------------------------------------------------------------------------
 
+// Supuestos con los que el backend calcula cuántos entornos sostiene este host.
+// capacity_basis = 'unavailable' cuando no pudo medir la RAM del servidor.
+export interface CapacityRecommendation {
+  recommended_max_containers: number;
+  host_total_mb: number;
+  platform_reserve_mb: number;
+  ram_per_lab_mb: number;
+  host_safety_ceiling_pct: number;
+  capacity_basis: 'host_ram' | 'unavailable';
+}
+
 export interface ServerPolicies {
   ram_limit_mb?: number;
   inactivity_minutes: number;
   max_containers?: number;
   host_safety_ceiling_pct?: number;
   updated_at?: string;
+  recommendation?: CapacityRecommendation;
 }
 
 export interface UpdateServerPoliciesPayload {

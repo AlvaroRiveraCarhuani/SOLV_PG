@@ -32,10 +32,10 @@ export function buildPeriodosTutorial(context: PeriodosTutorialContext): Tutoria
     steps: [
       {
         id: 'summary',
-        title: 'Qué resumen los indicadores',
+        title: 'El resumen del ciclo lectivo',
         body:
-          'Los cuatro indicadores separan lo que está registrado, lo que está vigente, lo que empieza más adelante y lo que ya quedó archivado. Solo puede haber un período vigente a la vez.',
-        selector: '[data-tour="periods-kpis"]',
+          'La línea bajo el título cuenta lo registrado, lo vigente, lo planificado y lo archivado. Cada conteo filtra la tabla y volver a pulsarlo la devuelve completa. Solo puede haber un período vigente a la vez.',
+        selector: '[data-tour="periods-summary"]',
         side: 'bottom'
       },
       {
@@ -125,10 +125,10 @@ export function buildPeriodosTour(): TourDefinition {
         side: 'bottom'
       },
       {
-        selector: '[data-tour="periods-kpis"]',
+        selector: '[data-tour="periods-summary"]',
         title: 'Los cuatro estados del ciclo',
         description:
-          'Registrados, vigentes, próximos y archivados. Solo un período puede estar vigente, y es el que usan las demás pantallas para inscribir materias.',
+          'Registrados, vigentes, próximos y archivados, cada uno como filtro de la tabla. Solo un período puede estar vigente, y es el que usan las demás pantallas para inscribir materias.',
         side: 'bottom'
       },
       {

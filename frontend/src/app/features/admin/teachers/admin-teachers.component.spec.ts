@@ -121,14 +121,14 @@ describe('AdminTeachersComponent Unit Tests', () => {
     expect(counts.expired).toBe(1);
   });
 
-  it('debe computar las pestañas de estado con los contadores correctos', () => {
-    const tabs = component.teacherStatusTabs();
-    expect(tabs.length).toBe(5);
-    expect(tabs[0]).toEqual({ id: 'all', label: 'Todos', count: 4 });
-    expect(tabs[1]).toEqual({ id: 'active', label: 'Activos', count: 2, badgeVariant: 'active' });
-    expect(tabs[2]).toEqual({ id: 'no_courses', label: 'Sin materias', count: 1, badgeVariant: 'warning' });
-    expect(tabs[3]).toEqual({ id: 'pending', label: 'Pendientes (72h)', count: 1, badgeVariant: 'warning' });
-    expect(tabs[4]).toEqual({ id: 'expired', label: 'Expirados', count: 1, badgeVariant: 'neutral' });
+  it('debe computar las pestañas de estado sin contadores: el resumen es la única fuente del número', () => {
+    expect(component.teacherStatusTabs()).toEqual([
+      { id: 'all', label: 'Todos' },
+      { id: 'active', label: 'Activos' },
+      { id: 'no_courses', label: 'Sin materias' },
+      { id: 'pending', label: 'Pendientes (72h)' },
+      { id: 'expired', label: 'Expirados' }
+    ]);
   });
 
   it('debe filtrar docentes al tipear en el buscador y reiniciar la página a 1', () => {

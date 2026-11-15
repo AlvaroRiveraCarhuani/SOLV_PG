@@ -8,7 +8,6 @@ import {
   AcademicPeriodOption, 
   CreateStudentDTO 
 } from '../services/admin-students.service';
-import { StudentKpiCardsComponent } from './components/student-kpi-cards/student-kpi-cards.component';
 import { StudentTableComponent } from './components/student-table/student-table.component';
 import { StudentCoursesModalComponent } from './components/student-courses-modal/student-courses-modal.component';
 import { StudentResetOOMModalComponent } from './components/student-reset-oom-modal/student-reset-oom-modal.component';
@@ -17,6 +16,7 @@ import { StudentEnrollRosterModalComponent } from './components/student-enroll-r
 import { ConfirmModalComponent } from '@shared/components/confirm-modal/confirm-modal.component';
 import { ContextHelpService } from '@shared/help/context-help.service';
 import { ComboboxOption } from '@shared/components/combobox/combobox.component';
+import { MachineDataDirective } from '@shared/directives/machine-data.directive';
 import { SortDirection, SortState } from '@shared/components/sort-header/sort-header.types';
 import { LucideCheckCircle2, LucideAlertTriangle, LucideUserPlus, LucideBookOpen } from '@lucide/angular';
 
@@ -27,7 +27,7 @@ const STUDENTS_HELP_KEY = 'students-penalties';
   standalone: true,
   imports: [
     CommonModule,
-    StudentKpiCardsComponent,
+    MachineDataDirective,
     StudentTableComponent,
     StudentCoursesModalComponent,
     StudentResetOOMModalComponent,
@@ -251,6 +251,12 @@ export class AdminStudentsComponent implements OnInit, OnDestroy {
     this.currentPage.set(1);
   }
 
+  /** Aplica el filtro de estado desde la línea de resumen; repetir el clic lo limpia. */
+  applyStatusFilter(status: string): void {
+    this.selectedStatus.set(this.selectedStatus() === status ? 'all' : status);
+    this.currentPage.set(1);
+  }
+
   onSearchChange(term: string): void {
     this.searchTerm.set(term);
     this.currentPage.set(1);
@@ -349,14 +355,15 @@ export class AdminStudentsComponent implements OnInit, OnDestroy {
   openRosterEnrollModal(): void { this.showRosterEnrollModal.set(true); }
   closeRosterEnrollModal(): void { this.showRosterEnrollModal.set(false); }
 
-  onRosterEnrolled(payload: { subjectId: string; emails: string[] }): void {
+  onRosterEnrolled(payload: { subjectId: string; emails: string[]; reconcile: boolean }): void {
     this.isEnrollingRoster.set(true);
-    this.studentsService.rosterEnroll(payload.subjectId, payload.emails).subscribe({
+    this.studentsService.rosterEnroll(payload.subjectId, payload.emails, payload.reconcile).subscribe({
       next: (res) => {
         this.isEnrollingRoster.set(false);
         this.closeRosterEnrollModal();
+        const removed = res.removed_students > 0 ? `, ${res.removed_students} dados de baja` : '';
         this.showToast(
-          `${res.enrolled_students} estudiantes matriculados (${res.created_students} cuentas nuevas creadas).`,
+          `${res.enrolled_students} estudiantes matriculados (${res.created_students} cuentas nuevas creadas${removed}).`,
           'success'
         );
         this.loadStudents();

@@ -15,7 +15,10 @@
 // sin redefinir animaciones ni duplicar primitivas.
 
 .driver-popover.solv-help-popover {
-  max-width: 340px;
+  // La burbuja nunca debe exceder el ancho útil de la ventana.
+  max-width: min(340px, calc(100vw - var(--space-4) - var(--space-4)));
+  max-height: calc(100vh - var(--space-4) - var(--space-4));
+  overflow-y: auto;
   padding: var(--space-4);
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-md);

@@ -130,7 +130,7 @@ describe('TechCatalogComponent', () => {
     expect(compiled.querySelector('kpi-grid')).toBeNull();
     expect(compiled.querySelector('kpi-card')).toBeNull();
 
-    const summary = compiled.querySelector('.catalog-summary')?.textContent || '';
+    const summary = compiled.querySelector('.page-summary')?.textContent || '';
     expect(summary).toContain('3');
     expect(summary).toContain('tecnologías registradas');
     expect(summary).toContain('activas');

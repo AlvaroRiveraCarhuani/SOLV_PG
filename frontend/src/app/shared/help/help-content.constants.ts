@@ -347,7 +347,7 @@ export const CONTEXT_HELP_ENTRIES: Record<string, ContextHelpEntry> = {
     items: [
       {
         label: 'Búsqueda y filtros',
-        text: 'Filtre por acción, severidad o texto para encontrar un movimiento concreto.'
+        text: 'Filtre por verbo de acción y busque por evento, actor o recurso para encontrar un movimiento concreto.'
       },
       {
         label: 'Acciones con motivo',
@@ -356,6 +356,32 @@ export const CONTEXT_HELP_ENTRIES: Record<string, ContextHelpEntry> = {
       {
         label: 'Emergencias',
         text: 'Pestaña aparte con las cinco acciones del servidor, con doble confirmación.'
+      }
+    ],
+    manualFragment: '5-2-registro-de-auditoria'
+  },
+
+  'audit-log': {
+    key: 'audit-log',
+    title: 'Cómo leer un evento del registro',
+    intro:
+      'Cada fila es una acción que ya ocurrió, con su autor, la hora, el recurso y el resultado. El registro es de solo lectura: no se edita ni se borra desde esta pantalla.',
+    items: [
+      {
+        label: 'Hora y actor',
+        text: 'La marca es la del servidor; el actor identifica a la persona o al sistema que ejecutó la acción.'
+      },
+      {
+        label: 'Acción y motivo',
+        text: 'La etiqueta describe el verbo (crear, actualizar, eliminar). Cuando la operación exigió un motivo, aparece debajo de la acción.'
+      },
+      {
+        label: 'Resultado',
+        text: 'El estado distingue un evento exitoso de uno rechazado o fallido. Un rechazo repetido del mismo actor suele explicar un bloqueo.'
+      },
+      {
+        label: 'Cronología del actor',
+        text: 'La última columna abre la actividad completa de ese actor en un panel lateral, del evento más reciente al más antiguo.'
       }
     ],
     manualFragment: '5-2-registro-de-auditoria'

@@ -11,14 +11,24 @@
   }
 
   <header class="page-header">
-    <div class="header-left">
+    <div class="header-left" data-tour="categories-summary">
       <h1 class="page-title">Categorías Académicas</h1>
       <p class="page-subtitle">Gestión de áreas de conocimiento y taxonomía para materias y entornos del campus</p>
+      @if (!isLoading()) {
+        <p class="page-summary">
+          <span machineData>{{ totalCategoriesCount() }}</span>
+          {{ totalCategoriesCount() === 1 ? 'categoría' : 'categorías' }} registradas
+          <span class="page-summary-sep">·</span>
+          <span machineData>{{ activeCategoriesCount() }}</span>
+          {{ activeCategoriesCount() === 1 ? 'activa' : 'activas' }}
+        </p>
+      }
     </div>
     <div class="header-actions">
       <button
         type="button"
         class="btn-primary"
+        data-tour="categories-create"
         (click)="openCreateCategory()"
       >
         <svg lucidePlus class="btn-icon"></svg>
@@ -27,27 +37,7 @@
     </div>
   </header>
 
-  <kpi-grid [columns]="2">
-    <kpi-card
-      label="Total Categorías"
-      [value]="totalCategoriesCount()"
-      detail="Áreas académicas configuradas"
-      variant="primary"
-    >
-      <svg lucideTag icon></svg>
-    </kpi-card>
-
-    <kpi-card
-      label="Categorías Activas"
-      [value]="activeCategoriesCount()"
-      detail="Disponibles en el sistema"
-      variant="running"
-    >
-      <svg lucideCheckCircle2 icon></svg>
-    </kpi-card>
-  </kpi-grid>
-
-  <section class="categories-content-card">
+  <section class="categories-content-card" data-tour="categories-list">
     <template-categories-manager
       [categories]="categories()"
       [models]="models()"

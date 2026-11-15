@@ -37,6 +37,7 @@ Son las fichas que cambian la experiencia del docente. Se relacionan entre sí; 
 | [ai-copilot-catalog-grounding-and-missing-flow.md](tasks/ai-copilot-catalog-grounding-and-missing-flow.md) | Copiloto IA con datos reales del catálogo y creación de tecnologías faltantes | Sin estado declarado | Depende del catálogo (ficha 5) |
 | [ai-copilot-resilience-byok-and-ux.md](tasks/ai-copilot-resilience-byok-and-ux.md) | Copiloto autoadaptativo, autorreparación de entornos, BYOK docente, UX | Sin estado declarado | Puede compartir cambios con la ficha anterior |
 | [admin-governance-and-access-control.md](tasks/admin-governance-and-access-control.md) | Gestión de administradores y control de acceso en configuración | Sin estado declarado | Ninguna |
+| [admin-help-guides-coverage.md](tasks/admin-help-guides-coverage.md) | Cobertura de recorridos y tutoriales de las pantallas del administrador | En curso (2026-11-14); Solicitudes y Docentes implementadas, sin commit | `docs/UI/ADMIN/MANUAL_ADMIN.md` §11; centro de ayuda |
 | [academic-email-notifications-and-reminders.md](tasks/academic-email-notifications-and-reminders.md) | Correos académicos multi-tenant: evaluaciones, recordatorios a 12 h, bienvenida docente | Sin estado declarado | Ninguna |
 | [host-telemetry-truthfulness.md](tasks/host-telemetry-truthfulness.md) | Cifras medidas en el dashboard de salud, sin estimaciones ocultas | Sin estado declarado; forecast ~1400 líneas | Requiere estrategia de entrega antes de empezar |
 

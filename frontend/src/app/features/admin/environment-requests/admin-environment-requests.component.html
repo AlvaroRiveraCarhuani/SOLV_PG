@@ -1,5 +1,5 @@
 <div class="requests-page">
-  <header class="page-header">
+  <header class="page-header" data-tour="requests-header">
     <div>
       <h1 class="page-title">Solicitudes de entornos</h1>
       <p class="page-subtitle">
@@ -16,7 +16,7 @@
     </div>
   }
 
-  <div class="filter-row">
+  <div class="filter-row" data-tour="requests-filters">
     <button
       type="button"
       class="filter-chip"
@@ -54,7 +54,7 @@
   } @else {
     <div class="requests-list">
       @for (request of visible(); track request.id) {
-        <article class="request-card">
+        <article class="request-card" data-tour="requests-card">
           <div class="card-head">
             <div class="head-texts">
               <h2 class="request-title">{{ request.title }}</h2>
@@ -63,6 +63,9 @@
                 · <time>{{ request.created_at | dateText }}</time>
                 · {{ request.target_environment | environmentLabel }}
               </span>
+              @if (request.resolved_template_name) {
+                <span class="request-meta">Resuelta con {{ request.resolved_template_name }}</span>
+              }
             </div>
             <span class="request-status" [class]="statusTone(request.status)">
               {{ statusLabel(request.status) }}
@@ -70,7 +73,7 @@
           </div>
 
           <div class="card-columns">
-            <div class="column">
+            <div class="column" data-tour="requests-pieces">
               <span class="column-label">Piezas reconocidas</span>
               @if (request.components.length === 0) {
                 <p class="column-empty">Sin piezas: el docente pidió solo con texto.</p>
@@ -84,7 +87,7 @@
 
               @if (request.missing_components.length > 0) {
                 <span class="column-label spaced">No están en el catálogo</span>
-                <div class="chip-row">
+                <div class="chip-row" data-tour="requests-missing">
                   @for (missing of request.missing_components; track missing.name) {
                     <span class="piece-chip missing">{{ missing.name }}</span>
                   }
@@ -92,7 +95,7 @@
               }
             </div>
 
-            <div class="column">
+            <div class="column" data-tour="requests-uses">
               <span class="column-label">Uso declarado</span>
               <p class="column-value">{{ usesLabel(request) }}</p>
 
@@ -127,17 +130,22 @@
           @if (request.status === 'EN_REVISION') {
             @if (selected()?.id === request.id) {
               <div class="review-panel">
-                <label class="field">
+                <label class="field" data-tour="requests-template">
                   <span class="field-label">Plantilla que resuelve la solicitud</span>
                   <select [ngModel]="selectedTemplateId()" (ngModelChange)="selectedTemplateId.set($event)">
                     <option value="">Elegir plantilla...</option>
-                    @for (template of templates(); track template.id) {
+                    @for (template of compatibleTemplates(); track template.id) {
                       <option [value]="template.id">{{ template.name }}</option>
                     }
                   </select>
+                  @if (compatibleTemplates().length === 0) {
+                    <p class="column-empty">
+                      No hay plantillas aprobadas para esta modalidad. Crea el entorno en el Constructor y vuelve a responder.
+                    </p>
+                  }
                 </label>
 
-                <label class="field">
+                <label class="field" data-tour="requests-note">
                   <span class="field-label">Respuesta para el docente</span>
                   <textarea
                     rows="2"
@@ -154,7 +162,7 @@
                   </div>
                 }
 
-                <div class="review-actions">
+                <div class="review-actions" data-tour="requests-actions">
                   <button type="button" class="btn-outline" [disabled]="isSaving()" (click)="closeReview()">
                     Cancelar
                   </button>
@@ -171,7 +179,7 @@
                 </div>
               </div>
             } @else {
-              <div class="card-actions">
+              <div class="card-actions" data-tour="requests-open">
                 <button type="button" class="btn-primary" (click)="openReview(request)">
                   Responder
                 </button>

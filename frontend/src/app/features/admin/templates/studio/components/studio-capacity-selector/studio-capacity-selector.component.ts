@@ -18,13 +18,14 @@ export class StudioCapacitySelectorComponent {
   readonly capacityOptions = input.required<CapacityOption[]>();
   readonly showManualRamInput = input<boolean>(false);
   readonly minimumFloorMB = input.required<number>();
-  readonly maxAllowedRamMB = input.required<number>();
-  readonly hostFreeRamMB = input.required<number>();
+  // null = el servidor todavía no informó su memoria; no se muestra un número.
+  readonly maxAllowedRamMB = input.required<number | null>();
+  readonly hostFreeRamMB = input.required<number | null>();
   readonly isRamBelowFloor = input.required<boolean>();
   readonly isRamExceedingHost = input.required<boolean>();
   readonly ramExcessMB = input.required<number>();
   readonly isRamExceedingCurrentFree = input.required<boolean>();
-  readonly nominalConcurrentStudents = input.required<number>();
+  readonly nominalConcurrentStudents = input.required<number | null>();
   readonly stackSummaryLabel = input.required<string>();
   readonly resourceBreakdown = input.required<StudioResourceBreakdown>();
 
@@ -32,7 +33,8 @@ export class StudioCapacitySelectorComponent {
   readonly toggleManualInput = output<void>();
   readonly customRamChange = output<number | string>();
 
-  estimateStudentsForPreset(mb: number): number {
-    return Math.max(1, Math.floor(this.maxAllowedRamMB() / Math.max(1, mb)));
+  estimateStudentsForPreset(mb: number): number | null {
+    const max = this.maxAllowedRamMB();
+    return max === null ? null : Math.max(1, Math.floor(max / Math.max(1, mb)));
   }
 }

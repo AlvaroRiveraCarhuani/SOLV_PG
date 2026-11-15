@@ -8,7 +8,7 @@
     </div>
   </header>
 
-  <nav class="auditoria-tabs" role="tablist" aria-label="Secciones de auditoría">
+  <nav class="auditoria-tabs" role="tablist" aria-label="Secciones de auditoría" data-tour="audit-tabs">
     @for (tab of tabs; track tab.id) {
       <button
         type="button"
@@ -23,7 +23,7 @@
     }
   </nav>
 
-  <p class="tab-description">{{ activeDef().description }}</p>
+  <p class="tab-description" data-tour="audit-tab-description">{{ activeDef().description }}</p>
 
   <div class="auditoria-tab-panel" role="tabpanel">
     @switch (activeTab()) {

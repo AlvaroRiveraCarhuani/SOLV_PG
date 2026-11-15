@@ -157,32 +157,17 @@ export class AdminMetricsService {
     ).subscribe();
   }
 
+  // La ruta real es /api/v1/admin/emergency/hibernate_all_environments (ADR-032).
+  // El antiguo /hibernate_all no existía y el catchError simulaba el resultado:
+  // el panel mostraba todo hibernado sin haber hibernado nada. Ahora el error
+  // se propaga para que la pantalla lo muestre.
   hibernateAll() {
-    return this.http.post('/api/v1/admin/emergency/hibernate_all', {})
-      .pipe(
-        tap(() => this.fetchMetrics()),
-        catchError(() => {
-          this.health.update((current) => {
-            if (!current) return current;
-            return {
-              ...current,
-              metrics: {
-                ...current.metrics,
-                containers_active: 0,
-                containers_hibernated: current.metrics.containers_active + current.metrics.containers_hibernated
-              },
-              containers: current.containers.map(c => ({ ...c, status: 'hibernated' as const })),
-              courses_load: current.courses_load.map(c => ({
-                ...c,
-                active_students: 0,
-                hibernated_students: c.active_students + c.hibernated_students,
-                ram_used_mb: 0
-              }))
-            };
-          });
-          return of(null);
-        })
-      );
+    return this.http
+      .post('/api/v1/admin/emergency/hibernate_all_environments', {
+        confirmation_phrase: 'HIBERNAR TODOS LOS ENTORNOS',
+        reason: 'Hibernación masiva solicitada desde el panel de administración'
+      })
+      .pipe(tap(() => this.fetchMetrics()));
   }
 
   // Mismo caso que la pausa: la ruta real es /api/v1/environments/{id}/restart;

@@ -18,6 +18,56 @@
       <p class="page-subtitle">
         Supervisión de consumo de cómputo, entornos de laboratorio y desbloqueo de penalizaciones de memoria.
       </p>
+      @if (!isLoading()) {
+        <p class="page-summary" aria-label="Resumen del directorio de estudiantes">
+          <button
+            type="button"
+            class="summary-filter"
+            [class.is-active]="selectedStatus() === 'enrolled'"
+            (click)="applyStatusFilter('enrolled')"
+            title="Filtrar estudiantes que están cursando materias"
+          >
+            <span machineData>{{ enrolledStudentsCount() }}</span> cursando
+            de <span machineData>{{ totalStudents() }}</span>
+          </button>
+
+          <span class="page-summary-sep">·</span>
+
+          <button
+            type="button"
+            class="summary-filter"
+            [class.is-active]="selectedStatus() === 'running'"
+            (click)="applyStatusFilter('running')"
+            title="Filtrar estudiantes con entornos de laboratorio activos"
+          >
+            <span machineData>{{ activeEnvironmentsTotal() }}</span> entornos en ejecución
+          </button>
+
+          <span class="page-summary-sep">·</span>
+
+          <button
+            type="button"
+            class="summary-filter"
+            [class.is-active]="selectedStatus() === 'strikes'"
+            (click)="applyStatusFilter('strikes')"
+            title="Filtrar estudiantes con 1 o 2 penalizaciones de memoria"
+          >
+            <span machineData>{{ strikesStudentsCount() }}</span> en riesgo
+          </button>
+
+          <span class="page-summary-sep">·</span>
+
+          <button
+            type="button"
+            class="summary-filter"
+            [class.is-active]="selectedStatus() === 'blocked'"
+            (click)="applyStatusFilter('blocked')"
+            title="Filtrar estudiantes bloqueados por 3 penalizaciones de memoria"
+          >
+            <span machineData>{{ blockedStudentsCount() }}</span> bloqueados por OOM
+          </button>
+        </p>
+      }
     </div>
     <div class="header-actions">
       <button class="btn-outline" (click)="openRosterEnrollModal()" title="Matricular estudiantes desde una planilla">
@@ -30,15 +80,6 @@
       </button>
     </div>
   </header>
-
-  <!-- Métricas Operativas Rápidas (KPIs) -->
-  <student-kpi-cards
-    [enrolledStudentsCount]="enrolledStudentsCount()"
-    [totalStudents]="totalStudents()"
-    [activeEnvironmentsTotal]="activeEnvironmentsTotal()"
-    [strikesStudentsCount]="strikesStudentsCount()"
-    [blockedStudentsCount]="blockedStudentsCount()"
-  />
 
   <!-- Tabla de Estudiantes con Filtros y Paginación -->
   <student-table

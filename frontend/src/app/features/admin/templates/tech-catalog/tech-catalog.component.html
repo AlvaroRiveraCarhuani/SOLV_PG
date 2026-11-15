@@ -1,12 +1,12 @@
 <div class="tech-catalog-container">
   <header class="page-header">
-    <div class="header-left">
+    <div class="header-left" data-tour="tech-summary">
       <h1 class="page-title">Catálogo de Tecnologías</h1>
       <p class="page-subtitle">Gestión centralizada de lenguajes, frameworks, librerías y bases de datos para el constructor de entornos</p>
       @if (!isLoading()) {
-        <p class="catalog-summary">
+        <p class="page-summary">
           <span machineData>{{ totalComponentsCount() }}</span> tecnologías registradas
-          <span class="summary-sep">·</span>
+          <span class="page-summary-sep">·</span>
           <span machineData>{{ activeComponentsCount() }}</span> activas
         </p>
       }
@@ -26,7 +26,7 @@
   </header>
 
   <div class="nav-toolbar">
-    <div class="tabs-group">
+    <div class="tabs-group" data-tour="tech-tabs">
       <button
         type="button"
         class="tab-btn"
@@ -57,7 +57,7 @@
 
   @if (activeTab() === 'components') {
     <div class="tech-components-section">
-      <div class="filters-bar">
+      <div class="filters-bar" data-tour="tech-filters">
         <search-bar
           [query]="componentSearchQuery()"
           (queryChange)="componentSearchQuery.set($event)"
@@ -88,7 +88,7 @@
       @if (isLoading()) {
         <skeleton-loader variant="cards" [count]="6" />
       } @else if (viewMode() === 'cards') {
-        <div class="components-grid">
+        <div class="components-grid" data-tour="tech-grid">
           @for (comp of filteredTechComponents(); track comp.id) {
             <div class="tech-card" [class.inactive-card]="comp.is_active === false">
               <div class="tech-card-header">
@@ -109,6 +109,7 @@
                   <button
                     type="button"
                     class="btn-toggle-switch"
+                    data-tour="tech-toggle"
                     role="switch"
                     [attr.aria-checked]="comp.is_active !== false"
                     [class.active]="comp.is_active !== false"
@@ -153,7 +154,7 @@
                 }
 
                 @if ((comp.usage_count ?? 0) > 0) {
-                  <span class="tech-badge badge-usage" [title]="'La referencian ' + comp.usage_count + ' plantilla(s) o modelo(s)'">
+                  <span class="tech-badge badge-usage" data-tour="tech-usage" [title]="'La referencian ' + comp.usage_count + ' plantilla(s) o modelo(s)'">
                     En uso: <span machineData>{{ comp.usage_count }}</span>
                   </span>
                 }
@@ -198,7 +199,7 @@
                   {{ comp.is_system ? 'Catálogo Oficial' : 'Creado por Admin' }}
                 </span>
 
-                <div class="card-actions">
+                <div class="card-actions" data-tour="tech-card-actions">
                   @if (comp.layer === 'runtime') {
                     <button
                       type="button"
@@ -225,6 +226,7 @@
                     <button
                       type="button"
                       class="btn-action-icon action-delete"
+                      data-tour="tech-delete"
                       (click)="openDeleteConfirm(comp)"
                       title="Eliminar tecnología"
                       aria-label="Eliminar tecnología"
@@ -396,6 +398,7 @@
                         <button
                           type="button"
                           class="btn-action-icon action-delete"
+                          data-tour="tech-delete"
                           (click)="openDeleteConfirm(comp)"
                           title="Eliminar tecnología"
                           aria-label="Eliminar tecnología"
@@ -449,6 +452,7 @@
 
   @if (deleteDialog(); as dialog) {
     <confirm-modal
+      data-tour="tech-delete-dialog"
       [title]="dialog.title"
       [message]="dialog.message"
       [confirmText]="dialog.confirmText"

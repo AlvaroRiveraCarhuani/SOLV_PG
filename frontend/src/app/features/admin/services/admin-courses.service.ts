@@ -282,11 +282,10 @@ export class AdminCoursesService {
         if (Array.isArray(res)) return res;
         return (res as { templates?: DockerTemplateItem[] }).templates || (res as { data?: DockerTemplateItem[] }).data || [];
       }),
-      catchError(() => of([
-        { id: 'c-lang', name: 'c-lang-base', display_name: 'C / Linux Kernel', image: 'solv-c-base:latest', base_ram_mb: 512 },
-        { id: 'python', name: 'python-base', display_name: 'Python 3.12 / Data', image: 'solv-python:latest', base_ram_mb: 512 },
-        { id: 'java', name: 'java-base', display_name: 'Java 21 LTS', image: 'solv-java:latest', base_ram_mb: 1024 }
-      ]))
+      // Sin plantillas simuladas: si el catálogo no responde, la vista muestra
+      // las materias sin nombre de plantilla. Inventar tres plantillas con
+      // imágenes :latest era peor que no mostrar nada.
+      catchError(() => of([] as DockerTemplateItem[]))
     );
   }
 

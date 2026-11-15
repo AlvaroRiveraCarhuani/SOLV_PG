@@ -1,6 +1,6 @@
 import { Injectable, inject, signal } from '@angular/core';
 import { HttpClient, HttpParams } from '@angular/common/http';
-import { Observable } from 'rxjs';
+import { Observable, finalize } from 'rxjs';
 import { AuditLog } from '@core/models/audit-log.model';
 
 export interface AuditLogListResponse {
@@ -30,14 +30,14 @@ export const EMERGENCY_ACTIONS = [
   {
     id: 'terminate_all_environments',
     label: 'Terminar todos los environments',
-    phrase: 'TERMINAR TODOS LOS WORKSPACES',
+    phrase: 'TERMINAR TODOS LOS ENTORNOS',
     impact: 'destructiva' as const,
     description: 'Detiene y destruye todos los contenedores activos del tenant.'
   },
   {
     id: 'hibernate_all_environments',
     label: 'Hibernar todos los environments',
-    phrase: 'HIBERNAR TODOS LOS WORKSPACES',
+    phrase: 'HIBERNAR TODOS LOS ENTORNOS',
     impact: 'operativa' as const,
     description: 'Pausa todos los contenedores activos preservando su estado.'
   },
@@ -100,8 +100,20 @@ export class AdminAuditoriaService {
     );
   }
 
+  /**
+   * El backend exige la frase exacta de la acción (ADR-032) y la valida en el
+   * cuerpo; sin `confirmation_phrase` responde 422 y la acción nunca se ejecuta.
+   * La frase sale del catálogo, que es la única fuente de verdad de esta pantalla.
+   */
   executeEmergencyAction(action: EmergencyActionId, reason: string): Observable<EmergencyActionResult> {
+    const definition = EMERGENCY_ACTIONS.find((item) => item.id === action);
+    const confirmation_phrase = definition ? definition.phrase : '';
     this.isExecuting.set(true);
-    return this.http.post<EmergencyActionResult>(`/api/v1/admin/emergency/${action}`, { reason }).pipe();
+    return this.http
+      .post<EmergencyActionResult>(`/api/v1/admin/emergency/${action}`, {
+        confirmation_phrase,
+        reason,
+      })
+      .pipe(finalize(() => this.isExecuting.set(false)));
   }
 }

@@ -7,7 +7,7 @@
   <svg modal-icon lucideUserPlus class="icon"></svg>
 
   <!-- Selector de Modo Simple: Individual vs Importar Planilla -->
-  <div class="modal-nav-tabs" role="tablist">
+  <div class="modal-nav-tabs" role="tablist" data-tour="teacher-invite-tabs">
     <button
       type="button"
       role="tab"
@@ -35,6 +35,7 @@
   @if (currentTab() === 'individual') {
     <div class="tab-panel motion-fade">
       <form-field
+        data-tour="teacher-invite-email"
         label="Correo Institucional del Docente"
         for="teacher-email-input"
         [required]="true"
@@ -137,6 +138,7 @@
     @if (currentTab() === 'individual') {
       <button
         class="btn-primary"
+        data-tour="teacher-invite-submit"
         [disabled]="!isValidEmail() || isSubmitting()"
         (click)="onSubmitIndividual()"
       >

@@ -128,15 +128,16 @@ describe('AdminCoursesComponent Unit Tests', () => {
     expect(kpis.totalCourses).toBe(3);
     expect(kpis.unassignedCourses).toBe(1); // c2
     expect(kpis.archivedCourses).toBe(1); // c3
+    expect(kpis.activeCourses).toBe(2);
   });
 
-  it('debe generar las pestañas de estado con los contadores correctos', () => {
-    const tabs = component.courseStatusTabs();
-    expect(tabs.length).toBe(4);
-    expect(tabs[0]).toEqual({ id: 'all', label: 'Todos', count: 3 });
-    expect(tabs[1]).toEqual({ id: 'active', label: 'Activos', count: 2, badgeVariant: 'active' });
-    expect(tabs[2]).toEqual({ id: 'unassigned', label: 'Sin Docente', count: 1, badgeVariant: 'warning' });
-    expect(tabs[3]).toEqual({ id: 'archived', label: 'Archivados', count: 1, badgeVariant: 'neutral' });
+  it('debe generar las pestañas de estado sin contadores: el resumen es la única fuente del número', () => {
+    expect(component.courseStatusTabs()).toEqual([
+      { id: 'all', label: 'Todos' },
+      { id: 'active', label: 'Activos' },
+      { id: 'unassigned', label: 'Sin Docente' },
+      { id: 'archived', label: 'Archivados' }
+    ]);
   });
 
   it('debe filtrar cursos por término de búsqueda y reiniciar la página', () => {

@@ -201,4 +201,18 @@ describe('AdminConfigPeriodosComponent', () => {
     expect(component.toast()?.type).toBe('error');
     expect(mockService.resolveError).toHaveBeenCalled();
   });
+
+  it('el resumen filtra por ciclo de vida y repetir el clic devuelve la lista completa', async () => {
+    await setup();
+
+    component.currentPage.set(2);
+    component.applyLifecycleFilter('archivado');
+    expect(component.lifecycleFilter()).toBe('archivado');
+    expect(component.filteredRows().map((r) => r.id)).toEqual(['p3']);
+    expect(component.currentPage()).toBe(1);
+
+    component.applyLifecycleFilter('archivado');
+    expect(component.lifecycleFilter()).toBe('all');
+    expect(component.filteredRows().length).toBe(3);
+  });
 });

@@ -16,11 +16,10 @@
     color: var(--text-primary);
   }
 
+  // Variante: el subtítulo limita su ancho para no cruzar el encabezado.
   .page-subtitle {
     margin: var(--space-1) 0 0;
     max-width: 720px;
-    font-size: var(--text-sm);
-    color: var(--text-secondary);
   }
 }
 

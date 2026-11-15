@@ -54,7 +54,7 @@ export class StudioSummarySidebarComponent {
   readonly selectedStackComponents = input<TemplateComponent[]>([]);
   readonly hasSelectedStack = input<boolean>(false);
   readonly baseRamMB = input<number>(512);
-  readonly nominalConcurrentStudents = input<number>(1);
+  readonly nominalConcurrentStudents = input<number | null>(null);
   readonly toolsList = input<string[]>([]);
   readonly activeEnvTestJob = input<EnvTestJob | null>(null);
   readonly isConfigModifiedAfterVerification = input<boolean>(false);

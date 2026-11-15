@@ -10,26 +10,63 @@
 }
 
 <div class="periodos-tab">
-  <!-- KPIs del ciclo lectivo -->
-  <kpi-grid [columns]="4" data-tour="periods-kpis">
-    <kpi-card label="Períodos Registrados" [value]="periods().length" detail="Ciclos lectivos históricos" variant="primary">
-      <svg kpi-icon lucideCalendar></svg>
-    </kpi-card>
-    <kpi-card label="Período Activo" [value]="activeCount()" [detail]="activeCount() === 1 ? 'Ciclo lectivo vigente' : 'Sin ciclo vigente'" [variant]="activeCount() === 1 ? 'running' : 'warning'">
-      <svg kpi-icon lucideRocket></svg>
-    </kpi-card>
-    <kpi-card label="Próximos a Iniciar" [value]="nextUpCount()" detail="Planificados con vigencia futura" variant="default">
-      <svg kpi-icon lucideCalendar></svg>
-    </kpi-card>
-    <kpi-card label="Archivados" [value]="archivedCount()" detail="Cerrados con materias en solo lectura" variant="default">
-      <svg kpi-icon lucideArchive></svg>
-    </kpi-card>
-  </kpi-grid>
+  <!-- Resumen del ciclo lectivo: cada conteo filtra la tabla -->
+  <p class="page-summary" data-tour="periods-summary" aria-label="Resumen de períodos académicos">
+    <button
+      type="button"
+      class="summary-filter"
+      [class.is-active]="lifecycleFilter() === 'all'"
+      (click)="applyLifecycleFilter('all')"
+      title="Ver todos los períodos"
+    >
+      <span machineData>{{ rows().length }}</span>
+      {{ rows().length === 1 ? 'período' : 'períodos' }}
+    </button>
+
+    <span class="page-summary-sep">·</span>
+
+    <button
+      type="button"
+      class="summary-filter"
+      [class.is-active]="lifecycleFilter() === 'activo'"
+      (click)="applyLifecycleFilter('activo')"
+      title="Filtrar el período vigente"
+    >
+      <span machineData>{{ activeCount() }}</span>
+      {{ activeCount() === 1 ? 'vigente' : 'vigentes' }}
+    </button>
+
+    <span class="page-summary-sep">·</span>
+
+    <button
+      type="button"
+      class="summary-filter"
+      [class.is-active]="lifecycleFilter() === 'proximo'"
+      (click)="applyLifecycleFilter('proximo')"
+      title="Filtrar períodos planificados con vigencia futura"
+    >
+      <span machineData>{{ nextUpCount() }}</span>
+      {{ nextUpCount() === 1 ? 'próximo' : 'próximos' }}
+    </button>
+
+    <span class="page-summary-sep">·</span>
+
+    <button
+      type="button"
+      class="summary-filter"
+      [class.is-active]="lifecycleFilter() === 'archivado'"
+      (click)="applyLifecycleFilter('archivado')"
+      title="Filtrar períodos archivados, con materias en solo lectura"
+    >
+      <span machineData>{{ archivedCount() }}</span>
+      {{ archivedCount() === 1 ? 'archivado' : 'archivados' }}
+    </button>
+  </p>
 
   <!-- Encabezado de tabla -->
   <div class="table-card table-responsive">
     <div class="table-toolbar">
-      <h2 class="section-title">Semestres y Ciclos Lectivos Registrados</h2>
+      <h2 class="section-title section-title-flush">Semestres y Ciclos Lectivos Registrados</h2>
       <button type="button" class="btn-primary" data-tour="periods-create" (click)="openCreate()">
         <svg lucidePlus class="btn-icon"></svg>
         <span>Nuevo Período</span>
@@ -112,12 +149,30 @@
                   <div class="empty-icon-box">
                     <svg lucideCalendar></svg>
                   </div>
-                  <p class="empty-title">Sin períodos académicos registrados</p>
-                  <p class="empty-description">Registra el primer ciclo lectivo para habilitar la gestión de materias.</p>
-                  <button type="button" class="btn-primary" (click)="openCreate()">
-                    <svg lucidePlus class="btn-icon"></svg>
-                    <span>Nuevo Período</span>
-                  </button>
+                  <p class="empty-title">
+                    @if (lifecycleFilter() === 'all') {
+                      Sin períodos académicos registrados
+                    } @else {
+                      Ningún período en estado {{ lifecycleFilterLabel() }}
+                    }
+                  </p>
+                  <p class="empty-description">
+                    @if (lifecycleFilter() === 'all') {
+                      Registra el primer ciclo lectivo para habilitar la gestión de materias.
+                    } @else {
+                      El filtro del resumen no encontró ciclos con ese estado.
+                    }
+                  </p>
+                  @if (lifecycleFilter() === 'all') {
+                    <button type="button" class="btn-primary" (click)="openCreate()">
+                      <svg lucidePlus class="btn-icon"></svg>
+                      <span>Nuevo Período</span>
+                    </button>
+                  } @else {
+                    <button type="button" class="btn-outline" (click)="applyLifecycleFilter('all')">
+                      <span>Ver todos</span>
+                    </button>
+                  }
                 </div>
               </td>
             </tr>
@@ -128,7 +183,7 @@
     <pagination-bar
       [currentPage]="currentPage()"
       [totalPages]="totalPages()"
-      [totalItems]="rows().length"
+      [totalItems]="filteredRows().length"
       [from]="paginationDisplay().from"
       [to]="paginationDisplay().to"
       itemLabel="períodos"

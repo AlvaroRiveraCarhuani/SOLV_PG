@@ -13,7 +13,7 @@
 
   <!-- Header Superior -->
   <header class="page-header view-header">
-    <div class="header-info">
+    <div class="header-info" data-tour="templates-summary">
       <div class="title-with-badge">
         <h1 class="page-title view-title">Catálogo de Entornos</h1>
         <span class="role-badge">Laboratorios Virtuales</span>
@@ -21,8 +21,22 @@
       <p class="page-subtitle view-subtitle">
         Administra los entornos de laboratorio disponibles para las materias y el campus
       </p>
+      @if (!isLoading()) {
+        <p class="page-summary">
+          <span machineData>{{ catalogCount() }}</span>
+          {{ catalogCount() === 1 ? 'entorno' : 'entornos' }} registrados
+          <span class="page-summary-sep">·</span>
+          <span machineData>{{ activeCount() }}</span>
+          {{ activeCount() === 1 ? 'activo' : 'activos' }}
+          <span class="page-summary-sep">·</span>
+          <span machineData>{{ pausedCount() }}</span>
+          {{ pausedCount() === 1 ? 'pausado' : 'pausados' }}
+          <span class="page-summary-sep">·</span>
+          RAM promedio <span machineData>{{ averageRam() }} MB</span>
+        </p>
+      }
     </div>
-    <div class="header-actions">
+    <div class="header-actions" data-tour="templates-actions">
       <button 
         type="button" 
         class="btn-secondary" 
@@ -44,58 +58,6 @@
     </div>
   </header>
 
-  <!-- Grilla de KPIs de Gobernanza Docker -->
-  <kpi-grid [columns]="5">
-    <kpi-card
-      label="Total Catálogo"
-      [value]="catalogCount()"
-      detail="Plantillas del catálogo"
-      variant="primary"
-    >
-      <svg lucideLayers icon></svg>
-    </kpi-card>
-
-    <kpi-card
-      label="Pendientes"
-      [value]="pendingCount()"
-      [detail]="pendingCount() === 0 ? 'Bandeja al día' : 'Requieren revisión'"
-      [variant]="pendingCount() > 0 ? 'warning' : 'running'"
-    >
-      @if (pendingCount() > 0) {
-        <svg lucideClock icon></svg>
-      } @else {
-        <svg lucideCheckCircle2 icon></svg>
-      }
-    </kpi-card>
-
-    <kpi-card
-      label="Activas"
-      [value]="activeCount()"
-      detail="Listas para uso"
-      variant="running"
-    >
-      <svg lucideCheckCircle2 icon></svg>
-    </kpi-card>
-
-    <kpi-card
-      label="Pausadas"
-      [value]="pausedCount()"
-      detail="En mantenimiento"
-      variant="default"
-    >
-      <svg lucidePause icon></svg>
-    </kpi-card>
-
-    <kpi-card
-      label="RAM Promedio"
-      [value]="averageRam() + ' MB'"
-      detail="Consumo por entorno"
-      variant="purple"
-    >
-      <svg lucideHardDrive icon></svg>
-    </kpi-card>
-  </kpi-grid>
-
   <!-- Pestañas de Estado y Alternador de Vista -->
   <div class="nav-toolbar" data-tour="templates-tabs">
     <status-tabs
@@ -107,7 +69,7 @@
   </div>
 
   <!-- Barra de Búsqueda y Filtros Dinámicos -->
-  <div class="search-and-filters-panel">
+  <div class="search-and-filters-panel" data-tour="templates-filters">
     <div class="search-bar-row">
       <search-bar
         [query]="searchTerm()"
@@ -253,6 +215,7 @@
                 }
               </div>
 
+
               <div class="card-meta">
                 <div class="meta-row">
                   <span class="meta-text font-medium">
@@ -305,7 +268,7 @@
                     Rechazar
                   </button>
                   <button type="button" class="btn-primary" (click)="openReviewModal(item)">
-                    Revisar y Aprobar
+                    Revisar cuota
                   </button>
                 </div>
               } @else {
@@ -335,7 +298,6 @@
                 <tr>
                   <td>
                     <div class="cell-entity-group">
-                      <tech-logo [iconType]="getPrimaryTechIcon(item)" [size]="28" />
                       <div>
                         <div class="cell-title-badges">
                           <span class="cell-main-title font-semibold">{{ item.name }}</span>
@@ -345,6 +307,14 @@
                           </span>
                           @if (item.category_name) {
                             <span class="badge-category">{{ item.category_name }}</span>
+                          }
+                        </div>
+                        <div class="cell-stack" aria-label="Tecnologías del entorno">
+                          @for (tech of getStackTechs(item); track tech.id) {
+                            <span class="cell-stack-chip">
+                              <tech-logo [iconType]="tech.iconKey" [size]="14" />
+                              <span class="cell-stack-name">{{ tech.name }}</span>
+                            </span>
                           }
                         </div>
                         @if ((item.target_environment === 'JUEZ_EFIMERO' || item.target_environment === 'AMBOS') && item.entrypoint) {
@@ -423,7 +393,7 @@
     } @else {
       @if (viewMode() === 'cards') {
         <!-- Catálogo en Tarjetas (Paginado) -->
-        <div class="cards-grid">
+        <div class="cards-grid" data-tour="templates-list">
           @for (item of paginatedCatalogTemplates(); track item.id) {
             <div class="template-card" [class.card-paused]="isPausedStatus(item.status)">
               <div class="card-header">
@@ -487,6 +457,7 @@
                 }
               </div>
 
+
               @if (templateDescription(item); as description) {
                 <p class="card-description">{{ description }}</p>
               }
@@ -529,6 +500,16 @@
                     <div class="tech-detail-row">
                       <span class="tech-detail-label">Comando del evaluador</span>
                       <code class="judge-entrypoint-tag" machineData>{{ item.entrypoint }}</code>
+                    </div>
+                  }
+                  @if (item.tools_declared?.length) {
+                    <div class="tech-detail-row">
+                      <span class="tech-detail-label">Herramientas</span>
+                      <div class="card-tools" aria-label="Herramientas declaradas">
+                        @for (tool of item.tools_declared; track tool) {
+                          <code class="card-tool">{{ tool }}</code>
+                        }
+                      </div>
                     </div>
                   }
                 </div>
@@ -604,7 +585,11 @@
                         } @else {
                           <button type="button" class="menu-item menu-item--success" role="menuitem" (click)="requestToggleStatus(item); openMenuId.set(null)">
                             <svg lucidePlay class="menu-item-icon"></svg>
-                            <span>Reactivar plantilla</span>
+                            @if (item.status === 'RECHAZADA' || item.status === 'rejected') {
+                              <span>Reenviar a auditoría</span>
+                            } @else {
+                              <span>Reactivar plantilla</span>
+                            }
                           </button>
                         }
                       </div>
@@ -617,7 +602,7 @@
         </div>
       } @else {
         <!-- Catálogo en Tabla de Alta Densidad (Paginado) -->
-        <div class="table-card table-responsive">
+        <div class="table-card table-responsive" data-tour="templates-list">
           <table class="data-table">
             <thead>
               <tr>
@@ -635,7 +620,6 @@
                 <tr [class.row-paused]="isPausedStatus(item.status)">
                   <td>
                     <div class="cell-entity-group">
-                      <tech-logo [iconType]="getPrimaryTechIcon(item)" [size]="28" />
                       <div>
                         <div class="cell-title-badges">
                           <span class="cell-main-title font-semibold">{{ item.name }}</span>
@@ -645,6 +629,14 @@
                           </span>
                           @if (item.category_name) {
                             <span class="badge-category">{{ item.category_name }}</span>
+                          }
+                        </div>
+                        <div class="cell-stack" aria-label="Tecnologías del entorno">
+                          @for (tech of getStackTechs(item); track tech.id) {
+                            <span class="cell-stack-chip">
+                              <tech-logo [iconType]="tech.iconKey" [size]="14" />
+                              <span class="cell-stack-name">{{ tech.name }}</span>
+                            </span>
                           }
                         </div>
                         @if ((item.target_environment === 'JUEZ_EFIMERO' || item.target_environment === 'AMBOS') && item.entrypoint) {
@@ -790,7 +782,11 @@
                           } @else {
                             <button type="button" class="menu-item menu-item--success" role="menuitem" (click)="requestToggleStatus(item); openMenuId.set(null)">
                               <svg lucidePlay class="menu-item-icon"></svg>
-                              <span>Reactivar</span>
+                              @if (item.status === 'RECHAZADA' || item.status === 'rejected') {
+                                <span>Reenviar a auditoría</span>
+                              } @else {
+                                <span>Reactivar</span>
+                              }
                             </button>
                           }
                         </div>
@@ -844,7 +840,7 @@
     } @else {
       @if (viewMode() === 'cards') {
         <!-- Rechazadas en Tarjetas -->
-        <div class="cards-grid">
+        <div class="cards-grid" data-tour="templates-list">
           @for (item of paginatedRejectedTemplates(); track item.id) {
             <div class="template-card card-rejected">
               <div class="card-header">
@@ -874,6 +870,7 @@
                   </span>
                 }
               </div>
+
 
               <div class="card-meta">
                 <div class="meta-row">
@@ -923,7 +920,7 @@
         </div>
       } @else {
         <!-- Rechazadas en Tabla de Alta Densidad -->
-        <div class="table-card table-responsive">
+        <div class="table-card table-responsive" data-tour="templates-list">
           <table class="data-table">
             <thead>
               <tr>
@@ -938,7 +935,6 @@
                 <tr>
                   <td>
                     <div class="cell-entity-group">
-                      <tech-logo [iconType]="getPrimaryTechIcon(item)" [size]="28" />
                       <div>
                         <div class="cell-title-badges">
                           <span class="cell-main-title font-semibold">{{ item.name }}</span>
@@ -948,6 +944,14 @@
                           </span>
                           @if (item.category_name) {
                             <span class="badge-category">{{ item.category_name }}</span>
+                          }
+                        </div>
+                        <div class="cell-stack" aria-label="Tecnologías del entorno">
+                          @for (tech of getStackTechs(item); track tech.id) {
+                            <span class="cell-stack-chip">
+                              <tech-logo [iconType]="tech.iconKey" [size]="14" />
+                              <span class="cell-stack-name">{{ tech.name }}</span>
+                            </span>
                           }
                         </div>
                         @if ((item.target_environment === 'JUEZ_EFIMERO' || item.target_environment === 'AMBOS') && item.entrypoint) {

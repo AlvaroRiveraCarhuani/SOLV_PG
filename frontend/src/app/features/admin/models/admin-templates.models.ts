@@ -346,6 +346,11 @@ export interface LocalImagesResult {
   usage_map: Record<string, number>;
 }
 
+export interface UpdateTemplateQuotaDTO {
+  base_ram_mb: number;
+  description?: string;
+}
+
 export interface CreateOfficialTemplateDTO {
   name: string;
   docker_image: string;

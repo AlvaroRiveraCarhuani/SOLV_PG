@@ -4,6 +4,9 @@ import { FormsModule } from '@angular/forms';
 import { HttpErrorResponse } from '@angular/common/http';
 import { DateTextPipe } from '@shared/pipes/date-text.pipe';
 import { ContextHelpService } from '@shared/help/context-help.service';
+import { ProductTourService } from '@shared/help/product-tour.service';
+import { InteractiveTutorialService } from '@shared/help/interactive-tutorial.service';
+import { buildEmergenciasTour, buildEmergenciasTutorial } from './emergencias-help.definitions';
 import { LucideSiren, LucideTriangleAlert } from '@lucide/angular';
 import { ModalShellComponent, ModalIntent } from '@shared/components/modal-shell/modal-shell.component';
 import { FormFieldComponent } from '@shared/components/form-field/form-field.component';
@@ -47,6 +50,8 @@ const EMERGENCY_HELP_KEY = 'emergency-console';
 export class AdminAuditoriaEmergenciasComponent implements OnInit, OnDestroy {
 
   private readonly help = inject(ContextHelpService);
+  private readonly productTour = inject(ProductTourService);
+  private readonly tutorial = inject(InteractiveTutorialService);
   private readonly auditoriaService = inject(AdminAuditoriaService);
   private readonly metricsService = inject(AdminMetricsService);
 
@@ -113,11 +118,36 @@ export class AdminAuditoriaEmergenciasComponent implements OnInit, OnDestroy {
 
   ngOnInit(): void {
     this.help.registerScreen(EMERGENCY_HELP_KEY);
+    this.help.registerGuides(EMERGENCY_HELP_KEY, {
+      tour: {
+        label: 'Recorrido visual',
+        hint: 'Señala el estado del host, las cinco acciones y el historial.',
+        run: () => void this.productTour.start(buildEmergenciasTour())
+      },
+      tutorial: {
+        label: 'Tutorial guiado',
+        hint: 'Prepara una operación y comprueba frase y motivo, sin ejecutarla.',
+        run: () => this.startEmergenciasTutorial()
+      }
+    });
     this.loadHistory();
   }
 
   ngOnDestroy(): void {
+    this.help.unregisterGuides(EMERGENCY_HELP_KEY);
     this.help.unregisterScreen(EMERGENCY_HELP_KEY);
+  }
+
+  /** Tutorial de preparación: valida frase y motivo; nunca ejecuta la acción. */
+  startEmergenciasTutorial(): void {
+    this.tutorial.start(
+      buildEmergenciasTutorial({
+        confirmationOpen: () => this.confirmTarget() !== null,
+        phrase: () => this.confirmPhrase(),
+        expectedPhrase: () => this.confirmTarget()?.phrase ?? '',
+        reason: () => this.confirmReason()
+      })
+    );
   }
 
   openConfirmation(action: EmergencyActionDef): void {

@@ -23,6 +23,20 @@
     recordLabel="estudiantes"
   />
 
+  <div class="checkbox-group">
+    <label class="checkbox-label">
+      <input
+        type="checkbox"
+        [checked]="reconcile()"
+        (change)="reconcile.set(!reconcile())"
+      />
+      <span class="checkbox-text">
+        Quitar de la materia a quienes ya no figuran en esta planilla.
+        Solo alcanza a las matrículas cargadas desde planillas; las altas manuales se conservan.
+      </span>
+    </label>
+  </div>
+
   <ng-container modal-footer>
     <button class="btn-outline" (click)="closed.emit()">
       <span>Cancelar</span>

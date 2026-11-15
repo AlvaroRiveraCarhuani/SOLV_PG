@@ -449,25 +449,38 @@ export class TemplateStudioComponent implements OnInit, OnDestroy {
     })
   );
 
-  readonly maxAllowedRamMB = computed<number>(() => {
+  // Sin medición del servidor no se inventa un techo de RAM: el panel muestra
+  // «sin medición» y la admisión del backend sigue siendo la que decide.
+  readonly maxAllowedRamMB = computed<number | null>(() => {
     const caps = this.runtimeCapabilities();
     if (caps?.max_allowed_ram_mb && caps.max_allowed_ram_mb > 0) {
       return caps.max_allowed_ram_mb;
     }
-    const total = caps?.host_memory?.total_ram_mb ?? 8192;
+    const total = caps?.host_memory?.total_ram_mb;
+    if (!total || total <= 0) {
+      return null;
+    }
     return Math.max(512, Math.floor(total * 0.75));
   });
 
-  readonly hostFreeRamMB = computed<number>(() =>
-    this.runtimeCapabilities()?.host_memory?.available_ram_mb ?? 4096
-  );
+  readonly hostFreeRamMB = computed<number | null>(() => {
+    const free = this.runtimeCapabilities()?.host_memory?.available_ram_mb;
+    return free && free > 0 ? free : null;
+  });
 
   readonly isRamBelowFloor = computed<boolean>(() => this.baseRamMB() < this.minimumFloorMB());
-  readonly isRamExceedingHost = computed<boolean>(() => this.baseRamMB() > this.maxAllowedRamMB());
-  readonly ramExcessMB = computed<number>(() => Math.max(0, this.baseRamMB() - this.maxAllowedRamMB()));
+  readonly isRamExceedingHost = computed<boolean>(() => {
+    const max = this.maxAllowedRamMB();
+    return max !== null && this.baseRamMB() > max;
+  });
+  readonly ramExcessMB = computed<number>(() => {
+    const max = this.maxAllowedRamMB();
+    return max === null ? 0 : Math.max(0, this.baseRamMB() - max);
+  });
   readonly isRamExceedingCurrentFree = computed<boolean>(() => {
     if (this.isRamExceedingHost()) return false;
-    return this.baseRamMB() > this.hostFreeRamMB();
+    const free = this.hostFreeRamMB();
+    return free !== null && this.baseRamMB() > free;
   });
 
   readonly verificationBlocker = computed<StudioActionBlocker | null>(() => {
@@ -612,18 +625,24 @@ export class TemplateStudioComponent implements OnInit, OnDestroy {
     return { isJudge, totalMB, editorBaseMB, stackBaseMB, usableMB };
   });
 
-  readonly nominalConcurrentStudents = computed<number>(() => {
+  readonly nominalConcurrentStudents = computed<number | null>(() => {
+    const max = this.maxAllowedRamMB();
+    if (max === null) return null;
     const ram = Math.max(1, this.baseRamMB());
-    return Math.max(1, Math.floor(this.maxAllowedRamMB() / ram));
+    return Math.max(1, Math.floor(max / ram));
   });
 
-  readonly estimatedConcurrentStudents = computed<number>(() => {
+  readonly estimatedConcurrentStudents = computed<number | null>(() => {
+    const free = this.hostFreeRamMB();
+    if (free === null) return null;
     const ram = Math.max(1, this.baseRamMB());
-    return Math.max(1, Math.floor(this.hostFreeRamMB() / ram));
+    return Math.max(1, Math.floor(free / ram));
   });
 
-  estimateStudentsForPreset(mb: number): number {
-    return Math.max(1, Math.floor(this.maxAllowedRamMB() / Math.max(1, mb)));
+  estimateStudentsForPreset(mb: number): number | null {
+    const max = this.maxAllowedRamMB();
+    if (max === null) return null;
+    return Math.max(1, Math.floor(max / Math.max(1, mb)));
   }
 
   toggleManualRamInput(): void {

@@ -3,7 +3,8 @@ import { Component, OnInit, OnDestroy, effect, signal, computed, inject, HostLis
 const TEMPLATES_HELP_KEY = 'templates-catalog';
 import { ContextHelpService } from '@shared/help/context-help.service';
 import { InteractiveTutorialService } from '@shared/help/interactive-tutorial.service';
-import { buildCatalogTutorial } from './catalog-help.definitions';
+import { ProductTourService } from '@shared/help/product-tour.service';
+import { buildCatalogTour, buildCatalogTutorial } from './catalog-help.definitions';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { MachineDataDirective } from '@shared/directives/machine-data.directive';
@@ -12,7 +13,6 @@ import { DateTextPipe } from '@shared/pipes/date-text.pipe';
 import {
   AdminTemplatesService,
   AdminTemplateItem,
-  CreateOfficialTemplateDTO,
   ReviewTemplateDTO,
   TemplateCacheStatus,
   TemplateComponent
@@ -23,7 +23,6 @@ import { TemplateEditModalComponent } from './components/template-edit-modal/tem
 import { TemplateStatusModalComponent } from './components/template-status-modal/template-status-modal.component';
 import { TemplatePromoteModalComponent } from './components/template-promote-modal/template-promote-modal.component';
 import {
-  LucideLayers,
   LucideBox,
   LucideRefreshCw,
   LucidePlus,
@@ -43,7 +42,6 @@ import {
 } from '@lucide/angular';
 import { TechLogoComponent, TechIconKey } from './components/tech-logo/tech-logo.component';
 import { SearchBarComponent } from '../../../shared/components/search-bar/search-bar.component';
-import { KpiCardComponent, KpiGridComponent } from '../../../shared/components/kpi-card/kpi-card.component';
 import { PaginationBarComponent } from '../../../shared/components/pagination-bar/pagination-bar.component';
 import { ViewSwitcherComponent } from '../../../shared/components/view-switcher/view-switcher.component';
 import { StatusTabsComponent, StatusTabItem } from '../../../shared/components/status-tabs/status-tabs.component';
@@ -89,12 +87,9 @@ import { EnvironmentLabelPipe } from '@shared/pipes/environment-label.pipe';
     TemplatePromoteModalComponent,
     TechLogoComponent,
     SearchBarComponent,
-    KpiCardComponent,
-    KpiGridComponent,
     PaginationBarComponent,
     ViewSwitcherComponent,
     StatusTabsComponent,
-    LucideLayers,
     LucideBox,
     LucideRefreshCw,
     LucidePlus,
@@ -119,6 +114,7 @@ export class AdminTemplatesComponent implements OnInit, OnDestroy {
   private templatesService = inject(AdminTemplatesService);
   private readonly help = inject(ContextHelpService);
   private readonly tutorial = inject(InteractiveTutorialService);
+  private readonly productTour = inject(ProductTourService);
   private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
 
@@ -321,9 +317,14 @@ export class AdminTemplatesComponent implements OnInit, OnDestroy {
   ngOnInit(): void {
     this.help.registerScreen(TEMPLATES_HELP_KEY);
     this.help.registerGuides(TEMPLATES_HELP_KEY, {
+      tour: {
+        label: 'Recorrido visual',
+        hint: 'Señala resumen, pestañas, filtros y fichas del catálogo.',
+        run: () => void this.productTour.start(buildCatalogTour())
+      },
       tutorial: {
         label: 'Tutorial guiado',
-        hint: 'Le guía por la bandeja de revisión y comprueba la pestaña abierta.',
+        hint: 'Le guía por la revisión; si no hay pendientes, por el catálogo activo.',
         run: () => this.startCatalogTutorial()
       }
     });
@@ -421,7 +422,7 @@ export class AdminTemplatesComponent implements OnInit, OnDestroy {
       next: updated => {
         this.allTemplates.update(list => list.map(t => (t.id === updated.id ? updated : t)));
         this.closeReviewModal();
-        this.showToast(`Solicitud de plantilla "${updated.name}" aprobada y derivada a borrador en auditoría técnica.`, 'success');
+        this.showToast(`Cuota fijada. La plantilla "${updated.name}" quedó en auditoría técnica.`, 'success');
       },
       error: err => {
         this.showToast(err.error?.message || 'No se pudo aprobar la plantilla.', 'error');
@@ -496,6 +497,10 @@ export class AdminTemplatesComponent implements OnInit, OnDestroy {
         this.allTemplates.update(list => list.map(t => (t.id === updated.id ? updated : t)));
         this.templateToToggleStatus.set(null);
         this.toggleStatusReason.set('');
+        if (updated.status === 'PENDIENTE_AUDITORIA') {
+          this.showToast(`Plantilla "${template.name}" enviada a auditoría. Volverá al catálogo si pasa el smoke y el escaneo.`, 'success');
+          return;
+        }
         const actionText = nextStatus === 'paused' ? 'suspendida/pausada' : 'reactivada';
         this.showToast(`Plantilla "${template.name}" ${actionText} en el catálogo.`, 'success');
       },
@@ -554,31 +559,12 @@ export class AdminTemplatesComponent implements OnInit, OnDestroy {
     const current = this.selectedTemplateForEdit();
     if (!current) return;
 
-    const updateDto: CreateOfficialTemplateDTO = {
-      name: current.name,
-      docker_image: current.docker_image,
+    // La cuota no cambia la imagen: se guarda por el camino que no exige un job
+    // de build. La comprobación de arranque se repite en segundo plano.
+    this.templatesService.updateTemplateQuota(event.id, {
       base_ram_mb: event.base_ram_mb,
-      description: event.description !== undefined ? event.description : (current.description || ''),
-      target_environment: current.target_environment || 'IDE_PERSISTENTE',
-      category_id: current.category_id || undefined,
-      entrypoint: current.entrypoint || undefined,
-      timeout_ms: current.timeout_ms || undefined,
-      sample_input: current.sample_input || undefined,
-      services_config: current.services_config,
-      setup_script: current.setup_script || undefined,
-      tools_declared: current.tools_declared,
-      stack_config: current.stack_config
-    };
-
-    const targetStatus: 'approved' | 'paused' = this.isPausedStatus(current.status) ? 'paused' : 'approved';
-    const fallbackDto: ReviewTemplateDTO = { status: targetStatus, base_ram_mb: event.base_ram_mb };
-
-    const save$ =
-      typeof this.templatesService.updateOfficialTemplate === 'function'
-        ? this.templatesService.updateOfficialTemplate(event.id, updateDto)
-        : this.templatesService.reviewTemplate(event.id, fallbackDto);
-
-    save$.subscribe({
+      description: event.description
+    }).subscribe({
       next: updated => {
         if (event.description !== undefined) {
           updated.description = event.description;
@@ -587,9 +573,12 @@ export class AdminTemplatesComponent implements OnInit, OnDestroy {
         this.closeEditModal();
         this.showToast(`Cuotas de "${updated.name}" actualizadas correctamente.`, 'success');
       },
-      error: () => {
+      error: err => {
         this.closeEditModal();
-        this.showToast('No se pudieron actualizar las cuotas de la plantilla.', 'error');
+        this.showToast(
+          err?.error?.message || err?.error?.error || 'No se pudieron actualizar las cuotas de la plantilla.',
+          'error'
+        );
       }
     });
   }

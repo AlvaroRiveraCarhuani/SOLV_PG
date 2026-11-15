@@ -956,11 +956,12 @@ export const STUDIO_JUDGE_RAM_TIERS = [128, 256, 512, 1024] as const;
 export function computeIntensiveRamMB(params: {
   isJudge: boolean;
   recommendedRamMB: number;
-  maxAllowedRamMB: number;
+  maxAllowedRamMB: number | null;
 }): number {
   const tiers = params.isJudge ? STUDIO_JUDGE_RAM_TIERS : STUDIO_IDE_RAM_TIERS;
   const nextTier = tiers.find(t => t > params.recommendedRamMB) ?? params.recommendedRamMB;
-  return Math.min(nextTier, params.maxAllowedRamMB);
+  // Sin techo medido no se recorta: el preset intensivo es el siguiente escalón.
+  return params.maxAllowedRamMB === null ? nextTier : Math.min(nextTier, params.maxAllowedRamMB);
 }
 
 export type AddonAcademicCategory = 'framework' | 'orm' | 'toolkit';

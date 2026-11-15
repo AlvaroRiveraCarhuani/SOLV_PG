@@ -12,7 +12,7 @@
     </div>
   }
 
-  <div class="form-row">
+  <div class="form-row" data-tour="course-create-identity">
     <form-field class="flex-2" label="Nombre de la Materia" for="courseName" [required]="true">
       <input
         id="courseName"
@@ -54,7 +54,7 @@
     </p>
   }
 
-  <form-field label="Periodo Académico (Semestre)">
+  <form-field label="Periodo Académico (Semestre)" data-tour="course-create-period">
     <combobox
       [value]="selectedPeriodLabel()"
       [options]="periodComboboxOptions()"
@@ -63,7 +63,7 @@
     ></combobox>
   </form-field>
 
-  <form-field label="Docente Titular Asignado">
+  <form-field label="Docente Titular Asignado" data-tour="course-create-teacher">
     <combobox
       [value]="selectedTeacherLabel()"
       [options]="teacherComboboxOptions()"
@@ -83,7 +83,7 @@
     <button class="btn-outline" (click)="closed.emit()" [disabled]="isSubmitting()">
       Cancelar
     </button>
-    <button class="btn-primary" (click)="submitCourse()" [disabled]="isSubmitting()">
+    <button class="btn-primary" data-tour="course-create-submit" (click)="submitCourse()" [disabled]="isSubmitting()">
       <span>{{ isSubmitting() ? 'Creando curso...' : 'Crear Curso' }}</span>
     </button>
   </ng-container>

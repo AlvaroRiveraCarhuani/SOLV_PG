@@ -1,5 +1,5 @@
 <div class="emergencias-panel">
-  <header class="emergencias-header">
+  <header class="emergencias-header" data-tour="emergency-header">
     <div class="header-text">
       <h2>Centro de Control de Emergencias</h2>
       <p>
@@ -7,7 +7,7 @@
         registrada en el Registro de Auditoría con el motivo ingresado.
       </p>
     </div>
-    <div class="system-strip" [class.critical]="ramCritical()">
+    <div class="system-strip" [class.critical]="ramCritical()" data-tour="emergency-system">
       <span class="strip-label">RAM del host</span>
       <span class="strip-value">{{ ramPercent() }}%</span>
       <span class="strip-sub">{{ runningContainers() }} contenedores activos</span>
@@ -21,9 +21,9 @@
     </div>
   }
 
-  <div class="actions-grid">
+  <div class="actions-grid" data-tour="emergency-actions">
     @for (action of actions; track action.id) {
-      <article class="action-card" [class.destructive]="action.impact === 'destructiva'">
+      <article class="action-card" [class.destructive]="action.impact === 'destructiva'" data-tour="emergency-action-card">
         <header class="action-head">
           <h3>{{ action.label }}</h3>
           <span class="impact-tag" [class]="'impact-' + action.impact">{{ action.impact }}</span>
@@ -46,7 +46,7 @@
     }
   </div>
 
-  <section class="history-section">
+  <section class="history-section" data-tour="emergency-history">
     <h3>Últimas emergencias ejecutadas</h3>
     @if (historyLoading()) {
       <p class="history-loading">Consultando historial...</p>
@@ -102,6 +102,7 @@
             id="emergency-phrase"
             type="text"
             class="confirm-input"
+            data-tour="emergency-phrase"
             autocomplete="off"
             spellcheck="false"
             [ngModel]="confirmPhrase()"
@@ -113,6 +114,7 @@
           <textarea
             id="emergency-reason"
             class="confirm-input confirm-textarea"
+            data-tour="emergency-reason"
             rows="3"
             maxlength="500"
             placeholder="Describe la situación que justifica esta acción..."
@@ -129,7 +131,7 @@
           <button type="button" class="btn-outline" [disabled]="isExecuting()" (click)="closeConfirmation()">
             Cancelar
           </button>
-          <button type="button" class="btn-primary confirm-execute" [disabled]="confirmDisabled()" (click)="executeConfirmed()">
+          <button type="button" class="btn-primary confirm-execute" data-tour="emergency-submit" [disabled]="confirmDisabled()" (click)="executeConfirmed()">
             @if (isExecuting()) {
               Ejecutando...
             } @else {

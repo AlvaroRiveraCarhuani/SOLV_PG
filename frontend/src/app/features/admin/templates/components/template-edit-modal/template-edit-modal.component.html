@@ -46,7 +46,19 @@
         placeholder="Valor personalizado en MB"
         aria-label="RAM personalizada en MB" />
       <span class="unit-tag">MB</span>
-      <span class="capacity-hint">Máx host: <span machineData>{{ maxAllowedRamMB() }} MB</span> · Libre: <span machineData>{{ hostFreeRamMB() }} MB</span></span>
+      <span class="capacity-hint">
+        @if (maxAllowedRamMB(); as maxHost) {
+          Máx host: <span machineData>{{ maxHost }} MB</span>
+        } @else {
+          Máx host: sin medición
+        }
+        ·
+        @if (hostFreeRamMB(); as freeRam) {
+          Libre: <span machineData>{{ freeRam }} MB</span>
+        } @else {
+          Libre: sin medición
+        }
+      </span>
     </div>
 
     @if (isDual()) {

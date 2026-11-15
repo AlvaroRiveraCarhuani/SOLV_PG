@@ -1,4 +1,11 @@
-import { Component, OnInit, computed, inject, signal } from '@angular/core';
+import { Component, OnInit, OnDestroy, computed, inject, signal } from '@angular/core';
+import { ContextHelpService } from '@shared/help/context-help.service';
+import { ProductTourService } from '@shared/help/product-tour.service';
+import { InteractiveTutorialService } from '@shared/help/interactive-tutorial.service';
+import {
+  buildAuditRegistroTour,
+  buildAuditRegistroTutorial
+} from './audit-registro-help.definitions';
 import { CommonModule } from '@angular/common';
 import { DateTextPipe } from '@shared/pipes/date-text.pipe';
 import { SearchBarComponent } from '@shared/components/search-bar/search-bar.component';
@@ -25,6 +32,7 @@ interface AuditRow {
 }
 
 const PAGE_SIZE = 20;
+const AUDIT_LOG_HELP_KEY = 'audit-log';
 
 /**
  * Pestaña Registro de Auditoría (wireframe AUDIT_LOGS.md, ADR-027).
@@ -38,8 +46,11 @@ const PAGE_SIZE = 20;
   templateUrl: './admin-auditoria-registro.component.html',
   styleUrl: './admin-auditoria-registro.component.scss'
 })
-export class AdminAuditoriaRegistroComponent implements OnInit {
+export class AdminAuditoriaRegistroComponent implements OnInit, OnDestroy {
   private readonly auditoriaService = inject(AdminAuditoriaService);
+  private readonly help = inject(ContextHelpService);
+  private readonly productTour = inject(ProductTourService);
+  private readonly tutorial = inject(InteractiveTutorialService);
 
   readonly PAGE_SIZE = PAGE_SIZE;
   readonly isLoading = signal(true);
@@ -83,7 +94,35 @@ export class AdminAuditoriaRegistroComponent implements OnInit {
   );
 
   ngOnInit(): void {
+    this.help.registerScreen(AUDIT_LOG_HELP_KEY);
+    this.help.registerGuides(AUDIT_LOG_HELP_KEY, {
+      tour: {
+        label: 'Recorrido visual',
+        hint: 'Señala filtros, tabla y cronología sin abrir eventos.',
+        run: () => void this.productTour.start(buildAuditRegistroTour())
+      },
+      tutorial: {
+        label: 'Tutorial guiado',
+        hint: 'Aplica un filtro y abre la cronología de un actor.',
+        run: () => this.startAuditTutorial()
+      }
+    });
     this.load();
+  }
+
+  ngOnDestroy(): void {
+    this.help.unregisterGuides(AUDIT_LOG_HELP_KEY);
+    this.help.unregisterScreen(AUDIT_LOG_HELP_KEY);
+  }
+
+  /** Tutorial de investigación: exige un filtro aplicado y una cronología abierta. */
+  startAuditTutorial(): void {
+    this.tutorial.start(
+      buildAuditRegistroTutorial({
+        hasActiveFilters: () => this.hasActiveFilters(),
+        drawerOpen: () => this.drawerOpen()
+      })
+    );
   }
 
   load(): void {

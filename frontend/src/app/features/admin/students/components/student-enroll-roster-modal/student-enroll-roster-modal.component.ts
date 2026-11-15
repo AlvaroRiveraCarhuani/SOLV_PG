@@ -35,8 +35,9 @@ export class StudentEnrollRosterModalComponent {
   readonly isSubmitting = input<boolean>(false);
 
   readonly selectedSubjectId = signal('');
+  readonly reconcile = signal(false);
   readonly closed = output<void>();
-  readonly rosterSubmit = output<{ subjectId: string; emails: string[] }>();
+  readonly rosterSubmit = output<{ subjectId: string; emails: string[]; reconcile: boolean }>();
 
   readonly subjectOptions = computed<ComboboxOption[]>(() =>
     this.subjects().map(subject => ({
@@ -61,6 +62,6 @@ export class StudentEnrollRosterModalComponent {
     if (!subjectId || emails.length === 0) {
       return;
     }
-    this.rosterSubmit.emit({ subjectId, emails });
+    this.rosterSubmit.emit({ subjectId, emails, reconcile: this.reconcile() });
   }
 }

@@ -1,5 +1,5 @@
 import { Injectable, signal } from '@angular/core';
-import type { Config, Driver } from 'driver.js';
+import type { Config, Driver, PopoverDOM } from 'driver.js';
 import { markHelpGuideSeen, isHelpGuideSeen } from './help-preferences';
 import { TourDefinition, TourStepDefinition } from './help.types';
 
@@ -10,6 +10,92 @@ import { TourDefinition, TourStepDefinition } from './help.types';
  * La decisión de avanzar, la progresión y el estado de un tutorial viven en
  * Angular (ver InteractiveTutorialService).
  */
+
+const POPOVER_GAP = 12;
+/** Banda mínima para mover el popover fuera del objetivo sin dejarlo ilegible. */
+const MIN_POPOVER_BAND = 112;
+
+function overlaps(a: DOMRect, b: DOMRect): boolean {
+  return a.left < b.right && a.right > b.left && a.top < b.bottom && a.bottom > b.top;
+}
+
+function clamp(value: number, min: number, max: number): number {
+  return Math.min(Math.max(value, min), Math.max(min, max));
+}
+
+/**
+ * Impide que el popover cubra el elemento que explica.
+ *
+ * Driver.js elige el lado con más espacio, pero en pantallas angostas el
+ * objetivo puede ocupar casi toda la altura y el popover termina encima. Aquí
+ * se busca la banda libre superior o inferior y, si no alcanza, se limita la
+ * altura del popover con desplazamiento interno. Si el objetivo mide más que la
+ * ventana no hay banda posible y se conserva la posición de Driver.js.
+ */
+function keepPopoverClear(popover: PopoverDOM): void {
+  if (typeof window === 'undefined') return;
+
+  const wrapper = popover.wrapper;
+  const target = document.querySelector('.driver-active-element');
+
+  wrapper.style.removeProperty('max-height');
+  wrapper.style.removeProperty('overflow-y');
+  popover.arrow.style.removeProperty('display');
+
+  if (!target) return;
+
+  const box = wrapper.getBoundingClientRect();
+  const area = target.getBoundingClientRect();
+  if (!overlaps(box, area)) return;
+
+  const viewportHeight = window.innerHeight;
+  const below = viewportHeight - area.bottom - POPOVER_GAP;
+  const above = area.top - POPOVER_GAP;
+  const band = Math.max(below, above);
+  if (band < MIN_POPOVER_BAND) return;
+
+  let height = box.height;
+  if (band < height) {
+    height = Math.max(MIN_POPOVER_BAND, band);
+    wrapper.style.maxHeight = `${height}px`;
+    wrapper.style.overflowY = 'auto';
+  }
+
+  const top = below >= above ? area.bottom + POPOVER_GAP : area.top - POPOVER_GAP - height;
+  wrapper.style.top = `${clamp(top, POPOVER_GAP, viewportHeight - height - POPOVER_GAP)}px`;
+
+  const width = Math.min(box.width, window.innerWidth - POPOVER_GAP * 2);
+  const left = clamp(box.left, POPOVER_GAP, window.innerWidth - width - POPOVER_GAP);
+  wrapper.style.left = `${left}px`;
+
+  // El lado de la flecha ya no corresponde a la nueva posición.
+  popover.arrow.style.display = 'none';
+}
+
+let latestPopover: PopoverDOM | null = null;
+let adjustmentFrame = 0;
+let settleTimer: number | undefined;
+
+/**
+ * Driver.js pinta el popover, desplaza la página y recién después lo posiciona.
+ * El ajuste se repite tras el cuadro de render y cuando termina el desplazamiento
+ * suave; si la página se mueve, se vuelve a aplicar sobre la posición final.
+ */
+function schedulePopoverAdjustment(popover: PopoverDOM | null = latestPopover): void {
+  if (typeof window === 'undefined' || !popover) return;
+  latestPopover = popover;
+
+  if (adjustmentFrame) window.cancelAnimationFrame(adjustmentFrame);
+  adjustmentFrame = window.requestAnimationFrame(() => {
+    adjustmentFrame = window.requestAnimationFrame(() => {
+      adjustmentFrame = 0;
+      keepPopoverClear(popover);
+    });
+  });
+
+  window.clearTimeout(settleTimer);
+  settleTimer = window.setTimeout(() => keepPopoverClear(popover), 420);
+}
 
 const BASE_CONFIG: Config = {
   showProgress: true,
@@ -23,7 +109,9 @@ const BASE_CONFIG: Config = {
   stagePadding: 6,
   stageRadius: 10,
   popoverClass: 'solv-help-popover',
-  waitForElement: 2500
+  waitForElement: 2500,
+  onPopoverRender: (popover) => schedulePopoverAdjustment(popover),
+  onHighlighted: () => schedulePopoverAdjustment()
 };
 
 @Injectable({ providedIn: 'root' })
@@ -34,6 +122,7 @@ export class ProductTourService {
   private instance: Driver | null = null;
   private returnFocusTo: HTMLElement | null = null;
   private escapeHandler: ((event: KeyboardEvent) => void) | null = null;
+  private stopTrackingPopover: (() => void) | null = null;
 
   hasSeen(id: string): boolean {
     return isHelpGuideSeen('tour', id);
@@ -66,6 +155,8 @@ export class ProductTourService {
       })),
       onDestroyed: () => {
         this.instance = null;
+        latestPopover = null;
+        this.stopTracking();
         this.isRunning.set(false);
         this.unbindEscape();
         markHelpGuideSeen('tour', tour.id);
@@ -76,6 +167,7 @@ export class ProductTourService {
     this.instance = instance;
     this.isRunning.set(true);
     this.bindEscape();
+    this.trackPopover();
     this.centerElement(this.resolve(available[0].selector));
     instance.drive();
     return true;
@@ -104,10 +196,32 @@ export class ProductTourService {
 
   destroy(): void {
     this.unbindEscape();
+    this.stopTracking();
     this.instance?.destroy();
     this.instance = null;
+    latestPopover = null;
     this.isRunning.set(false);
     this.restoreFocus();
+  }
+
+  /**
+   * Vuelve a ajustar el popover cuando la página se desplaza o cambia de
+   * tamaño: Driver.js recalcula su posición y puede volver a tapar el objetivo.
+   */
+  private trackPopover(): void {
+    if (this.stopTrackingPopover || typeof window === 'undefined') return;
+    const refresh = () => schedulePopoverAdjustment();
+    window.addEventListener('resize', refresh);
+    document.addEventListener('scroll', refresh, true);
+    this.stopTrackingPopover = () => {
+      window.removeEventListener('resize', refresh);
+      document.removeEventListener('scroll', refresh, true);
+    };
+  }
+
+  private stopTracking(): void {
+    this.stopTrackingPopover?.();
+    this.stopTrackingPopover = null;
   }
 
   /** El recorrido puede abrirse desde el centro de ayuda, con el foco fuera

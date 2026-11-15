@@ -11,7 +11,6 @@ import {
   periodLifecycle,
   PeriodLifecycle
 } from '../admin-config-periodos.service';
-import { KpiCardComponent, KpiGridComponent } from '@shared/components/kpi-card/kpi-card.component';
 import { ModalShellComponent } from '@shared/components/modal-shell/modal-shell.component';
 import { FormFieldComponent } from '@shared/components/form-field/form-field.component';
 import { MachineDataDirective } from '@shared/directives/machine-data.directive';
@@ -50,8 +49,6 @@ const PERIODOS_HELP_KEY = 'config-periods';
     CommonModule,
     FormsModule,
     MachineDataDirective,
-    KpiCardComponent,
-    KpiGridComponent,
     ModalShellComponent,
     FormFieldComponent,
     PaginationBarComponent,
@@ -95,6 +92,25 @@ export class AdminConfigPeriodosComponent implements OnInit, OnDestroy {
   readonly nextUpCount = computed(() => this.rows().filter((r) => r.lifecycle === 'proximo').length);
   readonly archivedCount = computed(() => this.rows().filter((r) => r.lifecycle === 'archivado').length);
 
+  // Filtro por ciclo de vida aplicado desde la línea de resumen
+  readonly lifecycleFilter = signal<'all' | PeriodLifecycle>('all');
+
+  readonly filteredRows = computed<PeriodRow[]>(() => {
+    const filter = this.lifecycleFilter();
+    return filter === 'all' ? this.rows() : this.rows().filter((r) => r.lifecycle === filter);
+  });
+
+  readonly lifecycleFilterLabel = computed(() => {
+    const filter = this.lifecycleFilter();
+    return filter === 'all' ? '' : this.lifecycleLabel(filter);
+  });
+
+  /** Aplica el filtro de ciclo de vida; repetir el clic sobre el mismo estado lo limpia. */
+  applyLifecycleFilter(lifecycle: 'all' | PeriodLifecycle): void {
+    this.lifecycleFilter.set(this.lifecycleFilter() === lifecycle ? 'all' : lifecycle);
+    this.currentPage.set(1);
+  }
+
   // ------------------------------------------------------------------
   // Paginación (estilo Docentes: client-side, 10 por página)
   // ------------------------------------------------------------------
@@ -103,13 +119,13 @@ export class AdminConfigPeriodosComponent implements OnInit, OnDestroy {
 
   readonly paginatedRows = computed(() => {
     const start = (this.currentPage() - 1) * this.pageSize;
-    return this.rows().slice(start, start + this.pageSize);
+    return this.filteredRows().slice(start, start + this.pageSize);
   });
 
-  readonly totalPages = computed(() => Math.max(1, Math.ceil(this.rows().length / this.pageSize)));
+  readonly totalPages = computed(() => Math.max(1, Math.ceil(this.filteredRows().length / this.pageSize)));
 
   readonly paginationDisplay = computed(() => {
-    const total = this.rows().length;
+    const total = this.filteredRows().length;
     if (total === 0) return { from: 0, to: 0 };
     const from = (this.currentPage() - 1) * this.pageSize + 1;
     const to = Math.min(this.currentPage() * this.pageSize, total);

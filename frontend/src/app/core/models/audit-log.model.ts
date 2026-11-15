@@ -44,7 +44,7 @@ const AUDIT_ACTION_LABELS: Record<string, string> = {
   EXERCISE_CREATED: 'Ejercicio creado',
   EXERCISE_PUBLISHED: 'Ejercicio publicado',
   EVALUATOR_RUN: 'Evaluador ejecutado',
-  GRADES_EXPORTED: 'Calificaciones exportadas',
+  GRADES_EXPORTED: 'Notas de laboratorio exportadas',
   SUBMISSION_REVIEWED: 'Entrega revisada',
   SUBMISSION_OVERRIDDEN: 'Nota de entrega modificada',
   SUBMISSION_COMMENTED: 'Comentario en entrega',

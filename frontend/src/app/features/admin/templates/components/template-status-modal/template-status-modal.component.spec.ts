@@ -23,6 +23,14 @@ describe('TemplateStatusModalComponent', () => {
     status: 'paused'
   };
 
+  const mockRejectedTemplate: AdminTemplateItem = {
+    ...mockApprovedTemplate,
+    id: 'tpl-3',
+    name: 'Lab rechazado',
+    status: 'RECHAZADA',
+    rejection_reason: 'El smoke test no encontró las herramientas declaradas'
+  };
+
   beforeEach(async () => {
     await TestBed.configureTestingModule({
       imports: [TemplateStatusModalComponent]
@@ -61,6 +69,24 @@ describe('TemplateStatusModalComponent', () => {
     fixture.detectChanges();
     expect(component.isPausing()).toBe(false);
     expect(component.isValid()).toBe(true);
+  });
+
+  it('debe identificar isReaudit como true para plantilla rechazada', () => {
+    component.template = mockRejectedTemplate;
+    fixture.detectChanges();
+    expect(component.isReaudit()).toBe(true);
+    expect(component.isPausing()).toBe(false);
+    expect(component.isValid()).toBe(true);
+  });
+
+  it('al reenviar una rechazada no promete disponibilidad inmediata', () => {
+    component.template = mockRejectedTemplate;
+    fixture.detectChanges();
+
+    const text = (fixture.nativeElement as HTMLElement).textContent || '';
+    expect(text).toContain('Reenviar a Auditoría');
+    expect(text).toContain('solo si pasa');
+    expect(text).not.toContain('disponible de inmediato');
   });
 
   it('debe emitir confirmed con el template y motivo', () => {

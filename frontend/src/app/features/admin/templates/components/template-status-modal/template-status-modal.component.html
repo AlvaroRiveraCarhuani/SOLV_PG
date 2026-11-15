@@ -1,6 +1,6 @@
 <modal-shell animate.leave="motion-modal-out"
-  [title]="isPausing() ? 'Pausar o Suspender Plantilla' : 'Reactivar Plantilla Oficial'"
-  [subtitle]="isPausing() ? 'Indique el motivo técnico o de gobernanza para suspender del catálogo' : 'La plantilla volverá a estar disponible para laboratorios'"
+  [title]="isPausing() ? 'Pausar o Suspender Plantilla' : isReaudit() ? 'Reenviar a Auditoría' : 'Reactivar Plantilla Oficial'"
+  [subtitle]="isPausing() ? 'Indique el motivo técnico o de gobernanza para suspender del catálogo' : isReaudit() ? 'Se repetirán el smoke test y el escaneo de vulnerabilidades antes de volver al catálogo' : 'La plantilla volverá a estar disponible para laboratorios'"
   [intent]="isPausing() ? 'error' : 'info'"
   (close)="closeModal()"
 >
@@ -47,7 +47,11 @@
     </div>
   } @else {
     <p class="confirm-text">
-      ¿Confirmas reactivar la plantilla <strong>{{ template.name }}</strong>? Estará disponible de inmediato en el catálogo institucional para nuevas prácticas docentes.
+      @if (isReaudit()) {
+        ¿Confirmas reenviar la plantilla <strong>{{ template.name }}</strong> a auditoría? Volverá al catálogo institucional solo si pasa el smoke test y el escaneo de vulnerabilidades.
+      } @else {
+        ¿Confirmas reactivar la plantilla <strong>{{ template.name }}</strong>? Estará disponible de inmediato en el catálogo institucional para nuevas prácticas docentes.
+      }
     </p>
   }
 
@@ -61,7 +65,7 @@
       [class.btn-danger]="isPausing()"
       [disabled]="!isValid() || isSubmitting()"
       (click)="confirm()">
-      {{ isPausing() ? 'Confirmar Suspensión' : 'Reactivar Plantilla' }}
+      {{ isPausing() ? 'Confirmar Suspensión' : isReaudit() ? 'Reenviar a Auditoría' : 'Reactivar Plantilla' }}
     </button>
   </ng-container>
 </modal-shell>
