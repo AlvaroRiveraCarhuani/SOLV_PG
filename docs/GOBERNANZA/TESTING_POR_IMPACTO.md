@@ -377,6 +377,15 @@ nunca ejecuta `down -v` sobre los volúmenes del despliegue. Los recursos Docker
 las pruebas se etiquetan con `solv.test.run` y la limpieza solo toca los del run
 actual o residuos antiguos etiquetados.
 
+El backend limita los pedidos por IP (`RATE_LIMIT_IP_PER_MINUTE` y
+`RATE_LIMIT_IP_BURST`, por defecto 100 por minuto y ráfaga de 20). En un stack
+local o de CI los tres roles salen por `127.0.0.1` y comparten ese cupo: la
+carga del mapa curricular del estudiante llega al límite y recibe 429, que la
+pantalla traduce en un mapa vacío. Los workflows y el arranque local suben el
+cupo; cualquier entorno donde varios usuarios compartan una dirección pública
+necesita ajustar los mismos valores, porque el límite es por IP y no por
+usuario.
+
 ## Interfaz para agentes
 
 El agente no necesita leer varios documentos para decidir qué ejecutar. Debe

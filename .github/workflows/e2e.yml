@@ -96,6 +96,12 @@ jobs:
       SEAWEEDFS_SECRET_KEY: e2e-secret-key
       E2E_BASE_URL: http://127.0.0.1:4200
       PORT: '3000'
+      # Las tres sesiones de rol salen por 127.0.0.1 y comparten el límite por
+      # IP del backend: con el valor de producción, la carga del mapa
+      # curricular del estudiante recibe 429. El límite protege la plataforma
+      # frente a un cliente externo, no a un stack que corre en loopback.
+      RATE_LIMIT_IP_PER_MINUTE: '6000'
+      RATE_LIMIT_IP_BURST: '500'
       E2E_SLOW_MO: '0'
     steps:
       - name: Checkout repository
