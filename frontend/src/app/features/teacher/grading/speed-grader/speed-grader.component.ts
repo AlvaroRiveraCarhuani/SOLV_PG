@@ -444,7 +444,13 @@ export class SpeedGraderComponent implements OnInit, OnDestroy {
       next: (rev) => {
         if (!rev) return;
         if (rev.environment_type === 'IDE_PERSISTENTE') {
-          this.selectedFilePath.set(rev.files?.[0]?.path ?? null);
+          // El árbol incluye metadatos del IDE (.vscode, .git, node_modules).
+          // La revisión abre el primer archivo del alumno, no la configuración.
+          const files = rev.files ?? [];
+          const isSystemPath = (filePath: string) =>
+            filePath.split('/').some((segment) => segment.startsWith('.') || segment === 'node_modules');
+          const firstStudentFile = files.find((file) => !isSystemPath(file.path)) ?? files[0];
+          this.selectedFilePath.set(firstStudentFile?.path ?? null);
           if (rev.exercise_id) {
             this.loadRubric(rev.exercise_id);
           }
