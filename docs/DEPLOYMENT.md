@@ -83,7 +83,11 @@ go run ./cmd/migrate -dir ./migrations status
 
 ---
 
-## 4. Compilación e Instalación del Backend (Go)
+## 4. Compilación manual del Backend (Go)
+
+> Para una instalación institucional usá el despliegue con imágenes de la
+> [sección 8](#8-imágenes-versiones-y-actualización). Esta sección describe el
+> camino manual, útil para desarrollo y para diagnosticar un servidor.
 
 ```bash
 cd backend
@@ -142,26 +146,229 @@ sudo chmod 660 /var/run/docker.sock
 
 ---
 
-## 7. Backup Automático
+## 7. Firewall y Backup Automáticos
 
-Para asegurar la disponibilidad y recuperación ante desastres en producción (ADR-035), instale la tarea cron periódica desde el archivo de configuración provisto:
+El host no depende de cron ni de reglas aplicadas a mano. `infra/systemd/`
+contiene cuatro unidades y `scripts/install.sh` las instala, habilita y deja el
+sistema en un estado reproducible:
 
-### Instalación de la Tarea Cron
+| Unidad | Qué hace | Cuándo |
+|---|---|---|
+| `solv-firewall.service` | Aplica las reglas Zero Trust en `DOCKER-USER` | Al arrancar y a pedido |
+| `solv-firewall.timer` | Reaplica las reglas | Cada 15 minutos |
+| `solv-backup.service` | Dump de `solv_db`, del PostgreSQL de aula y de los volúmenes | Diario, 03:00 |
+| `solv-backup.timer` | Dispara el respaldo (se recupera si el host estuvo apagado) | Diario, 03:00 |
+
 ```bash
-# Copiar el archivo de cron a la configuración de cron.d del sistema
-sudo cp scripts/solv-backup.cron /etc/cron.d/solv-backup
-sudo chmod 0644 /etc/cron.d/solv-backup
+# Instación completa: unidades, timers, directorios y pila
+sudo bash scripts/install.sh
 
-# O registrar la tarea directamente en el crontab del usuario del sistema
-(crontab -l 2>/dev/null; cat scripts/solv-backup.cron) | crontab -
+# Solo preparar el host, sin levantar contenedores
+sudo bash scripts/install.sh --no-start
+
+# Ver qué haría, sin tocar nada
+bash scripts/install.sh --dry-run
 ```
 
-### Verificación de Ejecución
-```bash
-# Comprobar que el servicio de cron está activo
-systemctl status cron || systemctl status crond
+El script es idempotente: escribe una unidad solo si su contenido cambió y
+`systemctl enable --now` no duplica nada. Ejecutarlo dos veces seguidas deja el
+host igual que la primera vez.
 
-# Verificar en los logs del sistema la ejecución periódica
-grep CRON /var/log/syslog | grep solv-backup
+### Verificación
+
+```bash
+systemctl status solv-firewall.service
+systemctl list-timers 'solv-*'
+
+# Las reglas deben seguir presentes después de un reinicio del host
+iptables -S DOCKER-USER
 ```
+
+### Restaurar un respaldo
+
+```bash
+# Restaura en una base temporal y verifica contenido. No toca la base viva.
+bash scripts/restore.sh backups/2026-11/solv_db_20261113_030000.sql.gz
+
+# Reemplazar la base viva (detiene el backend y conserva la anterior)
+bash scripts/restore.sh <archivo> --promote --yes
+```
+
+La restauración por defecto es no destructiva a propósito: primero se verifica
+que el archivo tenga las tablas esperadas, y solo después se decide promover.
+La base anterior queda como `<nombre>_pre_restore_<fecha>` hasta que se confirme
+la operación.
+
+---
+
+## 8. Imágenes, versiones y actualización
+
+La pila completa se levanta con `compose.yml`. El backend y el frontend son
+imágenes propias con tag; Traefik, PostgreSQL, SeaweedFS, Prometheus y Grafana
+conservan las versiones fijadas del archivo.
+
+### Variables que gobiernan el despliegue
+
+| Variable | Uso |
+|---|---|
+| `SOLV_HOST` | Host público del sitio. Define rutas, certificado wildcard y el dominio de los entornos de práctica. Reemplaza al literal que antes vivía en `infra/traefik/dynamic_conf.yml`. |
+| `SOLV_VERSION` | Tag de `solv-backend` y `solv-frontend`. Cambiarlo es actualizar; volver al valor anterior es revertir. |
+| `POSTGRES_PASSWORD` | Clave del usuario `solv_user`. Compose la usa para la base y para el `DATABASE_URL` del backend. |
+
+Dentro de la red de compose el backend resuelve `postgres` y `seaweedfs` por
+nombre de servicio. El `DATABASE_URL` y el `SEAWEEDFS_ENDPOINT` del `.env`
+apuntan a `127.0.0.1` porque están escritos para ejecutar el binario en el host;
+compose los sobrescribe para el contenedor.
+
+### Construir las imágenes con su versión
+
+```bash
+# Versión, commit y fecha salen de git y del reloj del servidor
+make images
+
+# Equivalente explícito
+docker compose build
+```
+
+Los tres valores se inyectan con `-ldflags` y son los que responde el endpoint
+de versión. Un build local sin ellos informa `dev` / `unknown`.
+
+### Levantar y actualizar
+
+```bash
+# Primera puesta en marcha
+cp example.env .env    # completar secretos
+SOLV_VERSION=2.0.0 docker compose up -d
+
+# Actualizar a una versión publicada
+docker compose pull
+SOLV_VERSION=2.1.0 docker compose up -d
+
+# Volver a la versión anterior (el esquema no se revierte solo: ver abajo)
+SOLV_VERSION=2.0.0 docker compose up -d
+```
+
+Las migraciones se aplican al arrancar el backend, con el lock de PostgreSQL
+`pg_advisory_lock(1337)`. La versión aplicada se publica en `/api/v1/version`.
+
+### Actualizar con el script
+
+`scripts/upgrade.sh` hace los pasos en el único orden que admite vuelta atrás:
+
+```bash
+# Actualizar a una versión publicada
+bash scripts/upgrade.sh --version 2.1.0
+
+# Ver el plan sin tocar nada
+bash scripts/upgrade.sh --version 2.1.0 --dry-run
+
+# Construir en el servidor en lugar de descargar la imagen
+bash scripts/upgrade.sh --version 2.1.0 --build
+```
+
+| Paso | Qué ocurre | Si falla |
+|---|---|---|
+| 1 | Lee `/api/v1/version` y el tag del contenedor `solv_backend` | Aborta sin tocar nada: sin versión actual no hay vuelta atrás |
+| 2 | `pull` (o `build`) de `backend` y `frontend` con el tag destino | Aborta; la pila sigue en la versión anterior |
+| 3 | Ejecuta `infra/scripts/backup.sh` y verifica el `.sql.gz` con `gzip -t` | Aborta; no se levanta nada sin respaldo válido |
+| 4 | `docker compose up -d backend frontend` con `SOLV_VERSION` nuevo | — |
+| 5 | Espera `/api/v1/health` en 200 y `/api/v1/version` con el tag nuevo | Vuelve a la imagen anterior y restaura el respaldo previo |
+
+La espera por defecto es de 180 segundos (`--timeout`). Si la versión nueva no
+queda sana, el script detiene el backend, restaura el respaldo previo con
+`scripts/restore.sh --promote --yes`, recrea los contenedores con el tag anterior
+y verifica que `/api/v1/health` responda. Termina con código 1 y el detalle.
+
+`--skip-backup` existe para ensayos, no para producción: sin respaldo previo la
+vuelta atrás solo puede volver la imagen, no los datos. `--skip-db-rollback`
+vuelve la imagen dejando la base como quedó.
+
+El script exige que la pila esté respondiendo antes de empezar y que exista
+`.env`. Con `make upgrade VERSION=2.1.0` se invoca igual.
+
+### Endpoint de versión
+
+`GET /api/v1/version` responde sin autenticación:
+
+```json
+{
+  "data": {
+    "version": "2.1.0",
+    "commit": "a1b2c3d",
+    "build_date": "2026-11-13T10:00:00Z",
+    "go_version": "go1.25.0",
+    "migration_version": 57,
+    "database": "ok"
+  },
+  "error": "",
+  "message": "Versión del sistema"
+}
+```
+
+`database` vale `unavailable` cuando el proceso vive pero no alcanza a
+PostgreSQL, y en ese caso `migration_version` es `null`. Es el mismo endpoint
+que usa el `HEALTHCHECK` del contenedor y el target `make version`.
+
+### Revertir una actualización
+
+La vuelta atrás soportada es **imagen anterior + respaldo previo**, no
+`goose down`. Un `down` sobre una base con datos en una migración que
+transformó o borró algo no restaura el estado: pierde datos con pasos extra.
+
+1. Restaurar el respaldo tomado antes de actualizar.
+2. Levantar el tag anterior con `SOLV_VERSION`.
+3. Confirmar en `/api/v1/version` que versión y migración coinciden con el respaldo.
+
+---
+
+## 9. Alta de institución
+
+Una instalación nueva nace con una institución neutra (`default`, nombre
+«Institución») para que el backend arranque y el panel responda. Esa fila no
+identifica a nadie: el nombre, los dominios y el primer administrador se definen
+con `solv-tenant` (ADR-081).
+
+### Crear una institución
+
+```bash
+docker compose exec backend solv-tenant -action create \
+  -name "Universidad Ejemplo" \
+  -slug uejemplo \
+  -admin-email admin@uejemplo.edu \
+  -domains "uejemplo.edu,uejemplo.edu.bo" \
+  -period-code 2026-I \
+  -period-name "Primer Semestre 2026" \
+  -period-start 2026-02-01 \
+  -period-end 2026-06-30
+```
+
+Crea en una transacción la institución, su primer administrador, el periodo
+académico y la materia ancla `GEN-101`. Si un paso falla, no queda una
+institución a medio construir.
+
+| Opción | Efecto |
+|---|---|
+| `-slug` | Identificador público: minúsculas, números y guiones. Se normaliza a minúsculas. |
+| `-domains` | Dominios de correo permitidos, separados por coma. Vacío significa sin filtro por dominio: las cuentas se crean por invitación. |
+| `-admin-email` | Correo del primer administrador. Debe ser único en toda la instalación. |
+| `-period-*` | Periodo inicial. Sin fechas, se usa el año calendario en curso. |
+
+Repetir el comando con el mismo slug no duplica nada: informa que la institución
+ya existe y termina bien, así que el procedimiento se puede reejecutar.
+
+### Ver las instituciones
+
+```bash
+docker compose exec backend solv-tenant -action list
+```
+
+### Completar la identidad
+
+Después del alta, iniciar sesión con la cuenta administradora y completar en
+**Configuración → Identidad**: nombre institucional, logo, color y correo de
+soporte. El nombre que aparece en los correos de bienvenida a docentes sale de
+ahí, no del código.
+
+El dominio público del sitio no se configura acá: se define una sola vez en
+`SOLV_HOST`, dentro del `.env`. Compose se detiene si falta.
 

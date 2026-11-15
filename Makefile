@@ -1,6 +1,11 @@
 include .env
 export
 
+# Metadatos de compilación: los publica GET /api/v1/version.
+SOLV_VERSION ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo dev)
+SOLV_COMMIT  ?= $(shell git rev-parse --short HEAD 2>/dev/null || echo unknown)
+SOLV_BUILD_DATE ?= $(shell date -u +%Y-%m-%dT%H:%M:%SZ)
+
 .PHONY: run
 run:
 	@echo "=>  Levantando backend en modo desarrollo..."
@@ -19,6 +24,21 @@ dev:
 lint\:backend:
 	@echo "=>  golangci-lint (backend)..."
 	@cd backend && PATH="$$(go env GOPATH)/bin:$$PATH" golangci-lint run ./...
+
+.PHONY: images
+images:
+	@echo "=>  Construyendo solv-backend:$(SOLV_VERSION) y solv-frontend:$(SOLV_VERSION)..."
+	@SOLV_VERSION=$(SOLV_VERSION) SOLV_COMMIT=$(SOLV_COMMIT) SOLV_BUILD_DATE=$(SOLV_BUILD_DATE) \
+		docker compose build
+
+.PHONY: version
+version:
+	@curl -fsS http://127.0.0.1:3000/api/v1/version || echo "El backend no responde en 127.0.0.1:3000"
+
+.PHONY: upgrade
+upgrade:
+	@[ -n "$(VERSION)" ] || { echo "uso: make upgrade VERSION=2.1.0"; exit 1; }
+	@./scripts/upgrade.sh --version "$(VERSION)"
 
 .PHONY: token
 token:

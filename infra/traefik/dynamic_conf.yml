@@ -1,3 +1,13 @@
+# Configuración dinámica de Traefik (proveedor file).
+#
+# El enrutamiento del sitio principal ya no vive acá: lo publican las etiquetas
+# de los servicios backend y frontend en compose.yml, para que el host salga de
+# SOLV_HOST y no de un literal en este archivo.
+#
+# Este archivo conserva el middleware de autenticación perimetral que usan los
+# entornos de práctica: los contenedores de OpenVSCode se enrutan por etiquetas
+# propias (Host `<uuid>.<dominio>`) y pueden referenciar `solv-forwardauth@file`.
+
 http:
   middlewares:
     solv-forwardauth:
@@ -7,24 +17,3 @@ http:
         authResponseHeaders:
           - "X-User-Id"
           - "X-User-Role"
-
-  routers:
-    workspaces:
-      rule: "HostRegexp(`{subdomain:[a-z0-9-]+}.solv.dedyn.io`) || Host(`solv.dedyn.io`)"
-      service: solv-backend-service
-      entryPoints:
-        - websecure
-      tls:
-        certResolver: letsencrypt
-        domains:
-          - main: "solv.dedyn.io"
-            sans:
-              - "*.solv.dedyn.io"
-      middlewares:
-        - solv-forwardauth
-
-  services:
-    solv-backend-service:
-      loadBalancer:
-        servers:
-          - url: "http://solv_backend:3000"

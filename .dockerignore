@@ -1,0 +1,22 @@
+# Contexto de build de las imágenes (raíz del repositorio).
+# Nada de esto entra en la imagen: secretos, dependencias instaladas, artefactos
+# previos y datos operativos del host.
+
+.git
+.gitignore
+**/.env
+**/.env.*
+**/node_modules
+frontend/dist
+frontend/.angular
+backend/bin
+backups
+backup
+.solv_backups
+letsencrypt
+observaciones
+proyecto-grado
+impact-plan.json
+# Documentación del repositorio. No se excluye `**/*.md`: el backend embebe
+# MANUAL_ADMIN.md con //go:embed y el build falla sin él.
+docs

@@ -1,0 +1,15 @@
+[Unit]
+Description=SOLV - respaldo de PostgreSQL, PostgreSQL de aula y volumenes
+Documentation=file://@PROJECT_ROOT@/infra/scripts/backup.sh
+After=docker.service
+Wants=docker.service
+
+[Service]
+Type=oneshot
+Environment=PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+ExecStart=@PROJECT_ROOT@/infra/scripts/backup.sh
+# Un respaldo no compite con una clase en curso.
+Nice=10
+IOSchedulingClass=best-effort
+IOSchedulingPriority=7
+TimeoutStartSec=2h

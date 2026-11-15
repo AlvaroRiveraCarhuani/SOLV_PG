@@ -1,3 +1,11 @@
+# SOLV — pila de producción en un solo nodo.
+#
+# Actualizar es cambiar SOLV_VERSION y volver a subir:
+#   SOLV_VERSION=2.1.0 docker compose pull    (o `make images` si se construye local)
+#   SOLV_VERSION=2.1.0 docker compose up -d
+# Volver atrás es lo mismo con el tag anterior. La versión que corre se consulta
+# en GET /api/v1/version.
+
 services:
   traefik:
     image: traefik:v3.7.8
@@ -28,12 +36,100 @@ services:
     container_name: solv_db
     environment:
       POSTGRES_USER: solv_user
-      POSTGRES_PASSWORD: solv_password
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-solv_password}
       POSTGRES_DB: solv_db
     ports:
       - "127.0.0.1:5432:5432"
     volumes:
       - pg_data:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U solv_user -d solv_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    networks:
+      - solv_net
+
+  backend:
+    image: solv-backend:${SOLV_VERSION:-dev}
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+      args:
+        VERSION: ${SOLV_VERSION:-dev}
+        COMMIT: ${SOLV_COMMIT:-unknown}
+        BUILD_DATE: ${SOLV_BUILD_DATE:-unknown}
+    container_name: solv_backend
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      # Dentro de la red el host es el nombre del servicio, no 127.0.0.1.
+      # Estas dos claves pisan lo que traiga .env, que está escrito para
+      # ejecutar el binario directamente en el host.
+      DATABASE_URL: postgres://solv_user:${POSTGRES_PASSWORD:-solv_password}@postgres:5432/solv_db?sslmode=disable
+      SEAWEEDFS_ENDPOINT: http://seaweedfs:8333
+      MIGRATIONS_DIR: /app/migrations
+      BACKUP_DIR: /var/lib/solv/backups
+    ports:
+      - "127.0.0.1:3000:3000"
+    volumes:
+      # Escritura, no solo lectura: el backend crea y destruye laboratorios.
+      - "/var/run/docker.sock:/var/run/docker.sock"
+      - solv_backups:/var/lib/solv/backups
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://127.0.0.1:3000/api/v1/version"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 40s
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=solv_net"
+      - "traefik.http.routers.solv-api.rule=Host(`${SOLV_HOST:?SOLV_HOST no está definido: copiá example.env a .env y poné el dominio de la institución}`) && (PathPrefix(`/api`) || PathPrefix(`/ws`))"
+      - "traefik.http.routers.solv-api.entrypoints=websecure"
+      - "traefik.http.routers.solv-api.priority=10"
+      - "traefik.http.routers.solv-api.tls=true"
+      - "traefik.http.routers.solv-api.tls.certresolver=letsencrypt"
+      - "traefik.http.routers.solv-api.tls.domains[0].main=${SOLV_HOST:?SOLV_HOST no está definido: copiá example.env a .env y poné el dominio de la institución}"
+      - "traefik.http.routers.solv-api.tls.domains[0].sans=*.${SOLV_HOST:?SOLV_HOST no está definido: copiá example.env a .env y poné el dominio de la institución}"
+      - "traefik.http.services.solv-api.loadbalancer.server.port=3000"
+    networks:
+      - solv_net
+
+  frontend:
+    image: solv-frontend:${SOLV_VERSION:-dev}
+    build:
+      context: .
+      dockerfile: frontend/Dockerfile
+      args:
+        VERSION: ${SOLV_VERSION:-dev}
+    container_name: solv_frontend
+    restart: unless-stopped
+    depends_on:
+      - backend
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "-", "http://127.0.0.1/healthz"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=solv_net"
+      - "traefik.http.routers.solv-web.rule=Host(`${SOLV_HOST:?SOLV_HOST no está definido: copiá example.env a .env y poné el dominio de la institución}`)"
+      - "traefik.http.routers.solv-web.entrypoints=websecure"
+      # Prioridad menor que la de la API: si una ruta coincide con las dos,
+      # gana /api.
+      - "traefik.http.routers.solv-web.priority=1"
+      - "traefik.http.routers.solv-web.tls=true"
+      - "traefik.http.routers.solv-web.tls.certresolver=letsencrypt"
+      - "traefik.http.routers.solv-web.tls.domains[0].main=${SOLV_HOST:?SOLV_HOST no está definido: copiá example.env a .env y poné el dominio de la institución}"
+      - "traefik.http.routers.solv-web.tls.domains[0].sans=*.${SOLV_HOST:?SOLV_HOST no está definido: copiá example.env a .env y poné el dominio de la institución}"
+      - "traefik.http.services.solv-web.loadbalancer.server.port=80"
     networks:
       - solv_net
 
@@ -85,3 +181,4 @@ networks:
 volumes:
   pg_data:
   seaweed_data:
+  solv_backups:

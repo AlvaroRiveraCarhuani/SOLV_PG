@@ -1,0 +1,13 @@
+[Unit]
+Description=SOLV - reaplica las reglas de firewall cada 15 minutos
+
+[Timer]
+# El script resuelve la interfaz br-<id> de solv_net: si la red se recrea, la
+# interfaz cambia y las reglas anteriores dejan de aplicar. Reaplicar es barato
+# porque el script verifica con iptables -C antes de insertar.
+OnBootSec=2min
+OnUnitActiveSec=15min
+Unit=solv-firewall.service
+
+[Install]
+WantedBy=timers.target

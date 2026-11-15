@@ -1,0 +1,13 @@
+[Unit]
+Description=SOLV - respaldo diario a las 03:00
+
+[Timer]
+OnCalendar=*-*-* 03:00:00
+# Si el servidor estaba apagado a las 03:00, el respaldo corre al arrancar.
+Persistent=true
+# Hasta cinco minutos de dispersión: no todos los nodos golpean el disco igual.
+RandomizedDelaySec=300
+Unit=solv-backup.service
+
+[Install]
+WantedBy=timers.target

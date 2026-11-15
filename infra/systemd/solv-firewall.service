@@ -1,0 +1,15 @@
+[Unit]
+Description=SOLV - reglas Zero Trust en la cadena DOCKER-USER
+Documentation=file://@PROJECT_ROOT@/infra/firewall/docker-user-rules.sh
+After=docker.service network-online.target
+Wants=docker.service network-online.target
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+# systemd no hereda el PATH del login: iptables y docker deben resolverse.
+Environment=PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+ExecStart=@PROJECT_ROOT@/infra/firewall/docker-user-rules.sh
+
+[Install]
+WantedBy=multi-user.target
