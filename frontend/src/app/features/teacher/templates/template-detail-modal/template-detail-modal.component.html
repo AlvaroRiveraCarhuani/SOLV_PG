@@ -40,21 +40,21 @@
     @if (activeTab() === 'pedagogical') {
       <div class="tab-pane" role="tabpanel">
         <!-- Tarjeta de Propósito Formativo -->
-        <div class="info-card purpose-card">
-          <div class="card-title-row">
-            <svg lucideGraduationCap class="card-icon text-primary"></svg>
-            <h3 class="card-heading">Propósito en el Aula</h3>
+        @if (template().description) {
+          <div class="info-card purpose-card">
+            <div class="card-title-row">
+              <svg lucideGraduationCap class="card-icon text-primary"></svg>
+              <h3 class="card-heading">Propósito en el Aula</h3>
+            </div>
+            <p class="purpose-text">{{ template().description }}</p>
           </div>
-          <p class="purpose-text">
-            {{ template().description || 'Entorno optimizado para prácticas académicas de programación y desarrollo de proyectos.' }}
-          </p>
-        </div>
+        }
 
-        <!-- Herramientas y Tecnologías -->
+        <!-- Tecnologías incluidas -->
         <div class="info-card tools-card">
           <div class="card-title-row">
             <svg lucideLayers class="card-icon text-secondary"></svg>
-            <h3 class="card-heading">Herramientas y Tecnologías Incluidas</h3>
+            <h3 class="card-heading">Tecnologías incluidas</h3>
           </div>
           <div class="tools-grid">
             @for (chip of template().techChips; track chip.name) {
@@ -64,7 +64,7 @@
                 }
                 <div class="tool-info">
                   <strong class="tool-name">{{ chip.name }}</strong>
-                  <span class="tool-badge">Instalado</span>
+                  <span class="tool-badge">Incluido</span>
                 </div>
               </div>
             }
@@ -80,8 +80,10 @@
           <p class="modality-text">
             @if (template().environment_type === 'IDE_PERSISTENTE') {
               El estudiante cuenta con un <strong>espacio de trabajo persistente (editor VS Code)</strong> con terminal integrada, almacenamiento de archivos entre clases y soporte para ejecución de servicios locales.
-            } @else {
+            } @else if (template().environment_type === 'JUEZ_EFIMERO') {
               El estudiante resuelve desafíos puntuales con <strong>evaluación y corrección automática</strong> basada en casos de prueba de entrada y salida estándar.
+            } @else if (template().environment_type === 'AMBOS') {
+              El estudiante trabaja en un <strong>espacio persistente (editor VS Code)</strong> con terminal integrada y almacenamiento entre clases, y además resuelve desafíos con <strong>evaluación y corrección automática</strong> basada en casos de prueba de entrada y salida estándar.
             }
           </p>
         </div>
@@ -97,20 +99,26 @@
             <code class="spec-code font-mono" machineData>{{ template().docker_image }}</code>
           </div>
 
-          <div class="spec-row">
-            <span class="spec-label">Categoría Asignada:</span>
-            <span class="spec-value">{{ template().category || 'General' }}</span>
-          </div>
+          @if (template().category) {
+            <div class="spec-row">
+              <span class="spec-label">Categoría Asignada:</span>
+              <span class="spec-value">{{ template().category }}</span>
+            </div>
+          }
 
-          <div class="spec-row">
-            <span class="spec-label">Memoria RAM Base:</span>
-            <span class="spec-value font-mono" machineData>{{ template().default_memory_mb || 512 }} MB</span>
-          </div>
+          @if (template().default_memory_mb) {
+            <div class="spec-row">
+              <span class="spec-label">Memoria RAM Base:</span>
+              <span class="spec-value font-mono" machineData>{{ template().default_memory_mb }} MB</span>
+            </div>
+          }
 
-          <div class="spec-row">
-            <span class="spec-label">Núcleos de CPU:</span>
-            <span class="spec-value font-mono" machineData>{{ template().default_cpu_cores || 1 }} Core(s)</span>
-          </div>
+          @if (template().default_cpu_cores) {
+            <div class="spec-row">
+              <span class="spec-label">Núcleos de CPU:</span>
+              <span class="spec-value font-mono" machineData>{{ template().default_cpu_cores }} Core(s)</span>
+            </div>
+          }
 
           @if (template().ports) {
             <div class="spec-row">

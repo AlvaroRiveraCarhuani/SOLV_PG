@@ -400,6 +400,15 @@ export class TeacherTemplatesComponent implements OnInit {
     }
   }
 
+  /** Lleva al catálogo filtrado por el entorno que resolvió la solicitud. */
+  openResolvedTemplate(request: EnvironmentRequest): void {
+    const name = (request.resolved_template_name || '').trim();
+    if (name) {
+      this.searchTerm.set(name);
+    }
+    this.setTab('catalog');
+  }
+
   loadRequests(): void {
     this.requestsLoading.set(true);
     this.environmentRequestService.listMine().subscribe({
@@ -447,20 +456,23 @@ export class TeacherTemplatesComponent implements OnInit {
           const dockerImage = item.docker_image || '';
           const rawDesc = item.description || '';
           const techInfo = resolveTemplateTechInfo(name, dockerImage, rawDesc);
-          const desc = rawDesc.trim() ? rawDesc.trim() : techInfo.defaultDescription;
+          // Sin datos no se inventan: la tarjeta omite la descripción o la
+          // categoría cuando la API no las trae. `General` es el relleno del
+          // LEFT JOIN sin categoría, no una categoría real.
+          const desc = rawDesc.trim();
           const rawCat = (item.category || item.category_name || '').trim();
-          const cat = (rawCat && rawCat !== 'General') ? rawCat : techInfo.defaultCategory;
+          const cat = rawCat === 'General' ? '' : rawCat;
 
           return {
             id: item.id || '',
             name,
-            description: desc,
+            description: desc || undefined,
             docker_image: dockerImage,
-            default_memory_mb: item.default_memory_mb || item.base_ram_mb || 512,
-            default_cpu_cores: item.default_cpu_cores || 1,
-            category: cat,
+            default_memory_mb: item.default_memory_mb ?? item.base_ram_mb,
+            default_cpu_cores: item.default_cpu_cores,
+            category: cat || undefined,
             environment_type: item.environment_type || item.target_environment || 'IDE_PERSISTENTE',
-            is_official: item.is_official !== undefined ? Boolean(item.is_official) : true,
+            is_official: item.is_official === true,
             is_active: item.is_active !== false,
             ports: item.ports || '',
             primaryIcon: techInfo.primaryIcon,

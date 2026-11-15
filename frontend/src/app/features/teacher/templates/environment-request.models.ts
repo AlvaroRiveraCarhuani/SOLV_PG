@@ -60,6 +60,7 @@ export interface EnvironmentRequest {
   reviewed_by?: string;
   reviewed_at?: string;
   resolved_template_id?: string;
+  resolved_template_name?: string;
   created_at: string;
   updated_at: string;
 }

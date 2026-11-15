@@ -22,7 +22,7 @@ import { CasesTableComponent } from './cases-table/cases-table.component';
           <div class="header-left">
             <div class="title-row">
               <svg lucideCode class="section-icon"></svg>
-              <h3 class="section-title">1. Solución Oficial de Referencia</h3>
+              <h3 class="section-title section-title-base section-title-flush">1. Solución Oficial de Referencia</h3>
             </div>
             <p class="section-desc">
               Escribe o pega la solución óptima del ejercicio. El juez la utilizará para calcular automáticamente las salidas de tus casos de prueba y garantizar cero errores humanos.

@@ -65,7 +65,7 @@ export function initializeDefaultColumns(data: CourseGradesMatrix): ColumnExport
 
   cols.push({
     key: 'average',
-    label: 'Promedio Final',
+    label: 'Nota de Laboratorio',
     visible: true,
     headerColor: preset.avgColor,
     textColor: '#FFFFFF',
@@ -162,7 +162,7 @@ export function buildExcelSpreadsheetXml(
   xml += ' </Styles>\n';
 
   // Hoja de trabajo
-  xml += ' <Worksheet ss:Name="Calificaciones">\n';
+  xml += ' <Worksheet ss:Name="Notas de Laboratorio">\n';
   xml += '  <Table>\n';
 
   activeCols.forEach(col => {

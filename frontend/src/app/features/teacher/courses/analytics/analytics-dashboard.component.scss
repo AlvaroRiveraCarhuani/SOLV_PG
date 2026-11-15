@@ -51,17 +51,10 @@
           height: 24px;
           color: var(--tenant-primary);
         }
-
-        .page-heading {
-          font-size: var(--text-xl);
-          font-weight: 700;
-          color: var(--text-primary);
-          margin: 0;
-        }
       }
 
+      // Variante: tono muted para no competir con la métrica principal.
       .page-subtitle {
-        font-size: var(--text-sm);
         color: var(--text-muted);
         margin: 4px 0 0;
       }

@@ -91,7 +91,7 @@
         <article class="statement-card">
           <div class="section-heading">
             <svg lucideFileText class="section-icon"></svg>
-            <h2 class="section-title">Descripción del Problema</h2>
+            <h2 class="section-title section-title-base section-title-flush">Descripción del Problema</h2>
           </div>
           <div class="markdown-body" [innerHTML]="renderedDescription()"></div>
         </article>
@@ -100,7 +100,7 @@
           <article class="statement-card constraints-card">
             <div class="section-heading">
               <svg lucideShield class="section-icon"></svg>
-              <h2 class="section-title">Restricciones de Código</h2>
+              <h2 class="section-title section-title-base section-title-flush">Restricciones de Código</h2>
             </div>
             <ul class="constraints-list">
               @for (rule of constraintsList(); track rule) {
@@ -114,7 +114,7 @@
           <article class="statement-card">
             <div class="section-heading">
               <svg lucideLayers class="section-icon"></svg>
-              <h2 class="section-title">Casos de Ejemplo (<span machineData>{{ exampleCases().length }}</span>)</h2>
+              <h2 class="section-title section-title-base section-title-flush">Casos de Ejemplo (<span machineData>{{ exampleCases().length }}</span>)</h2>
             </div>
 
             @for (tc of exampleCases(); track $index) {
@@ -141,7 +141,7 @@
           <article class="statement-card">
             <div class="section-heading">
               <svg lucideTerminal class="section-icon"></svg>
-              <h2 class="section-title">Proyecto en {{ 'IDE_PERSISTENTE' | environmentLabel }}</h2>
+              <h2 class="section-title section-title-base section-title-flush">Proyecto en {{ 'IDE_PERSISTENTE' | environmentLabel }}</h2>
             </div>
             <p class="ide-hint">
               El ejercicio se resuelve dentro de tu entorno de desarrollo. Trabajá en el IDE y

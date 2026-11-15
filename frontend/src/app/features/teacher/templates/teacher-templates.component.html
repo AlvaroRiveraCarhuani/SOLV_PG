@@ -100,7 +100,9 @@
           <!-- Card Header -->
           <div class="card-header">
             <div class="category-meta">
-              <span class="category-pill">{{ tpl.category || 'General' }}</span>
+              @if (tpl.category) {
+                <span class="category-pill">{{ tpl.category }}</span>
+              }
               @if (tpl.is_official) {
                 <span class="official-badge" title="Entorno Oficial Institucional">
                   <svg lucideBadgeCheck class="badge-icon"></svg>
@@ -132,7 +134,7 @@
             }
 
             <div class="tech-stack-section">
-              <span class="tech-stack-label">Herramientas incluidas:</span>
+              <span class="tech-stack-label">Tecnologías incluidas:</span>
               <div class="tech-chips-row">
                 @for (chip of techChipsFor(tpl); track chip.name) {
                   <span class="tech-chip">
@@ -233,8 +235,11 @@
                   La esperan {{ req.subjects.length }} materias
                 </span>
               }
+              @if (req.resolved_template_name) {
+                <span class="request-subjects">Resuelta con {{ req.resolved_template_name }}</span>
+              }
               @if (req.status === 'APROBADA') {
-                <button type="button" class="btn-outline btn-see-catalog" (click)="setTab('catalog')">
+                <button type="button" class="btn-outline btn-see-catalog" (click)="openResolvedTemplate(req)">
                   <span>Ver en el catálogo</span>
                   <svg lucideArrowRight class="btn-icon"></svg>
                 </button>

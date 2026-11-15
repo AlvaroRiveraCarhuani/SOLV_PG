@@ -271,7 +271,7 @@
     @if (sessionAdvances().length > 0) {
       <section class="advance-status">
         <header class="advance-status-head">
-          <h2 class="section-title">
+          <h2 class="section-title section-title-sm section-title-flush">
             Avances de esta clase
             <span class="section-count" machineData>({{ sessionAdvances().length }})</span>
           </h2>
@@ -325,7 +325,7 @@
     <!-- Telemetría de la clase: solo los entornos de esta materia. -->
     @if (sessionEnvironments().length > 0) {
       <section class="environments">
-        <h2 class="section-title">
+        <h2 class="section-title section-title-sm section-title-flush">
           Entornos de esta clase
           <span class="section-count" machineData>({{ sessionEnvironments().length }})</span>
         </h2>
@@ -367,7 +367,7 @@
         <section class="exam-panel" aria-labelledby="exam-panel-title">
           <header class="exam-panel-head">
             <div>
-              <h2 class="section-title" id="exam-panel-title">Entornos del examen</h2>
+              <h2 class="section-title section-title-sm section-title-flush" id="exam-panel-title">Entornos del examen</h2>
               <p class="exam-panel-sub">
                 <span class="section-count" machineData>{{ frozenCount() }}</span>
                 en solo lectura
@@ -593,7 +593,7 @@
 
     @if (liveSessions().length > 0) {
       <section class="environments">
-        <h2 class="section-title">
+        <h2 class="section-title section-title-sm section-title-flush">
           Entornos abiertos ahora
           <span class="section-count" machineData>({{ liveSessions().length }})</span>
         </h2>

@@ -209,7 +209,7 @@ export class GradebookExportModalComponent implements OnInit {
     this.isExporting.set(true);
     try {
       const activeCols = this.visibleColumns();
-      const filename = `calificaciones_${this.subjectCode.toLowerCase()}_${new Date().toISOString().slice(0, 10)}.xls`;
+      const filename = `notas_laboratorio_${this.subjectCode.toLowerCase()}_${new Date().toISOString().slice(0, 10)}.xls`;
       const xml = buildExcelSpreadsheetXml(
         matrixData,
         activeCols,
@@ -232,7 +232,7 @@ export class GradebookExportModalComponent implements OnInit {
     try {
       const activeCols = this.visibleColumns();
       const csv = buildCsvContent(matrixData, activeCols);
-      const filename = `calificaciones_${this.subjectCode.toLowerCase()}_${new Date().toISOString().slice(0, 10)}.csv`;
+      const filename = `notas_laboratorio_${this.subjectCode.toLowerCase()}_${new Date().toISOString().slice(0, 10)}.csv`;
       downloadBlob(csv, 'text/csv;charset=utf-8', filename);
       this.isExporting.set(false);
     } catch {
