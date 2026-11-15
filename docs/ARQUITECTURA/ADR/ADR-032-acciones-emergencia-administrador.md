@@ -119,7 +119,12 @@ Decisiones de implementación:
 3. **`reset-pools` sin corte:** recicla conexiones inactivas del pool de
    PostgreSQL y reinicializa contadores de circuitos en memoria; si una
    acción carece de executor en la instancia, responde 503
-   `executor_unavailable` en lugar de simular éxito.
+   `executor_unavailable` en lugar de simular éxito. La regla vale para las
+   tres acciones que dependen de un executor (`kill_zombies`, `docker_prune`,
+   `reset_pools`): `kill_zombies` respondía 200 con «barrido ejecutado» aunque
+   no hubiera pruner inyectado. El `affected_count` de la respuesta es siempre
+   lo que devolvió el executor, y un error suyo se propaga como 500 sin
+   registrar la acción como exitosa.
 4. **`reap-stale` evolucionado:** el cierre de sesiones inactivas dejó de
    ser una acción manual puntual y pasó a ser política continua del worker
    QoS (recarga por ciclo desde `tenants.config`, submódulo 14.6).

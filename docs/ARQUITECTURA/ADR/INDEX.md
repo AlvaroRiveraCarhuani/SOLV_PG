@@ -85,3 +85,6 @@ Este documento consolida todas las Decisiones de Arquitectura (ADRs) tomadas dur
 | 076 | [Despublicar una Práctica Publicada](ADR-076-despublicar-una-practica-publicada.md) | Implementado | Docencia |
 | 077 | [Rúbrica Opcional y Avisos en el Editor de Prácticas](ADR-077-rubrica-opcional-y-avisos-en-el-editor.md) | Implementado | Docencia |
 | 078 | [Contrato Único de Edición y Borrado Seguro en el Catálogo de Tecnologías](ADR-078-contrato-unico-y-borrado-seguro-del-catalogo-de-tecnologias.md) | Aceptado | Core |
+| 079 | [Identificador Externo y Reconciliación de la Nómina](ADR-079-identificador-externo-y-reconciliacion-de-nomina.md) | Aceptado | Core |
+| 080 | [Propiedad de los Datos: Capas Propias, Espejadas y Derivadas](ADR-080-propiedad-de-datos-propias-espejadas-derivadas.md) | Aceptado | Core |
+| 081 | [Alta de Institución, Catálogo Base y Fin del Nombre Hardcodeado](ADR-081-alta-de-institucion-y-catalogo-base.md) | Aceptado | Core |

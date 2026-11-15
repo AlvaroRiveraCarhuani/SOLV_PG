@@ -102,7 +102,8 @@ El presente documento establece la especificación formal del contrato de interf
 * **Regla Transaccional:** La aceptación valida que el email del usuario en sesión (`X-User-Email`) coincida con el email de la invitación y actualiza el rol a `teacher` con `used = TRUE` en una transacción atómica.
 
 ### 3.6 `GET /api/v1/classroom/import`
-* **Propósito:** Importación manual unidireccional de nóminas desde Google Classroom (D6 compliant).
+* **Estado:** No implementado. Responde `501 Not Implemented` con el código `classroom_import_not_implemented`.
+* **Motivo:** la sincronización con Google Classroom (ADR-022) no está construida y el endpoint devolvía alumnos de ejemplo con un mensaje de éxito. La importación real de nóminas se hace con `POST /api/v1/admin/subjects/{id}/roster` (ADR-079).
 
 ### 3.7 `GET /api/v1/exercises/{id}`
 * **Propósito:** Obtener la información técnica de un ejercicio para el Juez Virtual.

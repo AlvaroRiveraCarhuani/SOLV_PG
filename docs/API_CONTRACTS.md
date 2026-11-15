@@ -529,6 +529,8 @@ Permite a un docente o administrador rectificar o convalidar el veredicto y nota
 
 **La lectura sigue el mismo criterio.** `GET /api/v1/submissions/{id}`, el detalle de revisión del docente y el registro de keystrokes responden `400` si el id no es un UUID y `404` si la entrega no existe en la institución. La evaluación por rúbrica de una entrega ausente también responde `404`. Un fallo real del almacén sigue siendo `500`: no se disfraza de ausencia.
 
+**Los keystrokes son del alumno dueño.** `POST /api/v1/submissions/{id}/keystroke-events` acepta escrituras de docentes y administradores sobre cualquier entrega de su institución; para cualquier otro rol, la entrega tiene que ser propia y, si no lo es, responde `403 submission_forbidden`. Son evidencia de integridad académica: un alumno no alimenta la entrega de otro. Si la instancia no tiene conectado el almacén de eventos, responde `503 submission_persistence_unavailable` en lugar de devolver una cantidad de eventos que no se guardó.
+
 ---
 
 ### 11. Comentarios In-line Anclados a Código (`POST & GET /api/v1/teacher/submissions/{id}/comments`)
@@ -677,7 +679,7 @@ Genera y transmite una matriz consolidada de notas en formato CSV compatible con
 - **Headers:** `X-User-Id: <teacher_uuid>`, `X-User-Role: teacher | admin`, `X-Tenant-Id: <tenant_uuid>`
 - **Headers de Respuesta:**
   - `Content-Type: text/csv; charset=utf-8`
-  - `Content-Disposition: attachment; filename="calificaciones_PROG-201_20260902.csv"`
+  - `Content-Disposition: attachment; filename="notas_laboratorio_PROG-201_20260902.csv"`
 - **Respuestas:**
   - `200 OK`: Archivo CSV binario con matriz de calificaciones.
   - `403 Forbidden`: Si el rol es student.
@@ -685,7 +687,7 @@ Genera y transmite una matriz consolidada de notas en formato CSV compatible con
 
 #### Ejemplo de Contenido CSV
 ```csv
-ID Estudiante,Nombre Completo,Email,Lab 1: Sockets TCP,Lab 2: RPC Concurrente,Promedio Final
+ID Estudiante,Nombre Completo,Email,Lab 1: Sockets TCP,Lab 2: RPC Concurrente,Nota de Laboratorio
 stu-uuid-1,Carlos Ruiz,carlos@uab.edu.bo,100,0,50.00
 stu-uuid-2,Ana Torres,ana@uab.edu.bo,100,90,95.00
 stu-uuid-3,María López,maria@uab.edu.bo,0,0,0.00
@@ -918,6 +920,8 @@ Permite al administrador aprobar una plantilla solicitada (ajustando opcionalmen
   - `422 Unprocessable Entity`: Si el estado no es `approved`/`rejected`, o si es `rejected` sin `rejection_reason`.
   - `404 Not Found`: Si la plantilla no existe.
   - `403 Forbidden`: Si el rol no es `admin`.
+
+Si la plantilla estaba `RECHAZADA`/`rejected`, un `approved` no la publica de inmediato: la devuelve a `PENDIENTE_AUDITORIA`, limpia el motivo anterior y reinicia smoke y Trivy. Solo vuelve al catálogo si la auditoría pasa.
 
 ---
 
@@ -2006,6 +2010,13 @@ Devuelve el estado del nodo y del tenant desde **hechos medidos** (ADR-049): tel
 | `estimated_max_containers` | `min(max_containers_policy, floor(availableMB / ram_per_lab_mb))`, nunca menor que `running_labs`. |
 | `capacity_basis` | `"policy"` (mandó `max_containers`, o no se pudo medir RAM) \| `"mem_available"` (mandó la RAM disponible). |
 | `host_safety_ceiling_pct` | Techo de seguridad de la política vigente del tenant (75–90). |
+| `max_containers_policy` | Techo de admisión vigente. Si la institución nunca guardó políticas, se deriva de la RAM medida del host (`docs/OPERATIONS/capacidad.md`); el ejemplo de arriba muestra un valor guardado. |
+
+`GET /api/v1/admin/server/policies` devuelve las políticas y un bloque
+`recommendation` (`recommended_max_containers`, `host_total_mb`,
+`platform_reserve_mb`, `ram_per_lab_mb`, `host_safety_ceiling_pct`,
+`capacity_basis`) con el techo que sostiene el host. `capacity_basis` es
+`host_ram` con medición y `unavailable` sin ella.
 
 #### Estados de environment nuevos (ADR-049)
 

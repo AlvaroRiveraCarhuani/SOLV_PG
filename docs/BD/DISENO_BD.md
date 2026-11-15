@@ -60,7 +60,9 @@ erDiagram
         string last_name
         string role
         string status "Aprobado (ADR-033)"
-        string student_code "Aprobado (ADR-033)"
+        string external_id "Aprobado (ADR-079); reemplaza a student_code"
+        string source_system "Aprobado (ADR-079)"
+        timestamptz last_synced_at "Aprobado (ADR-079)"
         text suspension_reason "Aprobado (ADR-033)"
         timestamptz created_at
     }
@@ -212,6 +214,19 @@ ALTER TABLE subjects ADD COLUMN IF NOT EXISTS reassigned_at TIMESTAMPTZ;
 
 -- ADR-033: Gestión Administrativa de Estudiantes
 ALTER TABLE users ADD COLUMN IF NOT EXISTS status VARCHAR(30) NOT NULL DEFAULT 'active'; -- active, suspended
-ALTER TABLE users ADD COLUMN IF NOT EXISTS student_code VARCHAR(50);
 ALTER TABLE users ADD COLUMN IF NOT EXISTS suspension_reason TEXT;
+
+-- ADR-079: Identificador externo y reconciliación de nómina
+-- student_code de ADR-033 nunca se creó: external_id cumple ese rol.
+ALTER TABLE users ADD COLUMN IF NOT EXISTS external_id VARCHAR(190);
+ALTER TABLE users ADD COLUMN IF NOT EXISTS source_system VARCHAR(50);
+ALTER TABLE users ADD COLUMN IF NOT EXISTS last_synced_at TIMESTAMPTZ;
+ALTER TABLE subjects ADD COLUMN IF NOT EXISTS external_id VARCHAR(190);
+ALTER TABLE subjects ADD COLUMN IF NOT EXISTS source_system VARCHAR(50);
+ALTER TABLE subjects ADD COLUMN IF NOT EXISTS last_synced_at TIMESTAMPTZ;
+ALTER TABLE enrollments ADD COLUMN IF NOT EXISTS external_id VARCHAR(190);
+ALTER TABLE enrollments ADD COLUMN IF NOT EXISTS source_system VARCHAR(50) NOT NULL DEFAULT 'manual';
+ALTER TABLE enrollments ADD COLUMN IF NOT EXISTS last_synced_at TIMESTAMPTZ;
+CREATE UNIQUE INDEX IF NOT EXISTS uq_users_tenant_external_id ON users (tenant_id, external_id) WHERE external_id IS NOT NULL;
+CREATE UNIQUE INDEX IF NOT EXISTS uq_subjects_tenant_external_id ON subjects (tenant_id, external_id) WHERE external_id IS NOT NULL;
 ```

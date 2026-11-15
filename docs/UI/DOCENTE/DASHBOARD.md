@@ -285,7 +285,7 @@ Al pulsar `[Emitir Avance a la Clase]`:
 ├──────────────────────────────────────────────────────────────────────────────────────────────────┤
 │ [lucide:refresh-cw] Sincronizar con Google Classroom   (Última sync: Hoy 08:00 | 35 alumnos)      │
 │ ┌──────────────────────────────────────────────────────────────────────────────────────────────┐ │
-│ │ Estudiante                  │ Correo Institucional     │ Estado Entorno │ Promedio │ Estado  │ │
+│ │ Estudiante                  │ Correo Institucional     │ Estado Entorno │ Nota Lab │ Estado  │ │
 │ ├─────────────────────────────┼──────────────────────────┼────────────────┼──────────┼─────────┤ │
 │ │ Alvaro Rivera               │ a.rivera@uab.edu.bo      │ [x] Activo     │ 95/100   │ Al día  │ │
 │ │ Carlos Ruiz                 │ c.ruiz@uab.edu.bo        │ [-] Pausado    │ 70/100   │ Riesgo  │ │
@@ -300,11 +300,11 @@ Al pulsar `[Emitir Avance a la Clase]`:
 
 ```text
 ┌──────────────────────────────────────────────────────────────────────────────────────────────────┐
-│ SOLV | Centro Global de Evaluaciones                   [lucide:download] Exportar Acta CSV/Excel │
+│ SOLV | Centro Global de Evaluaciones                   [lucide:download] Exportar Nota CSV/Excel │
 ├──────────────┬───────────────────────────────────────────────────────────────────────────────────┤
 │              │ Seleccionar: [Curso: Programación II v]  [Laboratorio: Todos los labs v]           │
 │ [ ] Inicio   │ ┌───────────────────────────────────────────────────────────────────────────────┐ │
-│ [*] Evaluac. │ │ Estudiante         │ Lab #01 │ Lab #02 │ Lab #03 │ Lab #04 │ Promedio │ Estado  │ │
+│ [*] Evaluac. │ │ Estudiante         │ Lab #01 │ Lab #02 │ Lab #03 │ Lab #04 │ Nota Lab │ Estado  │ │
 │ [ ] Ajustes  │ ├────────────────────┼─────────┼─────────┼─────────┼─────────┼──────────┼─────────┤ │
 │              │ │ Alvaro Rivera      │ 100/100 │ 95/100  │ 90/100  │ 100/100 │ 96/100   │ Aprobado│ │
 │              │ │ Carlos Ruiz        │ 80/100  │ 75/100  │ 60/100  │ Pend.   │ 71/100   │ Riesgo  │ │

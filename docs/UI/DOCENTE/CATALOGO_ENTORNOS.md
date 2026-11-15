@@ -77,7 +77,7 @@ Sin fila de KPIs. Sin RAM, CPU ni nombre de imagen en la tarjeta.
 | Cabecera | Modalidad en palabras: "Editor persistente" o "Juez automático" | Nunca "IDE" ni "Juez" solos |
 | Título | Nombre humano: "Java 21 + Spring Boot" | El nombre de la imagen no aparece acá |
 | Resumen | Una línea de para qué sirve | Máximo 90 caracteres |
-| Herramientas | Chips por capa, con nombre e icono | Todas las piezas declaradas; la fila hace wrap |
+| Tecnologías incluidas | Chips por capa, con nombre e icono | Todas las piezas declaradas; la fila hace wrap. «Herramientas» se reserva para los comandos declarados, como en el catálogo del administrador |
 | Acciones | "Ver detalle" y "Usar" (o "Solicitar") | "Usar" solo si `available` es verdadero |
 | Insignia | "Oficial" solo si el flag es verdadero | Sin default; si no hay definición, no se muestra |
 
@@ -121,6 +121,10 @@ Requisitos técnicos                                   [Mostrar]
 - "Qué incluye" es el árbol principal → complementos → base de datos. Es la vista que el docente reconoce.
 - "Requisitos técnicos" está plegado por defecto. Ahí sí aparecen imagen y memoria, porque son consecuencias.
 - La compatibilidad se muestra solo si hay una advertencia que cambie la decisión ("Maven no está disponible para esta imagen"). No se muestra el mapa completo de compatibilidad.
+- Los requisitos técnicos se muestran solo si la API los entrega: la CPU no se rellena con un valor por defecto.
+- Si faltan descripción o categoría, la tarjeta y el detalle las omiten; no se sustituyen por textos ni categorías inferidas. «General» no se muestra como categoría porque es el relleno de una plantilla sin categoría asignada.
+- La dinámica del alumno sigue la modalidad real: Entorno de Desarrollo describe el espacio persistente, Entorno de Evaluación la corrección automática, y Entorno de Desarrollo y Evaluación menciona ambos. Una modalidad desconocida no muestra dinámica en lugar de asumir evaluación.
+- Las tecnologías del detalle se marcan como «Incluido», no como «Instalado»: el catálogo declara el stack, no verifica la instalación.
 - Si `available` es falso, el botón dice "Solicitar entorno" y explica por qué: "Todavía no hay una plantilla ejecutable para este entorno".
 
 ---

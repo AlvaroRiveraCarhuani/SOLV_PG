@@ -87,6 +87,14 @@ Nueva página `/admin/solicitudes-entorno`: piezas reconocidas, piezas faltantes
 
 Todas pasan por `TenantMiddleware`; las escrituras, además, por auditoría. El endpoint legacy `POST /api/v1/templates` queda como está para no romper llamadas existentes, pero el docente ya no lo usa.
 
+### 9. La aprobación comprueba que la plantilla sirva (2026-11-14)
+
+Aprobar deja de ser un cambio de estado. El servicio valida que la plantilla exista, sea de la misma institución (o global), esté aprobada y cubra la modalidad pedida con `TemplateSupportsEnvironment`; si no, responde `422` y no enlaza nada. La cola del administrador filtra el selector con la misma regla (`environmentCovers`) y, cuando no hay plantillas compatibles, indica que hay que construir el entorno antes de responder.
+
+Si la respuesta queda vacía, el servicio escribe `Tu solicitud quedó resuelta con el entorno «<nombre>».` para que el docente sepa qué plantilla la resolvió. `NO_VIABLE` también exige motivo, como ya pedía el punto 7. La solicitud devuelve `resolved_template_name` en la cola y en «Mis solicitudes», y el docente puede abrir el catálogo filtrado por ese nombre.
+
+Notificar al docente por correo sigue fuera de este ADR: el estado y la respuesta se consultan en la pestaña de solicitudes.
+
 ---
 
 ## Consecuencias

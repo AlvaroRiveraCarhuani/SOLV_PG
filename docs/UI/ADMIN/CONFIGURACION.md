@@ -237,11 +237,16 @@ Permite ajustar los límites de hardware del host, los parámetros del trabajado
 | `POST` | `/api/v1/tenants/logo` | `multipart/form-data` (campo `logo`, max 2 MB, PNG/SVG/JPG/WEBP) | Sube y almacena el imagotipo institucional; persiste `logo_url` en `tenants.config`. |
 | `GET` | `/api/v1/public/branding/logo/{tenantId}{ext}` | — | Sirve el imagotipo almacenado (público, caché 5 min). |
 | `PUT` | `/api/v1/admin/branding` | `{ ..., "font_sans_family": "cat:inter", "font_mono_family": "cat:jetbrains-mono" }` | Branding con merge parcial + tipografía white-label validada (`cat:slug` o `url:https://fonts.googleapis.com/...`). |
-| `GET` | `/api/v1/admin/server/policies` | — | Obtiene políticas QoS vigentes (RAM, inactividad, concurrencia). |
-| `PUT` | `/api/v1/admin/server/policies` | `{ "ram_limit_mb": 512, "inactivity_minutes": 15, "max_containers": 40 }` | Guarda políticas QoS; el worker QoS las recarga en su próximo ciclo. |
+| `GET` | `/api/v1/admin/server/policies` | — | Obtiene políticas QoS vigentes (RAM, inactividad, concurrencia) y la `recommendation` que explica cuántos entornos sostiene el host. |
+| `PUT` | `/api/v1/admin/server/policies` | `{ "ram_limit_mb": 512, "inactivity_minutes": 15, "max_containers": 120 }` | Guarda políticas QoS; el worker QoS las recarga en su próximo ciclo. |
 | `POST` | `/api/v1/admin/academic-periods/{id}/archive` | `{ "confirmation_code": "2026-2" }` | Archivo formal e irreversible del período (is_archived + sellado :ro de materias, ADR-029). |
 | `GET` | `/api/v1/admin/server/policies` | — | Obtiene los parámetros actuales de cuota RAM, toque de queda y concurrencia. |
-| `PUT` | `/api/v1/admin/server/policies` | `{ "ram_limit_mb": 512, "inactivity_minutes": 15, "max_containers": 40 }` | Guarda las políticas de QoS del servidor. |
+| `PUT` | `/api/v1/admin/server/policies` | `{ "ram_limit_mb": 512, "inactivity_minutes": 15, "max_containers": 120 }` | Guarda las políticas de QoS del servidor. |
+
+En Configuración → Servidor, la tarjeta de autogestión muestra el campo
+«Laboratorios Simultáneos por Institución» con el techo vigente, la recomendación
+calculada para la RAM del servidor y un botón para adoptarla. La recomendación
+llega en `recommendation` y su fórmula está en `docs/OPERATIONS/capacidad.md`.
 | `GET` | `/api/v1/admin/backups` | — | Lista los snapshots disponibles en el servidor con fecha, tamaño y checksum. |
 | `POST` | `/api/v1/admin/backups` | — | Dispara la generación manual de un nuevo respaldo en segundo plano. |
 | `GET` | `/api/v1/admin/backups/{id}/download` | — | Descarga el archivo de respaldo seleccionado. |

@@ -280,6 +280,8 @@ Cada pantalla puede ofrecer hasta dos guías:
 - **Recorrido visual:** señala los elementos reales de la pantalla sin pedir datos ni detener el trabajo.
 - **Tutorial guiado:** avanza paso a paso y comprueba el estado real antes de permitir el siguiente paso. Se puede cerrar en cualquier momento.
 
+La burbuja del recorrido se aparta del elemento señalado. En pantallas angostas reduce su altura y activa desplazamiento interno para no taparlo; si el bloque resaltado es más alto que la ventana, no queda espacio libre y la burbuja mantiene la posición del motor. El panel del tutorial elige la esquina con menos solape.
+
 | Pantalla | Recorrido visual | Tutorial guiado |
 | :--- | :---: | :---: |
 | Períodos académicos | Sí | Crear y activar un período |
@@ -288,7 +290,17 @@ Cada pantalla puede ofrecer hasta dos guías:
 | Inteligencia Artificial | Sí | Dejar el copiloto en uso |
 | Administradores | Sí | Sumar un administrador |
 | Constructor de plantillas | Sí | Sí |
-| Catálogo de plantillas | — | Sí |
+| Catálogo de plantillas | Sí | Sí |
+| Solicitudes de entornos | Sí | Responder una solicitud |
+| Docentes | Sí | Registrar un docente |
+| Cursos | Sí | Registrar una materia |
+| Catálogo de tecnologías | Sí | Dar de baja una tecnología en uso |
+| Auditoría | Sí | Investigar un evento |
+| Emergencias | Sí | Preparar una operación |
+| Dashboard de salud | Sí | — |
+| Categorías académicas | Sí | — |
+
+El tutorial del Catálogo de plantillas se adapta al estado de la bandeja: con aprobaciones pendientes guía la revisión y el rechazo; sin pendientes explica por qué no aparece la pestaña y qué se hace en las fichas del catálogo activo, sin pedir acciones que esa vista no ofrece.
 
 En Configuración cada pestaña ofrece su propio recorrido: señala únicamente los bloques de esa pestaña y no comparte pasos con las demás. Al cambiar de pestaña, el centro de ayuda muestra las guías de la pestaña abierta, no las de la página completa.
 
