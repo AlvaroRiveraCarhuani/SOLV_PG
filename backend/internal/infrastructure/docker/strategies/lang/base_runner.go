@@ -436,6 +436,20 @@ func runContainerExecution(ctx context.Context, cli *client.Client, imageName st
 
 	case err := <-errCh:
 		if err != nil {
+			// Si el plazo del caso venció mientras se esperaba el cierre del
+			// contenedor, el veredicto es TLE: la llamada de espera al motor de
+			// Docker muere con el mismo contexto y, sin este caso, el alumno
+			// recibía un 500 por haber agotado el tiempo permitido.
+			if evalCtx.Err() != nil {
+				timeoutVal := 5
+				metrics.DockerContainerFailuresTotal.WithLabelValues("timeout").Inc()
+				_ = cli.ContainerStop(context.Background(), containerID, container.StopOptions{Timeout: &timeoutVal})
+				return domain.TestCaseRunResult{
+					Verdict:       domain.VerdictTLE,
+					ExecutionTime: timeoutDuration,
+					ErrorDetails:  fmt.Sprintf("Tiempo límite de ejecución superado (%d ms)", timeLimitMS),
+				}, nil
+			}
 			metrics.DockerContainerFailuresTotal.WithLabelValues("wait_failed").Inc()
 			return domain.TestCaseRunResult{}, fmt.Errorf("container wait error: %w", err)
 		}
