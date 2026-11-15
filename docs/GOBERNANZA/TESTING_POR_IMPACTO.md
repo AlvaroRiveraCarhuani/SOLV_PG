@@ -195,6 +195,23 @@ cambio de contrato compartido, una configuración global, un cambio estructural
 o una ruta que el selector no puede clasificar. Un cambio visual localizado no
 hereda el nivel de la aplicación entera.
 
+### Volumen del cambio
+
+`limits.maxChangedFiles` (200) es una red de seguridad, no un criterio de
+riesgo. Por encima de ese número el selector no puede sostener que clasificó el
+cambio —doscientas modificaciones dispersas pueden tocar cualquier área sin que
+ningún glob lo delate— y escala a L3 con el motivo explícito.
+
+El umbral es alto a propósito. Cuando estaba en 60, cualquier rama de trabajo de
+más de un día lo superaba y la validación integral pasaba de excepción a rutina:
+cuarenta y cinco minutos por corrida para cambios que el selector sí sabía
+clasificar. La cantidad de archivos nunca reemplaza a las reglas de riesgo: un
+solo archivo de autenticación sigue siendo L3 y veinte iconos siguen siendo L0.
+
+La otra cara es que un cambio grande de verdad —varias áreas, migraciones y
+contratos en la misma rama— sigue pagando la validación completa. La salida no
+es subir el umbral, es partir el trabajo en commits y ramas más chicos.
+
 ## Reglas críticas y escalamiento
 
 Autenticación, sesiones, autorización, aislamiento de tenants, ejecución de

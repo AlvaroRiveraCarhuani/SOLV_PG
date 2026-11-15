@@ -2,7 +2,7 @@
   "version": 4,
   "description": "Fuente única de verdad para seleccionar pruebas por impacto en SOLV. Los scripts, el CI y las instrucciones de agentes leen este archivo; no repiten estas reglas.",
   "limits": {
-    "maxChangedFiles": 60
+    "maxChangedFiles": 200
   },
   "fullEvents": [
     "schedule",
