@@ -12,6 +12,7 @@ import {
   typeInCodeMirror
 } from '../../fixtures/authoring.fixture.mjs';
 import { apiJson, openCurricularMap } from '../../fixtures/api.fixture.mjs';
+import { verdictLabel } from '../../fixtures/verdict-labels.fixture.mjs';
 
 test.describe.configure({ mode: 'serial' });
 
@@ -50,10 +51,14 @@ test.describe('J05 — Desbloqueo curricular encadenado y examen con semilla por
     moduleTwoId: '',
     moduleOneExerciseId: '',
     seededExamId: '',
-    secondStudentId: ''
+    secondStudentId: '',
+    secondExamResult: null
   };
 
   test('El módulo con prerrequisito se desbloquea al aprobar y el examen entrega semillas distintas sin filtrar la respuesta', async ({ browser }, testInfo) => {
+    // El flujo crea materia, dos módulos, dos prácticas y rinde un examen con
+    // dos estudiantes: el presupuesto por defecto de 240 s queda corto.
+    test.setTimeout(420_000);
     const forensic = createForensicMonitor();
     const baseURL = process.env.E2E_BASE_URL || 'http://localhost:4200';
 
@@ -284,7 +289,9 @@ test.describe('J05 — Desbloqueo curricular encadenado y examen con semilla por
 
         const resultPanel = solver.locator('[data-testid="judge-result-panel"]');
         await expect(resultPanel).toBeVisible({ timeout: 45000 });
-        await expect(resultPanel.locator('.verdict-acronym').first()).toHaveText('AC', { timeout: 45000 });
+        await expect(resultPanel.locator('verdict-badge').first()).toContainText(verdictLabel('AC'), {
+          timeout: 45000
+        });
       });
 
       await test.step('Paso 3: Al volver al mapa, el Módulo 2 queda disponible', async () => {
@@ -330,6 +337,7 @@ test.describe('J05 — Desbloqueo curricular encadenado y examen con semilla por
 
         const first = await solveSeededExam(studentPage);
         const second = await solveSeededExam(secondStudentSession.page);
+        sharedState.secondExamResult = second;
 
         expect(first.body.verdict).toBe('AC');
         expect(second.body.verdict).toBe('AC');
@@ -345,7 +353,11 @@ test.describe('J05 — Desbloqueo curricular encadenado y examen con semilla por
       await test.step('Paso 5: El payload HTTP del estudiante nunca expone la salida esperada', async () => {
         forensic.recordStep('Se verifica que el payload de evaluación no expone expected_output');
 
-        const second = await solveSeededExam(secondStudentSession.page);
+        // El examen es definitivo: una vez entregado, la interfaz reemplaza el
+        // botón de envío por "Examen entregado". Se reutiliza el resultado del
+        // paso anterior en vez de intentar una segunda entrega imposible.
+        const second = sharedState.secondExamResult;
+        expect(second).toBeTruthy();
 
         expect(second.raw).not.toContain('expected_output');
         expect(second.body.generated_cases ?? []).toHaveLength(1);

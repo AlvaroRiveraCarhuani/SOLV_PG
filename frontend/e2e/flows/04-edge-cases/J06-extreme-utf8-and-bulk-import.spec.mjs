@@ -6,6 +6,7 @@ import {
 import { createForensicMonitor } from '../../fixtures/forensic-logger.fixture.mjs';
 import { typeInCodeMirror } from '../../fixtures/authoring.fixture.mjs';
 import { apiJson, openCurricularMap } from '../../fixtures/api.fixture.mjs';
+import { verdictLabel } from '../../fixtures/verdict-labels.fixture.mjs';
 
 test.describe.configure({ mode: 'serial' });
 
@@ -86,7 +87,9 @@ test.describe('J06 — Importación masiva, analíticas y UTF-8 extremo', () => 
         });
         sharedState.courseId = course.id;
 
-        await apiJson(teacherPage.request, teacherSession.token, 'POST', `/api/v1/subjects/${sharedState.courseId}/enroll`, {
+        // La matrícula es una operación exclusiva de administración: con el
+        // token del docente el backend responde 403 por diseño.
+        await apiJson(adminPage.request, adminSession.token, 'POST', `/api/v1/subjects/${sharedState.courseId}/enroll`, {
           student_id: CANONICAL_ACTORS.student.id
         });
 
@@ -181,7 +184,7 @@ test.describe('J06 — Importación masiva, analíticas y UTF-8 extremo', () => 
         await teacherPage.goto(`/teacher/cursos/${sharedState.courseId}/analytics`, {
           waitUntil: 'domcontentloaded'
         });
-        await expect(teacherPage.locator('h1.page-heading')).toContainText('Métricas y Analítica del Curso', {
+        await expect(teacherPage.locator('h1.page-title')).toContainText('Métricas y Analítica del Curso', {
           timeout: 45000
         });
 
@@ -229,7 +232,9 @@ test.describe('J06 — Importación masiva, analíticas y UTF-8 extremo', () => 
 
         const resultPanel = solver.locator('[data-testid="judge-result-panel"]');
         await expect(resultPanel).toBeVisible({ timeout: 45000 });
-        await expect(resultPanel.locator('.verdict-acronym').first()).toHaveText('AC', { timeout: 45000 });
+        await expect(resultPanel.locator('verdict-badge').first()).toContainText(verdictLabel('AC'), {
+          timeout: 45000
+        });
       });
     } catch (err) {
       await forensic.flushOnTestEnd(

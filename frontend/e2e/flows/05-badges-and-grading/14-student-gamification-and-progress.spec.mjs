@@ -70,11 +70,18 @@ test.describe('Categoría 05 (Badges & Calificación): Progreso del Estudiante y
           const tplResp = await fetch('/api/v1/templates?limit=50', { headers });
           const tplJson = await tplResp.json();
           const tplItems = tplJson.data?.data ?? tplJson.data ?? tplJson;
-          const runner = (Array.isArray(tplItems) ? tplItems : []).find(
-            (t) => /Python Runner Base/i.test(t.name || '')
+          // Solo sirve un runner de juez: las plantillas de IDE no pueden
+          // calificar entregas. Se prefiere el juez puro sobre el dual.
+          const judgeRunners = (Array.isArray(tplItems) ? tplItems : []).filter(
+            (t) =>
+              /python/i.test(t.name || '') &&
+              ['JUEZ_EFIMERO', 'AMBOS'].includes(t.target_environment || t.environment_type)
           );
+          const runner =
+            judgeRunners.find((t) => (t.target_environment || t.environment_type) === 'JUEZ_EFIMERO') ||
+            judgeRunners[0];
           if (!runner?.id) {
-            return { error: 'No hay plantilla Python Runner Base disponible' };
+            return { error: 'No hay plantilla de juez Python disponible' };
           }
 
           const sourceCode = 'print("LEVEL_UP")\n';
@@ -101,38 +108,6 @@ test.describe('Categoría 05 (Badges & Calificación): Progreso del Estudiante y
           const exerciseId = exJson.data?.id || exJson.id;
           await fetch(`/api/v1/exercises/${exerciseId}/publish`, { method: 'POST', headers });
 
-          // El veredicto sale del recibo firmado por el servidor, no del payload.
-          const evalResp = await fetch('/api/v1/evaluations', {
-            method: 'POST',
-            headers,
-            body: JSON.stringify({
-              exercise_id: exerciseId,
-              language: 'python',
-              source_code_b64: btoa(sourceCode)
-            })
-          });
-          const evalJson = await evalResp.json();
-          const evalData = evalJson.data || evalJson;
-          if (!evalData?.evaluation_receipt) {
-            return { error: `Evaluación sin recibo: ${JSON.stringify(evalData)}` };
-          }
-
-          // Entrega del estudiante
-          await fetch('/api/v1/submissions', {
-            method: 'POST',
-            headers,
-            body: JSON.stringify({
-              exercise_id: exerciseId,
-              student_id: studentId,
-              code: sourceCode,
-              verdict: evalData.verdict,
-              evaluation_receipt: evalData.evaluation_receipt,
-              score: 100,
-              execution_time_ms: evalData.execution_time_ms || 12,
-              memory_used_mb: Math.round(evalData.memory_used_mb || 8)
-            })
-          });
-
           return { courseId, exerciseId };
         }, {
           cName: courseName,
@@ -145,6 +120,51 @@ test.describe('Categoría 05 (Badges & Calificación): Progreso del Estudiante y
         expect(setupRes.error, JSON.stringify(setupRes)).toBeUndefined();
         sharedState.courseId = setupRes.courseId;
         sharedState.exerciseId = setupRes.exerciseId;
+
+        // La evaluación y la entrega se hacen con la sesión del estudiante: el
+        // recibo del juez queda atado a quien evalúa y a quien entrega.
+        await studentPage.goto('/');
+        const submitRes = await studentPage.evaluate(
+          async ({ exerciseId, sourceCode }) => {
+            const token = window.sessionStorage.getItem('solv_token');
+            const headers = {
+              'Content-Type': 'application/json',
+              ...(token ? { Authorization: `Bearer ${token}` } : {})
+            };
+            const evalResp = await fetch('/api/v1/evaluations', {
+              method: 'POST',
+              headers,
+              body: JSON.stringify({
+                exercise_id: exerciseId,
+                language: 'python',
+                source_code_b64: btoa(sourceCode)
+              })
+            });
+            const evalJson = await evalResp.json();
+            const evalData = evalJson.data || evalJson;
+            if (!evalData?.evaluation_receipt) {
+              return { error: `Evaluación sin recibo: ${JSON.stringify(evalData)}` };
+            }
+            const subResp = await fetch('/api/v1/submissions', {
+              method: 'POST',
+              headers,
+              body: JSON.stringify({
+                exercise_id: exerciseId,
+                code: sourceCode,
+                verdict: evalData.verdict,
+                evaluation_receipt: evalData.evaluation_receipt,
+                score: 100,
+                execution_time_ms: evalData.execution_time_ms || 12,
+                memory_used_mb: Math.round(evalData.memory_used_mb || 8)
+              })
+            });
+            const subJson = await subResp.json();
+            return { status: subResp.status, id: subJson.id || subJson.data?.id, body: subJson };
+          },
+          { exerciseId: sharedState.exerciseId, sourceCode: 'print("LEVEL_UP")\n' }
+        );
+        expect(submitRes.error, JSON.stringify(submitRes)).toBeUndefined();
+        expect(submitRes.id, JSON.stringify(submitRes.body)).toBeTruthy();
       });
 
       // Estudiante consulta su panel de materias y su mapa de progreso
@@ -153,7 +173,9 @@ test.describe('Categoría 05 (Badges & Calificación): Progreso del Estudiante y
         forensic.recordStep('Estudiante consulta avance académico');
 
         await studentPage.goto(`/student/courses/${sharedState.courseId}`);
-        await expect(studentPage.locator('h1.course-title, h1.page-title')).toContainText(courseName);
+        await expect(studentPage.locator('h1.course-title, h1.page-title')).toContainText(courseName, {
+          timeout: 45000
+        });
 
         // Mapa de progreso del estudiante
         const mapData = await studentPage.evaluate(async (courseId) => {

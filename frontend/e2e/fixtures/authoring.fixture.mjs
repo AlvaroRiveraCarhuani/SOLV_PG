@@ -10,6 +10,33 @@
 
 import { expect } from '@playwright/test';
 
+/**
+ * Elige el docente titular en el modal de alta de materia.
+ *
+ * La lista de docentes llega de la API después del primer render: si el
+ * desplegable se abre antes de que llegue, queda vacío y la opción nunca
+ * aparece por más que se espere. Por eso se reabre el combo hasta que la
+ * opción esté visible, en vez de esperar sobre un desplegable ya abierto.
+ */
+export async function selectTeacherOption(adminPage, modal, teacherEmail) {
+  const teacherField = modal.locator('form-field', { hasText: 'Docente Titular Asignado' });
+  const teacherComboInput = teacherField.locator('input[role="combobox"]');
+  const teacherOption = teacherField.locator('[role="option"]').first();
+
+  for (let attempt = 0; attempt < 8; attempt += 1) {
+    await teacherComboInput.click();
+    await teacherComboInput.fill(teacherEmail);
+    if (await teacherOption.isVisible().catch(() => false)) {
+      await teacherOption.click();
+      return;
+    }
+    await teacherComboInput.press('Escape');
+    await adminPage.waitForTimeout(2500);
+  }
+
+  throw new Error(`El docente ${teacherEmail} no apareció en el desplegable del modal`);
+}
+
 export async function createCourseViaAdminUI(adminPage, { courseName, courseCode, teacherEmail }) {
   await adminPage.goto('/admin/cursos');
   await adminPage.getByRole('button', { name: /Nuevo Curso/i }).click();
@@ -19,13 +46,7 @@ export async function createCourseViaAdminUI(adminPage, { courseName, courseCode
   await modal.locator('#courseName').fill(courseName);
   await modal.locator('#courseCode').fill(courseCode);
 
-  const teacherField = modal.locator('form-field', { hasText: 'Docente Titular Asignado' });
-  const teacherComboInput = teacherField.locator('input[role="combobox"]');
-  await teacherComboInput.click();
-  await teacherComboInput.fill(teacherEmail);
-  const teacherOption = teacherField.locator('[role="option"]').first();
-  await teacherOption.waitFor({ state: 'visible' });
-  await teacherOption.click();
+  await selectTeacherOption(adminPage, modal, teacherEmail);
 
   const submitCourseBtn = modal.locator('button.btn-primary', { hasText: 'Crear Curso' });
   const [createCourseRes] = await Promise.all([
@@ -120,13 +141,27 @@ export async function authorJudgeExercise(teacherPage, opts) {
   await langInput.click();
   const pythonOption = teacherPage
     .locator('#exercise-language [role="option"]')
-    .filter({ hasText: /Python Runner Base/i })
+    .filter({ hasText: /python/i })
     .first();
   await expect(pythonOption).toBeVisible();
   await pythonOption.click();
 
   await teacherPage.locator('#exercise-title').fill(title);
   await teacherPage.locator('#statement-description').fill(statement);
+
+  // El límite por defecto (1 s) deja que el arranque del contenedor se coma el
+  // presupuesto en una máquina cargada y un fallo rápido termine como TLE.
+  // Los flujos que clasifican veredictos fijan un límite que separa ambos.
+  if (opts.timeLimitMs) {
+    const limitDetails = teacherPage.locator('details.advanced-limit-details');
+    if (await limitDetails.count()) {
+      // El campo vive detrás de un desplegable cerrado por defecto.
+      await limitDetails.locator('summary').click();
+      const timeLimitInput = limitDetails.locator('#time-limit');
+      await timeLimitInput.fill(String(opts.timeLimitMs));
+      await timeLimitInput.blur();
+    }
+  }
 
   // El autoguardado crea el borrador y redirige al editor del ejercicio persistido.
   await teacherPage
@@ -161,7 +196,8 @@ export async function authorJudgeExercise(teacherPage, opts) {
     await row.locator('td.col-output textarea').fill(hiddenCases[i].expectedOutput);
     const visInput = row.locator('td.col-vis input[role="combobox"]');
     await visInput.click();
-    await row.locator('td.col-vis [role="option"]', { hasText: 'Oculto' }).first().click();
+    // Solo la opción visible: las filas cerradas dejan sus opciones en el DOM.
+    await row.locator('td.col-vis [role="option"]:visible', { hasText: 'Oculto' }).first().click();
   }
 
   if (astRules) {

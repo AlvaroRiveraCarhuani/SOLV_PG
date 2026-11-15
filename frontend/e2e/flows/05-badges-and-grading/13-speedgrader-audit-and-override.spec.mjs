@@ -25,12 +25,15 @@ test.describe('Categoría 05 (Badges & Calificación): SpeedGrader, Comentarios 
 
     const adminSession = await createAuthenticatedRoleSession(browser, 'admin', baseURL);
     const teacherSession = await createAuthenticatedRoleSession(browser, 'teacher', baseURL);
+    const studentSession = await createAuthenticatedRoleSession(browser, 'student', baseURL);
 
     const { page: adminPage } = adminSession;
     const { page: teacherPage } = teacherSession;
+    const { page: studentPage } = studentSession;
 
     forensic.attachToPage(adminPage, 'admin');
     forensic.attachToPage(teacherPage, 'teacher');
+    forensic.attachToPage(studentPage, 'student');
 
     try {
       // Setup de entrega
@@ -71,11 +74,18 @@ test.describe('Categoría 05 (Badges & Calificación): SpeedGrader, Comentarios 
           const tplResp = await fetch('/api/v1/templates?limit=50', { headers });
           const tplJson = await tplResp.json();
           const tplItems = tplJson.data?.data ?? tplJson.data ?? tplJson;
-          const runner = (Array.isArray(tplItems) ? tplItems : []).find(
-            (t) => /Python Runner Base/i.test(t.name || '')
+          // Solo sirve un runner de juez: las plantillas de IDE no pueden
+          // calificar entregas. Se prefiere el juez puro sobre el dual.
+          const judgeRunners = (Array.isArray(tplItems) ? tplItems : []).filter(
+            (t) =>
+              /python/i.test(t.name || '') &&
+              ['JUEZ_EFIMERO', 'AMBOS'].includes(t.target_environment || t.environment_type)
           );
+          const runner =
+            judgeRunners.find((t) => (t.target_environment || t.environment_type) === 'JUEZ_EFIMERO') ||
+            judgeRunners[0];
           if (!runner?.id) {
-            return { error: 'No hay plantilla Python Runner Base disponible' };
+            return { error: 'No hay plantilla de juez Python disponible' };
           }
 
           const sourceCode = '# Codigo del estudiante\nprint("OK")\n# Fin\n';
@@ -102,40 +112,7 @@ test.describe('Categoría 05 (Badges & Calificación): SpeedGrader, Comentarios 
           const exerciseId = exJson.data?.id || exJson.id;
           await fetch(`/api/v1/exercises/${exerciseId}/publish`, { method: 'POST', headers });
 
-          // El veredicto y el recibo salen de la evaluación del servidor.
-          const evalResp = await fetch('/api/v1/evaluations', {
-            method: 'POST',
-            headers,
-            body: JSON.stringify({
-              exercise_id: exerciseId,
-              language: 'python',
-              source_code_b64: btoa(sourceCode)
-            })
-          });
-          const evalJson = await evalResp.json();
-          const evalData = evalJson.data || evalJson;
-          if (!evalData?.evaluation_receipt) {
-            return { error: `Evaluación sin recibo: ${JSON.stringify(evalData)}` };
-          }
-
-          const subResp = await fetch('/api/v1/submissions', {
-            method: 'POST',
-            headers,
-            body: JSON.stringify({
-              exercise_id: exerciseId,
-              student_id: studentId,
-              code: sourceCode,
-              verdict: evalData.verdict,
-              evaluation_receipt: evalData.evaluation_receipt,
-              score: 100,
-              execution_time_ms: evalData.execution_time_ms || 20,
-              memory_used_mb: Math.round(evalData.memory_used_mb || 12)
-            })
-          });
-          const subJson = await subResp.json();
-          const submissionId = subJson.id || subJson.data?.id;
-
-          return { courseId, exerciseId, submissionId };
+          return { courseId, exerciseId };
         }, {
           cName: courseName,
           cCode: courseCode,
@@ -147,8 +124,52 @@ test.describe('Categoría 05 (Badges & Calificación): SpeedGrader, Comentarios 
         expect(setupRes.error, JSON.stringify(setupRes)).toBeUndefined();
         sharedState.courseId = setupRes.courseId;
         sharedState.exerciseId = setupRes.exerciseId;
-        sharedState.submissionId = setupRes.submissionId;
-        expect(sharedState.submissionId).toBeTruthy();
+
+        // La evaluación y la entrega se hacen con la sesión del estudiante: el
+        // recibo del juez queda atado a quien evalúa y a quien entrega.
+        await studentPage.goto('/');
+        const submitRes = await studentPage.evaluate(
+          async ({ exerciseId, sourceCode }) => {
+            const token = window.sessionStorage.getItem('solv_token');
+            const headers = {
+              'Content-Type': 'application/json',
+              ...(token ? { Authorization: `Bearer ${token}` } : {})
+            };
+            const evalResp = await fetch('/api/v1/evaluations', {
+              method: 'POST',
+              headers,
+              body: JSON.stringify({
+                exercise_id: exerciseId,
+                language: 'python',
+                source_code_b64: btoa(sourceCode)
+              })
+            });
+            const evalJson = await evalResp.json();
+            const evalData = evalJson.data || evalJson;
+            if (!evalData?.evaluation_receipt) {
+              return { error: `Evaluación sin recibo: ${JSON.stringify(evalData)}` };
+            }
+            const subResp = await fetch('/api/v1/submissions', {
+              method: 'POST',
+              headers,
+              body: JSON.stringify({
+                exercise_id: exerciseId,
+                code: sourceCode,
+                verdict: evalData.verdict,
+                evaluation_receipt: evalData.evaluation_receipt,
+                score: 100,
+                execution_time_ms: evalData.execution_time_ms || 20,
+                memory_used_mb: Math.round(evalData.memory_used_mb || 12)
+              })
+            });
+            const subJson = await subResp.json();
+            return { status: subResp.status, id: subJson.id || subJson.data?.id, body: subJson };
+          },
+          { exerciseId: sharedState.exerciseId, sourceCode: '# Codigo del estudiante\nprint("OK")\n# Fin\n' }
+        );
+        expect(submitRes.error, JSON.stringify(submitRes)).toBeUndefined();
+        expect(submitRes.id, JSON.stringify(submitRes.body)).toBeTruthy();
+        sharedState.submissionId = submitRes.id;
       });
 
       // Docente abre SpeedGrader
@@ -196,7 +217,7 @@ test.describe('Categoría 05 (Badges & Calificación): SpeedGrader, Comentarios 
             body: JSON.stringify({
               verdict: 'AC',
               score: 98,
-              reason: 'Reconocimiento por formato y claridad.'
+              override_reason: 'Reconocimiento por formato y claridad.'
             })
           });
           return resp.status === 200 || resp.status === 201;
@@ -212,7 +233,7 @@ test.describe('Categoría 05 (Badges & Calificación): SpeedGrader, Comentarios 
           expectedStatus: 'passed',
           error: { message: err?.message || String(err), stack: err?.stack || '' }
         },
-        { admin: adminPage, teacher: teacherPage }
+        { admin: adminPage, teacher: teacherPage, student: studentPage }
       );
       throw err;
     }

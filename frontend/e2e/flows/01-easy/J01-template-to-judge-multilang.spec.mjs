@@ -127,7 +127,7 @@ test.describe('J01 — Plantilla Homologada Multi-Lenguaje -> Juez Real (Python 
         await expect(teacherPage.locator('h1.page-title')).toContainText(courseName, { timeout: 45000 });
 
         const newLabBtn = teacherPage.locator('button.btn-new-lab', { hasText: 'Nuevo Laboratorio' });
-        await expect(newLabBtn).toBeVisible({ timeout: 15000 });
+        await expect(newLabBtn).toBeVisible({ timeout: 45_000 });
         await newLabBtn.click();
         await expect(teacherPage).toHaveURL(new RegExp(`/teacher/cursos/${sharedState.courseId}/ejercicios/nuevo`));
 
@@ -135,7 +135,7 @@ test.describe('J01 — Plantilla Homologada Multi-Lenguaje -> Juez Real (Python 
         await langInput.click();
         const pythonOption = teacherPage
           .locator('#exercise-language [role="option"]')
-          .filter({ hasText: /Python Runner Base/i })
+          .filter({ hasText: /python/i })
           .first();
         await expect(pythonOption).toBeVisible();
         await pythonOption.click();

@@ -71,7 +71,9 @@ test.describe('Categoría 03 (Difícil): Importación Masiva (Dry-Run) y Analít
         forensic.recordStep('Docente consulta analíticas de curso');
 
         await teacherPage.goto(`/teacher/cursos/${sharedCourseId}/analytics`);
-        await expect(teacherPage.locator('h1.page-title')).toContainText('Analítica de Rendimiento');
+        await expect(teacherPage.locator('h1.page-title')).toContainText('Métricas y Analítica del Curso', {
+          timeout: 45000
+        });
 
         const analyticsData = await teacherPage.evaluate(async (courseId) => {
           const token = window.sessionStorage.getItem('solv_token');

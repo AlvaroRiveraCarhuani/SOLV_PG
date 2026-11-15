@@ -4,6 +4,7 @@ import {
   createAuthenticatedRoleSession
 } from '../fixtures/auth-roles.fixture.mjs';
 import { createForensicMonitor } from '../fixtures/forensic-logger.fixture.mjs';
+import { selectTeacherOption } from '../fixtures/authoring.fixture.mjs';
 
 test.describe.configure({ mode: 'serial' });
 
@@ -42,16 +43,11 @@ test.describe('Flujo Core 01: Admin (Constructor) -> Docente (Curso y Ejercicio)
       // =========================================================================
       // ETAPA 1: ADMINISTRADOR — CATÁLOGO Y CONSTRUCTOR DE ENTORNOS
       // =========================================================================
-      await test.step('Etapa 1.1: Admin verifica el Catálogo de Tecnologías (/admin/modelos-categorias)', async () => {
+      await test.step('Etapa 1.1: Admin verifica el Catálogo de Tecnologías (/admin/tecnologias)', async () => {
         await adminPage.bringToFront();
-        forensic.recordStep('Admin abre Biblioteca de Modelos y Categorías');
-        await adminPage.goto('/admin/modelos-categorias');
-        await expect(adminPage.locator('h1.page-title')).toContainText('Biblioteca de Modelos y Categorías');
-
-        const techTab = adminPage.locator('button, [role="tab"]', { hasText: 'Catálogo de Tecnologías' }).first();
-        if (await techTab.isVisible()) {
-          await techTab.click();
-        }
+        forensic.recordStep('Admin abre el Catálogo de Tecnologías');
+        await adminPage.goto('/admin/tecnologias');
+        await expect(adminPage.locator('h1.page-title')).toContainText('Catálogo de Tecnologías');
         await expect(adminPage.getByText('Python 3.12').first()).toBeVisible();
       });
 
@@ -146,17 +142,7 @@ test.describe('Flujo Core 01: Admin (Constructor) -> Docente (Curso y Ejercicio)
         await modal.locator('#courseCode').fill(courseCode);
 
         // Seleccionar Docente Titular (Alvaro Rivera)
-        const teacherComboInput = modal
-          .locator('form-field', { hasText: 'Docente Titular Asignado' })
-          .locator('input[role="combobox"]');
-        await teacherComboInput.click();
-        await teacherComboInput.fill(CANONICAL_ACTORS.teacher.email);
-        const teacherOption = modal
-          .locator('form-field', { hasText: 'Docente Titular Asignado' })
-          .locator('[role="option"]')
-          .first();
-        await expect(teacherOption).toBeVisible();
-        await teacherOption.click();
+        await selectTeacherOption(adminPage, modal, CANONICAL_ACTORS.teacher.email);
 
         // El curso necesita la misma plantilla homologada creada en la Etapa 1
         // para que el borrador del ejercicio herede un template_id válido.
@@ -216,7 +202,11 @@ test.describe('Flujo Core 01: Admin (Constructor) -> Docente (Curso y Ejercicio)
         await teacherPage.bringToFront();
         forensic.recordStep('Docente abre el detalle de su curso', { courseId: sharedState.courseId });
         await teacherPage.goto(`/teacher/cursos/${sharedState.courseId}`);
-        await expect(teacherPage.locator('h1.page-title')).toContainText(courseName);
+        // El detalle del curso resuelve el nombre contra la API después del
+        // primer render; el fallback "Detalle del Curso" aparece mientras carga.
+        await expect(teacherPage.locator('h1.page-title')).toContainText(courseName, {
+          timeout: 45000
+        });
 
         // Abrir editor de nuevo ejercicio
         const newLabBtn = teacherPage.locator('button.btn-new-lab', { hasText: 'Nuevo Laboratorio' });
@@ -234,7 +224,7 @@ test.describe('Flujo Core 01: Admin (Constructor) -> Docente (Curso y Ejercicio)
         // plantillas duales con IDE que no son adecuadas para el juez efímero.
         const pythonOption = teacherPage
           .locator('#exercise-language [role="option"]')
-          .filter({ hasText: /Python Runner Base/i })
+          .filter({ hasText: /python/i })
           .first();
         await expect(pythonOption).toBeVisible();
         await pythonOption.click();
@@ -284,7 +274,9 @@ test.describe('Flujo Core 01: Admin (Constructor) -> Docente (Curso y Ejercicio)
         const visCombo0 = caseRows.nth(0).locator('td.col-vis input[role="combobox"]');
         if (await visCombo0.isVisible()) {
           await visCombo0.click();
-          const exOpt = caseRows.nth(0).locator('td.col-vis [role="option"]', { hasText: /Ejemplo/i }).first();
+          // Solo la opción visible: las filas cerradas dejan sus opciones en el
+          // DOM y un locator sin :visible puede resolver a una copia oculta.
+          const exOpt = caseRows.nth(0).locator('td.col-vis [role="option"]:visible', { hasText: /Ejemplo/i }).first();
           if (await exOpt.isVisible().catch(() => false)) {
             await exOpt.click();
           }
@@ -296,7 +288,7 @@ test.describe('Flujo Core 01: Admin (Constructor) -> Docente (Curso y Ejercicio)
         const visCombo1 = caseRows.nth(1).locator('td.col-vis input[role="combobox"]');
         if (await visCombo1.isVisible()) {
           await visCombo1.click();
-          const hidOpt = caseRows.nth(1).locator('td.col-vis [role="option"]', { hasText: /Oculto/i }).first();
+          const hidOpt = caseRows.nth(1).locator('td.col-vis [role="option"]:visible', { hasText: /Oculto/i }).first();
           if (await hidOpt.isVisible().catch(() => false)) {
             await hidOpt.click();
           }

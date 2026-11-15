@@ -96,13 +96,13 @@ test.describe('Categoría 01 (Fácil): Gestión de Materias y Matriculación de 
         // Docente ve la materia en su panel
         await teacherPage.bringToFront();
         await teacherPage.goto('/teacher/dashboard');
-        await expect(teacherPage.getByText(courseName).first()).toBeVisible({ timeout: 15000 });
+        await expect(teacherPage.getByText(courseName).first()).toBeVisible({ timeout: 45_000 });
 
         // Estudiante ve la materia en su lista
         await studentPage.bringToFront();
         await studentPage.goto('/student', { waitUntil: 'networkidle' });
         await expect(studentPage).toHaveURL(/\/student/);
-        await expect(studentPage.getByText(courseName).first()).toBeVisible({ timeout: 15000 });
+        await expect(studentPage.getByText(courseName).first()).toBeVisible({ timeout: 45_000 });
       });
     } catch (err) {
       await forensic.flushOnTestEnd(

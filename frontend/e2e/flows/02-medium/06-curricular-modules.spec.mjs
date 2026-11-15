@@ -106,11 +106,18 @@ test.describe('Categoría 02 (Media): Módulos Curriculares y Cadena de Desbloqu
           const tplResp = await fetch('/api/v1/templates?limit=50', { headers });
           const tplJson = await tplResp.json();
           const tplItems = tplJson.data?.data ?? tplJson.data ?? tplJson;
-          const runner = (Array.isArray(tplItems) ? tplItems : []).find(
-            (t) => /Python Runner Base/i.test(t.name || '')
+          // Solo sirve un runner de juez: las plantillas de IDE no pueden
+          // calificar entregas. Se prefiere el juez puro sobre el dual.
+          const judgeRunners = (Array.isArray(tplItems) ? tplItems : []).filter(
+            (t) =>
+              /python/i.test(t.name || '') &&
+              ['JUEZ_EFIMERO', 'AMBOS'].includes(t.target_environment || t.environment_type)
           );
+          const runner =
+            judgeRunners.find((t) => (t.target_environment || t.environment_type) === 'JUEZ_EFIMERO') ||
+            judgeRunners[0];
           if (!runner?.id) {
-            return { error: 'No hay plantilla Python Runner Base disponible' };
+            return { error: 'No hay plantilla de juez Python disponible' };
           }
 
           // Crear ejercicio en Módulo 1

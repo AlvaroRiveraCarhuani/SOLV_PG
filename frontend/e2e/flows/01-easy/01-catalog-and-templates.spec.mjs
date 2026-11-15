@@ -25,14 +25,9 @@ test.describe('Categoría 01 (Fácil): Catálogo de Tecnologías y Plantillas Of
       // PASO 1: VERIFICAR CATÁLOGO DE TECNOLOGÍAS
       // =========================================================================
       await test.step('Paso 1: Admin verifica el Catálogo de Tecnologías y componentes base', async () => {
-        forensic.recordStep('Admin abre Biblioteca de Modelos y Categorías');
-        await adminPage.goto('/admin/modelos-categorias');
-        await expect(adminPage.locator('h1.page-title')).toContainText('Biblioteca de Modelos y Categorías');
-
-        // Cambiar a la pestaña de Catálogo de Tecnologías
-        const techTabBtn = adminPage.locator('button.tab-btn', { hasText: 'Catálogo de Tecnologías' });
-        await expect(techTabBtn).toBeVisible();
-        await techTabBtn.click();
+        forensic.recordStep('Admin abre el Catálogo de Tecnologías');
+        await adminPage.goto('/admin/tecnologias');
+        await expect(adminPage.locator('h1.page-title')).toContainText('Catálogo de Tecnologías');
 
         // Verificar presencia de tecnologías oficiales
         await expect(adminPage.getByText('Python 3.12').first()).toBeVisible();

@@ -76,7 +76,7 @@ test.describe('J02 — Pipeline de Autoría del Docente (UI) y Validación de St
         await expect(teacherPage.locator('h1.page-title')).toContainText(courseName, { timeout: 45000 });
 
         const newLabBtn = teacherPage.locator('button.btn-new-lab', { hasText: 'Nuevo Laboratorio' });
-        await expect(newLabBtn).toBeVisible({ timeout: 15000 });
+        await expect(newLabBtn).toBeVisible({ timeout: 45_000 });
         await newLabBtn.click();
         await expect(teacherPage).toHaveURL(
           new RegExp(`/teacher/cursos/${sharedState.courseId}/ejercicios/nuevo`)
@@ -86,7 +86,7 @@ test.describe('J02 — Pipeline de Autoría del Docente (UI) y Validación de St
         await langInput.click();
         const pythonOption = teacherPage
           .locator('#exercise-language [role="option"]')
-          .filter({ hasText: /Python Runner Base/i })
+          .filter({ hasText: /python/i })
           .first();
         await expect(pythonOption).toBeVisible();
         await pythonOption.click();
@@ -117,14 +117,14 @@ test.describe('J02 — Pipeline de Autoría del Docente (UI) y Validación de St
           .waitForURL(/\/exercises\/[0-9a-f-]{36}\/edit/, { timeout: 20000 })
           .catch(() => undefined);
 
-        await expect(teacherPage.locator('#reference-solution-section')).toBeVisible({ timeout: 15000 });
+        await expect(teacherPage.locator('#reference-solution-section')).toBeVisible({ timeout: 45_000 });
       });
 
       await test.step('Paso 2 (Docente UI): Solución, generación de casos, cálculo de salidas y validación en Docker', async () => {
         forensic.recordStep('Docente escribe la solución, genera casos y valida salidas en el contenedor');
 
         const editor = teacherPage.locator('#reference-solution-section code-editor .cm-content').first();
-        await expect(editor).toBeVisible({ timeout: 15000 });
+        await expect(editor).toBeVisible({ timeout: 45_000 });
         await editor.click();
         await teacherPage.keyboard.press('Control+A');
         await teacherPage.keyboard.insertText(pythonSolution);
@@ -154,7 +154,7 @@ test.describe('J02 — Pipeline de Autoría del Docente (UI) y Validación de St
         await expect(generateModal).toBeHidden();
 
         const caseRows = teacherPage.locator('cases-table tbody tr.case-row');
-        await expect(caseRows).toHaveCount(3, { timeout: 15000 });
+        await expect(caseRows).toHaveCount(3, { timeout: 45_000 });
 
         // Caso de ejemplo público: el estudiante lo ve en el enunciado.
         await teacherPage.locator('cases-table .toolbar-actions button.btn-primary', { hasText: 'Agregar Caso' }).click();
@@ -168,23 +168,34 @@ test.describe('J02 — Pipeline de Autoría del Docente (UI) y Validación de St
         await exampleRow.locator('td.col-vis [role="option"]', { hasText: 'Ejemplo' }).first().click();
 
         // Cálculo de salidas: ejecuta la solución de referencia en el contenedor Docker.
-        const [calcRes] = await Promise.all([
-          teacherPage.waitForResponse(
-            (res) => res.url().includes('/api/v1/exercises/calculate-outputs') && res.request().method() === 'POST'
-          ),
-          teacherPage.locator('cases-table .toolbar-actions button.btn-calc-toolbar').click()
-        ]);
-        expect(calcRes.ok()).toBeTruthy();
+        const calculateOutputs = async () => {
+          const [calcRes] = await Promise.all([
+            teacherPage.waitForResponse(
+              (res) => res.url().includes('/api/v1/exercises/calculate-outputs') && res.request().method() === 'POST'
+            ),
+            teacherPage.locator('cases-table .toolbar-actions button.btn-calc-toolbar').click()
+          ]);
+          expect(calcRes.ok()).toBeTruthy();
+        };
 
-        await expect(caseRows.first().locator('td.col-output textarea')).not.toHaveValue('', { timeout: 30000 });
-        await expect(exampleRow.locator('td.col-output textarea')).toHaveValue(exampleOutput, { timeout: 30000 });
+        await calculateOutputs();
+
+        // El caso de ejemplo se agrega justo antes: si el guardado todavía no
+        // llegó, el backend calcula solo los casos generados y la fila nueva
+        // queda vacía. Se repite el cálculo una vez ya persistida.
+        if ((await exampleRow.locator('td.col-output textarea').inputValue()) === '') {
+          await calculateOutputs();
+        }
+
+        await expect(caseRows.first().locator('td.col-output textarea')).not.toHaveValue('', { timeout: 45_000 });
+        await expect(exampleRow.locator('td.col-output textarea')).toHaveValue(exampleOutput, { timeout: 45_000 });
         await expect(teacherPage.locator('cases-table .table-error-banner')).toHaveCount(0);
 
         // Vista previa: los casos de ejemplo se visualizan correctamente.
         await teacherPage.locator('button.preview-btn', { hasText: 'Vista previa' }).click();
         const previewModal = teacherPage.locator('student-preview-modal .student-preview-window');
-        await expect(previewModal).toBeVisible({ timeout: 15000 });
-        await expect(previewModal.locator('.example-cases-section .example-card')).toHaveCount(1, { timeout: 15000 });
+        await expect(previewModal).toBeVisible({ timeout: 45_000 });
+        await expect(previewModal.locator('.example-cases-section .example-card')).toHaveCount(1, { timeout: 45_000 });
         await expect(previewModal.locator('.example-cases-section .example-card')).toContainText(exampleInput);
         await previewModal.locator('button.btn-close').click();
         await expect(previewModal).toBeHidden();
@@ -194,7 +205,7 @@ test.describe('J02 — Pipeline de Autoría del Docente (UI) y Validación de St
         forensic.recordStep('Docente valida el checklist, ejecuta el dry-run y publica el ejercicio');
 
         const publishStepBtn = teacherPage.locator('button.btn-publish-step', { hasText: 'Publicar' });
-        await expect(publishStepBtn).toBeEnabled({ timeout: 15000 });
+        await expect(publishStepBtn).toBeEnabled({ timeout: 45_000 });
         await publishStepBtn.click();
 
         const confirmPublishBtn = teacherPage.locator('confirm-modal button', { hasText: 'Publicar ahora' });

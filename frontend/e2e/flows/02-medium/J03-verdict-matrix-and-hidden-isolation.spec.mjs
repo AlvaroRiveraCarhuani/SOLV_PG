@@ -10,6 +10,7 @@ import {
   enrollStudentViaAPI,
   typeInCodeMirror
 } from '../../fixtures/authoring.fixture.mjs';
+import { verdictLabel } from '../../fixtures/verdict-labels.fixture.mjs';
 
 test.describe.configure({ mode: 'serial' });
 
@@ -87,7 +88,10 @@ test.describe('J03 — Matriz de Veredictos del Juez y Aislamiento de Casos Ocul
             'La solucion debe leer de la entrada estandar y escribir el resultado en la salida estandar.',
           referenceSolution,
           exampleCase,
-          hiddenCases
+          hiddenCases,
+          // Un crash inmediato debe clasificarse como RE aunque el arranque del
+          // contenedor tarde; el TLE del flujo usa un bucle infinito y no depende del valor.
+          timeLimitMs: 3000
         });
         expect(sharedState.exerciseId).toBeTruthy();
       });
@@ -191,9 +195,10 @@ test.describe('J03 — Matriz de Veredictos del Juez y Aislamiento de Casos Ocul
 
         const resultPanel = solver.locator('[data-testid="judge-result-panel"]');
         await expect(resultPanel).toBeVisible({ timeout: 45000 });
-        await expect(resultPanel.locator('.verdict-acronym').first()).toHaveText(expectedVerdict, {
-          timeout: 45000
-        });
+        await expect(resultPanel.locator('verdict-badge').first()).toContainText(
+          verdictLabel(expectedVerdict),
+          { timeout: 45000 }
+        );
 
         // El panel de resultados nunca muestra el input/output de los casos ocultos.
         const panelText = (await resultPanel.innerText()) || '';

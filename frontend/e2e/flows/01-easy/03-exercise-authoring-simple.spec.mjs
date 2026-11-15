@@ -90,10 +90,10 @@ test.describe('Categoría 01 (Fácil): Editor de Ejercicios en 3 Pasos y Resoluc
         forensic.recordStep('Docente entra a la materia y crea ejercicio');
         await teacherPage.goto(`/teacher/cursos/${sharedState.courseId}`, { waitUntil: 'domcontentloaded' });
         await expect(teacherPage).toHaveURL(new RegExp(`/teacher/cursos/${sharedState.courseId}`));
-        await expect(teacherPage.locator('h1.page-title')).toContainText(courseName, { timeout: 15000 });
+        await expect(teacherPage.locator('h1.page-title')).toContainText(courseName, { timeout: 45_000 });
 
         const newLabBtn = teacherPage.locator('button.btn-new-lab', { hasText: 'Nuevo Laboratorio' });
-        await expect(newLabBtn).toBeVisible({ timeout: 15000 });
+        await expect(newLabBtn).toBeVisible({ timeout: 45_000 });
         await newLabBtn.click();
         await expect(teacherPage).toHaveURL(new RegExp(`/teacher/cursos/${sharedState.courseId}/ejercicios/nuevo`));
 
@@ -102,7 +102,7 @@ test.describe('Categoría 01 (Fácil): Editor de Ejercicios en 3 Pasos y Resoluc
         await langInput.click();
         const pythonOption = teacherPage
           .locator('#exercise-language [role="option"]')
-          .filter({ hasText: /Python Runner Base/i })
+          .filter({ hasText: /python/i })
           .first();
         await expect(pythonOption).toBeVisible();
         await pythonOption.click();

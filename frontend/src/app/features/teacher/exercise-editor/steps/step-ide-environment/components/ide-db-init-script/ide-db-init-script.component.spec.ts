@@ -118,9 +118,12 @@ describe('IdeDbInitScriptComponent', () => {
 
     component.processFile(file);
 
-    await new Promise(resolve => setTimeout(resolve, 50));
+    // La lectura del archivo es asíncrona: se sondea el resultado en vez de
+    // dormir un tiempo fijo, que bajo carga puede no alcanzar.
+    await vi.waitFor(() => {
+      expect(component.fileName()).toBe('migracion.sql');
+    });
 
-    expect(component.fileName()).toBe('migracion.sql');
     expect(component.fileSize()).toBe(file.size);
     expect(emitSpy).toHaveBeenCalledWith('CREATE TABLE x (id INT);');
   });

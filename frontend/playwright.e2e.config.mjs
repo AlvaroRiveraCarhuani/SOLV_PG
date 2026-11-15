@@ -11,9 +11,15 @@ export default defineConfig({
   workers: 1,
   maxFailures: 1,
   retries: 0,
-  timeout: 240_000,
+  // Los flujos levantan contenedores reales y algunos encadenan diez pasos
+  // (J04, J05). Cuatro minutos quedaban justos cuando la máquina venía de las
+  // suites de integración; seis dan margen sin relajar ninguna aserción.
+  timeout: 360_000,
   expect: {
-    timeout: 15_000
+    // El conjunto corre con contenedores reales y la máquina viene cargada de
+    // las suites de integración. Quince segundos dejaban sin margen a las
+    // pantallas que resuelven datos contra la API después del primer render.
+    timeout: 30_000
   },
   outputDir: './e2e/test-results/artifacts',
   reporter: [
