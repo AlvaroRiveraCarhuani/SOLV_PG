@@ -37,8 +37,16 @@ func TestTemplateAuditPersistence(t *testing.T) {
 	`, tenantID, "it-audit-"+suffix); errTenant != nil {
 		t.Fatalf("no se pudo sembrar el tenant de la prueba: %v", errTenant)
 	}
+	adminID := uuid.NewString()
+	if _, errAdmin := db.GetDB().Exec(`
+		INSERT INTO users (id, tenant_id, email, first_name, last_name, role, status, origin)
+		VALUES ($1, $2, $3, 'Admin', 'Auditoría', 'admin', 'active', 'manual')
+	`, adminID, tenantID, "audit-"+suffix+"@example.test"); errAdmin != nil {
+		t.Fatalf("no se pudo sembrar el administrador de la prueba: %v", errAdmin)
+	}
 	t.Cleanup(func() {
 		_, _ = db.GetDB().Exec(`DELETE FROM lab_templates WHERE tenant_id = $1`, tenantID)
+		_, _ = db.GetDB().Exec(`DELETE FROM users WHERE tenant_id = $1`, tenantID)
 		_, _ = db.GetDB().Exec(`DELETE FROM tenants WHERE id = $1`, tenantID)
 	})
 
@@ -148,6 +156,82 @@ func TestTemplateAuditPersistence(t *testing.T) {
 		}
 		if !found {
 			t.Fatalf("la plantilla %s no apareció en la cola de auditoría", id)
+		}
+	})
+
+	t.Run("la cola reintenta una auditoría con error de infraestructura", func(t *testing.T) {
+		id := seedTemplate(t, "APROBADA", "Aprobada con error de infraestructura "+suffix, "")
+		if _, errSeed := db.GetDB().Exec(`
+			UPDATE lab_templates
+			SET smoke_test_status = 'error', smoke_test_output = 'Docker no responde',
+			    security_audit_status = 'error', security_audit_report = '{"error":"trivy_unavailable"}'::jsonb
+			WHERE id = $1
+		`, id); errSeed != nil {
+			t.Fatalf("no se pudo preparar la plantilla con error de infraestructura: %v", errSeed)
+		}
+
+		pending, errList := repo.ListPendingAuditTemplates(ctx)
+		if errList != nil {
+			t.Fatalf("no se pudo consultar la cola: %v", errList)
+		}
+		found := false
+		for _, item := range pending {
+			if item.ID == id {
+				found = true
+				break
+			}
+		}
+		if !found {
+			t.Fatalf("la plantilla con error de infraestructura no entró a la cola de reintento")
+		}
+	})
+
+	t.Run("reaprobar una rechazada la devuelve a la cola", func(t *testing.T) {
+		id := seedTemplate(t, "RECHAZADA", "Rechazada reauditada "+suffix, "motivo anterior")
+		if _, errSeed := db.GetDB().Exec(`
+			UPDATE lab_templates
+			SET smoke_test_status = 'failed', smoke_test_output = 'Falta ripgrep',
+			    security_audit_status = 'failed', cve_critical_count = 4, cve_high_count = 2,
+			    security_audit_report = '{"Critical":4}'::jsonb, security_audited_at = NOW()
+			WHERE id = $1
+		`, id); errSeed != nil {
+			t.Fatalf("no se pudo preparar la plantilla rechazada: %v", errSeed)
+		}
+
+		updated, errReview := repo.ReviewTemplate(ctx, tenantID, id, adminID, "approved", "", nil)
+		if errReview != nil {
+			t.Fatalf("no se pudo re-aprobar la plantilla: %v", errReview)
+		}
+		if updated.Status != "PENDIENTE_AUDITORIA" {
+			t.Fatalf("esperaba PENDIENTE_AUDITORIA, obtuve %q", updated.Status)
+		}
+		if updated.SmokeTestStatus != "pending" || updated.SecurityAuditStatus != "pending" {
+			t.Fatalf("la auditoría no se reinició: smoke=%q security=%q", updated.SmokeTestStatus, updated.SecurityAuditStatus)
+		}
+		if updated.CVECriticalCount != 0 || updated.CVEHighCount != 0 || updated.RejectionReason != "" || updated.SecurityAuditedAt != nil {
+			t.Fatalf("quedaron datos de la auditoría anterior: críticos=%d altos=%d motivo=%q auditada=%v",
+				updated.CVECriticalCount, updated.CVEHighCount, updated.RejectionReason, updated.SecurityAuditedAt)
+		}
+
+		status, reason, smoke, security, critical, audited := readAudit(t, id)
+		if status != "PENDIENTE_AUDITORIA" || smoke != "pending" || security != "pending" || critical != 0 || audited || reason != "" {
+			t.Fatalf("fila inesperada: status=%q smoke=%q security=%q critical=%d audited=%v reason=%q",
+				status, smoke, security, critical, audited, reason)
+		}
+
+		pending, errList := repo.ListPendingAuditTemplates(ctx)
+		if errList != nil {
+			t.Fatalf("no se pudo consultar la cola: %v", errList)
+		}
+		found := false
+		for _, item := range pending {
+			if item.ID == id {
+				found = true
+				break
+			}
+		}
+		if !found {
+			t.Fatalf("la plantilla re-aprobada no entró a la cola de auditoría")
 		}
 	})
 

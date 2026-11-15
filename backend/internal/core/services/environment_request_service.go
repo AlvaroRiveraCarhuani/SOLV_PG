@@ -17,10 +17,11 @@ import (
 // la usa para dos cosas: ofrecer una plantilla ya aprobada si existe, y sumar la
 // materia a una solicitud igual que ya está en revisión en lugar de duplicarla.
 type EnvironmentRequestService struct {
-	repo     domain.EnvironmentRequestRepository
-	compRepo domain.TemplateComponentRepository
-	composer *TemplateComposerService
-	now      func() time.Time
+	repo           domain.EnvironmentRequestRepository
+	compRepo       domain.TemplateComponentRepository
+	composer       *TemplateComposerService
+	templateLookup domain.EnvironmentRequestTemplateLookup
+	now            func() time.Time
 }
 
 func NewEnvironmentRequestService(
@@ -36,6 +37,14 @@ func NewEnvironmentRequestService(
 		svc.composer = NewTemplateComposerServiceFromRepo(compRepo)
 	}
 	return svc
+}
+
+// SetTemplateLookup conecta el catálogo de plantillas. Sin este puerto no se
+// puede aprobar: una solicitud aprobada sin una plantilla válida no le sirve al
+// docente.
+func (s *EnvironmentRequestService) SetTemplateLookup(lookup domain.EnvironmentRequestTemplateLookup) *EnvironmentRequestService {
+	s.templateLookup = lookup
+	return s
 }
 
 // Preview arma la receta sin guardarla: es lo que el docente revisa antes de
@@ -219,8 +228,9 @@ func (s *EnvironmentRequestService) ListForReview(
 }
 
 // Review registra la respuesta del administrador. Aprobar exige que la
-// solicitud quede enlazada a una plantilla existente, porque el docente
-// necesita algo que pueda usar, no un estado.
+// solicitud quede enlazada a una plantilla existente, aprobada, de la misma
+// institución y que cubra la modalidad pedida, porque el docente necesita algo
+// que pueda usar, no un estado.
 func (s *EnvironmentRequestService) Review(
 	ctx context.Context, tenantID, requestID, reviewerID string, dto domain.ReviewEnvironmentRequestDTO,
 ) (*domain.EnvironmentRequest, error) {
@@ -231,19 +241,66 @@ func (s *EnvironmentRequestService) Review(
 		return nil, fmt.Errorf("%w: estado de revisión inválido %q", domain.ErrEnvironmentRequestInvalid, dto.Status)
 	}
 
+	dto.Status = status
+	dto.ReviewNote = strings.TrimSpace(dto.ReviewNote)
+
 	if status == domain.EnvironmentRequestAprobada && strings.TrimSpace(dto.ResolvedTemplateID) == "" {
 		return nil, fmt.Errorf("%w: para aprobar hay que indicar la plantilla que la resuelve", domain.ErrEnvironmentRequestInvalid)
 	}
-	if status != domain.EnvironmentRequestAprobada {
-		dto.ResolvedTemplateID = ""
-	}
-	if status == domain.EnvironmentRequestNecesitaCambio && strings.TrimSpace(dto.ReviewNote) == "" {
-		return nil, fmt.Errorf("%w: explica qué falta para poder continuar", domain.ErrEnvironmentRequestInvalid)
+	if (status == domain.EnvironmentRequestNecesitaCambio || status == domain.EnvironmentRequestNoViable) && dto.ReviewNote == "" {
+		return nil, fmt.Errorf("%w: explica qué falta o por qué no es viable", domain.ErrEnvironmentRequestInvalid)
 	}
 
-	dto.Status = status
-	dto.ReviewNote = strings.TrimSpace(dto.ReviewNote)
+	existing, err := s.repo.GetByID(ctx, tenantID, requestID)
+	if err != nil {
+		return nil, err
+	}
+
+	if status == domain.EnvironmentRequestAprobada {
+		template, err := s.resolveApprovedTemplate(ctx, tenantID, strings.TrimSpace(dto.ResolvedTemplateID), existing.TargetEnvironment)
+		if err != nil {
+			return nil, err
+		}
+		dto.ResolvedTemplateID = template.ID
+		if dto.ReviewNote == "" {
+			dto.ReviewNote = fmt.Sprintf("Tu solicitud quedó resuelta con el entorno «%s».", template.Name)
+		}
+	} else {
+		dto.ResolvedTemplateID = ""
+	}
+
 	return s.repo.Review(ctx, tenantID, requestID, reviewerID, dto)
+}
+
+func (s *EnvironmentRequestService) resolveApprovedTemplate(
+	ctx context.Context, tenantID, templateID, requiredEnvironment string,
+) (*domain.AdminTemplateReviewItem, error) {
+	if s.templateLookup == nil {
+		return nil, fmt.Errorf("%w: no se puede validar la plantilla indicada", domain.ErrEnvironmentRequestInvalid)
+	}
+	template, err := s.templateLookup.GetTemplateByID(ctx, templateID)
+	if err != nil || template == nil {
+		return nil, fmt.Errorf("%w: la plantilla indicada no existe", domain.ErrEnvironmentRequestInvalid)
+	}
+	if template.TenantID != nil && strings.TrimSpace(*template.TenantID) != "" && *template.TenantID != tenantID {
+		return nil, fmt.Errorf("%w: la plantilla indicada no pertenece a la institución", domain.ErrEnvironmentRequestInvalid)
+	}
+	if !isApprovedTemplateStatus(template.Status) {
+		return nil, fmt.Errorf("%w: la plantilla indicada no está aprobada", domain.ErrEnvironmentRequestInvalid)
+	}
+	if !domain.TemplateSupportsEnvironment(template.TargetEnvironment, requiredEnvironment) {
+		return nil, fmt.Errorf("%w: la plantilla no cubre la modalidad solicitada", domain.ErrEnvironmentRequestInvalid)
+	}
+	return template, nil
+}
+
+func isApprovedTemplateStatus(status string) bool {
+	switch strings.ToLower(strings.TrimSpace(status)) {
+	case "approved", "aprobada":
+		return true
+	default:
+		return false
+	}
 }
 
 func (s *EnvironmentRequestService) compose(

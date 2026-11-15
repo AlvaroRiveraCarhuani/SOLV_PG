@@ -174,7 +174,7 @@ func TestKeystrokeHandler_SaveAndGetEvents(t *testing.T) {
 	payloadBytes, _ := json.Marshal(payload)
 
 	req := httptest.NewRequestWithContext(context.Background(), http.MethodPost, "/api/v1/submissions/sub-http-1/keystroke-events", bytes.NewReader(payloadBytes))
-	req = withTestIdentity(req, "", domain.DefaultTenantID, "student")
+	req = withTestIdentity(req, "stu-1", domain.DefaultTenantID, "student")
 	req.Header.Set("Content-Type", "application/json")
 	w := httptest.NewRecorder()
 

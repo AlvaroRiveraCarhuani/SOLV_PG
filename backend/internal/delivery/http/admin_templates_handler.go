@@ -201,6 +201,71 @@ func (h *AdminAcademicHandler) CreateTemplate(w http.ResponseWriter, r *http.Req
 	SendJSON(w, http.StatusCreated, item, "Plantilla oficial registrada exitosamente")
 }
 
+// UpdateTemplateQuota ajusta la cuota de una plantilla existente sin pedir un
+// job de build. La comprobación de arranque se repite en segundo plano.
+func (h *AdminAcademicHandler) UpdateTemplateQuota(w http.ResponseWriter, r *http.Request) {
+	if !requireAdminRole(w, r) {
+		return
+	}
+	tenantID := getTenantFromCtx(r)
+	templateID := r.PathValue("id")
+	if templateID == "" {
+		SendError(w, http.StatusBadRequest, "missing_id", "id de plantilla requerido")
+		return
+	}
+
+	adminID := requestUserID(r)
+	if adminID == "" {
+		adminID = domain.DefaultTenantID
+	}
+
+	var dto domain.UpdateTemplateQuotaDTO
+	if err := json.NewDecoder(r.Body).Decode(&dto); err != nil {
+		SendError(w, http.StatusBadRequest, "invalid_payload", "payload JSON inválido")
+		return
+	}
+
+	if h.govService == nil {
+		SendError(w, http.StatusInternalServerError, "service_unavailable", "Servicio de gobernanza no configurado")
+		return
+	}
+
+	item, err := h.govService.UpdateTemplateQuota(r.Context(), tenantID, templateID, adminID, dto)
+	if err != nil {
+		switch {
+		case errors.Is(err, services.ErrTemplateNotFound):
+			SendError(w, http.StatusNotFound, "not_found", "Plantilla no encontrada")
+		case errors.Is(err, services.ErrRamBelowVitalFloor),
+			errors.Is(err, domain.ErrRamExceedsHostCapacity),
+			errors.Is(err, services.ErrTemplateQuotaNotEditable):
+			SendError(w, http.StatusUnprocessableEntity, "invalid_quota", err.Error())
+		default:
+			SendError(w, http.StatusInternalServerError, err.Error(), "No se pudo actualizar la cuota de la plantilla")
+		}
+		return
+	}
+
+	if h.auditLogRepo != nil {
+		meta, _ := json.Marshal(map[string]any{
+			"template_id": item.ID,
+			"base_ram_mb": item.BaseRamMB,
+		})
+		_ = h.auditLogRepo.Create(r.Context(), &domain.AuditLog{
+			TenantID:     tenantID,
+			ActorID:      adminID,
+			Action:       "TEMPLATE_QUOTA_UPDATED",
+			ResourceType: "lab_template",
+			ResourceID:   &item.ID,
+			StatusCode:   http.StatusOK,
+			Metadata:     meta,
+			IPAddress:    r.RemoteAddr,
+			UserAgent:    r.UserAgent(),
+		})
+	}
+
+	SendJSON(w, http.StatusOK, item, "Cuota de la plantilla actualizada")
+}
+
 // GetTemplatesCacheStatus retorna el estado de presencia en disco de todas las plantillas activas
 func (h *AdminAcademicHandler) GetTemplatesCacheStatus(w http.ResponseWriter, r *http.Request) {
 	tenantID := getTenantFromCtx(r)

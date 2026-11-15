@@ -190,7 +190,123 @@ func TestPreviewExposesHumanNamesAndFlagsMissing(t *testing.T) {
 	}
 }
 
+// Aprobar enlaza una plantilla real, compatible y de la misma institución. Si
+// el administrador no escribe respuesta, el docente igual sabe qué entorno le
+// resolvió el pedido.
+func TestReviewApprovalValidatesTemplateAndWritesNote(t *testing.T) {
+	repo := &fakeEnvironmentRequestRepo{}
+	request := newPendingRequest(t, repo)
+	tenant := "tenant"
+	svc := NewEnvironmentRequestService(repo, nil)
+	svc.SetTemplateLookup(&fakeTemplateLookup{templates: map[string]*domain.AdminTemplateReviewItem{
+		"tpl-1": {
+			ID:                "tpl-1",
+			Name:              "Python + Postgres",
+			TenantID:          &tenant,
+			Status:            "APROBADA",
+			TargetEnvironment: domain.TargetEnvironmentIDEPersistente,
+		},
+	}})
+
+	updated, err := svc.Review(context.Background(), tenant, request.ID, "admin", domain.ReviewEnvironmentRequestDTO{
+		Status:             domain.EnvironmentRequestAprobada,
+		ResolvedTemplateID: "tpl-1",
+	})
+	if err != nil {
+		t.Fatalf("aprobar con una plantilla compatible no debe fallar: %v", err)
+	}
+	if !strings.Contains(updated.ReviewNote, "Python + Postgres") {
+		t.Fatalf("la respuesta debe nombrar el entorno que resolvió el pedido, obtuve %q", updated.ReviewNote)
+	}
+}
+
+func TestReviewRejectsIncompatibleTemplate(t *testing.T) {
+	tenant := "tenant"
+	otherTenant := "tenant-2"
+	cases := []struct {
+		name     string
+		template *domain.AdminTemplateReviewItem
+	}{
+		{
+			name: "otra modalidad",
+			template: &domain.AdminTemplateReviewItem{
+				ID: "tpl-judge", Name: "Solo evaluación", TenantID: &tenant,
+				Status: "APROBADA", TargetEnvironment: domain.TargetEnvironmentJuezEfimero,
+			},
+		},
+		{
+			name: "otro tenant",
+			template: &domain.AdminTemplateReviewItem{
+				ID: "tpl-foreign", Name: "Ajena", TenantID: &otherTenant,
+				Status: "APROBADA", TargetEnvironment: domain.TargetEnvironmentIDEPersistente,
+			},
+		},
+		{
+			name: "no aprobada",
+			template: &domain.AdminTemplateReviewItem{
+				ID: "tpl-pending", Name: "En auditoría", TenantID: &tenant,
+				Status: "PENDIENTE_AUDITORIA", TargetEnvironment: domain.TargetEnvironmentIDEPersistente,
+			},
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			repo := &fakeEnvironmentRequestRepo{}
+			request := newPendingRequest(t, repo)
+			svc := NewEnvironmentRequestService(repo, nil)
+			svc.SetTemplateLookup(&fakeTemplateLookup{templates: map[string]*domain.AdminTemplateReviewItem{
+				tc.template.ID: tc.template,
+			}})
+
+			_, err := svc.Review(context.Background(), tenant, request.ID, "admin", domain.ReviewEnvironmentRequestDTO{
+				Status:             domain.EnvironmentRequestAprobada,
+				ResolvedTemplateID: tc.template.ID,
+			})
+			if !errors.Is(err, domain.ErrEnvironmentRequestInvalid) {
+				t.Fatalf("esperaba ErrEnvironmentRequestInvalid, obtuve %v", err)
+			}
+		})
+	}
+}
+
+func TestReviewRejectsNoViableWithoutReason(t *testing.T) {
+	svc := NewEnvironmentRequestService(&fakeEnvironmentRequestRepo{}, nil)
+	_, err := svc.Review(context.Background(), "tenant", "req-1", "admin", domain.ReviewEnvironmentRequestDTO{
+		Status: domain.EnvironmentRequestNoViable,
+	})
+	if !errors.Is(err, domain.ErrEnvironmentRequestInvalid) {
+		t.Fatalf("declarar no viable sin motivo debe fallar, obtuve %v", err)
+	}
+}
+
+func newPendingRequest(t *testing.T, repo *fakeEnvironmentRequestRepo) *domain.EnvironmentRequest {
+	t.Helper()
+	request, err := repo.Create(context.Background(), &domain.EnvironmentRequest{
+		TenantID:          "tenant",
+		RequestedBy:       "teacher-1",
+		Title:             "Práctica de bases de datos",
+		TargetEnvironment: domain.TargetEnvironmentIDEPersistente,
+		Status:            domain.EnvironmentRequestEnRevision,
+	})
+	if err != nil {
+		t.Fatalf("no se pudo preparar la solicitud: %v", err)
+	}
+	return request
+}
+
 // --- dobles de prueba -------------------------------------------------------
+
+type fakeTemplateLookup struct {
+	templates map[string]*domain.AdminTemplateReviewItem
+}
+
+func (f *fakeTemplateLookup) GetTemplateByID(_ context.Context, templateID string) (*domain.AdminTemplateReviewItem, error) {
+	if template, ok := f.templates[templateID]; ok {
+		return template, nil
+	}
+	return nil, errors.New("plantilla no encontrada")
+}
 
 type fakeComponentRepo struct {
 	domain.TemplateComponentRepository

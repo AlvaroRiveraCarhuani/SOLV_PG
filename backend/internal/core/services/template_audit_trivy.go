@@ -20,15 +20,22 @@ import (
 func (w *TemplateAuditWorker) runTrivyScan(ctx context.Context, dockerImage string) (string, int, int, []byte) {
 	// Verificar o descargar imagen de Trivy si no existe
 	_, _, err := w.dockerCli.ImageInspectWithRaw(ctx, TrivyDockerImage)
-	if err != nil && errdefs.IsNotFound(err) {
+	if err != nil {
+		if !errdefs.IsNotFound(err) {
+			log.Printf("[TemplateAuditWorker] Error inspeccionando Trivy: %v", err)
+			return auditStatusError, 0, 0, trivyErrorReport("trivy_inspect", err)
+		}
 		log.Printf("[TemplateAuditWorker] Descargando imagen de auditoría %s...", TrivyDockerImage)
 		out, pullErr := w.dockerCli.ImagePull(ctx, TrivyDockerImage, image.PullOptions{})
 		if pullErr != nil {
 			log.Printf("[TemplateAuditWorker] Error descargando Trivy: %v", pullErr)
-			return "failed", 0, 0, []byte(fmt.Sprintf(`{"error": "no se pudo descargar imagen de auditoría: %s"}`, pullErr.Error()))
+			return auditStatusError, 0, 0, trivyErrorReport("trivy_pull", pullErr)
 		}
 		defer func() { _ = out.Close() }()
-		_, _ = io.Copy(io.Discard, out)
+		if _, copyErr := io.Copy(io.Discard, out); copyErr != nil {
+			log.Printf("[TemplateAuditWorker] Error leyendo la descarga de Trivy: %v", copyErr)
+			return auditStatusError, 0, 0, trivyErrorReport("trivy_pull", copyErr)
+		}
 	}
 
 	scanCtx, cancel := context.WithTimeout(ctx, 3*time.Minute)
@@ -59,7 +66,7 @@ func (w *TemplateAuditWorker) runTrivyScan(ctx context.Context, dockerImage stri
 	resp, err := w.dockerCli.ContainerCreate(scanCtx, containerConfig, hostConfig, nil, nil, "")
 	if err != nil {
 		log.Printf("[TemplateAuditWorker] Error creando contenedor Trivy: %v", err)
-		return "failed", 0, 0, []byte(fmt.Sprintf(`{"error": "creación de escáner falló: %s"}`, err.Error()))
+		return auditStatusError, 0, 0, trivyErrorReport("trivy_create", err)
 	}
 	containerID := resp.ID
 	defer func() {
@@ -68,20 +75,28 @@ func (w *TemplateAuditWorker) runTrivyScan(ctx context.Context, dockerImage stri
 
 	if err := w.dockerCli.ContainerStart(scanCtx, containerID, container.StartOptions{}); err != nil {
 		log.Printf("[TemplateAuditWorker] Error iniciando contenedor Trivy: %v", err)
-		return "failed", 0, 0, []byte(fmt.Sprintf(`{"error": "inicio de escáner falló: %s"}`, err.Error()))
+		return auditStatusError, 0, 0, trivyErrorReport("trivy_start", err)
 	}
 
 	statusCh, errCh := w.dockerCli.ContainerWait(scanCtx, containerID, container.WaitConditionNotRunning)
+	var exitCode int64
 	select {
 	case waitErr := <-errCh:
 		if waitErr != nil {
 			log.Printf("[TemplateAuditWorker] Error esperando escaneo Trivy: %v", waitErr)
-			return "failed", 0, 0, []byte(fmt.Sprintf(`{"error": "espera de escáner falló: %s"}`, waitErr.Error()))
+			return auditStatusError, 0, 0, trivyErrorReport("trivy_wait", waitErr)
 		}
-	case <-statusCh:
+	case res, ok := <-statusCh:
+		if !ok {
+			return auditStatusError, 0, 0, trivyErrorReport("trivy_wait", fmt.Errorf("el contenedor cerró sin código de salida"))
+		}
+		exitCode = res.StatusCode
 	case <-scanCtx.Done():
 		log.Printf("[TemplateAuditWorker] Timeout en escaneo Trivy para imagen %s", dockerImage)
-		return "failed", 0, 0, []byte(`{"error": "tiempo límite de escaneo agotado (3 min)"}`)
+		return auditStatusError, 0, 0, trivyErrorReport("trivy_timeout", fmt.Errorf("tiempo límite de escaneo agotado (3 min)"))
+	}
+	if exitCode != 0 {
+		return auditStatusError, 0, 0, trivyErrorReport("trivy_exit", fmt.Errorf("el escáner terminó con código %d", exitCode))
 	}
 
 	logsReader, err := w.dockerCli.ContainerLogs(scanCtx, containerID, container.LogsOptions{
@@ -89,7 +104,7 @@ func (w *TemplateAuditWorker) runTrivyScan(ctx context.Context, dockerImage stri
 		ShowStderr: false,
 	})
 	if err != nil {
-		return "failed", 0, 0, []byte(fmt.Sprintf(`{"error": "no se pudo leer salida de auditoría: %s"}`, err.Error()))
+		return auditStatusError, 0, 0, trivyErrorReport("trivy_logs", err)
 	}
 	defer func() { _ = logsReader.Close() }()
 
@@ -97,15 +112,15 @@ func (w *TemplateAuditWorker) runTrivyScan(ctx context.Context, dockerImage stri
 	_, _ = stdcopy.StdCopy(&stdoutBuf, &stderrBuf, logsReader)
 	rawJSON := stdoutBuf.Bytes()
 
-	if len(rawJSON) == 0 {
-		return "passed", 0, 0, []byte(`{"Results": []}`)
+	if len(strings.TrimSpace(string(rawJSON))) == 0 {
+		return auditStatusError, 0, 0, trivyErrorReport("trivy_empty", fmt.Errorf("el escáner no produjo un informe"))
 	}
 
 	var report trivyReport
 	if err := json.Unmarshal(rawJSON, &report); err != nil {
 		log.Printf("[TemplateAuditWorker] Error parseando JSON de Trivy: %v", err)
 		// Sin un informe legible no se puede afirmar que la imagen esté limpia.
-		return "failed", 0, 0, rawJSON
+		return auditStatusError, 0, 0, trivyErrorReport("trivy_report", err)
 	}
 
 	criticalCount := 0
@@ -175,4 +190,13 @@ func (w *TemplateAuditWorker) UpdateTrivyDB(ctx context.Context) error {
 
 	log.Println("[TemplateAuditWorker] Base de datos CVE actualizada correctamente en cache")
 	return nil
+}
+
+func trivyErrorReport(kind string, err error) []byte {
+	detail := ""
+	if err != nil {
+		detail = err.Error()
+	}
+	payload, _ := json.Marshal(map[string]string{"error": kind, "detail": detail})
+	return payload
 }

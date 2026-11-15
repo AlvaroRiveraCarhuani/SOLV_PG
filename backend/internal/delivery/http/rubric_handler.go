@@ -66,6 +66,10 @@ func (h *RubricHandler) SaveRubric(w http.ResponseWriter, r *http.Request) {
 	rubric.ExerciseID = exerciseID
 
 	if err := h.rubricService.CreateOrUpdate(r.Context(), &rubric); err != nil {
+		if errors.Is(err, domain.ErrRubricNotFound) {
+			SendError(w, http.StatusNotFound, "exercise not found", "No se encontró el ejercicio para esta rúbrica")
+			return
+		}
 		if errors.Is(err, domain.ErrRubricNotAllowedForJudge) {
 			SendError(w, http.StatusUnprocessableEntity, err.Error(), "Las rúbricas solo están permitidas para ejercicios de IDE Persistente")
 			return

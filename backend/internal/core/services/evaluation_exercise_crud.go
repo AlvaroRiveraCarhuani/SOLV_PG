@@ -180,7 +180,44 @@ func (s *EvaluationService) GetExerciseByIDAndTenant(ctx context.Context, id, te
 	return ex, nil
 }
 
+// assertExerciseSubjectWritable acota una escritura de ejercicio a la materia
+// que la contiene. Un ejercicio sin materia no tiene pertenencia que violar; uno
+// que vive en la materia de un colega responde igual que si no existiera.
+func (s *EvaluationService) assertExerciseSubjectWritable(ctx context.Context, subjectID *string) error {
+	if subjectID == nil || *subjectID == "" {
+		return nil
+	}
+	return assertActorWritesSubject(ctx, s.ownership, *subjectID, domain.ErrNotFound)
+}
+
+// assertExerciseUpdateWritable revisa la materia actual y la de destino: mover un
+// ejercicio a la materia de un colega es la misma escritura cruzada que editarlo.
+func (s *EvaluationService) assertExerciseUpdateWritable(ctx context.Context, ex *domain.Exercise) error {
+	teacherID, _ := domain.TeacherWriteScope(ctx)
+	if teacherID == "" {
+		return nil
+	}
+
+	current, err := s.exerciseRepo.GetByIDAndTenant(ctx, ex.ID, ex.TenantID)
+	if err != nil {
+		return err
+	}
+	if current == nil {
+		return nil
+	}
+	if err := s.assertExerciseSubjectWritable(ctx, current.SubjectID); err != nil {
+		return err
+	}
+	if ex.SubjectID != nil && (current.SubjectID == nil || *current.SubjectID != *ex.SubjectID) {
+		return s.assertExerciseSubjectWritable(ctx, ex.SubjectID)
+	}
+	return nil
+}
+
 func (s *EvaluationService) CreateExercise(ctx context.Context, ex *domain.Exercise) error {
+	if err := s.assertExerciseSubjectWritable(ctx, ex.SubjectID); err != nil {
+		return err
+	}
 	if ex.ID == "" {
 		ex.ID = uuid.NewString()
 	}
@@ -226,6 +263,9 @@ func (s *EvaluationService) normalizeTimeLimit(ex *domain.Exercise) {
 }
 
 func (s *EvaluationService) UpdateExercise(ctx context.Context, ex *domain.Exercise) error {
+	if err := s.assertExerciseUpdateWritable(ctx, ex); err != nil {
+		return err
+	}
 	s.normalizeTimeLimit(ex)
 	if err := ex.Validate(); err != nil {
 		return err
@@ -277,6 +317,9 @@ func (s *EvaluationService) BulkAddTestCases(ctx context.Context, exerciseID, te
 	if err != nil {
 		return fmt.Errorf("exercise not found: %w", err)
 	}
+	if err := s.assertExerciseSubjectWritable(ctx, ex.SubjectID); err != nil {
+		return err
+	}
 
 	if ex.Config.Algorithm == nil {
 		ex.Config.Algorithm = &domain.AlgorithmConfig{
@@ -307,6 +350,9 @@ func (s *EvaluationService) PublishExercise(ctx context.Context, exerciseID, ten
 	ex, err := s.exerciseRepo.GetByIDAndTenant(ctx, exerciseID, tenantID)
 	if err != nil {
 		return nil, fmt.Errorf("exercise not found: %w", err)
+	}
+	if err := s.assertExerciseSubjectWritable(ctx, ex.SubjectID); err != nil {
+		return nil, err
 	}
 
 	if err := s.resolveAndApplyTemplate(ctx, ex); err != nil {
@@ -351,6 +397,9 @@ func (s *EvaluationService) UnpublishExercise(ctx context.Context, exerciseID, t
 	ex, err := s.exerciseRepo.GetByIDAndTenant(ctx, exerciseID, tenantID)
 	if err != nil {
 		return nil, fmt.Errorf("exercise not found: %w", err)
+	}
+	if err := s.assertExerciseSubjectWritable(ctx, ex.SubjectID); err != nil {
+		return nil, err
 	}
 
 	if err := s.exerciseRepo.UpdateStatus(ctx, exerciseID, tenantID, "draft"); err != nil {

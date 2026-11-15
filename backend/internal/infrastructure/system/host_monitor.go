@@ -25,6 +25,20 @@ func NewGopsutilHostMonitor(minFreePct float64) domain.HostMonitor {
 	}
 }
 
+// HostTotalRAMMB devuelve la RAM total del host en MB. Es la base para
+// dimensionar cuántos entornos entran: la disponible cambia con los
+// laboratorios abiertos y no sirve para planificar.
+func HostTotalRAMMB() (int64, error) {
+	v, err := mem.VirtualMemory()
+	if err != nil {
+		return 0, fmt.Errorf("failed to read total host memory via gopsutil: %w", err)
+	}
+	if v == nil || v.Total == 0 {
+		return 0, fmt.Errorf("total host memory is 0")
+	}
+	return int64(v.Total / (1024 * 1024)), nil
+}
+
 func (h *GopsutilHostMonitor) GetHostMemoryStats() (freePct float64, availableMB uint64, err error) {
 	v, err := mem.VirtualMemory()
 	if err != nil {

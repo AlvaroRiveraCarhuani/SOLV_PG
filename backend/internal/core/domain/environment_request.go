@@ -60,27 +60,28 @@ type EnvironmentRequestMissingComponent struct {
 
 // EnvironmentRequest es la solicitud tal como se persiste y se muestra.
 type EnvironmentRequest struct {
-	ID                 string                               `json:"id"`
-	TenantID           string                               `json:"tenant_id"`
-	RequestedBy        string                               `json:"requested_by"`
-	RequesterName      string                               `json:"requester_name"`
-	Title              string                               `json:"title"`
-	Description        string                               `json:"description"`
-	TeacherText        string                               `json:"teacher_text"`
-	Uses               []string                             `json:"uses"`
-	TargetEnvironment  string                               `json:"target_environment"`
-	StackConfig        StackConfig                          `json:"stack_config"`
-	Components         []EnvironmentRequestComponent        `json:"components"`
-	MissingComponents  []EnvironmentRequestMissingComponent `json:"missing_components"`
-	Subjects           []EnvironmentRequestSubject          `json:"subjects"`
-	StackSignature     string                               `json:"stack_signature"`
-	Status             string                               `json:"status"`
-	ReviewNote         string                               `json:"review_note"`
-	ReviewedBy         string                               `json:"reviewed_by,omitempty"`
-	ReviewedAt         *time.Time                           `json:"reviewed_at,omitempty"`
-	ResolvedTemplateID string                               `json:"resolved_template_id,omitempty"`
-	CreatedAt          time.Time                            `json:"created_at"`
-	UpdatedAt          time.Time                            `json:"updated_at"`
+	ID                   string                               `json:"id"`
+	TenantID             string                               `json:"tenant_id"`
+	RequestedBy          string                               `json:"requested_by"`
+	RequesterName        string                               `json:"requester_name"`
+	Title                string                               `json:"title"`
+	Description          string                               `json:"description"`
+	TeacherText          string                               `json:"teacher_text"`
+	Uses                 []string                             `json:"uses"`
+	TargetEnvironment    string                               `json:"target_environment"`
+	StackConfig          StackConfig                          `json:"stack_config"`
+	Components           []EnvironmentRequestComponent        `json:"components"`
+	MissingComponents    []EnvironmentRequestMissingComponent `json:"missing_components"`
+	Subjects             []EnvironmentRequestSubject          `json:"subjects"`
+	StackSignature       string                               `json:"stack_signature"`
+	Status               string                               `json:"status"`
+	ReviewNote           string                               `json:"review_note"`
+	ReviewedBy           string                               `json:"reviewed_by,omitempty"`
+	ReviewedAt           *time.Time                           `json:"reviewed_at,omitempty"`
+	ResolvedTemplateID   string                               `json:"resolved_template_id,omitempty"`
+	ResolvedTemplateName string                               `json:"resolved_template_name,omitempty"`
+	CreatedAt            time.Time                            `json:"created_at"`
+	UpdatedAt            time.Time                            `json:"updated_at"`
 }
 
 // CreateEnvironmentRequestDTO es lo que envía el docente. Todo lo técnico es
@@ -201,6 +202,13 @@ func NormalizeEnvironmentUses(uses []string) []string {
 		result = append(result, EnvironmentUsePractice)
 	}
 	return result
+}
+
+// EnvironmentRequestTemplateLookup resuelve la plantilla que el administrador
+// enlaza al aprobar. Se mantiene como puerto angosto para no acoplar el
+// servicio de solicitudes al repositorio completo de gobernanza.
+type EnvironmentRequestTemplateLookup interface {
+	GetTemplateByID(ctx context.Context, templateID string) (*AdminTemplateReviewItem, error)
 }
 
 // EnvironmentRequestRepository persiste las solicitudes del docente.

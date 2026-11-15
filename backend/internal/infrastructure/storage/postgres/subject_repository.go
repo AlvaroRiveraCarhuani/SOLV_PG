@@ -172,6 +172,25 @@ func (r *PostgresSubjectRepository) ReassignTeacher(ctx context.Context, tenantI
 	return nil
 }
 
+// TeacherOwnsSubject responde si el docente dicta esa materia en la institución.
+// Lo usan las escrituras que no pueden permitirse un docente de otra materia.
+func (r *PostgresSubjectRepository) TeacherOwnsSubject(ctx context.Context, tenantID, subjectID, teacherID string) (bool, error) {
+	if tenantID == "" || subjectID == "" || teacherID == "" {
+		return false, nil
+	}
+
+	var exists bool
+	if err := r.db.GetContext(ctx, &exists, `
+		SELECT EXISTS (
+			SELECT 1 FROM subjects
+			WHERE id = $1 AND tenant_id = $2 AND teacher_id::text = $3
+		)
+	`, subjectID, tenantID, teacherID); err != nil {
+		return false, fmt.Errorf("failed to check subject ownership: %w", err)
+	}
+	return exists, nil
+}
+
 func (r *PostgresSubjectRepository) ArchiveSubject(ctx context.Context, tenantID, subjectID string, isArchived bool) error {
 	query := `
 		UPDATE subjects

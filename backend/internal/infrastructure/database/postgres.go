@@ -3,6 +3,7 @@ package database
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
 	"log"
 
@@ -50,6 +51,21 @@ func RunMigrations(db *sql.DB, migrationsDir string) error {
 		return fmt.Errorf("goose up: %w", err)
 	}
 	return nil
+}
+
+// CurrentMigrationVersion devuelve la última migración aplicada por goose
+// (columna version_id de goose_db_version). Una tabla inexistente o vacía
+// devuelve 0 sin error: un arranque limpio no es un fallo.
+func CurrentMigrationVersion(ctx context.Context, db *sql.DB) (int64, error) {
+	var applied int64
+	err := db.QueryRowContext(ctx, `SELECT version_id FROM goose_db_version WHERE is_applied ORDER BY id DESC LIMIT 1`).Scan(&applied)
+	if errors.Is(err, sql.ErrNoRows) {
+		return 0, nil
+	}
+	if err != nil {
+		return 0, fmt.Errorf("current migration version: %w", err)
+	}
+	return applied, nil
 }
 
 // RunMigrationsDown revierte todas las migraciones en el directorio dado hasta 0 usando goose.

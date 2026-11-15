@@ -2,6 +2,7 @@ package httpdelivery
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"math/rand"
@@ -154,6 +155,12 @@ func (h *EvaluationHandler) GenerateCases(w http.ResponseWriter, r *http.Request
 }
 
 func (h *EvaluationHandler) ImportExercises(w http.ResponseWriter, r *http.Request) {
+	userRole := requestRole(r)
+	if userRole != "teacher" && userRole != "admin" {
+		SendError(w, http.StatusForbidden, "Unauthorized: teacher role required", "No tiene permisos para importar ejercicios")
+		return
+	}
+
 	courseID := r.PathValue("courseId")
 	if courseID == "" {
 		SendError(w, http.StatusBadRequest, "Course ID missing", "ID de curso faltante")
@@ -203,6 +210,10 @@ func (h *EvaluationHandler) ImportExercises(w http.ResponseWriter, r *http.Reque
 
 	res, err := h.service.ImportExercises(r.Context(), courseID, content, fileName, dryRun)
 	if err != nil {
+		if errors.Is(err, domain.ErrNotFound) {
+			SendError(w, http.StatusNotFound, "Subject not found", "La materia no existe o no pertenece al docente")
+			return
+		}
 		SendError(w, http.StatusBadRequest, err.Error(), err.Error())
 		return
 	}
@@ -221,6 +232,12 @@ func (h *EvaluationHandler) ImportExercises(w http.ResponseWriter, r *http.Reque
 }
 
 func (h *EvaluationHandler) GenerateCasesFromScript(w http.ResponseWriter, r *http.Request) {
+	userRole := requestRole(r)
+	if userRole != "teacher" && userRole != "admin" {
+		SendError(w, http.StatusForbidden, "Unauthorized: teacher role required", "No tiene permisos para generar casos de prueba")
+		return
+	}
+
 	exerciseID := r.PathValue("exerciseId")
 	if exerciseID == "" {
 		SendError(w, http.StatusBadRequest, "Exercise ID missing", "ID de ejercicio faltante")
@@ -273,6 +290,10 @@ func (h *EvaluationHandler) GenerateCasesFromScript(w http.ResponseWriter, r *ht
 
 	res, err := h.service.GenerateCasesFromScript(r.Context(), exerciseID, tenantID, scriptCode, dryRun)
 	if err != nil {
+		if errors.Is(err, domain.ErrNotFound) {
+			SendError(w, http.StatusNotFound, "Exercise not found", "El ejercicio no existe o su materia no pertenece al docente")
+			return
+		}
 		SendError(w, http.StatusBadRequest, err.Error(), err.Error())
 		return
 	}

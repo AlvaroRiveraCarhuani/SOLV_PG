@@ -14,8 +14,9 @@ import (
 )
 
 var (
-	ErrInvalidReviewStatus     = errors.New("status must be 'approved', 'rejected', 'paused', 'suspended' or 'pending_audit'")
-	ErrRejectionReasonRequired = errors.New("rejection_reason is required when rejecting or suspending a template")
+	ErrInvalidReviewStatus      = errors.New("status must be 'approved', 'rejected', 'paused', 'suspended' or 'pending_audit'")
+	ErrRejectionReasonRequired  = errors.New("rejection_reason is required when rejecting or suspending a template")
+	ErrTemplateQuotaNotEditable = errors.New("la plantilla no admite ajuste de cuota en su estado actual")
 )
 
 func (s *AdminGovernanceService) ListTemplates(
@@ -239,6 +240,67 @@ func (s *AdminGovernanceService) CreateOfficialTemplate(
 	}
 
 	return created, nil
+}
+
+// UpdateTemplateQuota ajusta la memoria por alumno sin reconstruir la imagen.
+// La huella de verificación incluye la RAM, así que este camino no puede exigir
+// el job de build: valida piso y techo y deja que el worker repita el smoke.
+func (s *AdminGovernanceService) UpdateTemplateQuota(
+	ctx context.Context,
+	tenantID, templateID, adminID string,
+	dto domain.UpdateTemplateQuotaDTO,
+) (*domain.AdminTemplateReviewItem, error) {
+	templateID = strings.TrimSpace(templateID)
+	if templateID == "" {
+		return nil, ErrTemplateNotFound
+	}
+	existing, err := s.govRepo.GetTemplateByID(ctx, templateID)
+	if err != nil {
+		if strings.Contains(strings.ToLower(err.Error()), "template not found") {
+			return nil, ErrTemplateNotFound
+		}
+		return nil, err
+	}
+	if existing == nil {
+		return nil, ErrTemplateNotFound
+	}
+	if existing.TenantID != nil && strings.TrimSpace(*existing.TenantID) != "" && *existing.TenantID != tenantID {
+		return nil, ErrTemplateNotFound
+	}
+
+	status := strings.ToLower(strings.TrimSpace(existing.Status))
+	if status == "rejected" || status == "rechazada" {
+		return nil, ErrTemplateQuotaNotEditable
+	}
+	if dto.BaseRamMB <= 0 {
+		return nil, errors.New("base_ram_mb debe ser mayor que cero")
+	}
+
+	minFloorMB := calculateMinimumVitalFloorMB(existing.TargetEnvironment)
+	if dto.BaseRamMB < minFloorMB {
+		return nil, fmt.Errorf("%w: base_ram_mb=%d es inferior al piso vital requerido (%d MB)", ErrRamBelowVitalFloor, dto.BaseRamMB, minFloorMB)
+	}
+	totalHostMB := s.getHostTotalRAM(ctx)
+	maxAllowedRAM := domain.CalculateHostMaxAllowedRAM(totalHostMB)
+	if err := domain.ValidateRamAgainstHost(dto.BaseRamMB, maxAllowedRAM); err != nil {
+		return nil, err
+	}
+
+	// Una plantilla aprobada repite el smoke con la cuota nueva. Una pausada
+	// conserva su estado y no se auto-reactiva por una auditoría.
+	dto.ResetSmoke = isApprovedTemplateStatus(existing.Status)
+	quotaRepo, ok := s.govRepo.(domain.TemplateQuotaRepository)
+	if !ok {
+		return nil, errors.New("el repositorio no admite ajuste de cuota")
+	}
+	updated, err := quotaRepo.UpdateTemplateQuota(ctx, tenantID, templateID, adminID, dto)
+	if err != nil {
+		if strings.Contains(strings.ToLower(err.Error()), "template not found") {
+			return nil, ErrTemplateNotFound
+		}
+		return nil, err
+	}
+	return updated, nil
 }
 
 func (s *AdminGovernanceService) DuplicateTemplate(

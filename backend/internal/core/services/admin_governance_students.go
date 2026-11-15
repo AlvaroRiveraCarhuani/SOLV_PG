@@ -155,3 +155,99 @@ func (s *AdminGovernanceService) RosterEnroll(ctx context.Context, tenantID, sub
 		TotalDetected:    len(cleaned),
 	}, nil
 }
+
+const rosterDefaultSourceSystem = "roster"
+
+// RosterEnrollFromSource sincroniza la nómina de una materia desde un origen
+// identificable. A diferencia de RosterEnroll, resuelve a la persona por su
+// identificador en el sistema de origen antes que por el correo, y puede
+// reconciliar bajas: quien ya no figura en la planilla sale de la materia.
+func (s *AdminGovernanceService) RosterEnrollFromSource(
+	ctx context.Context,
+	tenantID, subjectID string,
+	req domain.RosterSyncRequest,
+) (*domain.RosterEnrollResult, error) {
+	if strings.TrimSpace(subjectID) == "" {
+		return nil, errors.New("la materia es obligatoria")
+	}
+
+	source := strings.TrimSpace(req.SourceSystem)
+	if source == "" {
+		source = rosterDefaultSourceSystem
+	}
+	if req.Reconcile && strings.EqualFold(source, "manual") {
+		return nil, errors.New("una nómina de origen manual no se puede reconciliar")
+	}
+
+	entries := normalizeRosterEntries(req.Entries)
+	if len(entries) == 0 {
+		return nil, errors.New("la nómina no tiene correos válidos")
+	}
+
+	syncRepo, ok := s.govRepo.(domain.RosterSyncRepository)
+	if !ok {
+		// Un repositorio sin la capacidad de sincronización conserva el camino
+		// anterior: alta de cuentas y matrícula, sin bajas.
+		emails := make([]string, 0, len(entries))
+		for _, entry := range entries {
+			emails = append(emails, entry.Email)
+		}
+		return s.RosterEnroll(ctx, tenantID, subjectID, emails)
+	}
+
+	outcome, err := syncRepo.SyncSubjectRoster(ctx, tenantID, subjectID, domain.RosterSyncRequest{
+		Entries:      entries,
+		SourceSystem: source,
+		Reconcile:    req.Reconcile,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	return &domain.RosterEnrollResult{
+		CreatedStudents:     outcome.CreatedStudents,
+		EnrolledStudents:    outcome.EnrolledStudents,
+		RemovedStudents:     outcome.RemovedStudents,
+		SkippedNotFound:     outcome.SkippedNotFound,
+		MatchedByExternalID: outcome.MatchedByExternalID,
+		DuplicateEmails:     []string{},
+		InvalidEmails:       []string{},
+		TotalDetected:       len(entries),
+	}, nil
+}
+
+// normalizeRosterEntries limpia, valida y deduplica las filas de la nómina. El
+// correo es la clave de la cuenta, así que una fila sin correo válido se
+// descarta aunque traiga identificador; el identificador repetido también se
+// descarta para no aplicar dos veces la misma persona.
+func normalizeRosterEntries(entries []domain.RosterEntry) []domain.RosterEntry {
+	cleaned := make([]domain.RosterEntry, 0, len(entries))
+	seenEmails := make(map[string]bool, len(entries))
+	seenExternal := make(map[string]bool, len(entries))
+
+	for _, raw := range entries {
+		entry := domain.RosterEntry{
+			Email:      strings.ToLower(strings.TrimSpace(raw.Email)),
+			ExternalID: strings.TrimSpace(raw.ExternalID),
+			FirstName:  strings.TrimSpace(raw.FirstName),
+			LastName:   strings.TrimSpace(raw.LastName),
+		}
+		if entry.Email == "" || !isValidEmailAddress(entry.Email) {
+			continue
+		}
+		if seenEmails[entry.Email] {
+			continue
+		}
+		if entry.ExternalID != "" && seenExternal[entry.ExternalID] {
+			continue
+		}
+
+		seenEmails[entry.Email] = true
+		if entry.ExternalID != "" {
+			seenExternal[entry.ExternalID] = true
+		}
+		cleaned = append(cleaned, entry)
+	}
+
+	return cleaned
+}

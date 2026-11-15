@@ -11,6 +11,11 @@ import (
 	"github.com/google/uuid"
 )
 
+// ErrSubmissionForbidden marca la entrega que existe en la institución pero no
+// es de quien intenta escribir. Los eventos de teclado son evidencia de
+// integridad académica: un alumno sólo alimenta la suya.
+var ErrSubmissionForbidden = errors.New("submission does not belong to the caller")
+
 type SubmissionService struct {
 	repo          domain.SubmissionRepository
 	keystrokeRepo domain.KeystrokeRepository
@@ -49,14 +54,31 @@ func (s *SubmissionService) SaveKeystrokeEvents(ctx context.Context, tenantID, s
 	if len(events) > 10000 {
 		return 0, domain.ErrTooManyKeystrokeEvents
 	}
+	// Sin repositorio no se guardó nada: devolver la cantidad de eventos
+	// simulaba una persistencia que no ocurrió.
 	if s.keystrokeRepo == nil {
-		return len(events), nil
+		return 0, ErrSubmissionNotConfigured
 	}
-	if _, err := s.repo.GetByID(ctx, tenantID, submissionID); err != nil {
+	submission, err := s.repo.GetByID(ctx, tenantID, submissionID)
+	if err != nil {
 		// El repositorio ya distingue "no existe" de "id mal formado"; el
 		// transporte necesita ese error intacto para responder 404 o 400.
 		return 0, err
 	}
+	if submission == nil {
+		return 0, domain.ErrNotFound
+	}
+
+	// Sólo docentes y administradores escriben sobre entregas ajenas; para
+	// cualquier otro rol la entrega tiene que ser propia.
+	role := domain.GetUserRole(ctx)
+	if role != "teacher" && role != "admin" {
+		callerID := domain.GetUserID(ctx)
+		if callerID == "" || submission.StudentID != callerID {
+			return 0, ErrSubmissionForbidden
+		}
+	}
+
 	if err := s.keystrokeRepo.SaveBatch(ctx, submissionID, events); err != nil {
 		return 0, fmt.Errorf("failed to save keystroke events: %w", err)
 	}

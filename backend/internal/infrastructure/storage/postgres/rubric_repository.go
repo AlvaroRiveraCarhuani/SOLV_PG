@@ -30,13 +30,16 @@ type rubricDBRow struct {
 }
 
 func (r *PostgresRubricRepository) GetByExerciseID(ctx context.Context, exerciseID uuid.UUID) (*domain.Rubric, error) {
+	// La rúbrica cuelga del ejercicio y el ejercicio de una institución: sin el
+	// join, un id de ejercicio ajeno devolvía la rúbrica de otra institución.
 	query := `
-		SELECT id, exercise_id, criteria, created_at, updated_at
-		FROM rubrics
-		WHERE exercise_id = $1
+		SELECT rb.id, rb.exercise_id, rb.criteria, rb.created_at, rb.updated_at
+		FROM rubrics rb
+		JOIN exercises e ON e.id = rb.exercise_id
+		WHERE rb.exercise_id = $1 AND e.tenant_id = $2
 	`
 	var row rubricDBRow
-	err := r.db.GetContext(ctx, &row, query, exerciseID)
+	err := r.db.GetContext(ctx, &row, query, exerciseID, tenantIDFromContext(ctx))
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil, domain.ErrRubricNotFound
@@ -70,6 +73,19 @@ func (r *PostgresRubricRepository) CreateOrUpdate(ctx context.Context, rubric *d
 	criteriaJSON, err := rubric.CriteriaJSON()
 	if err != nil {
 		return fmt.Errorf("failed to marshal rubric criteria: %w", err)
+	}
+
+	// Mismo criterio que la lectura: no se escribe una rúbrica sobre un
+	// ejercicio de otra institución.
+	var exerciseInTenant bool
+	if err := r.db.GetContext(ctx, &exerciseInTenant,
+		`SELECT EXISTS (SELECT 1 FROM exercises WHERE id = $1 AND tenant_id = $2)`,
+		rubric.ExerciseID, tenantIDFromContext(ctx),
+	); err != nil {
+		return fmt.Errorf("failed to check exercise for rubric: %w", err)
+	}
+	if !exerciseInTenant {
+		return domain.ErrRubricNotFound
 	}
 
 	query := `

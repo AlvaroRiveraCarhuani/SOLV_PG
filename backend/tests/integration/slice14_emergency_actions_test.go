@@ -37,6 +37,11 @@ func setupSlice14EmergencyServer(t *testing.T) (*httptest.Server, *database.Data
 	academicPeriodService := services.NewAcademicPeriodService(academicPeriodRepo)
 	maintenanceService := services.NewMaintenanceService(tenantRepo)
 	govService := services.NewAdminGovernanceService(subjectRepo, govRepo)
+	// El barrido de zombies necesita executor real: sin él la acción responde
+	// 503 en lugar de reportar un éxito que no ocurrió.
+	govService.SetDockerPruner(func(ctx context.Context) (int64, int64, error) {
+		return 2, 0, nil
+	})
 
 	adminAcademicHandler := httpdelivery.NewAdminAcademicHandler(academicPeriodService, maintenanceService, govService)
 
@@ -224,6 +229,16 @@ func TestSlice14_EmergencyActions(t *testing.T) {
 		defer func() { _ = respZombies.Body.Close() }()
 		if respZombies.StatusCode != http.StatusOK {
 			t.Fatalf("Expected 200 OK executing kill_zombies, got %d", respZombies.StatusCode)
+		}
+
+		var bodyZombies map[string]interface{}
+		_ = json.NewDecoder(respZombies.Body).Decode(&bodyZombies)
+		dataZombies, ok := bodyZombies["data"].(map[string]interface{})
+		if !ok {
+			t.Fatalf("kill_zombies no devolvió datos de la ejecución: %v", bodyZombies)
+		}
+		if int(dataZombies["affected_count"].(float64)) != 2 {
+			t.Errorf("kill_zombies debe informar lo que barrió el executor, got %v", dataZombies["affected_count"])
 		}
 	})
 }

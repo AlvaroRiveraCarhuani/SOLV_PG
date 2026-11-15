@@ -3,6 +3,7 @@ package services
 import (
 	"context"
 	"fmt"
+	"os"
 	"strings"
 	"time"
 
@@ -15,6 +16,14 @@ type LabService struct {
 	repo      domain.LabInstanceRepository
 	templates domain.TemplateRepository
 	docker    domain.ContainerOrchestrator
+}
+
+// solvBaseDomain devuelve el dominio público configurado para la instalación.
+func solvBaseDomain() string {
+	if host := strings.TrimSpace(os.Getenv("SOLV_HOST")); host != "" {
+		return host
+	}
+	return "localhost"
 }
 
 func NewLabService(repo domain.LabInstanceRepository, templates domain.TemplateRepository, docker domain.ContainerOrchestrator) *LabService {
@@ -53,7 +62,10 @@ func (s *LabService) StartLab(ctx context.Context, userID string, templateID str
 	// 3. Docker Adapter Call
 	// Generate Traefik Labels
 	prefix := strings.Split(userEmail, "@")[0]
-	subdomain := fmt.Sprintf("%s-lab.solv.uab.edu.bo", prefix)
+	// El dominio de los laboratorios sale de la instalación (SOLV_HOST), no de
+	// un literal: la misma imagen publica subdominios en la universidad que la
+	// haya instalado.
+	subdomain := fmt.Sprintf("%s-lab.%s", prefix, solvBaseDomain())
 	containerName := fmt.Sprintf("solv-lab-%s", id)
 
 	labels := map[string]string{

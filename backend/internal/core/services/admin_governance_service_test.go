@@ -12,6 +12,7 @@ import (
 
 type mockAdminGovernanceRepo struct {
 	lastCreatedDTO      *domain.CreateOfficialTemplateDTO
+	lastQuotaDTO        *domain.UpdateTemplateQuotaDTO
 	lastReviewedStatus  string
 	lastRejectionReason string
 	serverMajorVersion  string
@@ -168,6 +169,16 @@ func (m *mockAdminGovernanceRepo) GetTemplateByID(ctx context.Context, id string
 }
 func (m *mockAdminGovernanceRepo) GetTemplateForLanguage(ctx context.Context, environmentType, language string) (*domain.AdminTemplateReviewItem, error) {
 	return nil, nil
+}
+func (m *mockAdminGovernanceRepo) UpdateTemplateQuota(ctx context.Context, tenantID, templateID, adminID string, dto domain.UpdateTemplateQuotaDTO) (*domain.AdminTemplateReviewItem, error) {
+	m.lastQuotaDTO = &dto
+	profile := domain.DeriveResourceProfile(dto.BaseRamMB)
+	return &domain.AdminTemplateReviewItem{
+		ID:              templateID,
+		BaseRamMB:       dto.BaseRamMB,
+		ResourceProfile: profile,
+		Status:          "APROBADA",
+	}, nil
 }
 func (m *mockAdminGovernanceRepo) UpdateOfficialTemplate(ctx context.Context, tenantID, templateID, adminID string, dto domain.UpdateOfficialTemplateDTO) (*domain.AdminTemplateReviewItem, error) {
 	return &domain.AdminTemplateReviewItem{

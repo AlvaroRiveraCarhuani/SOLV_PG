@@ -196,11 +196,48 @@ func (r *PostgresAdminGovernanceRepository) ReviewTemplate(
 	tenantID, templateID, adminID, status, rejectionReason string,
 	baseRamMB *int,
 ) (*domain.AdminTemplateReviewItem, error) {
+	// Re-aprobar una plantilla rechazada no la devuelve al catálogo: la
+	// reingresa a la cola con el smoke y Trivy limpios. El worker decide si
+	// vuelve a APROBADA o si el rechazo se mantiene.
 	query := `
 		UPDATE lab_templates
 		SET 
-			status = $1,
-			rejection_reason = $2,
+			status = CASE
+				WHEN $1 IN ('approved', 'APROBADA') AND status IN ('RECHAZADA', 'rejected') THEN 'PENDIENTE_AUDITORIA'
+				ELSE $1
+			END,
+			rejection_reason = CASE
+				WHEN $1 IN ('approved', 'APROBADA') AND status IN ('RECHAZADA', 'rejected') THEN ''
+				ELSE $2
+			END,
+			smoke_test_status = CASE
+				WHEN $1 IN ('approved', 'APROBADA') AND status IN ('RECHAZADA', 'rejected') THEN 'pending'
+				ELSE smoke_test_status
+			END,
+			smoke_test_output = CASE
+				WHEN $1 IN ('approved', 'APROBADA') AND status IN ('RECHAZADA', 'rejected') THEN ''
+				ELSE smoke_test_output
+			END,
+			security_audit_status = CASE
+				WHEN $1 IN ('approved', 'APROBADA') AND status IN ('RECHAZADA', 'rejected') THEN 'pending'
+				ELSE security_audit_status
+			END,
+			cve_critical_count = CASE
+				WHEN $1 IN ('approved', 'APROBADA') AND status IN ('RECHAZADA', 'rejected') THEN 0
+				ELSE cve_critical_count
+			END,
+			cve_high_count = CASE
+				WHEN $1 IN ('approved', 'APROBADA') AND status IN ('RECHAZADA', 'rejected') THEN 0
+				ELSE cve_high_count
+			END,
+			security_audit_report = CASE
+				WHEN $1 IN ('approved', 'APROBADA') AND status IN ('RECHAZADA', 'rejected') THEN '{}'::jsonb
+				ELSE security_audit_report
+			END,
+			security_audited_at = CASE
+				WHEN $1 IN ('approved', 'APROBADA') AND status IN ('RECHAZADA', 'rejected') THEN NULL
+				ELSE security_audited_at
+			END,
 			reviewed_by = $3,
 			reviewed_at = NOW(),
 			base_ram_mb = COALESCE($4, base_ram_mb),
@@ -302,6 +339,46 @@ func (r *PostgresAdminGovernanceRepository) ReviewTemplate(
 	}
 
 	return row.toDomain(), nil
+}
+
+// UpdateTemplateQuota ajusta memoria y descripción sin tocar la imagen. No pide
+// un job de build porque no hay build: la comprobación de arranque se repite en
+// segundo plano cuando la plantilla está aprobada.
+func (r *PostgresAdminGovernanceRepository) UpdateTemplateQuota(
+	ctx context.Context,
+	tenantID, templateID, adminID string,
+	dto domain.UpdateTemplateQuotaDTO,
+) (*domain.AdminTemplateReviewItem, error) {
+	profile := domain.DeriveResourceProfile(dto.BaseRamMB)
+	profileJSON, err := json.Marshal(profile)
+	if err != nil {
+		profileJSON = []byte(`{"min_mb": 256, "high_mb": 768, "max_mb": 1024}`)
+	}
+	var description interface{}
+	if dto.Description != nil {
+		description = strings.TrimSpace(*dto.Description)
+	}
+
+	res, err := r.db.ExecContext(ctx, `
+		UPDATE lab_templates
+		SET base_ram_mb = $1,
+		    resource_profile = $2,
+		    description = COALESCE($3, description),
+		    smoke_test_status = CASE WHEN $4 THEN 'pending' ELSE smoke_test_status END,
+		    smoke_test_output = CASE WHEN $4 THEN '' ELSE smoke_test_output END,
+		    reviewed_by = NULLIF($5, '')::uuid,
+		    reviewed_at = NOW(),
+		    updated_at = NOW()
+		WHERE id::text = $6 AND ($7 = '' OR tenant_id = NULLIF($7, '')::uuid OR tenant_id IS NULL)
+	`, dto.BaseRamMB, profileJSON, description, dto.ResetSmoke, adminID, templateID, tenantID)
+	if err != nil {
+		return nil, fmt.Errorf("error updating template quota: %w", err)
+	}
+	rows, _ := res.RowsAffected()
+	if rows == 0 {
+		return nil, errors.New("template not found")
+	}
+	return r.GetTemplateByID(ctx, templateID)
 }
 
 func (r *PostgresAdminGovernanceRepository) CreateOfficialTemplate(
@@ -505,8 +582,8 @@ func (r *PostgresAdminGovernanceRepository) ListPendingAuditTemplates(ctx contex
 		FROM lab_templates lt
 		LEFT JOIN users u ON u.id = lt.requested_by
 		WHERE lt.status = 'PENDIENTE_AUDITORIA'
-		   OR lt.security_audit_status = 'pending'
-		   OR lt.smoke_test_status = 'pending'
+		   OR lt.security_audit_status IN ('pending', 'error')
+		   OR lt.smoke_test_status IN ('pending', 'error')
 		ORDER BY lt.created_at ASC
 	`
 	var rows []adminTemplateRow

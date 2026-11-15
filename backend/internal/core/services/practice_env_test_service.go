@@ -127,8 +127,10 @@ func (s *PracticeEnvTestService) Start(ctx context.Context, req PracticeEnvTestR
 	if ramMB < 256 {
 		ramMB = 512
 	}
-	if err := domain.ValidateRamAgainstHost(int(ramMB), domain.CalculateHostMaxAllowedRAM(hostTotalMB())); err != nil {
-		return nil, fmt.Errorf("la plantilla de la práctica pide %d MB y excede la capacidad del host: %w", ramMB, err)
+	if hostRAMMB, measured := hostTotalMB(); measured {
+		if err := domain.ValidateRamAgainstHost(int(ramMB), domain.CalculateHostMaxAllowedRAM(hostRAMMB)); err != nil {
+			return nil, fmt.Errorf("la plantilla de la práctica pide %d MB y excede la capacidad del host: %w", ramMB, err)
+		}
 	}
 
 	jobID := uuid.NewString()

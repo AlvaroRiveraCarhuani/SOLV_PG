@@ -25,27 +25,28 @@ func NewPostgresEnvironmentRequestRepository(db *sqlx.DB) *PostgresEnvironmentRe
 }
 
 type environmentRequestRow struct {
-	ID                 string         `db:"id"`
-	TenantID           string         `db:"tenant_id"`
-	RequestedBy        string         `db:"requested_by"`
-	RequesterName      sql.NullString `db:"requester_name"`
-	Title              string         `db:"title"`
-	Description        string         `db:"description"`
-	TeacherText        string         `db:"teacher_text"`
-	Uses               []byte         `db:"uses"`
-	TargetEnvironment  string         `db:"target_environment"`
-	StackConfig        []byte         `db:"stack_config"`
-	Components         []byte         `db:"components"`
-	MissingComponents  []byte         `db:"missing_components"`
-	Subjects           []byte         `db:"subjects"`
-	StackSignature     string         `db:"stack_signature"`
-	Status             string         `db:"status"`
-	ReviewNote         string         `db:"review_note"`
-	ReviewedBy         sql.NullString `db:"reviewed_by"`
-	ReviewedAt         sql.NullTime   `db:"reviewed_at"`
-	ResolvedTemplateID sql.NullString `db:"resolved_template_id"`
-	CreatedAt          time.Time      `db:"created_at"`
-	UpdatedAt          time.Time      `db:"updated_at"`
+	ID                   string         `db:"id"`
+	TenantID             string         `db:"tenant_id"`
+	RequestedBy          string         `db:"requested_by"`
+	RequesterName        sql.NullString `db:"requester_name"`
+	Title                string         `db:"title"`
+	Description          string         `db:"description"`
+	TeacherText          string         `db:"teacher_text"`
+	Uses                 []byte         `db:"uses"`
+	TargetEnvironment    string         `db:"target_environment"`
+	StackConfig          []byte         `db:"stack_config"`
+	Components           []byte         `db:"components"`
+	MissingComponents    []byte         `db:"missing_components"`
+	Subjects             []byte         `db:"subjects"`
+	StackSignature       string         `db:"stack_signature"`
+	Status               string         `db:"status"`
+	ReviewNote           string         `db:"review_note"`
+	ReviewedBy           sql.NullString `db:"reviewed_by"`
+	ReviewedAt           sql.NullTime   `db:"reviewed_at"`
+	ResolvedTemplateID   sql.NullString `db:"resolved_template_id"`
+	ResolvedTemplateName sql.NullString `db:"resolved_template_name"`
+	CreatedAt            time.Time      `db:"created_at"`
+	UpdatedAt            time.Time      `db:"updated_at"`
 }
 
 const environmentRequestSelect = `
@@ -69,29 +70,32 @@ const environmentRequestSelect = `
 		er.reviewed_by::text AS reviewed_by,
 		er.reviewed_at,
 		er.resolved_template_id::text AS resolved_template_id,
+		COALESCE(lt.name, '') AS resolved_template_name,
 		er.created_at,
 		er.updated_at
 	FROM environment_requests er
 	LEFT JOIN users u ON u.id = er.requested_by
+	LEFT JOIN lab_templates lt ON lt.id = er.resolved_template_id
 `
 
 func (r *environmentRequestRow) toDomain() *domain.EnvironmentRequest {
 	req := &domain.EnvironmentRequest{
-		ID:                 r.ID,
-		TenantID:           r.TenantID,
-		RequestedBy:        r.RequestedBy,
-		RequesterName:      r.RequesterName.String,
-		Title:              r.Title,
-		Description:        r.Description,
-		TeacherText:        r.TeacherText,
-		TargetEnvironment:  r.TargetEnvironment,
-		StackSignature:     r.StackSignature,
-		Status:             r.Status,
-		ReviewNote:         r.ReviewNote,
-		ReviewedBy:         r.ReviewedBy.String,
-		ResolvedTemplateID: r.ResolvedTemplateID.String,
-		CreatedAt:          r.CreatedAt,
-		UpdatedAt:          r.UpdatedAt,
+		ID:                   r.ID,
+		TenantID:             r.TenantID,
+		RequestedBy:          r.RequestedBy,
+		RequesterName:        r.RequesterName.String,
+		Title:                r.Title,
+		Description:          r.Description,
+		TeacherText:          r.TeacherText,
+		TargetEnvironment:    r.TargetEnvironment,
+		StackSignature:       r.StackSignature,
+		Status:               r.Status,
+		ReviewNote:           r.ReviewNote,
+		ReviewedBy:           r.ReviewedBy.String,
+		ResolvedTemplateID:   r.ResolvedTemplateID.String,
+		ResolvedTemplateName: r.ResolvedTemplateName.String,
+		CreatedAt:            r.CreatedAt,
+		UpdatedAt:            r.UpdatedAt,
 	}
 	if r.ReviewedAt.Valid {
 		reviewedAt := r.ReviewedAt.Time

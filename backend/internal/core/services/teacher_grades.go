@@ -46,7 +46,7 @@ func (s *TeacherService) ExportCourseGradesCSV(ctx context.Context, tenantID, te
 	for _, ex := range matrix.Exercises {
 		header = append(header, ex.Title)
 	}
-	header = append(header, "Promedio Final")
+	header = append(header, "Nota de Laboratorio")
 
 	if err := writer.Write(header); err != nil {
 		return nil, "", fmt.Errorf("error al escribir encabezado CSV: %w", err)
@@ -80,7 +80,7 @@ func (s *TeacherService) ExportCourseGradesCSV(ctx context.Context, tenantID, te
 	if codeSanitized == "" {
 		codeSanitized = "curso"
 	}
-	filename := fmt.Sprintf("calificaciones_%s_%s.csv", codeSanitized, time.Now().Format("20060102"))
+	filename := fmt.Sprintf("notas_laboratorio_%s_%s.csv", codeSanitized, time.Now().Format("20060102"))
 
 	return buf.Bytes(), filename, nil
 }

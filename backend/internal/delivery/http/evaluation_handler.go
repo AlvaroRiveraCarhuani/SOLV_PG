@@ -188,6 +188,10 @@ func (h *EvaluationHandler) CreateExercise(w http.ResponseWriter, r *http.Reques
 	ex.TenantID = tenantID
 
 	if err := h.service.CreateExercise(r.Context(), &ex); err != nil {
+		if errors.Is(err, domain.ErrNotFound) {
+			SendError(w, http.StatusNotFound, "Subject not found", "La materia no existe o no pertenece al docente")
+			return
+		}
 		if isValidationError(err) {
 			SendError(w, http.StatusUnprocessableEntity, err.Error(), err.Error())
 			return
@@ -257,6 +261,10 @@ func (h *EvaluationHandler) UpdateExercise(w http.ResponseWriter, r *http.Reques
 	}
 
 	if err := h.service.UpdateExercise(r.Context(), &ex); err != nil {
+		if errors.Is(err, domain.ErrNotFound) {
+			SendError(w, http.StatusNotFound, "Exercise not found", "El ejercicio no existe o su materia no pertenece al docente")
+			return
+		}
 		if isValidationError(err) || errors.Is(err, domain.ErrWorkspaceProjectManagedBoilerplate) {
 			SendError(w, http.StatusUnprocessableEntity, err.Error(), err.Error())
 			return
@@ -352,6 +360,10 @@ func (h *EvaluationHandler) BulkTestCases(w http.ResponseWriter, r *http.Request
 	}
 
 	if err := h.service.BulkAddTestCases(r.Context(), exerciseID, tenantID, testCases); err != nil {
+		if errors.Is(err, domain.ErrNotFound) {
+			SendError(w, http.StatusNotFound, "Exercise not found", "El ejercicio no existe o su materia no pertenece al docente")
+			return
+		}
 		if isValidationError(err) {
 			SendError(w, http.StatusUnprocessableEntity, err.Error(), err.Error())
 			return

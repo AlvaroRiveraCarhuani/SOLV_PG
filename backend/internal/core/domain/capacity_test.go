@@ -59,3 +59,71 @@ func TestEstimateCapacityFallsBackToPolicyDefaults(t *testing.T) {
 		t.Fatalf("expected basis %q, got %q", CapacityBasisMemAvailable, basis)
 	}
 }
+
+// El techo recomendado tiene que crecer con el servidor. Un valor fijo de 40
+// dejaba un host de 128 GB trabajando a un tercio de su memoria.
+func TestRecommendMaxContainersScalesWithHostRAM(t *testing.T) {
+	cases := []struct {
+		hostTotalMB int64
+		ramPerLabMB int
+		ceilingPct  int
+		want        int
+	}{
+		{8192, 512, 85, 9},
+		{16384, 512, 85, 23},
+		{32768, 512, 85, 50},
+		{65536, 512, 85, 104},
+		{131072, 512, 85, 213},
+		{131072, 256, 85, 427},
+		{131072, 1024, 85, 106},
+		{1048576, 512, 85, MaxAllowedContainers},
+		{1024, 1024, 85, 1},
+		{0, 512, 85, 0},
+		{16384, 0, 85, 0},
+	}
+
+	for _, tc := range cases {
+		got := RecommendMaxContainers(tc.hostTotalMB, tc.ramPerLabMB, tc.ceilingPct)
+		if got != tc.want {
+			t.Errorf("RecommendMaxContainers(%d MB, %d MB/lab, %d%%) = %d, esperado %d",
+				tc.hostTotalMB, tc.ramPerLabMB, tc.ceilingPct, got, tc.want)
+		}
+	}
+}
+
+func TestRecommendMaxContainersFallsBackToDefaultCeiling(t *testing.T) {
+	// Sin techo de seguridad válido se usa el de las políticas por defecto (85),
+	// no se calcula sobre 0%.
+	defaultCeiling := DefaultServerPolicies().HostSafetyCeilingPct
+	if got, want := RecommendMaxContainers(65536, 512, 0), RecommendMaxContainers(65536, 512, defaultCeiling); got != want {
+		t.Fatalf("expected %d with the default ceiling, got %d", want, got)
+	}
+}
+
+func TestBuildCapacityRecommendationWithoutMeasuredHost(t *testing.T) {
+	recommendation := BuildCapacityRecommendation(0, 512, 85)
+
+	if recommendation.RecommendedMaxContainers != 0 {
+		t.Fatalf("sin host medido no se recomienda nada, got %d", recommendation.RecommendedMaxContainers)
+	}
+	if recommendation.CapacityBasis != "unavailable" {
+		t.Fatalf("expected basis unavailable, got %q", recommendation.CapacityBasis)
+	}
+	if recommendation.PlatformReserveMB != PlatformReserveMB {
+		t.Fatalf("la recomendación debe declarar la reserva usada, got %d", recommendation.PlatformReserveMB)
+	}
+}
+
+func TestBuildCapacityRecommendationReportsItsAssumptions(t *testing.T) {
+	recommendation := BuildCapacityRecommendation(65536, 512, 85)
+
+	if recommendation.RecommendedMaxContainers != 104 {
+		t.Fatalf("expected 104 labs on a 64 GB host, got %d", recommendation.RecommendedMaxContainers)
+	}
+	if recommendation.CapacityBasis != CapacityBasisHostRAM {
+		t.Fatalf("expected basis %q, got %q", CapacityBasisHostRAM, recommendation.CapacityBasis)
+	}
+	if recommendation.HostTotalMB != 65536 || recommendation.RAMPerLabMB != 512 || recommendation.HostSafetyCeilingPct != 85 {
+		t.Fatalf("la recomendación debe devolver los supuestos usados, got %+v", recommendation)
+	}
+}

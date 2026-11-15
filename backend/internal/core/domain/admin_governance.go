@@ -1,6 +1,7 @@
 package domain
 
 import (
+	"context"
 	"database/sql/driver"
 	"encoding/json"
 	"errors"
@@ -353,11 +354,50 @@ type BatchCreateStudentsResult struct {
 // RosterEnrollResult DTO con el resumen de la nómina de curso: cuentas creadas,
 // matriculaciones nuevas y correos inválidos/duplicados detectados.
 type RosterEnrollResult struct {
-	CreatedStudents  int      `json:"created_students"`
-	EnrolledStudents int      `json:"enrolled_students"`
-	DuplicateEmails  []string `json:"duplicate_emails"`
-	InvalidEmails    []string `json:"invalid_emails"`
-	TotalDetected    int      `json:"total_detected"`
+	CreatedStudents     int      `json:"created_students"`
+	EnrolledStudents    int      `json:"enrolled_students"`
+	RemovedStudents     int      `json:"removed_students"`
+	SkippedNotFound     int      `json:"skipped_not_found"`
+	MatchedByExternalID int      `json:"matched_by_external_id"`
+	DuplicateEmails     []string `json:"duplicate_emails"`
+	InvalidEmails       []string `json:"invalid_emails"`
+	TotalDetected       int      `json:"total_detected"`
+}
+
+// RosterEntry es una fila de la nómina. ExternalID es el identificador de la
+// persona en el sistema académico de origen; cuando viene, manda sobre el
+// correo para resolver de quién se trata, porque un cambio de dirección
+// institucional no debe crear una cuenta nueva.
+type RosterEntry struct {
+	Email      string `json:"email"`
+	ExternalID string `json:"external_id,omitempty"`
+	FirstName  string `json:"first_name,omitempty"`
+	LastName   string `json:"last_name,omitempty"`
+}
+
+// RosterSyncRequest describe una sincronización de nómina. SourceSystem
+// identifica quién la manda (una planilla, un sistema de gestión académica) y
+// acota la reconciliación: solo se quitan matrículas de ese mismo origen.
+type RosterSyncRequest struct {
+	Entries      []RosterEntry `json:"entries"`
+	SourceSystem string        `json:"source_system,omitempty"`
+	Reconcile    bool          `json:"reconcile"`
+}
+
+// RosterSyncOutcome es el resultado de aplicar una nómina en una transacción.
+type RosterSyncOutcome struct {
+	CreatedStudents     int
+	EnrolledStudents    int
+	RemovedStudents     int
+	SkippedNotFound     int
+	MatchedByExternalID int
+}
+
+// RosterSyncRepository es la capacidad de sincronizar una nómina completa.
+// Se resuelve por type-assertion sobre AdminGovernanceRepository para no
+// ampliar esa interfaz ni romper los mocks que la implementan.
+type RosterSyncRepository interface {
+	SyncSubjectRoster(ctx context.Context, tenantID, subjectID string, req RosterSyncRequest) (*RosterSyncOutcome, error)
 }
 
 // AdminStudentCourseItem DTO para el detalle de materias y espacios de trabajo del estudiante
@@ -391,6 +431,23 @@ type ReviewTemplateDTO struct {
 	Status          string `json:"status" validate:"required"` // "approved" | "rejected" | "paused"
 	RejectionReason string `json:"rejection_reason,omitempty"`
 	BaseRamMB       *int   `json:"base_ram_mb,omitempty"`
+}
+
+// UpdateTemplateQuotaDTO ajusta la cuota de una plantilla sin reconstruir la
+// imagen ni exigir una comprobación de build. Solo cambia memoria y descripción.
+type UpdateTemplateQuotaDTO struct {
+	BaseRamMB   int     `json:"base_ram_mb" validate:"required,gt=0"`
+	Description *string `json:"description,omitempty"`
+	// ResetSmoke lo decide el servicio: una plantilla aprobada repite la
+	// comprobación de arranque con la cuota nueva; una pausada conserva su estado.
+	ResetSmoke bool `json:"-"`
+}
+
+// TemplateQuotaRepository es la capacidad de ajustar cuota sin tocar la imagen.
+// Se resuelve por type-assertion para no ampliar AdminGovernanceRepository y
+// romper los mocks que la implementan.
+type TemplateQuotaRepository interface {
+	UpdateTemplateQuota(ctx context.Context, tenantID, templateID, adminID string, dto UpdateTemplateQuotaDTO) (*AdminTemplateReviewItem, error)
 }
 
 // CreateOfficialTemplateDTO DTO para que el administrador registre directamente una plantilla oficial
@@ -555,6 +612,9 @@ type HostCapacityInfo struct {
 	AvailableRAMMB int64 `json:"available_ram_mb"`
 	UsedRAMMB      int64 `json:"used_ram_mb"`
 	CPUCores       int   `json:"cpu_cores"`
+	// Measured es falso cuando la lectura del host falló: los ceros de arriba
+	// significan "no medido", no "servidor sin memoria".
+	Measured bool `json:"measured"`
 }
 
 // Modos de aprovisionamiento de un motor de base de datos en el nodo.

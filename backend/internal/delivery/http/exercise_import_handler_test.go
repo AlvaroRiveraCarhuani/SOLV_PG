@@ -92,14 +92,33 @@ func (m *mockImportRepoForHTTP) GetStudentRecommendations(ctx context.Context, t
 	return nil, nil
 }
 
+// importScopeReader dice que el docente del test dicta la materia del path.
+type importScopeReader struct{}
+
+func (importScopeReader) TeacherOwnsSubject(_ context.Context, _, subjectID, _ string) (bool, error) {
+	return subjectID == "course-999", nil
+}
+
 func TestImportExercisesHTTP(t *testing.T) {
 	repo := newMockRepoHTTP()
 	evalService := services.NewEvaluationService(repo, nil, nil, nil)
+	evalService.SetSubjectOwnership(importScopeReader{})
 	validate := validator.New()
 	handler := httpdelivery.NewEvaluationHandler(evalService, validate)
 
+	// La ruta exige rol docente o administrador: el middleware de identidad
+	// del router real es quien lo pone en el contexto.
+	asTeacher := func(next http.HandlerFunc) http.HandlerFunc {
+		return func(w http.ResponseWriter, r *http.Request) {
+			ctx := context.WithValue(r.Context(), domain.UserRoleKey, "teacher")
+			ctx = context.WithValue(ctx, domain.UserIDKey, "teacher-import")
+			ctx = context.WithValue(ctx, domain.TenantIDKey, "00000000-0000-0000-0000-000000000001")
+			next(w, r.WithContext(ctx))
+		}
+	}
+
 	mux := http.NewServeMux()
-	mux.HandleFunc("POST /api/v1/teacher/courses/{courseId}/exercises/import", handler.ImportExercises)
+	mux.HandleFunc("POST /api/v1/teacher/courses/{courseId}/exercises/import", asTeacher(handler.ImportExercises))
 
 	validJSON := `[
 		{

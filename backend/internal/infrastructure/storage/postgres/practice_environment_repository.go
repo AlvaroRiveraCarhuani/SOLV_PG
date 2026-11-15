@@ -243,9 +243,11 @@ func (r *PostgresPracticeEnvironmentRepository) ResetOOMStrikes(ctx context.Cont
 	if tenantID == "" {
 		tenantID = domain.DefaultTenantID
 	}
+	// También se limpia la marca del último OOM: si queda, la consola sigue
+	// mostrando la incidencia como reciente después de resolverla.
 	query := `
 		UPDATE environments
-		SET oom_strike_count = 0, updated_at = $2
+		SET oom_strike_count = 0, last_oom_killed_at = NULL, updated_at = $2
 		WHERE id = $1 AND tenant_id = $3
 	`
 	_, err := r.db.ExecContext(ctx, query, id, time.Now(), tenantID)

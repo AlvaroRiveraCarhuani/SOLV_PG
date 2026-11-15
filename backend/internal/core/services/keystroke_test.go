@@ -122,9 +122,14 @@ func TestSubmissionService_SaveKeystrokeEvents_LimitEnforcement(t *testing.T) {
 	}
 	_ = subRepo.Create(context.Background(), sub)
 
+	// El alumno dueño escribe sus propios eventos.
+	ctxDueno := context.WithValue(context.Background(), domain.TenantIDKey, "tenant-1")
+	ctxDueno = context.WithValue(ctxDueno, domain.UserIDKey, "stu-1")
+	ctxDueno = context.WithValue(ctxDueno, domain.UserRoleKey, "student")
+
 	// Test exceeding max limit > 10,000
 	tooManyEvents := make([]domain.SubmissionKeystrokeEvent, 10001)
-	_, err := subService.SaveKeystrokeEvents(context.Background(), "tenant-1", "sub-123", tooManyEvents)
+	_, err := subService.SaveKeystrokeEvents(ctxDueno, "tenant-1", "sub-123", tooManyEvents)
 	if err == nil {
 		t.Fatal("expected error for exceeding 10,000 events limit, got nil")
 	}
@@ -135,7 +140,7 @@ func TestSubmissionService_SaveKeystrokeEvents_LimitEnforcement(t *testing.T) {
 		{TimestampMS: 500, EventType: domain.KeystrokeEventInsert, Position: 4, Content: "solve():"},
 		{TimestampMS: 1500, EventType: domain.KeystrokeEventPaste, Position: 12, Content: "    return 42", PasteSourceDetected: true},
 	}
-	count, err := subService.SaveKeystrokeEvents(context.Background(), "tenant-1", "sub-123", validEvents)
+	count, err := subService.SaveKeystrokeEvents(ctxDueno, "tenant-1", "sub-123", validEvents)
 	if err != nil {
 		t.Fatalf("unexpected error saving keystroke events: %v", err)
 	}

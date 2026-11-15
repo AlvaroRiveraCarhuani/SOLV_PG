@@ -41,6 +41,11 @@ var (
 
 // ImportExercises procesa la importación masiva de ejercicios en formato JSON o YAML.
 func (s *EvaluationService) ImportExercises(ctx context.Context, courseID string, fileContent []byte, fileName string, dryRun bool) (*ExerciseImportResponse, error) {
+	// La importación escribe en la materia del path, también en dry-run: un
+	// docente solo la usa en las suyas y el rechazo no revela si existe.
+	if err := assertActorWritesSubject(ctx, s.ownership, courseID, domain.ErrNotFound); err != nil {
+		return nil, err
+	}
 	if len(fileContent) == 0 {
 		return nil, ErrImportEmptyFile
 	}

@@ -304,9 +304,11 @@ func (h *AdminAcademicHandler) EnrollStudentsBatch(w http.ResponseWriter, r *htt
 	}, fmt.Sprintf("%d estudiantes matriculados exitosamente", enrolled))
 }
 
-// RosterEnroll es la operación combinada de nómina de curso: crea las cuentas
-// faltantes y matricula a todos los correos válidos en la materia. Acepta el
-// archivo (multipart "file") o un JSON con el arreglo de correos.
+// RosterEnroll sincroniza la nómina de una materia. Acepta el archivo
+// (multipart "file") o un JSON con correos, o con filas que traen el
+// identificador externo de la persona en el sistema académico de origen.
+// Con `reconcile` quita de la materia a quienes ya no figuran en la nómina,
+// pero solo a las matrículas que ese mismo origen había cargado.
 func (h *AdminAcademicHandler) RosterEnroll(w http.ResponseWriter, r *http.Request) {
 	if !requireAdmin(w, r) {
 		return
@@ -324,7 +326,13 @@ func (h *AdminAcademicHandler) RosterEnroll(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	var validEmails, duplicateEmails, invalidEmails []string
+	var (
+		entries         []domain.RosterEntry
+		duplicateEmails []string
+		invalidEmails   []string
+		sourceSystem    string
+		reconcile       bool
+	)
 
 	if strings.HasPrefix(r.Header.Get("Content-Type"), "multipart/") {
 		//nolint:gosec
@@ -343,26 +351,46 @@ func (h *AdminAcademicHandler) RosterEnroll(w http.ResponseWriter, r *http.Reque
 			SendError(w, http.StatusBadRequest, err.Error(), "Error al analizar el contenido del archivo")
 			return
 		}
-		validEmails = parsed.ValidEmails
 		duplicateEmails = parsed.DuplicateEmails
 		invalidEmails = parsed.InvalidEmails
+		sourceSystem = strings.TrimSpace(r.FormValue("source_system"))
+		reconcile = isAffirmative(r.FormValue("reconcile"))
+		entries = make([]domain.RosterEntry, 0, len(parsed.ValidEmails))
+		for _, email := range parsed.ValidEmails {
+			entries = append(entries, domain.RosterEntry{Email: email})
+		}
 	} else {
 		var req struct {
-			Emails []string `json:"emails"`
+			Emails       []string             `json:"emails"`
+			Entries      []domain.RosterEntry `json:"entries"`
+			SourceSystem string               `json:"source_system"`
+			Reconcile    bool                 `json:"reconcile"`
 		}
 		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 			SendError(w, http.StatusBadRequest, "invalid_payload", "Cuerpo de solicitud inválido")
 			return
 		}
-		validEmails = req.Emails
+		sourceSystem = req.SourceSystem
+		reconcile = req.Reconcile
+		entries = req.Entries
+		if len(entries) == 0 {
+			entries = make([]domain.RosterEntry, 0, len(req.Emails))
+			for _, email := range req.Emails {
+				entries = append(entries, domain.RosterEntry{Email: email})
+			}
+		}
 	}
 
-	if len(validEmails) == 0 {
+	if len(entries) == 0 {
 		SendError(w, http.StatusBadRequest, "empty_emails", "No se encontraron correos válidos en la nómina")
 		return
 	}
 
-	result, err := h.govService.RosterEnroll(r.Context(), tenantID, subjectID, validEmails)
+	result, err := h.govService.RosterEnrollFromSource(r.Context(), tenantID, subjectID, domain.RosterSyncRequest{
+		Entries:      entries,
+		SourceSystem: sourceSystem,
+		Reconcile:    reconcile,
+	})
 	if err != nil {
 		SendError(w, http.StatusBadRequest, err.Error(), "Error al procesar la nómina del curso")
 		return
@@ -371,4 +399,15 @@ func (h *AdminAcademicHandler) RosterEnroll(w http.ResponseWriter, r *http.Reque
 	result.DuplicateEmails = duplicateEmails
 	result.InvalidEmails = invalidEmails
 	SendJSON(w, http.StatusCreated, result, "Nómina procesada exitosamente")
+}
+
+// isAffirmative interpreta los valores que manda una casilla de formulario
+// marcada.
+func isAffirmative(value string) bool {
+	switch strings.ToLower(strings.TrimSpace(value)) {
+	case "1", "true", "on", "yes", "si", "sí":
+		return true
+	default:
+		return false
+	}
 }

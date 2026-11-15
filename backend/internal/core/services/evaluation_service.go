@@ -19,6 +19,13 @@ type EvaluationService struct {
 	adminGovRepo      domain.AdminGovernanceRepository
 	snapshotRepo      domain.GeneratedCaseSnapshotRepository
 	workspaceProjects *WorkspaceProjectService
+	ownership         domain.SubjectOwnershipReader
+}
+
+// SetSubjectOwnership habilita el alcance docente en el alta y la edición de
+// ejercicios: un docente solo escribe en las materias que dicta.
+func (s *EvaluationService) SetSubjectOwnership(reader domain.SubjectOwnershipReader) {
+	s.ownership = reader
 }
 
 func (s *EvaluationService) SetAdminGovernanceRepository(repo domain.AdminGovernanceRepository) {

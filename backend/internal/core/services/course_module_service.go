@@ -11,6 +11,26 @@ import (
 type CourseModuleService struct {
 	moduleRepo   domain.CourseModuleRepository
 	exerciseRepo domain.ExerciseRepository
+	ownership    domain.SubjectOwnershipReader
+}
+
+// SetSubjectOwnership habilita el alcance docente en las escrituras del mapa
+// curricular: un docente solo edita módulos de las materias que dicta.
+func (s *CourseModuleService) SetSubjectOwnership(reader domain.SubjectOwnershipReader) {
+	s.ownership = reader
+}
+
+// moduleWritable carga el módulo y comprueba que el actor pueda escribir sobre
+// su materia. Un módulo de otra materia responde igual que uno inexistente.
+func (s *CourseModuleService) moduleWritable(ctx context.Context, moduleID string) (*domain.CourseModule, error) {
+	module, err := s.moduleRepo.GetModuleByID(ctx, moduleID)
+	if err != nil {
+		return nil, err
+	}
+	if err := assertActorWritesSubject(ctx, s.ownership, module.SubjectID, domain.ErrModuleNotFound); err != nil {
+		return nil, err
+	}
+	return module, nil
 }
 
 func NewCourseModuleService(
@@ -26,6 +46,9 @@ func NewCourseModuleService(
 func (s *CourseModuleService) CreateModule(ctx context.Context, subjectID, title, description string, orderIndex, passScore int) (*domain.CourseModule, error) {
 	if title == "" {
 		return nil, fmt.Errorf("el título del módulo es requerido")
+	}
+	if err := assertActorWritesSubject(ctx, s.ownership, subjectID, domain.ErrModuleNotFound); err != nil {
+		return nil, err
 	}
 	if passScore <= 0 || passScore > 100 {
 		passScore = 60
@@ -45,7 +68,7 @@ func (s *CourseModuleService) CreateModule(ctx context.Context, subjectID, title
 }
 
 func (s *CourseModuleService) UpdateModule(ctx context.Context, moduleID, title, description string, orderIndex, passScore int) (*domain.CourseModule, error) {
-	module, err := s.moduleRepo.GetModuleByID(ctx, moduleID)
+	module, err := s.moduleWritable(ctx, moduleID)
 	if err != nil {
 		return nil, err
 	}
@@ -64,6 +87,9 @@ func (s *CourseModuleService) UpdateModule(ctx context.Context, moduleID, title,
 }
 
 func (s *CourseModuleService) DeleteModule(ctx context.Context, moduleID string) error {
+	if _, err := s.moduleWritable(ctx, moduleID); err != nil {
+		return err
+	}
 	return s.moduleRepo.DeleteModule(ctx, moduleID)
 }
 
@@ -120,7 +146,7 @@ func (s *CourseModuleService) ListModulesBySubject(ctx context.Context, subjectI
 }
 
 func (s *CourseModuleService) SetPrerequisites(ctx context.Context, moduleID string, prerequisiteModuleIDs []string) error {
-	targetModule, err := s.moduleRepo.GetModuleByID(ctx, moduleID)
+	targetModule, err := s.moduleWritable(ctx, moduleID)
 	if err != nil {
 		return err
 	}
@@ -204,8 +230,21 @@ func hasCycle(allModules []*domain.CourseModule, allPrereqs []domain.ModulePrere
 
 func (s *CourseModuleService) AssignExerciseModule(ctx context.Context, exerciseID string, moduleID *string) error {
 	if moduleID != nil && *moduleID != "" {
-		_, err := s.moduleRepo.GetModuleByID(ctx, *moduleID)
+		if _, err := s.moduleWritable(ctx, *moduleID); err != nil {
+			return err
+		}
+	} else if s.exerciseRepo != nil {
+		// Al desasignar, la materia sale del propio ejercicio: sin ese dato no se
+		// puede comprobar la pertenencia y un docente no escribe.
+		exercise, err := s.exerciseRepo.GetByID(ctx, exerciseID)
 		if err != nil {
+			return err
+		}
+		subjectID := ""
+		if exercise.SubjectID != nil {
+			subjectID = *exercise.SubjectID
+		}
+		if err := assertActorWritesSubject(ctx, s.ownership, subjectID, domain.ErrModuleNotFound); err != nil {
 			return err
 		}
 	}

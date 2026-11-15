@@ -121,3 +121,90 @@ func TestServerPolicies_UpdateWithValidation(t *testing.T) {
 		t.Fatalf("rejected update must not persist, got %+v", final)
 	}
 }
+
+// Un tenant sin políticas guardadas usa un techo derivado del host medido. Con
+// 64 GB y entornos de 512 MB entran 104, no los 40 pensados para una máquina
+// chica.
+func TestServerPolicies_DefaultCapFollowsHostRAM(t *testing.T) {
+	repo := &mockPoliciesTenantRepo{configs: map[string][]byte{"t-1": []byte(`{}`)}}
+	svc := services.NewServerPoliciesService(repo).WithHostTotalRAM(func() (int64, error) {
+		return 65536, nil
+	})
+
+	policies, err := svc.Get(context.Background(), "t-1")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if policies.MaxContainers != 104 {
+		t.Fatalf("expected a 104-lab ceiling for 64 GB, got %d", policies.MaxContainers)
+	}
+	if policies.RAMLimitMB != domain.DefaultServerPolicies().RAMLimitMB {
+		t.Fatalf("el resto de las políticas debe seguir en el default, got %+v", policies)
+	}
+}
+
+// Si el host no se puede medir, el valor guardado por el administrador manda y
+// no se inventa un techo nuevo.
+func TestServerPolicies_DefaultCapWithoutMeasuredHost(t *testing.T) {
+	repo := &mockPoliciesTenantRepo{configs: map[string][]byte{"t-1": []byte(`{}`)}}
+	svc := services.NewServerPoliciesService(repo).WithHostTotalRAM(func() (int64, error) {
+		return 0, errors.New("sin telemetría")
+	})
+
+	policies, err := svc.Get(context.Background(), "t-1")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if policies.MaxContainers != domain.DefaultServerPolicies().MaxContainers {
+		t.Fatalf("expected the fallback ceiling, got %d", policies.MaxContainers)
+	}
+}
+
+// Un techo guardado explícitamente no se pisa, aunque el host sostenga más: es
+// una decisión del administrador. La recomendación se informa aparte.
+func TestServerPolicies_PersistedCapWinsOverRecommendation(t *testing.T) {
+	repo := &mockPoliciesTenantRepo{configs: map[string][]byte{
+		"t-1": []byte(`{"server_policies":{"ram_limit_mb":512,"inactivity_minutes":15,"max_containers":40,"host_safety_ceiling_pct":85}}`),
+	}}
+	svc := services.NewServerPoliciesService(repo).WithHostTotalRAM(func() (int64, error) {
+		return 65536, nil
+	})
+
+	policies, err := svc.Get(context.Background(), "t-1")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if policies.MaxContainers != 40 {
+		t.Fatalf("expected the persisted ceiling of 40, got %d", policies.MaxContainers)
+	}
+
+	recommendation := svc.Recommendation(*policies)
+	if recommendation.RecommendedMaxContainers != 104 {
+		t.Fatalf("expected a 104-lab recommendation next to the persisted cap, got %d", recommendation.RecommendedMaxContainers)
+	}
+}
+
+// Guardar solo el techo de seguridad persiste el máximo derivado, para que el
+// host no quede limitado por un número que nadie eligió.
+func TestServerPolicies_UpdatePersistsTheDerivedCap(t *testing.T) {
+	repo := &mockPoliciesTenantRepo{configs: map[string][]byte{"t-1": []byte(`{}`)}}
+	svc := services.NewServerPoliciesService(repo).WithHostTotalRAM(func() (int64, error) {
+		return 32768, nil
+	})
+
+	ceiling := 80
+	updated, err := svc.Update(context.Background(), "t-1", domain.UpdateServerPoliciesDTO{HostSafetyCeilingPct: &ceiling})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	// 32 GB al 80% menos la reserva de plataforma, entre 512 MB: 47.
+	if updated.MaxContainers != 47 {
+		t.Fatalf("expected the derived ceiling of 47, got %d", updated.MaxContainers)
+	}
+
+	reloaded, _ := svc.Get(context.Background(), "t-1")
+	if reloaded.MaxContainers != 47 {
+		t.Fatalf("expected the derived ceiling to persist, got %d", reloaded.MaxContainers)
+	}
+}

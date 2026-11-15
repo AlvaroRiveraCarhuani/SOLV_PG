@@ -58,6 +58,9 @@ func (s *EvaluationService) GenerateCasesFromScript(ctx context.Context, exercis
 	if err != nil {
 		return nil, fmt.Errorf("ejercicio no encontrado: %w", err)
 	}
+	if err := s.assertExerciseSubjectWritable(ctx, ex.SubjectID); err != nil {
+		return nil, err
+	}
 
 	var inputFormat json.RawMessage
 	if ex.Config.Algorithm != nil && len(ex.Config.Algorithm.InputFormat) > 0 && string(ex.Config.Algorithm.InputFormat) != "null" {

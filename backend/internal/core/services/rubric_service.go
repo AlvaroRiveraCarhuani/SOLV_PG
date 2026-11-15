@@ -22,6 +22,7 @@ type DefaultRubricService struct {
 	mailer       domain.Mailer
 	tenantRepo   domain.TenantRepository
 	notifier     NotificationEmitter
+	ownership    domain.SubjectOwnershipReader
 }
 
 func NewDefaultRubricService(
@@ -44,6 +45,12 @@ func (s *DefaultRubricService) SetTenantRepository(tr domain.TenantRepository) {
 	s.tenantRepo = tr
 }
 
+// SetSubjectOwnership habilita el alcance docente: la rúbrica de un ejercicio de
+// otra materia no se edita, porque después califica a sus alumnos.
+func (s *DefaultRubricService) SetSubjectOwnership(reader domain.SubjectOwnershipReader) {
+	s.ownership = reader
+}
+
 // SetNotificationService publica el aviso in-app de calificación publicada,
 // junto al correo que ya existía. Sin notifier, el correo sigue funcionando.
 func (s *DefaultRubricService) SetNotificationService(notifier NotificationEmitter) {
@@ -57,11 +64,24 @@ func (s *DefaultRubricService) GetByExerciseID(ctx context.Context, exerciseID u
 func (s *DefaultRubricService) CreateOrUpdate(ctx context.Context, rubric *domain.Rubric) error {
 	exercise, err := s.exerciseRepo.GetByID(ctx, rubric.ExerciseID.String())
 	if err != nil {
+		// El ejercicio puede no existir o ser de otra institución: para quien
+		// escribe, en los dos casos es «no está».
+		if errors.Is(err, sql.ErrNoRows) {
+			return domain.ErrRubricNotFound
+		}
 		return fmt.Errorf("failed to verify exercise: %w", err)
 	}
 
 	if exercise.EnvironmentType == "JUEZ_EFIMERO" {
 		return domain.ErrRubricNotAllowedForJudge
+	}
+
+	subjectID := ""
+	if exercise.SubjectID != nil {
+		subjectID = *exercise.SubjectID
+	}
+	if err := assertActorWritesSubject(ctx, s.ownership, subjectID, domain.ErrRubricNotFound); err != nil {
+		return err
 	}
 
 	for i := range rubric.Criteria {

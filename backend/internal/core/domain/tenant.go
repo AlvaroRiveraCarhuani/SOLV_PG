@@ -13,7 +13,7 @@ type Tenant struct {
 	ID             string    `db:"id" json:"id"`
 	Name           string    `db:"name" json:"name"`
 	Slug           string    `db:"slug" json:"slug"`
-	AllowedDomains []byte    `db:"allowed_domains" json:"allowed_domains"` // JSONB array (e.g. ["@uab.edu.bo"])
+	AllowedDomains []byte    `db:"allowed_domains" json:"allowed_domains"` // JSONB array (p. ej. ["@midominio.edu"])
 	Config         []byte    `db:"config" json:"config"`                   // JSONB object
 	CreatedAt      time.Time `db:"created_at" json:"created_at"`
 	UpdatedAt      time.Time `db:"updated_at" json:"updated_at"`

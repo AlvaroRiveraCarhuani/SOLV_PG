@@ -483,14 +483,19 @@ CREATE INDEX IF NOT EXISTS idx_backup_executions_status ON backup_executions(sta
 -- del sistema y deben existir siempre)
 -- ============================================================
 
--- Seed tenant UAB (configurable vía env; este seed es solo para dev/onboarding inicial)
+-- Seed de institución neutra.
+--
+-- El identificador fijo existe porque las actualizaciones masivas de abajo y
+-- varias filas ancla lo referencian. El nombre, el dominio y el correo NO son
+-- de ninguna universidad: una instalación nueva nace sin identidad y el
+-- administrador la define desde el panel o con `solv-tenant` (ADR-081).
 INSERT INTO tenants (id, name, slug, allowed_domains, config)
 VALUES (
     '00000000-0000-0000-0000-000000000001',
-    'Universidad Adventista de Bolivia',
-    'uab',
-    '["@uab.edu.bo"]'::jsonb,
-    '{"institution_name": "Universidad Adventista de Bolivia", "logo_url": "/assets/uab-logo.png", "base_domain": "solv.uab.edu.bo", "support_email": "soporte.solv@uab.edu.bo"}'::jsonb
+    'Institución',
+    'default',
+    '[]'::jsonb,
+    '{"institution_name": "Institución"}'::jsonb
 ) ON CONFLICT (id) DO NOTHING;
 
 -- UPDATE masivo de tenant_id para registros pre-multitenancy

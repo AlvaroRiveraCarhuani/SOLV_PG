@@ -85,7 +85,18 @@ func NewSMTPMailerFromEnv() *SMTPMailer {
 		from = os.Getenv("SMTP_USER")
 	}
 	if from == "" {
-		from = "no-reply@uab.edu.bo"
+		from = strings.TrimSpace(os.Getenv("EMAIL_FROM"))
+	}
+	if from == "" {
+		// Sin remitente configurado, se usa el dominio de la instalación: el
+		// nombre de una universidad concreta no puede ser el valor por defecto
+		// de una imagen que se instala en cualquier otra.
+		if host := strings.TrimSpace(os.Getenv("SOLV_HOST")); host != "" {
+			from = "no-reply@" + host
+		}
+	}
+	if from == "" {
+		from = "no-reply@localhost"
 	}
 
 	cfg := Config{

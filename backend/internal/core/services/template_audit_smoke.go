@@ -3,6 +3,7 @@ package services
 import (
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"strings"
@@ -10,11 +11,52 @@ import (
 
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/api/types/image"
+	"github.com/docker/docker/client"
 	"github.com/docker/docker/errdefs"
 	"github.com/docker/docker/pkg/stdcopy"
 
 	"solv-backend/internal/core/domain"
 )
+
+// isDockerInfrastructureError distingue un daemon caído o una conexión
+// interrumpida de un fallo real de la imagen.
+func isDockerInfrastructureError(err error) bool {
+	if err == nil {
+		return false
+	}
+	return client.IsErrConnectionFailed(err) ||
+		errdefs.IsUnavailable(err) ||
+		errdefs.IsSystem(err) ||
+		errors.Is(err, context.DeadlineExceeded) ||
+		errors.Is(err, context.Canceled)
+}
+
+// isImageReferenceError reconoce los errores que sí describen una imagen
+// inexistente o inaccesible. El resto de fallos de preparación se reintenta.
+func isImageReferenceError(err error) bool {
+	if err == nil {
+		return false
+	}
+	message := strings.ToLower(err.Error())
+	for _, marker := range []string{
+		"manifest unknown",
+		"manifest for",
+		"not found",
+		"pull access denied",
+		"unauthorized",
+		"no such image",
+		"invalid reference format",
+		"repository does not exist",
+		"name unknown",
+		"denied: requested access",
+		"tag invalid",
+	} {
+		if strings.Contains(message, marker) {
+			return true
+		}
+	}
+	return false
+}
 
 // ensureImageAvailable comprueba que la imagen esté en el daemon y la descarga
 // si falta. Es el paso previo del smoke para imágenes públicas.
@@ -41,7 +83,11 @@ func (w *TemplateAuditWorker) runSmokeTest(ctx context.Context, item *domain.Adm
 	// La imagen debe estar en el daemon antes del smoke y del escaneo. Una
 	// imagen pública puede faltar; se descarga una sola vez.
 	if err := w.ensureImageAvailable(ctx, item.DockerImage); err != nil {
-		return "failed", fmt.Sprintf("No se pudo preparar la imagen para la comprobación: %v", err)
+		status := auditStatusError
+		if isImageReferenceError(err) && !isDockerInfrastructureError(err) {
+			status = auditStatusFailed
+		}
+		return status, fmt.Sprintf("No se pudo preparar la imagen para la comprobación: %v", err)
 	}
 
 	if len(item.ToolsDeclared) == 0 {
@@ -100,7 +146,10 @@ func (w *TemplateAuditWorker) runSmokeTest(ctx context.Context, item *domain.Adm
 
 	resp, err := w.dockerCli.ContainerCreate(testCtx, containerConfig, hostConfig, nil, nil, "")
 	if err != nil {
-		return "failed", fmt.Sprintf("Error creando contenedor efímero: %v", err)
+		if isDockerInfrastructureError(err) {
+			return auditStatusError, fmt.Sprintf("Error de infraestructura creando contenedor efímero: %v", err)
+		}
+		return auditStatusFailed, fmt.Sprintf("Error creando contenedor efímero: %v", err)
 	}
 	containerID := resp.ID
 	defer func() {
@@ -108,7 +157,10 @@ func (w *TemplateAuditWorker) runSmokeTest(ctx context.Context, item *domain.Adm
 	}()
 
 	if err := w.dockerCli.ContainerStart(testCtx, containerID, container.StartOptions{}); err != nil {
-		return "failed", fmt.Sprintf("Error arrancando contenedor efímero: %v", err)
+		if isDockerInfrastructureError(err) {
+			return auditStatusError, fmt.Sprintf("Error de infraestructura arrancando contenedor efímero: %v", err)
+		}
+		return auditStatusFailed, fmt.Sprintf("Error arrancando contenedor efímero: %v", err)
 	}
 
 	statusCh, errCh := w.dockerCli.ContainerWait(testCtx, containerID, container.WaitConditionNotRunning)
@@ -116,12 +168,12 @@ func (w *TemplateAuditWorker) runSmokeTest(ctx context.Context, item *domain.Adm
 	select {
 	case waitErr := <-errCh:
 		if waitErr != nil {
-			return "failed", fmt.Sprintf("Error esperando contenedor efímero: %v", waitErr)
+			return auditStatusError, fmt.Sprintf("Error esperando contenedor efímero: %v", waitErr)
 		}
 	case res := <-statusCh:
 		exitCode = res.StatusCode
 	case <-testCtx.Done():
-		return "failed", "Tiempo de espera agotado al verificar herramientas (timeout 20s)"
+		return auditStatusError, "Tiempo de espera agotado al verificar herramientas (timeout 20s); se reintentará"
 	}
 
 	// Leer salida
@@ -130,10 +182,13 @@ func (w *TemplateAuditWorker) runSmokeTest(ctx context.Context, item *domain.Adm
 		ShowStderr: true,
 	})
 	if err != nil {
-		if exitCode == 0 {
-			return "passed", "Todas las herramientas declaradas están instaladas"
+		if isDockerInfrastructureError(err) {
+			return auditStatusError, fmt.Sprintf("Error de infraestructura leyendo la salida del smoke: %v", err)
 		}
-		return "failed", "Fallo al verificar herramientas declaradas"
+		if exitCode == 0 {
+			return auditStatusPassed, "Todas las herramientas declaradas están instaladas"
+		}
+		return auditStatusFailed, "Fallo al verificar herramientas declaradas"
 	}
 	defer func() { _ = logsReader.Close() }()
 

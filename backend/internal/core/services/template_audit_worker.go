@@ -21,6 +21,16 @@ const (
 	DefaultTrivyCacheDir = "/tmp/solv-trivy-cache"
 )
 
+const (
+	auditStatusPassed  = "passed"
+	auditStatusFailed  = "failed"
+	auditStatusSkipped = "skipped"
+	// auditStatusError marca que no se pudo completar la comprobación por una
+	// causa de infraestructura (Docker, red o el propio escáner). No es un
+	// veredicto sobre la imagen: la plantilla conserva su estado y se reintenta.
+	auditStatusError = "error"
+)
+
 // trivyReport representa la estructura resumida devuelta por Trivy en formato JSON
 type trivyReport struct {
 	Results []struct {
@@ -45,6 +55,10 @@ type TemplateAuditWorker struct {
 	cacheDir  string
 	mu        sync.Mutex
 	stopCh    chan struct{}
+	// smokeRunner y trivyRunner permiten probar AuditTemplate sin daemon ni
+	// escáner reales. El constructor los enlaza a los métodos del worker.
+	smokeRunner func(context.Context, *domain.AdminTemplateReviewItem) (string, string)
+	trivyRunner func(context.Context, string) (string, int, int, []byte)
 }
 
 func NewTemplateAuditWorker(dockerCli *client.Client, govRepo domain.AdminGovernanceRepository) *TemplateAuditWorker {
@@ -56,12 +70,15 @@ func NewTemplateAuditWorker(dockerCli *client.Client, govRepo domain.AdminGovern
 	//nolint:gosec
 	_ = os.MkdirAll(cacheDir, 0755)
 
-	return &TemplateAuditWorker{
+	worker := &TemplateAuditWorker{
 		dockerCli: dockerCli,
 		govRepo:   govRepo,
 		cacheDir:  cacheDir,
 		stopCh:    make(chan struct{}),
 	}
+	worker.smokeRunner = worker.runSmokeTest
+	worker.trivyRunner = worker.runTrivyScan
+	return worker
 }
 
 // Start arranca los bucles en segundo plano: reconciliador periódico y sincronización diaria de base CVE
@@ -142,6 +159,14 @@ func (w *TemplateAuditWorker) reconcilePending(ctx context.Context) {
 	}
 
 	for _, item := range templates {
+		// Pausada, suspendida y rechazada las decide una persona. No se gastan
+		// contenedores ni escaneos mientras la plantilla esté fuera del catálogo
+		// por decisión humana; al reactivarla, la cola la vuelve a tomar.
+		switch strings.ToUpper(strings.TrimSpace(item.Status)) {
+		case "PAUSADA", "PAUSED", "SUSPENDIDA", "SUSPENDED", "RECHAZADA", "REJECTED":
+			log.Printf("[TemplateAuditWorker] Plantilla %s en estado %s: auditoría omitida", item.ID, item.Status)
+			continue
+		}
 		select {
 		case <-ctx.Done():
 			return
@@ -188,15 +213,35 @@ func (w *TemplateAuditWorker) AuditTemplate(ctx context.Context, item *domain.Ad
 	}
 
 	// Paso 1: Smoke Test efímero de herramientas declaradas (B-02)
-	smokeStatus, smokeOutput := w.runSmokeTest(ctx, item)
+	if w.smokeRunner == nil {
+		w.smokeRunner = w.runSmokeTest
+	}
+	smokeStatus, smokeOutput := w.smokeRunner(ctx, item)
 
-	// Paso 2: Escaneo de vulnerabilidades CVE con Trivy (B-03)
-	secStatus, cveCritical, cveHigh, reportJSON := w.runTrivyScan(ctx, item.DockerImage)
+	// Paso 2: Escaneo de vulnerabilidades CVE con Trivy (B-03). Si el smoke no
+	// pudo ni preparar la imagen, no se lanza el escáner: no hay nada que
+	// escanear y el fallo es de infraestructura, no de la imagen.
+	var (
+		secStatus   string
+		cveCritical int
+		cveHigh     int
+		reportJSON  []byte
+	)
+	if strings.EqualFold(smokeStatus, auditStatusError) {
+		secStatus = auditStatusSkipped
+		reportJSON = []byte(`{"error":"smoke_infrastructure"}`)
+	} else {
+		if w.trivyRunner == nil {
+			w.trivyRunner = w.runTrivyScan
+		}
+		secStatus, cveCritical, cveHigh, reportJSON = w.trivyRunner(ctx, item.DockerImage)
+	}
 
-	// Paso 3: Resolución de máquina de estados. Un smoke o un Trivy fallido
-	// retira la plantilla del catálogo, incluso si ya estaba aprobada. Los
-	// estados que decide una persona (pausada, suspendida, rechazada) no se
-	// auto-reactivan con una auditoría.
+	// Paso 3: Resolución de máquina de estados. Un smoke fallido o CVE críticos
+	// retiran la plantilla del catálogo, incluso si ya estaba aprobada. Un fallo
+	// de infraestructura conserva el estado y se reintenta. Los estados que
+	// decide una persona (pausada, suspendida, rechazada) no se auto-reactivan
+	// con una auditoría.
 	finalStatus, failureReason := resolveAuditOutcome(item.Status, smokeStatus, smokeOutput, secStatus, cveCritical)
 	if secStatus == "passed" && cveHigh > 0 {
 		secStatus = "warning"
@@ -233,10 +278,21 @@ func (w *TemplateAuditWorker) AuditTemplate(ctx context.Context, item *domain.Ad
 
 // resolveAuditOutcome decide el estado final de una auditoría. Devuelve el
 // estado que se persiste y el motivo que verá el administrador.
+//
+// Un fallo de infraestructura no es un fallo de la imagen: se conserva el
+// estado actual y la cola reintenta. Solo un smoke fallido o CVE críticos
+// retiran la plantilla del catálogo.
 func resolveAuditOutcome(currentStatus, smokeStatus, smokeOutput, secStatus string, cveCritical int) (string, string) {
 	current := strings.ToUpper(strings.TrimSpace(currentStatus))
-	smokeFailed := strings.EqualFold(smokeStatus, "failed")
-	securityFailed := strings.EqualFold(secStatus, "failed")
+	smokeFailed := strings.EqualFold(smokeStatus, auditStatusFailed)
+	smokeError := strings.EqualFold(smokeStatus, auditStatusError)
+	securityFailed := strings.EqualFold(secStatus, auditStatusFailed) && cveCritical > 0
+	securityError := strings.EqualFold(secStatus, auditStatusError) ||
+		(strings.EqualFold(secStatus, auditStatusFailed) && cveCritical == 0)
+
+	if smokeError || (securityError && !smokeFailed) {
+		return currentStatus, infrastructureAuditReason(smokeStatus, smokeOutput, secStatus)
+	}
 
 	if !smokeFailed && !securityFailed {
 		switch current {
@@ -258,15 +314,11 @@ func resolveAuditOutcome(currentStatus, smokeStatus, smokeOutput, secStatus stri
 		reasons = append(reasons, reason)
 	}
 	if securityFailed {
-		if cveCritical > 0 {
-			label := "vulnerabilidades críticas"
-			if cveCritical == 1 {
-				label = "vulnerabilidad crítica"
-			}
-			reasons = append(reasons, fmt.Sprintf("Trivy detectó %d %s", cveCritical, label))
-		} else {
-			reasons = append(reasons, "No se pudo completar el escaneo de seguridad")
+		label := "vulnerabilidades críticas"
+		if cveCritical == 1 {
+			label = "vulnerabilidad crítica"
 		}
+		reasons = append(reasons, fmt.Sprintf("Trivy detectó %d %s", cveCritical, label))
 	}
 	reason := strings.Join(reasons, ". ")
 
@@ -276,6 +328,20 @@ func resolveAuditOutcome(currentStatus, smokeStatus, smokeOutput, secStatus stri
 	default:
 		return "RECHAZADA", reason
 	}
+}
+
+func infrastructureAuditReason(smokeStatus, smokeOutput, secStatus string) string {
+	if strings.EqualFold(smokeStatus, auditStatusError) {
+		detail := strings.TrimSpace(smokeOutput)
+		if detail == "" {
+			detail = "la comprobación de arranque no se pudo ejecutar"
+		}
+		return "Auditoría no completada: " + detail + ". Se reintentará."
+	}
+	if strings.EqualFold(secStatus, auditStatusError) || strings.EqualFold(secStatus, auditStatusFailed) {
+		return "Auditoría no completada: el escaneo de seguridad no produjo un informe válido. Se reintentará."
+	}
+	return "Auditoría no completada por un fallo de infraestructura. Se reintentará."
 }
 
 type EOLResult struct {

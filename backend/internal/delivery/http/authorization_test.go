@@ -163,6 +163,7 @@ func TestAdminRoutesRejectStudentsAndTeachersBeforeHandlers(t *testing.T) {
 		{http.MethodGet, "/api/v1/admin/templates/capabilities"},
 		{http.MethodPost, "/api/v1/admin/templates"},
 		{http.MethodPut, "/api/v1/admin/templates/template-1"},
+		{http.MethodPatch, "/api/v1/admin/templates/template-1/quota"},
 		{http.MethodPost, "/api/v1/admin/templates/compose-preview"},
 		{http.MethodPost, "/api/v1/admin/template-components"},
 		{http.MethodPut, "/api/v1/admin/template-components/component-1"},

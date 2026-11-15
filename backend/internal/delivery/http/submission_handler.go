@@ -274,6 +274,14 @@ func (h *SubmissionHandler) SaveKeystrokeEvents(w http.ResponseWriter, r *http.R
 
 	count, err := h.service.SaveKeystrokeEvents(r.Context(), tenantID, submissionID, req.Events)
 	if err != nil {
+		if errors.Is(err, services.ErrSubmissionForbidden) {
+			SendError(w, http.StatusForbidden, "submission_forbidden", "La entrega no pertenece al alumno autenticado")
+			return
+		}
+		if errors.Is(err, services.ErrSubmissionNotConfigured) {
+			SendError(w, http.StatusServiceUnavailable, "submission_persistence_unavailable", "La persistencia de eventos no está configurada en esta instancia")
+			return
+		}
 		if errors.Is(err, domain.ErrTooManyKeystrokeEvents) {
 			w.Header().Set("Content-Type", "application/json")
 			w.WriteHeader(http.StatusRequestEntityTooLarge)

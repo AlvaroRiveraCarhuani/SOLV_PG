@@ -202,13 +202,16 @@ func buildPracticeEnvironmentAccessURL(environmentID, hostPort string) string {
 	return ""
 }
 
-// hostTotalMB lee la RAM física total del host con fallback a 8 GB cuando
-// gopsutil no responde (mismo contrato que el resto de los workers).
-func hostTotalMB() int {
-	if vm, err := mem.VirtualMemory(); err == nil && vm.Total > 0 {
-		return domain.Uint64ToInt(vm.Total / (1024 * 1024))
+// hostTotalMB lee la RAM física total del host. El segundo valor dice si la
+// medición salió bien: quien decide admisión no puede inventar una capacidad
+// cuando no se pudo leer, porque una cifra supuesta rechaza entornos en un
+// servidor grande y los admite de más en uno chico.
+func hostTotalMB() (int, bool) {
+	vm, err := mem.VirtualMemory()
+	if err != nil || vm == nil || vm.Total == 0 {
+		return 0, false
 	}
-	return 8192
+	return domain.Uint64ToInt(vm.Total / (1024 * 1024)), true
 }
 
 // environmentAccessURLUpdater es una capacidad opcional del repositorio de
@@ -497,8 +500,12 @@ func (s *PracticeEnvironmentService) startPracticeEnvironment(ctx context.Contex
 					template.ID, ramLimitMB, policies.RAMLimitMB)
 			}
 		}
-		if err := domain.ValidateRamAgainstHost(int(ramLimitMB), domain.CalculateHostMaxAllowedRAM(hostTotalMB())); err != nil {
-			return nil, fmt.Errorf("solicitud rechazada: la memoria de la plantilla (%d MB) excede la capacidad estructural del host", ramLimitMB)
+		if hostRAMMB, measured := hostTotalMB(); measured {
+			if err := domain.ValidateRamAgainstHost(int(ramLimitMB), domain.CalculateHostMaxAllowedRAM(hostRAMMB)); err != nil {
+				return nil, fmt.Errorf("solicitud rechazada: la memoria de la plantilla (%d MB) excede la capacidad estructural del host", ramLimitMB)
+			}
+		} else {
+			log.Printf("[Admission] no se pudo medir la RAM total del host: se omite la validación estructural de la plantilla %s", template.ID)
 		}
 		if strings.TrimSpace(template.DockerImage) != "" {
 			imageName = strings.TrimSpace(template.DockerImage)
@@ -570,7 +577,15 @@ func (s *PracticeEnvironmentService) startPracticeEnvironment(ctx context.Contex
 	// Control de Admisión por Presupuesto Comprometido (Host Safety Ceiling).
 	// Los satélites son contenedores compartidos: su reserva se descuenta una sola
 	// vez por motor, no por cada laboratorio que declara ese motor.
-	if s.policiesService != nil && hostTotalMB() > 0 {
+	if s.policiesService != nil {
+		hostRAMMB, measured := hostTotalMB()
+		if !measured {
+			// Sin medida del host no se puede presupuestar: se rechaza el entorno
+			// nuevo en vez de asumir una capacidad que nadie leyó.
+			log.Printf("[Admission] no se pudo medir la RAM total del host: se rechaza el entorno nuevo en vez de asumir una capacidad")
+			return nil, ErrHostMemoryExhausted
+		}
+
 		var committedMB int64
 		for _, ws := range active {
 			if ws != nil {
@@ -578,7 +593,7 @@ func (s *PracticeEnvironmentService) startPracticeEnvironment(ctx context.Contex
 			}
 		}
 		reserveMB := s.nodeSatelliteReserveMB(ctx, active, template)
-		if admissionBudgetDenied(committedMB, ramLimitMB, reserveMB, int64(hostTotalMB()), int64(ceilingPct)) {
+		if admissionBudgetDenied(committedMB, ramLimitMB, reserveMB, int64(hostRAMMB), int64(ceilingPct)) {
 			return nil, ErrHostMemoryExhausted
 		}
 	}

@@ -21,6 +21,9 @@ func (s *EvaluationService) StartDryRun(ctx context.Context, exerciseID, tenantI
 	if err != nil {
 		return nil, fmt.Errorf("exercise not found: %w", err)
 	}
+	if err := s.assertExerciseSubjectWritable(ctx, ex.SubjectID); err != nil {
+		return nil, err
+	}
 
 	if strings.TrimSpace(ex.ReferenceSolution) == "" {
 		return nil, domain.ErrMissingReferenceSolution

@@ -20,6 +20,15 @@ func NewServerPoliciesHandler(policiesService *services.ServerPoliciesService) *
 	return &ServerPoliciesHandler{policiesService: policiesService}
 }
 
+// serverPoliciesResponse acompaña el techo guardado con el que este host
+// sostiene con esas políticas. El administrador necesita ambos para decidir si
+// el valor vigente es una decisión suya o un número que ya no representa al
+// servidor.
+type serverPoliciesResponse struct {
+	domain.ServerPolicies
+	Recommendation domain.CapacityRecommendation `json:"recommendation"`
+}
+
 func (h *ServerPoliciesHandler) GetPolicies(w http.ResponseWriter, r *http.Request) {
 	tenantID := getTenantFromCtx(r)
 
@@ -29,7 +38,14 @@ func (h *ServerPoliciesHandler) GetPolicies(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	SendJSON(w, http.StatusOK, policies, "Políticas del servidor obtenidas exitosamente")
+	SendJSON(w, http.StatusOK, h.withRecommendation(*policies), "Políticas del servidor obtenidas exitosamente")
+}
+
+func (h *ServerPoliciesHandler) withRecommendation(policies domain.ServerPolicies) serverPoliciesResponse {
+	return serverPoliciesResponse{
+		ServerPolicies: policies,
+		Recommendation: h.policiesService.Recommendation(policies),
+	}
 }
 
 func (h *ServerPoliciesHandler) UpdatePolicies(w http.ResponseWriter, r *http.Request) {
@@ -52,5 +68,5 @@ func (h *ServerPoliciesHandler) UpdatePolicies(w http.ResponseWriter, r *http.Re
 		return
 	}
 
-	SendJSON(w, http.StatusOK, policies, "Políticas del servidor actualizadas. El worker QoS las aplicará en su próximo ciclo")
+	SendJSON(w, http.StatusOK, h.withRecommendation(*policies), "Políticas del servidor actualizadas. El worker QoS las aplicará en su próximo ciclo")
 }

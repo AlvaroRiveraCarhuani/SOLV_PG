@@ -222,19 +222,40 @@ func (h *AdminHandler) ResolveIncident(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	_ = h.environmentRepo.ResetOOMStrikes(r.Context(), environmentID)
-
+	// El entorno tiene que existir y ser de esta institución antes de tocarlo:
+	// el id llega por la URL y sin esta verificación un administrador podía
+	// normalizar contadores de otra institución.
 	ws, err := h.environmentRepo.GetByID(r.Context(), environmentID)
-	if err == nil && ws != nil {
-		if ws.Status == "failed" || ws.Status == "oom_killed" {
-			_ = h.environmentRepo.UpdateStatus(r.Context(), environmentID, "hibernated")
+	if err != nil || ws == nil {
+		http.Error(w, `{"error":"El entorno no existe"}`, http.StatusNotFound)
+		return
+	}
+	if ws.TenantID != tenantID {
+		http.Error(w, `{"error":"No autorizado para modificar este environment"}`, http.StatusForbidden)
+		return
+	}
+
+	// Errores hacia arriba: antes se ignoraban y la respuesta decía «resuelta»
+	// aunque la base no hubiera cambiado nada.
+	if err := h.environmentRepo.ResetOOMStrikes(r.Context(), environmentID); err != nil {
+		http.Error(w, `{"error":"No se pudieron normalizar los contadores OOM"}`, http.StatusInternalServerError)
+		return
+	}
+
+	environmentStatus := ws.Status
+	if ws.Status == "failed" || ws.Status == "oom_killed" {
+		if err := h.environmentRepo.UpdateStatus(r.Context(), environmentID, "hibernated"); err != nil {
+			http.Error(w, `{"error":"Se normalizaron los contadores pero no se pudo cambiar el estado del entorno"}`, http.StatusInternalServerError)
+			return
 		}
+		environmentStatus = "hibernated"
 	}
 
 	w.Header().Set("Content-Type", "application/json")
 	_ = json.NewEncoder(w).Encode(map[string]interface{}{
-		"status":         "resolved",
-		"environment_id": environmentID,
-		"message":        "Incidencia técnica resuelta y contadores OOM normalizados.",
+		"status":             "resolved",
+		"environment_id":     environmentID,
+		"environment_status": environmentStatus,
+		"message":            "Incidencia técnica resuelta y contadores OOM normalizados.",
 	})
 }

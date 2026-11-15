@@ -5,12 +5,14 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
+	"io"
 	"os"
 	"os/exec"
 	"strings"
 	"testing"
 	"time"
 
+	"github.com/docker/docker/api/types/image"
 	"github.com/docker/docker/client"
 	"github.com/google/uuid"
 
@@ -25,6 +27,8 @@ import (
 // runner de verdad y el árbol resultante se enlaza a un volumen. Los tests
 // unitarios prueban cada pieza por separado; este prueba que encajan.
 func TestDependencyPreparationFlow(t *testing.T) {
+	requireDocker(t)
+
 	db := newWorkspaceProjectTestDB(t)
 	seed := seedWorkspaceTestBase(t, db.GetDB())
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Minute)
@@ -136,8 +140,10 @@ func TestDependencyPreparationFlow(t *testing.T) {
 		t.Fatalf("la preparación debía usar la imagen de la plantilla, obtuvo %q", target.BaseImage)
 	}
 	// Para el resto del flujo hace falta una imagen que exista en la máquina.
+	const testImage = "python:3.12-slim-bookworm"
+	ensureTestImage(ctx, t, cli, testImage)
 	if _, err := db.GetDB().Exec(`UPDATE lab_templates SET docker_image = $2 WHERE id = $1`,
-		templateID, "python:3.12-slim-bookworm"); err != nil {
+		templateID, testImage); err != nil {
 		t.Fatalf("no se pudo fijar la imagen real de la prueba: %v", err)
 	}
 
@@ -216,5 +222,20 @@ func TestDependencyPreparationFlow(t *testing.T) {
 	}
 	if requeued.Key != job.Key {
 		t.Fatalf("el perfil no cambió: la clave debía conservarse, %q y %q", job.Key, requeued.Key)
+	}
+}
+
+func ensureTestImage(ctx context.Context, t *testing.T, cli *client.Client, ref string) {
+	t.Helper()
+	if _, _, err := cli.ImageInspectWithRaw(ctx, ref); err == nil {
+		return
+	}
+	reader, err := cli.ImagePull(ctx, ref, image.PullOptions{})
+	if err != nil {
+		t.Fatalf("no se pudo descargar la imagen %s: %v", ref, err)
+	}
+	defer func() { _ = reader.Close() }()
+	if _, err := io.Copy(io.Discard, reader); err != nil {
+		t.Fatalf("no se pudo leer la salida de descarga de %s: %v", ref, err)
 	}
 }

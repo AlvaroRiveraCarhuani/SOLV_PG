@@ -25,6 +25,7 @@ import (
 	"solv-backend/internal/infrastructure/storage/postgres"
 	"solv-backend/internal/infrastructure/storage/seaweedfs"
 	"solv-backend/internal/infrastructure/system"
+	"solv-backend/internal/version"
 )
 
 func main() {
@@ -124,6 +125,8 @@ func main() {
 	semgrepWorker := services.NewSemgrepWorker(environmentRepo, dockerClient, "internal/infrastructure/semgrep/rules")
 	evaluationService := services.NewEvaluationService(exerciseRepo, astAnalyzer, semgrepWorker, dockerRunner)
 	evaluationService.SetWorkspaceProjectService(workspaceProjectService)
+	// Alta y edición de ejercicios acotadas a las materias del docente.
+	evaluationService.SetSubjectOwnership(subjectRepo)
 	generatedCaseSnapshotRepo := postgres.NewPostgresGeneratedCaseSnapshotRepository(db.GetDB())
 	evaluationService.SetGeneratedCaseSnapshotRepository(generatedCaseSnapshotRepo)
 	scriptSandboxRunner := docker.NewDockerScriptSandboxRunner(cli)
@@ -155,7 +158,10 @@ func main() {
 	reviewEnvService := services.NewReviewEnvironmentService(reviewEnvRepo, teacherRepo, dockerClient, hostMonitor)
 	qosWorker.SetReviewEnvironmentReaper(reviewEnvService.ReapExpired)
 
-	serverPoliciesService := services.NewServerPoliciesService(tenantRepo)
+	// El techo de concurrencia por defecto se deriva de la RAM total medida: un
+	// valor fijo pensado para una máquina chica limitaría un servidor de facultad
+	// muy por debajo de lo que su hardware sostiene.
+	serverPoliciesService := services.NewServerPoliciesService(tenantRepo).WithHostTotalRAM(system.HostTotalRAMMB)
 	environmentService.SetPoliciesService(serverPoliciesService)
 	// Scale-to-Zero de motores de base de datos auto-orquestados: el worker de QoS apaga
 	// los satélites (mysql, mariadb, mongodb, redis) que ya no usa ningún laboratorio.
@@ -363,6 +369,7 @@ func main() {
 	// cuotas técnicas en la vista del docente.
 	environmentRequestRepo := postgres.NewPostgresEnvironmentRequestRepository(db.GetDB())
 	environmentRequestService := services.NewEnvironmentRequestService(environmentRequestRepo, govRepo)
+	environmentRequestService.SetTemplateLookup(govRepo)
 	environmentRequestHandler := httpdelivery.NewEnvironmentRequestHandler(environmentRequestService)
 	// Submódulo 14.7 (ADR-032): executors de docker-prune y reset-pools.
 	govService.SetDockerPruner(dockerClient.PruneOrphans)
@@ -495,12 +502,14 @@ func main() {
 	// Estructura Curricular: Módulos y Prerrequisitos
 	courseModuleRepo := postgres.NewPostgresCourseModuleRepository(db.GetDB())
 	courseModuleService := services.NewCourseModuleService(courseModuleRepo, exerciseRepo)
+	courseModuleService.SetSubjectOwnership(subjectRepo)
 	courseModuleHandler := httpdelivery.NewCourseModuleHandler(courseModuleService)
 	evaluationService.SetModuleRepository(courseModuleRepo)
 
 	// Rúbricas de evaluación cualitativa (IDE Persistente)
 	rubricRepo := postgres.NewPostgresRubricRepository(db.GetDB())
 	rubricService := services.NewDefaultRubricService(rubricRepo, exerciseRepo, db.GetDB())
+	rubricService.SetSubjectOwnership(subjectRepo)
 	rubricService.SetMailer(smtpMailer)
 	rubricService.SetNotificationService(notificationService)
 	rubricService.SetTenantRepository(tenantRepo)
@@ -511,20 +520,31 @@ func main() {
 	submissionLimiter := middleware.NewUserRateLimiter(10, 10)
 	keystrokeLimiter := middleware.NewUserRateLimiter(30, 30)
 
+	// El nombre institucional de los correos sale del tenant, no de una constante.
+	teacherInvitationHandler := httpdelivery.NewTeacherInvitationHandler(teacherInvService)
+	teacherInvitationHandler.SetTenantRepository(tenantRepo)
+
 	handlersStruct := httpdelivery.Handlers{
-		UserHandler:                   httpdelivery.NewUserHandler(db, v),
-		TemplateHandler:               httpdelivery.NewTemplateHandler(db, v),
-		AuthHandler:                   httpdelivery.NewAuthHandler(authService).WithRateLimiter(rateLimiter),
-		EvaluationHandler:             evalHandler,
-		LanguageProfileHandler:        langProfileHandler,
-		CourseModuleHandler:           courseModuleHandler,
-		RubricHandler:                 rubricHandler,
-		PracticeEnvironmentHandler:    httpdelivery.NewPracticeEnvironmentHandler(environmentService, v),
-		MetricsHandler:                httpdelivery.NewMetricsHandler(environmentRepo, hostMonitor, zombieCollector),
-		ConfigHandler:                 httpdelivery.NewConfigHandler(tenantRepo),
+		UserHandler:                httpdelivery.NewUserHandler(db, v),
+		TemplateHandler:            httpdelivery.NewTemplateHandler(db, v),
+		AuthHandler:                httpdelivery.NewAuthHandler(authService).WithRateLimiter(rateLimiter),
+		EvaluationHandler:          evalHandler,
+		LanguageProfileHandler:     langProfileHandler,
+		CourseModuleHandler:        courseModuleHandler,
+		RubricHandler:              rubricHandler,
+		PracticeEnvironmentHandler: httpdelivery.NewPracticeEnvironmentHandler(environmentService, v),
+		MetricsHandler:             httpdelivery.NewMetricsHandler(environmentRepo, hostMonitor, zombieCollector),
+		ConfigHandler:              httpdelivery.NewConfigHandler(tenantRepo),
+		VersionHandler: httpdelivery.NewVersionHandler(func(ctx context.Context) (int64, error) {
+			return database.CurrentMigrationVersion(ctx, db.GetDB().DB)
+		}),
+		// El vigilante externo consulta este endpoint: 503 cuando la base no responde.
+		HealthHandler: httpdelivery.NewHealthHandler(func(ctx context.Context) error {
+			return db.GetDB().PingContext(ctx)
+		}),
 		SubjectHandler:                httpdelivery.NewSubjectHandler(subjectService),
 		SubmissionHandler:             subHandler,
-		TeacherInvitationHandler:      httpdelivery.NewTeacherInvitationHandler(teacherInvService),
+		TeacherInvitationHandler:      teacherInvitationHandler,
 		ClassroomHandler:              httpdelivery.NewClassroomHandler(),
 		ClassSessionHandler:           classSessionHandler,
 		ClassAdvanceHandler:           classAdvanceHandler,
@@ -575,6 +595,7 @@ func main() {
 
 	// Puerto obtenido de variable de entorno local, no proviene de peticion HTTP.
 	//nolint:gosec
+	log.Printf("SOLV %s · commit %s · build %s", version.Version, version.Commit, version.BuildDate)
 	log.Printf("Server starting on port %s...", port)
 	// Sin ReadTimeout/WriteTimeout: hay WebSockets (/api/v1/teacher/live-sessions/{id}/terminal,
 	// /ws/v1/evaluations) y descargas largas de backups/logos que exceden cualquier cota razonable.

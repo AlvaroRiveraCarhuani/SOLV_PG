@@ -20,6 +20,8 @@ type Handlers struct {
 	PracticeEnvironmentHandler    *PracticeEnvironmentHandler
 	MetricsHandler                *MetricsHandler
 	ConfigHandler                 *ConfigHandler
+	VersionHandler                *VersionHandler
+	HealthHandler                 *HealthHandler
 	SubjectHandler                *SubjectHandler
 	SubmissionHandler             *SubmissionHandler
 	TeacherInvitationHandler      *TeacherInvitationHandler
@@ -58,6 +60,8 @@ func SetupRoutes(mux *http.ServeMux, deps *Handlers) {
 	registerPracticeEnvironmentRoutes(mux, deps.PracticeEnvironmentHandler, deps.TenantMiddleware, deps.RateLimitMiddleware)
 	registerMetricsRoutes(mux, deps.MetricsHandler)
 	registerConfigRoutes(mux, deps.ConfigHandler)
+	registerVersionRoutes(mux, deps.VersionHandler)
+	registerHealthRoutes(mux, deps.HealthHandler)
 	registerAcademicRoutes(mux, deps)
 	registerAdminRoutes(mux, deps)
 	registerStudentRoutes(mux, deps)
@@ -258,6 +262,7 @@ func registerAdminRoutes(mux *http.ServeMux, deps *Handlers) {
 		mux.Handle("GET /api/v1/admin/templates/capabilities", admin(http.HandlerFunc(deps.AdminAcademicHandler.GetRuntimeCapabilities)))
 		mux.Handle("POST /api/v1/admin/templates", adminAudited(http.HandlerFunc(deps.AdminAcademicHandler.CreateTemplate)))
 		mux.Handle("PUT /api/v1/admin/templates/{id}", adminAudited(http.HandlerFunc(deps.AdminAcademicHandler.UpdateOfficialTemplate)))
+		mux.Handle("PATCH /api/v1/admin/templates/{id}/quota", adminAudited(http.HandlerFunc(deps.AdminAcademicHandler.UpdateTemplateQuota)))
 		mux.Handle("POST /api/v1/admin/templates/compose-preview", admin(http.HandlerFunc(deps.AdminAcademicHandler.ComposeTemplatePreview)))
 		mux.Handle("GET /api/v1/admin/template-components", staff(http.HandlerFunc(deps.AdminAcademicHandler.ListTemplateComponents)))
 		mux.Handle("POST /api/v1/admin/template-components", adminAudited(http.HandlerFunc(deps.AdminAcademicHandler.CreateTemplateComponent)))
@@ -580,6 +585,25 @@ func registerConfigRoutes(mux *http.ServeMux, h *ConfigHandler) {
 	}
 }
 
+// registerVersionRoutes publica la versión sin autenticación: la consultan el
+// instalador, el chequeo de salud y el actualizador antes de que exista una
+// sesión. No expone secretos ni configuración, solo tag, commit, fecha de
+// compilación y la migración aplicada.
+func registerVersionRoutes(mux *http.ServeMux, h *VersionHandler) {
+	if h != nil {
+		mux.HandleFunc("GET /api/v1/version", h.GetVersion)
+	}
+}
+
+// registerHealthRoutes publica el chequeo que consulta el vigilante externo.
+// Responde 503 cuando la base no contesta, para que un monitor HTTP simple
+// pueda distinguir "degradado" de "disponible" (ver docs/OPERATIONS/EXTERNAL_UPTIME.md).
+func registerHealthRoutes(mux *http.ServeMux, h *HealthHandler) {
+	if h != nil {
+		mux.HandleFunc("GET /api/v1/health", h.GetHealth)
+	}
+}
+
 func registerWebSocketRoutes(mux *http.ServeMux, h *WebSocketHandler) {
 	if h != nil {
 		mux.HandleFunc("GET /ws/v1/evaluations", h.HandleEvaluationWS)
@@ -684,14 +708,17 @@ func registerCourseModuleRoutes(mux *http.ServeMux, deps *Handlers) {
 		am = func(next http.Handler) http.Handler { return next }
 	}
 
-	// Teacher module routes
-	mux.Handle("POST /api/v1/teacher/courses/{id}/modules", am(tm(http.HandlerFunc(deps.CourseModuleHandler.CreateModule))))
+	// Módulos del curso: las escrituras son de docentes y administradores. Sin
+	// esta puerta, cualquier alumno autenticado podía editar o borrar módulos
+	// pasando un id.
+	staffAudited := func(next http.Handler) http.Handler { return tm(am(staffOnly(next))) }
+	mux.Handle("POST /api/v1/teacher/courses/{id}/modules", staffAudited(http.HandlerFunc(deps.CourseModuleHandler.CreateModule)))
 	mux.Handle("GET /api/v1/teacher/courses/{id}/modules", tm(http.HandlerFunc(deps.CourseModuleHandler.ListModules)))
-	mux.Handle("PUT /api/v1/teacher/modules/{id}", am(tm(http.HandlerFunc(deps.CourseModuleHandler.UpdateModule))))
-	mux.Handle("DELETE /api/v1/teacher/modules/{id}", am(tm(http.HandlerFunc(deps.CourseModuleHandler.DeleteModule))))
-	mux.Handle("POST /api/v1/teacher/modules/{id}/prerequisites", am(tm(http.HandlerFunc(deps.CourseModuleHandler.SetPrerequisites))))
-	mux.Handle("DELETE /api/v1/teacher/modules/{id}/prerequisites", am(tm(http.HandlerFunc(deps.CourseModuleHandler.DeletePrerequisites))))
-	mux.Handle("PUT /api/v1/teacher/exercises/{id}/module", am(tm(http.HandlerFunc(deps.CourseModuleHandler.AssignExerciseModule))))
+	mux.Handle("PUT /api/v1/teacher/modules/{id}", staffAudited(http.HandlerFunc(deps.CourseModuleHandler.UpdateModule)))
+	mux.Handle("DELETE /api/v1/teacher/modules/{id}", staffAudited(http.HandlerFunc(deps.CourseModuleHandler.DeleteModule)))
+	mux.Handle("POST /api/v1/teacher/modules/{id}/prerequisites", staffAudited(http.HandlerFunc(deps.CourseModuleHandler.SetPrerequisites)))
+	mux.Handle("DELETE /api/v1/teacher/modules/{id}/prerequisites", staffAudited(http.HandlerFunc(deps.CourseModuleHandler.DeletePrerequisites)))
+	mux.Handle("PUT /api/v1/teacher/exercises/{id}/module", staffAudited(http.HandlerFunc(deps.CourseModuleHandler.AssignExerciseModule)))
 
 	// Student curricular map route
 	mux.Handle("GET /api/v1/student/courses/{id}/map", tm(http.HandlerFunc(deps.CourseModuleHandler.GetStudentCurricularMap)))
@@ -711,6 +738,8 @@ func registerRubricRoutes(mux *http.ServeMux, deps *Handlers) {
 	}
 
 	mux.Handle("GET /api/v1/exercises/{id}/rubric", tm(http.HandlerFunc(deps.RubricHandler.GetRubric)))
-	mux.Handle("PUT /api/v1/exercises/{id}/rubric", am(tm(http.HandlerFunc(deps.RubricHandler.SaveRubric))))
+	// La rúbrica es criterio de calificación: la escribe un docente o un
+	// administrador, no cualquier usuario autenticado.
+	mux.Handle("PUT /api/v1/exercises/{id}/rubric", tm(am(staffOnly(http.HandlerFunc(deps.RubricHandler.SaveRubric)))))
 	mux.Handle("POST /api/v1/submissions/{id}/rubric-evaluation", am(tm(http.HandlerFunc(deps.RubricHandler.EvaluateSubmission))))
 }

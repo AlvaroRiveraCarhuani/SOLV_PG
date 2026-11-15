@@ -34,6 +34,9 @@ func TestTeacherExerciseDuplicate(t *testing.T) {
 	teacherRepo := postgres.NewPostgresTeacherRepository(db.GetDB())
 	exerciseRepo := postgres.NewPostgresExerciseRepository(db.GetDB())
 	evalService := services.NewEvaluationService(exerciseRepo, nil, nil, nil)
+	// Igual que en cmd/api: la copia crea un ejercicio, así que el alcance por
+	// materia del docente tiene que estar cableado.
+	evalService.SetSubjectOwnership(postgres.NewPostgresSubjectRepository(db.GetDB()))
 	teacherService := services.NewTeacherService(teacherRepo, nil)
 	teacherService.SetEvaluationService(evalService)
 	teacherHandler := httpdelivery.NewTeacherHandler(teacherService, nil)

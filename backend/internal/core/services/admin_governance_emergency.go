@@ -102,21 +102,19 @@ func (s *AdminGovernanceService) ExecuteEmergencyAction(
 		}
 
 	case ActionKillZombies:
-		if s.dockerPruner != nil {
-			var pruned, _ int64
-			pruned, _, err = s.dockerPruner(ctx)
+		// Sin executor no se barrió nada: responder «ejecutado» era un reporte
+		// de éxito falso. Igual que poda y pools, se informa la falta.
+		if s.dockerPruner == nil {
+			return nil, ErrEmergencyExecutorUnavailable
+		}
+		var pruned int64
+		pruned, _, err = s.dockerPruner(ctx)
+		if err == nil {
 			result = &domain.EmergencyActionResult{
 				Action:        action,
 				AffectedCount: pruned,
 				ExecutedBy:    adminID,
 				Message:       fmt.Sprintf("Barrido de contenedores zombies completado: %d contenedores eliminados", pruned),
-			}
-		} else {
-			result = &domain.EmergencyActionResult{
-				Action:        action,
-				AffectedCount: 0,
-				ExecutedBy:    adminID,
-				Message:       "Barrido de contenedores zombies ejecutado exitosamente",
 			}
 		}
 
@@ -195,11 +193,13 @@ func (s *AdminGovernanceService) recordEmergencyAudit(
 
 // GetRuntimeCapabilities obtiene métricas del host físico y catálogo de servicios satélite soportados
 func (s *AdminGovernanceService) GetRuntimeCapabilities(ctx context.Context) (*domain.RuntimeCapabilities, error) {
-	// 1. Métricas de memoria y procesador del host real
-	totalMB := int64(8192)
-	availableMB := int64(4096)
-	usedMB := int64(4096)
-	cpuCores := 4
+	// 1. Métricas de memoria y procesador del host real. Si la lectura falla se
+	// informa "no medido" (ceros y measured=false): un servidor de facultad no
+	// puede recibir los 8 GB y 4 núcleos de una máquina imaginaria.
+	totalMB := int64(0)
+	availableMB := int64(0)
+	usedMB := int64(0)
+	cpuCores := 0
 
 	if v, err := mem.VirtualMemoryWithContext(ctx); err == nil && v != nil {
 		totalMB = domain.Uint64ToInt64(v.Total / (1024 * 1024))
@@ -209,8 +209,12 @@ func (s *AdminGovernanceService) GetRuntimeCapabilities(ctx context.Context) (*d
 	if c, err := cpu.CountsWithContext(ctx, true); err == nil && c > 0 {
 		cpuCores = c
 	}
+	if totalMB == 0 || cpuCores == 0 {
+		log.Printf("[Capabilities] medición incompleta del host: ram_total_mb=%d cpu_cores=%d", totalMB, cpuCores)
+	}
 
 	hostMem := domain.HostCapacityInfo{
+		Measured:       totalMB > 0 && cpuCores > 0,
 		TotalRAMMB:     totalMB,
 		AvailableRAMMB: availableMB,
 		UsedRAMMB:      usedMB,

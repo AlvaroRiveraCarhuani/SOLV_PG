@@ -275,7 +275,7 @@ func TestSlice13_TeacherRunnerAndExportSuite(t *testing.T) {
 
 		// Validar Encabezado
 		header := records[0]
-		expectedHeader := []string{"ID Estudiante", "Nombre Completo", "Email", "Lab 1: Sockets TCP", "Lab 2: RPC Concurrente", "Promedio Final"}
+		expectedHeader := []string{"ID Estudiante", "Nombre Completo", "Email", "Lab 1: Sockets TCP", "Lab 2: RPC Concurrente", "Nota de Laboratorio"}
 		for i, h := range expectedHeader {
 			if header[i] != h {
 				t.Errorf("Header col %d: expected %s, got %s", i, h, header[i])

@@ -19,6 +19,18 @@ func NewPostgresCourseModuleRepository(db *sqlx.DB) *PostgresCourseModuleReposit
 	return &PostgresCourseModuleRepository{db: db}
 }
 
+// tenantIDFromContext resuelve la institución del contexto. Los módulos no tienen
+// tenant_id propio: cuelgan de una materia, y la materia sí lo tiene. Toda
+// consulta filtra por ese camino, porque un id de módulo ajeno alcanzaba para
+// leerlo, editarlo o borrarlo desde otra institución.
+func tenantIDFromContext(ctx context.Context) string {
+	tenantID := domain.GetTenantID(ctx)
+	if tenantID == "" {
+		return domain.DefaultTenantID
+	}
+	return tenantID
+}
+
 func (r *PostgresCourseModuleRepository) CreateModule(ctx context.Context, module *domain.CourseModule) error {
 	if module.ID == "" {
 		module.ID = uuid.New().String()
@@ -26,6 +38,18 @@ func (r *PostgresCourseModuleRepository) CreateModule(ctx context.Context, modul
 	if module.PassScore == 0 {
 		module.PassScore = 60
 	}
+
+	var subjectInTenant bool
+	if err := r.db.GetContext(ctx, &subjectInTenant,
+		`SELECT EXISTS (SELECT 1 FROM subjects WHERE id = $1 AND tenant_id = $2)`,
+		module.SubjectID, tenantIDFromContext(ctx),
+	); err != nil {
+		return fmt.Errorf("failed to check subject for module: %w", err)
+	}
+	if !subjectInTenant {
+		return fmt.Errorf("la materia del módulo no pertenece a esta institución: %w", domain.ErrNotFound)
+	}
+
 	query := `
 		INSERT INTO course_modules (id, subject_id, title, description, order_index, pass_score, created_at)
 		VALUES (:id, :subject_id, :title, :description, :order_index, :pass_score, NOW())
@@ -40,11 +64,12 @@ func (r *PostgresCourseModuleRepository) CreateModule(ctx context.Context, modul
 func (r *PostgresCourseModuleRepository) GetModuleByID(ctx context.Context, moduleID string) (*domain.CourseModule, error) {
 	var module domain.CourseModule
 	query := `
-		SELECT id, subject_id, title, description, order_index, pass_score, created_at
-		FROM course_modules
-		WHERE id = $1
+		SELECT cm.id, cm.subject_id, cm.title, cm.description, cm.order_index, cm.pass_score, cm.created_at
+		FROM course_modules cm
+		JOIN subjects s ON s.id = cm.subject_id
+		WHERE cm.id = $1 AND s.tenant_id = $2
 	`
-	err := r.db.GetContext(ctx, &module, query, moduleID)
+	err := r.db.GetContext(ctx, &module, query, moduleID, tenantIDFromContext(ctx))
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil, domain.ErrModuleNotFound
@@ -55,14 +80,19 @@ func (r *PostgresCourseModuleRepository) GetModuleByID(ctx context.Context, modu
 }
 
 func (r *PostgresCourseModuleRepository) ListModulesBySubject(ctx context.Context, subjectID string) ([]*domain.CourseModule, error) {
+	return r.listModulesBySubject(ctx, tenantIDFromContext(ctx), subjectID)
+}
+
+func (r *PostgresCourseModuleRepository) listModulesBySubject(ctx context.Context, tenantID, subjectID string) ([]*domain.CourseModule, error) {
 	query := `
-		SELECT id, subject_id, title, description, order_index, pass_score, created_at
-		FROM course_modules
-		WHERE subject_id = $1
-		ORDER BY order_index ASC, created_at ASC
+		SELECT cm.id, cm.subject_id, cm.title, cm.description, cm.order_index, cm.pass_score, cm.created_at
+		FROM course_modules cm
+		JOIN subjects s ON s.id = cm.subject_id
+		WHERE cm.subject_id = $1 AND s.tenant_id = $2
+		ORDER BY cm.order_index ASC, cm.created_at ASC
 	`
 	var modules []*domain.CourseModule
-	err := r.db.SelectContext(ctx, &modules, query, subjectID)
+	err := r.db.SelectContext(ctx, &modules, query, subjectID, tenantID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list modules for subject: %w", err)
 	}
@@ -74,11 +104,19 @@ func (r *PostgresCourseModuleRepository) ListModulesBySubject(ctx context.Contex
 
 func (r *PostgresCourseModuleRepository) UpdateModule(ctx context.Context, module *domain.CourseModule) error {
 	query := `
-		UPDATE course_modules
+		UPDATE course_modules cm
 		SET title = :title, description = :description, order_index = :order_index, pass_score = :pass_score
-		WHERE id = :id
+		FROM subjects s
+		WHERE s.id = cm.subject_id AND cm.id = :id AND s.tenant_id = :tenant_id
 	`
-	res, err := r.db.NamedExecContext(ctx, query, module)
+	res, err := r.db.NamedExecContext(ctx, query, map[string]interface{}{
+		"id":          module.ID,
+		"title":       module.Title,
+		"description": module.Description,
+		"order_index": module.OrderIndex,
+		"pass_score":  module.PassScore,
+		"tenant_id":   tenantIDFromContext(ctx),
+	})
 	if err != nil {
 		return fmt.Errorf("failed to update course module: %w", err)
 	}
@@ -90,8 +128,12 @@ func (r *PostgresCourseModuleRepository) UpdateModule(ctx context.Context, modul
 }
 
 func (r *PostgresCourseModuleRepository) DeleteModule(ctx context.Context, moduleID string) error {
-	query := `DELETE FROM course_modules WHERE id = $1`
-	res, err := r.db.ExecContext(ctx, query, moduleID)
+	query := `
+		DELETE FROM course_modules
+		WHERE id = $1
+		  AND subject_id IN (SELECT id FROM subjects WHERE tenant_id = $2)
+	`
+	res, err := r.db.ExecContext(ctx, query, moduleID, tenantIDFromContext(ctx))
 	if err != nil {
 		return fmt.Errorf("failed to delete course module: %w", err)
 	}
@@ -109,6 +151,20 @@ func (r *PostgresCourseModuleRepository) SetPrerequisites(ctx context.Context, m
 	}
 	defer func() { _ = tx.Rollback() }()
 
+	tenantID := tenantIDFromContext(ctx)
+	var moduleInTenant bool
+	if err := tx.GetContext(ctx, &moduleInTenant, `
+		SELECT EXISTS (
+			SELECT 1 FROM course_modules cm
+			JOIN subjects s ON s.id = cm.subject_id
+			WHERE cm.id = $1 AND s.tenant_id = $2
+		)`, moduleID, tenantID); err != nil {
+		return fmt.Errorf("failed to check module for prerequisites: %w", err)
+	}
+	if !moduleInTenant {
+		return domain.ErrModuleNotFound
+	}
+
 	// 1. Eliminar prerrequisitos actuales
 	if _, err := tx.ExecContext(ctx, "DELETE FROM module_prerequisites WHERE module_id = $1", moduleID); err != nil {
 		return fmt.Errorf("failed to delete old prerequisites: %w", err)
@@ -124,6 +180,18 @@ func (r *PostgresCourseModuleRepository) SetPrerequisites(ctx context.Context, m
 		if prereqID == moduleID {
 			return domain.ErrSelfPrerequisite
 		}
+		var prereqInTenant bool
+		if err := tx.GetContext(ctx, &prereqInTenant, `
+			SELECT EXISTS (
+				SELECT 1 FROM course_modules cm
+				JOIN subjects s ON s.id = cm.subject_id
+				WHERE cm.id = $1 AND s.tenant_id = $2
+			)`, prereqID, tenantID); err != nil {
+			return fmt.Errorf("failed to check prerequisite module: %w", err)
+		}
+		if !prereqInTenant {
+			return domain.ErrModuleNotFound
+		}
 		if _, err := tx.ExecContext(ctx, insertQuery, moduleID, prereqID); err != nil {
 			return fmt.Errorf("failed to insert prerequisite: %w", err)
 		}
@@ -133,14 +201,19 @@ func (r *PostgresCourseModuleRepository) SetPrerequisites(ctx context.Context, m
 }
 
 func (r *PostgresCourseModuleRepository) GetPrerequisitesBySubject(ctx context.Context, subjectID string) ([]domain.ModulePrerequisite, error) {
+	return r.listPrerequisitesBySubject(ctx, tenantIDFromContext(ctx), subjectID)
+}
+
+func (r *PostgresCourseModuleRepository) listPrerequisitesBySubject(ctx context.Context, tenantID, subjectID string) ([]domain.ModulePrerequisite, error) {
 	query := `
 		SELECT mp.module_id, mp.prerequisite_module_id
 		FROM module_prerequisites mp
 		JOIN course_modules cm ON cm.id = mp.module_id
-		WHERE cm.subject_id = $1
+		JOIN subjects s ON s.id = cm.subject_id
+		WHERE cm.subject_id = $1 AND s.tenant_id = $2
 	`
 	var prereqs []domain.ModulePrerequisite
-	err := r.db.SelectContext(ctx, &prereqs, query, subjectID)
+	err := r.db.SelectContext(ctx, &prereqs, query, subjectID, tenantIDFromContext(ctx))
 	if err != nil {
 		return nil, fmt.Errorf("failed to get prerequisites for subject: %w", err)
 	}
@@ -152,12 +225,14 @@ func (r *PostgresCourseModuleRepository) GetPrerequisitesBySubject(ctx context.C
 
 func (r *PostgresCourseModuleRepository) GetPrerequisitesForModule(ctx context.Context, moduleID string) ([]string, error) {
 	query := `
-		SELECT prerequisite_module_id
-		FROM module_prerequisites
-		WHERE module_id = $1
+		SELECT mp.prerequisite_module_id
+		FROM module_prerequisites mp
+		JOIN course_modules cm ON cm.id = mp.module_id
+		JOIN subjects s ON s.id = cm.subject_id
+		WHERE mp.module_id = $1 AND s.tenant_id = $2
 	`
 	var prereqIDs []string
-	err := r.db.SelectContext(ctx, &prereqIDs, query, moduleID)
+	err := r.db.SelectContext(ctx, &prereqIDs, query, moduleID, tenantIDFromContext(ctx))
 	if err != nil {
 		return nil, fmt.Errorf("failed to get prerequisites for module: %w", err)
 	}
@@ -168,8 +243,27 @@ func (r *PostgresCourseModuleRepository) GetPrerequisitesForModule(ctx context.C
 }
 
 func (r *PostgresCourseModuleRepository) AssignExerciseModule(ctx context.Context, exerciseID string, moduleID *string) error {
-	query := `UPDATE exercises SET module_id = $1 WHERE id = $2`
-	res, err := r.db.ExecContext(ctx, query, moduleID, exerciseID)
+	tenantID := tenantIDFromContext(ctx)
+
+	// Un ejercicio no puede apuntar a un módulo de otra institución: el módulo
+	// desaparecería del mapa curricular y el dato quedaría cruzado.
+	if moduleID != nil && *moduleID != "" {
+		var moduleInTenant bool
+		if err := r.db.GetContext(ctx, &moduleInTenant, `
+			SELECT EXISTS (
+				SELECT 1 FROM course_modules cm
+				JOIN subjects s ON s.id = cm.subject_id
+				WHERE cm.id = $1 AND s.tenant_id = $2
+			)`, *moduleID, tenantID); err != nil {
+			return fmt.Errorf("failed to check module for exercise: %w", err)
+		}
+		if !moduleInTenant {
+			return domain.ErrModuleNotFound
+		}
+	}
+
+	query := `UPDATE exercises SET module_id = $1 WHERE id = $2 AND tenant_id = $3`
+	res, err := r.db.ExecContext(ctx, query, moduleID, exerciseID, tenantID)
 	if err != nil {
 		return fmt.Errorf("failed to assign module to exercise: %w", err)
 	}
@@ -195,14 +289,15 @@ type studentSubStat struct {
 }
 
 func (r *PostgresCourseModuleRepository) GetCourseCurricularMapData(ctx context.Context, tenantID, subjectID, studentID string) (*domain.CourseCurricularMap, error) {
-	// 1. Obtener todos los módulos del curso
-	modules, err := r.ListModulesBySubject(ctx, subjectID)
+	// 1. Obtener todos los módulos del curso. Se usa el tenantID explícito de
+	// este método, no el del contexto: el mapa puede pedirse desde un job.
+	modules, err := r.listModulesBySubject(ctx, tenantID, subjectID)
 	if err != nil {
 		return nil, err
 	}
 
 	// 2. Obtener todos los prerrequisitos del curso
-	prereqs, err := r.GetPrerequisitesBySubject(ctx, subjectID)
+	prereqs, err := r.listPrerequisitesBySubject(ctx, tenantID, subjectID)
 	if err != nil {
 		return nil, err
 	}

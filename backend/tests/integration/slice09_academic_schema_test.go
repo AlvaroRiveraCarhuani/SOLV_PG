@@ -294,11 +294,13 @@ func TestAcademicHTTPAPIEndToEnd(t *testing.T) {
 
 	mux.ServeHTTP(rr, req)
 
-	if rr.Code != http.StatusOK {
-		t.Fatalf("Expected 200 OK for classroom import, got %d (body: %s)", rr.Code, rr.Body.String())
+	// La importación desde Classroom no está implementada: responde 501 en vez
+	// de inventar alumnos importados.
+	if rr.Code != http.StatusNotImplemented {
+		t.Fatalf("Expected 501 Not Implemented for classroom import, got %d (body: %s)", rr.Code, rr.Body.String())
 	}
 
-	if !strings.Contains(rr.Body.String(), "unidirectional_manual_import") {
-		t.Fatalf("Expected D6 unidirectional import response, got %s", rr.Body.String())
+	if strings.Contains(rr.Body.String(), "alumno1.classroom") {
+		t.Fatalf("El endpoint no debe devolver alumnos inventados: %s", rr.Body.String())
 	}
 }

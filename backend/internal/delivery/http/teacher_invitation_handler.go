@@ -8,15 +8,38 @@ import (
 	"os"
 	"strings"
 
+	"solv-backend/internal/core/domain"
 	"solv-backend/internal/core/services"
 )
 
 type TeacherInvitationHandler struct {
-	service *services.TeacherInvitationService
+	service    *services.TeacherInvitationService
+	tenantRepo domain.TenantRepository
 }
 
 func NewTeacherInvitationHandler(service *services.TeacherInvitationService) *TeacherInvitationHandler {
 	return &TeacherInvitationHandler{service: service}
+}
+
+// SetTenantRepository habilita la resolución del nombre institucional para los
+// correos de bienvenida. Es un setter y no un parámetro del constructor para no
+// romper a quien ya construye el handler sin repositorio.
+func (h *TeacherInvitationHandler) SetTenantRepository(repo domain.TenantRepository) {
+	h.tenantRepo = repo
+}
+
+// institutionName devuelve el nombre con el que la institución se presenta en
+// sus correos. Sale de la configuración del tenant, nunca de una constante: la
+// misma imagen se instala en cualquier universidad.
+func (h *TeacherInvitationHandler) institutionName(r *http.Request) string {
+	if h.tenantRepo != nil {
+		if tenant, err := h.tenantRepo.GetByID(r.Context(), getTenantFromCtx(r)); err == nil && tenant != nil {
+			if branding := tenant.ResolveBranding(); strings.TrimSpace(branding.InstitutionName) != "" {
+				return branding.InstitutionName
+			}
+		}
+	}
+	return "SOLV"
 }
 
 func (h *TeacherInvitationHandler) ListTeachers(w http.ResponseWriter, r *http.Request) {
@@ -286,7 +309,7 @@ func (h *TeacherInvitationHandler) RegisterDirectTeacher(w http.ResponseWriter, 
 	loginURL := h.buildInviteURL(r, "")
 	loginURL = strings.TrimSuffix(loginURL, "?invite=")
 
-	teacher, err := h.service.RegisterDirectTeacher(r.Context(), tenantID, req.Email, req.FirstName, req.LastName, req.SendNotification, loginURL, "Universidad Adventista de Bolivia")
+	teacher, err := h.service.RegisterDirectTeacher(r.Context(), tenantID, req.Email, req.FirstName, req.LastName, req.SendNotification, loginURL, h.institutionName(r))
 	if err != nil {
 		SendError(w, http.StatusInternalServerError, err.Error(), "Error al registrar al docente")
 		return
@@ -345,7 +368,7 @@ func (h *TeacherInvitationHandler) BatchRegisterTeachers(w http.ResponseWriter, 
 	loginURL := h.buildInviteURL(r, "")
 	loginURL = strings.TrimSuffix(loginURL, "?invite=")
 
-	count, err := h.service.BatchRegisterTeachers(r.Context(), tenantID, req.Emails, req.SendNotification, loginURL, "Universidad Adventista de Bolivia")
+	count, err := h.service.BatchRegisterTeachers(r.Context(), tenantID, req.Emails, req.SendNotification, loginURL, h.institutionName(r))
 	if err != nil {
 		SendError(w, http.StatusInternalServerError, err.Error(), "Error al procesar el alta masiva")
 		return
