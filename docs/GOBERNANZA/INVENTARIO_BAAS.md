@@ -1,34 +1,83 @@
 # Inventario de Capacidades de Endurecimiento BaaS — SOLV
 
-Este documento mapea las 24 capacidades de endurecimiento de la plataforma **SOLV**, vinculándolas con su correspondiente Slice, Decisión de Arquitectura (ADR) y estado de implementación.
+> **Corte de auditoría:** 2026-11-16
+> **Alcance:** 24 capacidades.
+> **Estados:** `COMPLETADO` significa implementación presente y evidencia en el repositorio; `PARCIAL` significa implementación incompleta o prueba limitada; `PENDIENTE` significa que no hay implementación o no hay evidencia suficiente.
+
+El inventario describe capacidades técnicas, no certificación operativa. El scrape de métricas, la emisión del certificado TLS y la restauración de respaldos se certifican en el [checklist pre-piloto](../SECURITY/pre-pilot-checklist.md), no en esta tabla.
 
 ---
 
-## Mapeo de Capacidades Técnicas (1 a 24)
+## 1. Mapeo de capacidades
 
-| # | Capacidad Técnica | Descripción | Slice | ADR | Estado |
+| # | Capacidad técnica | Descripción | Slice | ADR | Estado |
 | :---: | :--- | :--- | :---: | :---: | :---: |
-| **01** | Aislamiento de Red Host vía DOCKER-USER | Inserción de reglas `iptables` en la cadena `DOCKER-USER` para impedir el bypass de firewall de Docker. | Slice 8 | ADR-023 | **COMPLETADO** |
-| **02** | Esquema Académico Multi-Tenant Unificado | Tablas relacionales de materias, inscripciones, entregas e invitaciones docentes con filtrado `tenant_id`. | Slice 9 | ADR-024 | **COMPLETADO** |
-| **03** | Perfiles Seccomp y AppArmor para Ejecución | Aplicación de filtros de llamadas al sistema para mitigar escalada de privilegios en el host. | Slice 9 | - | **PENDIENTE** |
-| **04** | Multi-Tenancy Lógico con Discriminador `tenant_id` | Columna `tenant_id` en PostgreSQL y middleware HTTP en Go para aislamiento por inquilino. | Slice 8 | ADR-018 | **COMPLETADO** |
-| **05** | Autenticación ForwardAuth HttpOnly en Traefik v3 | Endpoint `GET /api/v1/auth/verify` para validación perimetral de cookies `solv_session` en `iframes` (<50ms). | Slice 8 | ADR-017 | **COMPLETADO** |
-| **06** | Unificación del Modelo de Environments | Consolidación de laboratorios e IDEs efímeros en la tabla `environments` con discriminador `type`. | Slice 8 | ADR-019 | **COMPLETADO** |
-| **07** | Sanitización y Truncado de Entradas/Salidas | Límite a 64KB en buffers `stdin`/`stdout` del Juez Virtual para prevenir consumo masivo de memoria. | Slice 9 | - | **PENDIENTE** |
-| **08** | Cuotas de Disco por Volumen de Estudiante | Limitación de capacidad de almacenamiento en volúmenes Docker nombrados. | Slice 9 | ADR-001 | **PARCIAL** |
-| **09** | Rate Limiting Perimetral en Traefik v3 | Limitación de tasa de solicitudes HTTP por IP y por Tenant en Traefik v3. | Slice 10 | - | **PENDIENTE** |
-| **10** | Circuit Breakers y Fail-Fast en Servicios | Detección automática de saturación en Docker Daemon o PostgreSQL. | Slice 10 | - | **PARCIAL** |
-| **11** | Cierre Controlado (Graceful Shutdown) | Intercepción de señales `SIGTERM`/`SIGINT` en el backend Go para destruir contenedores efímeros. | Slice 10 | - | **PENDIENTE** |
-| **12** | Registro de Auditoría Inmutable (Audit Log) | Tabla de eventos relacionales auditables con sellado de tiempo. | Slice 10 | - | **PENDIENTE** |
-| **13** | Pool Adaptativo de Conexiones a Base de Datos | Configuración y tuneo dinámico del pool de conexiones SQL en Go (`sqlx`). | Slice 11 | ADR-000 | **PARCIAL** |
-| **14** | Warm Pool de Contenedores de Laboratorio | Mantenimiento de contenedores pre-iniciados en reserva para reducir latencia a <500ms. | Slice 11 | - | **PENDIENTE** |
-| **15** | Caché de Imágenes Docker y Pre-pulling | Servicio en segundo plano para precargar imágenes base de laboratorios. | Slice 11 | - | **PENDIENTE** |
-| **16** | Control de Admisión Host RAM (15% Headroom) | Rechazo proactivo de creación de laboratorios cuando la memoria libre cae por debajo del 15%. | Slice 5 | ADR-008 | **COMPLETADO** |
-| **17** | Hibernación Dual por Inactividad | Hibernación tras 5 minutos de inactividad basada en validación doble (Heartbeat vs Telemetría). | Slice 5 | ADR-011 | **COMPLETADO** |
-| **18** | Penalización 3-Strikes OOMKilled | Cooldown de 5 minutos al estudiante cuyo entorno sufra 3 eliminaciones consecutivas por RAM. | Slice 5 | ADR-008 | **COMPLETADO** |
-| **19** | Auto-Tuning EWMA de Recursos | Suavizado exponencial del perfil de consumo de RAM por plantilla de laboratorio. | Slice 6 | ADR-014 | **PENDIENTE** |
-| **20** | Blindaje Inter-Contenedor (ICC Disabled) | Aislamiento de red mediante la creación de la red Docker con `enable_icc=false`. | Slice 6 | ADR-009 | **PARCIAL** |
-| **21** | Telemetría Prometheus `/metrics` | Exposición de métricas clave de salud del host y contenedores activos en `/metrics`. | Slice 6 | - | **COMPLETADO** |
-| **22** | Análisis Semántico AST Inmutable (Semgrep) | Ejecución de Semgrep en modo `:ro` sobre el volumen del alumno, persistiendo en `semgrep_audit JSONB`. | Slice 7 | ADR-016 | **PARCIAL** |
-| **23** | Renovación Automática TLS Wildcard DNS-01 | Desafío ACME DNS-01 con desec.io y Let's Encrypt para certificados SSL `*.solv.uab.edu.bo`. | Slice 10 | ADR-018 | **PENDIENTE** |
-| **24** | Subdominios Dinámicos Seguros vía UUID Opaco | Generación de URLs de acceso basadas en UUIDv4 opacos. | Slice 4 | ADR-004 | **PENDIENTE** |
+| **01** | Aislamiento de red host vía `DOCKER-USER` | Reglas de firewall en `DOCKER-USER` para evitar el bypass del firewall de Docker. | 8 | ADR-023 | `COMPLETADO` |
+| **02** | Esquema académico multi-tenant unificado | Tablas de materias, inscripciones, entregas e invitaciones con filtrado por `tenant_id`. | 9 | ADR-024 | `COMPLETADO` |
+| **03** | Perfiles Seccomp y AppArmor | Filtros de llamadas al sistema para limitar la superficie de los contenedores. | 9 | — | `PENDIENTE` |
+| **04** | Multi-tenancy lógico con `tenant_id` | Columna `tenant_id` y middleware HTTP de aislamiento por inquilino. | 8 | ADR-018 | `COMPLETADO` |
+| **05** | Autenticación ForwardAuth HttpOnly | `GET /api/v1/auth/verify` valida la cookie `solv_session` para Traefik. | 8 | ADR-017 | `COMPLETADO` |
+| **06** | Modelo unificado de environments | Laboratorios e IDE efímeros en la tabla `environments` con discriminador de tipo. | 8 | ADR-019 | `COMPLETADO` |
+| **07** | Sanitización y truncado de entradas y salidas | Límite de 64 KB en buffers `stdin`/`stdout` del evaluador. | 9 | — | `PENDIENTE` |
+| **08** | Cuotas de disco por volumen | Límite de almacenamiento en volúmenes Docker de estudiante. | 9 | ADR-001 | `PARCIAL` |
+| **09** | Rate limiting perimetral en Traefik | Limitación por IP y por tenant en el proxy. | 10 | — | `PENDIENTE` |
+| **10** | Circuit breakers y fail-fast | Detección automática de saturación de Docker o PostgreSQL. | 10 | — | `PARCIAL` |
+| **11** | Apagado ordenado | Captura de `SIGTERM`/`SIGINT` para cerrar servidor, workers y contenedores efímeros. | 10 | — | `PENDIENTE` |
+| **12** | Registro de auditoría inmutable | Tabla `audit_logs` con actor, recurso, acción, estado y metadatos. | 10 | — | `COMPLETADO` |
+| **13** | Pool adaptativo de conexiones | Ajuste dinámico del pool SQL de `sqlx`. | 11 | ADR-000 | `PARCIAL` |
+| **14** | Warm pool de contenedores | Contenedores pre-iniciados en reserva para reducir latencia. | 11 | — | `PENDIENTE` |
+| **15** | Caché y precarga de imágenes Docker | Servicio en segundo plano que precarga imágenes base. | 11 | — | `PENDIENTE` |
+| **16** | Control de admisión por RAM | Rechazo de entornos cuando la memoria libre cae por debajo del 15 %. | 5 | ADR-008 | `COMPLETADO` |
+| **17** | Hibernación dual por inactividad | Hibernación por heartbeat y telemetría. | 5 | ADR-011 | `COMPLETADO` |
+| **18** | Penalización 3-Strikes OOMKilled | Enfriamiento de 5 minutos tras tres eliminaciones por RAM. | 5 | ADR-008 | `COMPLETADO` |
+| **19** | Auto-tuning EWMA de recursos | Suavizado exponencial del consumo de RAM por plantilla. | 6 | ADR-014 | `COMPLETADO` |
+| **20** | Blindaje inter-contenedor | Red Docker creada con `enable_icc=false`. | 6 | ADR-009 | `COMPLETADO` |
+| **21** | Telemetría Prometheus `/metrics` | Endpoint protegido con métricas de host y contenedores. | 6 | — | `COMPLETADO` |
+| **22** | Análisis semántico AST con Semgrep | Semgrep sobre el volumen del alumno y persistencia en `semgrep_audit`. | 7 | ADR-016 | `COMPLETADO` |
+| **23** | TLS wildcard con DNS-01 | Desafío ACME con desec.io y Let's Encrypt para el dominio institucional. | 10 | ADR-018 | `PARCIAL` |
+| **24** | Subdominios con UUID opaco | URL de acceso construida con el UUID del environment, sin datos del alumno. | 4 | ADR-004 | `COMPLETADO` |
+
+**Resumen:** 14 completadas, 4 parciales y 6 pendientes.
+
+---
+
+## 2. Cambios de estado en esta revisión
+
+| Capacidad | Estado anterior | Estado actual | Evidencia |
+| :---: | :---: | :---: | :--- |
+| **12** | `PENDIENTE` | `COMPLETADO` | Repositorio `audit_log_repository.go`, rutas `/api/v1/admin/audit-logs` y pantalla `/admin/auditoria`. |
+| **19** | `PENDIENTE` | `COMPLETADO` | Actualización EWMA atómica en `lab_template_repository.go` y prueba de integración `slice06_ewma_autotuning_test.go`. |
+| **20** | `PARCIAL` | `COMPLETADO` | Red creada con `com.docker.network.bridge.enable_icc=false` y aserción en `slice04_practice_environment_lifecycle_test.go`. |
+| **22** | `PARCIAL` | `COMPLETADO` | Escaneo Semgrep, persistencia en `semgrep_audit` y flujos E2E de reglas AST en verde. |
+| **23** | `PENDIENTE` | `PARCIAL` | `infra/traefik/traefik.yml` configura DNS-01 con desec; falta verificar emisión y renovación en el servidor. |
+| **24** | `PENDIENTE` | `COMPLETADO` | `buildPracticeEnvironmentAccessURL` usa el UUID del environment como subdominio. |
+
+---
+
+## 3. Evidencia de las capacidades abiertas
+
+| Capacidad | Qué existe | Qué falta |
+| :---: | :--- | :--- |
+| **03** | `no-new-privileges` y `CapDrop: ALL` en varios runners. | Perfiles Seccomp y AppArmor aplicados a los contenedores de práctica. |
+| **07** | Límite de 64 MB para leer snapshots de volumen. | Truncado de `stdout`/`stderr` del evaluador a 64 KB; el límite actual no cubre la salida. |
+| **08** | Volúmenes nombrados y límites de lectura de snapshots. | Cuota de disco real por volumen; no se encontró `StorageOpt` ni equivalente. |
+| **09** | Rate limiting de aplicación en login, envíos, keystrokes y arranque de entornos. | Rate limiting perimetral en Traefik; el control actual vive en el backend. |
+| **10** | Reacción manual de emergencia y reinicio del pool desde el panel admin. | Circuit breaker automático y fail-fast con umbrales medidos. |
+| **11** | `http.Server` con timeouts de cabecera e inactividad. | Captura de señales, `Shutdown`, cierre de workers y limpieza de contenedores. |
+| **13** | Pool SQL de `sqlx` y reset de conexiones idle desde emergencia. | Tuning dinámico de `MaxOpenConns`, `MaxIdleConns` y `ConnMaxLifetime`. |
+| **14** | Creación de contenedores bajo demanda. | Contenedores pre-iniciados en reserva. |
+| **15** | `PullImage` con deduplicación single-flight y pull bajo demanda. | Precarga en segundo plano de imágenes base. |
+| **23** | Configuración ACME DNS-01 y script de registros desec. | Certificado emitido, renovación probada y fecha de expiración registrada. |
+
+---
+
+## 4. Lectura para el piloto
+
+Las capacidades `COMPLETADO` no sustituyen las pruebas de operación. En particular:
+
+- `/metrics` existe, pero el scrape de Prometheus y las notificaciones de alerta no están certificados.
+- El respaldo tiene implementación y pruebas de integración, pero la restauración en una base temporal sigue pendiente.
+- El rate limiting de aplicación está activo, pero la prueba de `429` en el servidor del piloto sigue pendiente.
+- La configuración TLS existe, pero la emisión y renovación del certificado no se verificaron en esta auditoría.
+
+Esos cuatro puntos figuran como bloqueos en el [checklist pre-piloto](../SECURITY/pre-pilot-checklist.md) y deben cerrarse con evidencia antes de iniciar el piloto.

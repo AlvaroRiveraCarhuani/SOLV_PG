@@ -9,7 +9,7 @@
 
 ## 1. Visión General del Producto y Requerimientos
 * [`REQUERIMIENTOS_SOLV.md`](REQUERIMIENTOS_SOLV.md): Especificación oficial de Requerimientos Funcionales (RF) y No Funcionales (RNF).
-* [`00-MAPA_SLICES.md`](00-MAPA_SLICES.md): Mapa de ruta de los 14 Slices Verticales del proyecto (`v0.11.0` completado).
+* [`00-MAPA_SLICES.md`](00-MAPA_SLICES.md): Mapa de ruta de los 17 slices verticales, con estado de implementación, verificación y brechas al 2026-11-16.
 * [`VERSIONS.md`](VERSIONS.md): Registro estricto de versiones fijadas de infraestructura Docker y dependencias.
 
 ---

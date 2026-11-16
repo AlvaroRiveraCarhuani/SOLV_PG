@@ -3,7 +3,7 @@
 > **Documento Oficial de Auditoría Técnica de Arquitectura**  
 > **Proyecto:** SOLV (Sistema de Orquestación de Laboratorios Virtuales)  
 > **Repositorio:** SOLV_PG  
-> **Última Actualización:** 2026-09-02 (Alineación SDD Slices 12 a 16)  
+> **Última Actualización:** 2026-11-16 (Alineación con el mapa de 17 slices)
 
 ---
 
@@ -56,7 +56,7 @@ SOLV_PG/
 │   │   ├── INVENTARIO_BAAS.md
 │   │   └── METODOLOGIA.md
 │   ├── SLICES/
-│   │   ├── SLICE_1/ ... SLICE_16/
+│   │   ├── SLICE_1/ ... SLICE_17/
 │   ├── 00-INVENTARIO_BAAS.md
 │   ├── 00-MAPA_SLICES.md
 │   ├── REQUERIMIENTOS_SOLV.md
