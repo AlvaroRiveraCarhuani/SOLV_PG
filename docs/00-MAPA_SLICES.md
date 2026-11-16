@@ -16,7 +16,7 @@
 | Lint de backend | `golangci-lint` reporta 909 hallazgos; el gate no está limpio. |
 | Integración, Docker y migraciones | No se re-ejecutaron en esta auditoría; la evidencia disponible es histórica. |
 | OpenSpec | 2 cambios sin `verify-report`, ambos sin tareas iniciadas; 4 activos y 5 archivados el 2026-11-16 con reporte. |
-| Operación | Sin apagado ordenado del API; ADR-050 fase 3 sin implementar; checklist pre-piloto `NO CERTIFICADO`. |
+| Operación | Apagado ordenado del API y pin de entorno de ADR-050 fase 3 implementados; checklist pre-piloto `NO CERTIFICADO`. |
 
 La lectura correcta es: el producto está implementado y los flujos principales pasan, pero la validación integral y la operación del piloto no están cerradas.
 
@@ -72,12 +72,10 @@ La lectura correcta es: el producto está implementado y los flujos principales 
 ## 4. Brechas abiertas
 
 1. **Cierre de OpenSpec.** Quedan dos cambios sin `verify-report` y sin tareas iniciadas: `dashboard-customization-and-course-theming` y `servicios-satelite-por-rol`. Los cinco cambios con tareas completas se archivaron el 2026-11-16; dos de ellos quedaron como superados por ADR-055, ADR-057 y ADR-062.
-2. **Pin del entorno.** La fase 3 de ADR-050, que fija la plantilla al publicar y la lee al arrancar el workspace, sigue `Pendiente`.
-3. **Apagado ordenado.** `backend/cmd/api/main.go` crea `http.Server` y llama a `ListenAndServe` sin capturar `SIGTERM` ni cerrar servidor, workers y contenedores de forma coordinada.
-4. **Lint de backend.** Los 909 hallazgos de `golangci-lint` impiden declarar el gate de calidad en verde, aunque `go vet` y los tests pasen.
-5. **Documentación desalineada.** Los documentos de verificación de los Slice 12, 14 y 16 todavía describen frontend pendiente o slice planificado; ADR-012 menciona Monaco mientras el editor usado es CodeMirror; existen dos ADR-043 y dos ADR-060.
-6. **Operación del piloto.** El [checklist pre-piloto](SECURITY/pre-pilot-checklist.md) mantiene 11 bloqueos: rama, CI, respaldo, restauración, métricas, rate limiting probado, CORS, capacidad, runbook, cuenta administrativa y consentimiento.
-7. **Validación integral.** La integración contra PostgreSQL, Docker y migraciones no se re-ejecutó en esta auditoría. Los 23 flujos E2E son evidencia del 2026-11-15, no de una corrida posterior a estos documentos.
+2. **Lint de backend.** Los 909 hallazgos de `golangci-lint` impiden declarar el gate de calidad en verde, aunque `go vet` y los tests pasen.
+3. **Documentación desalineada.** Los documentos de verificación de los Slice 12, 14 y 16 todavía describen frontend pendiente o slice planificado; ADR-012 menciona Monaco mientras el editor usado es CodeMirror; existen dos ADR-043 y dos ADR-060.
+4. **Operación del piloto.** El [checklist pre-piloto](SECURITY/pre-pilot-checklist.md) mantiene 11 bloqueos: rama, CI, respaldo, restauración, métricas, rate limiting probado, CORS, capacidad, runbook, cuenta administrativa y consentimiento.
+5. **Validación integral.** La integración contra PostgreSQL, Docker y migraciones no se re-ejecutó en esta auditoría. Los 23 flujos E2E son evidencia del 2026-11-15, no de una corrida posterior a estos documentos. El pin y el apagado tienen tests acotados, no una corrida de integración real.
 
 ---
 
@@ -100,5 +98,6 @@ Los cambios con tareas completas pero sin `verify-report` no se consideran cerra
 
 | Fecha | Cambio |
 | :--- | :--- |
+| 2026-11-16 | Se implementan el pin de entorno de ADR-050 fase 3 (snapshot JSONB, fallback y aviso de uso en el Studio) y el apagado ordenado del API con `SIGTERM`/`SIGINT`, `Shutdown` y cierre coordinado de workers. |
 | 2026-11-16 | Se incorpora el Slice 17, se corrigen los estados de frontend de los Slice 12, 14 y 16, se registra el resultado de la auditoría y se separan implementación, verificación y operación. |
 | 2026-11-16 | Se archivan cinco cambios OpenSpec con `verify-report`; se sincronizan cuatro specs vigentes y se corrige el contrato de conteo de la importación masiva de docentes. |

@@ -25,6 +25,15 @@
       <p class="page-subtitle">
         Seleccione las tecnologías y complementos que necesita para la materia o edite el manifiesto técnico directamente.
       </p>
+      @if (isEditMode() && publishedExerciseCount() > 0) {
+        <p class="pin-usage-warning">
+          <svg lucideAlertTriangle class="pin-warning-icon"></svg>
+          <span>
+            Esta plantilla está fijada en <span class="font-mono" machineData>{{ publishedExerciseCount() }}</span>
+            práctica(s) publicada(s). Los cambios aplican solo a publicaciones nuevas.
+          </span>
+        </p>
+      }
     </div>
   </header>
 

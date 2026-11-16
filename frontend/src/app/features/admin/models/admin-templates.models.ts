@@ -141,6 +141,7 @@ export interface AdminTemplateItem {
   model_id?: string;
   sample_input?: string;
   stack_config?: StackConfig;
+  published_exercise_count?: number;
   created_at: string;
 }
 

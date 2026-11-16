@@ -251,6 +251,19 @@ SOLV_VERSION=2.0.0 docker compose up -d
 Las migraciones se aplican al arrancar el backend, con el lock de PostgreSQL
 `pg_advisory_lock(1337)`. La versión aplicada se publica en `/api/v1/version`.
 
+### Apagado ordenado
+
+El backend captura `SIGTERM` y `SIGINT`, deja de aceptar conexiones, espera
+hasta 15 s las peticiones en curso y después cancela los workers y cierra las
+conexiones WebSocket. `docker compose stop` o `docker compose up -d` envían
+`SIGTERM`; `compose.yml` declara `stop_grace_period: 20s` para que Docker no
+mate el proceso antes de que termine ese apagado.
+
+Si el apagado agota el tiempo, el proceso fuerza el cierre del servidor y lo
+registra como `apagado del API incompleto`. Los contenedores de laboratorio no
+se destruyen durante el apagado: su reconciliación sigue en el siguiente
+arranque.
+
 ### Actualizar con el script
 
 `scripts/upgrade.sh` hace los pasos en el único orden que admite vuelta atrás:

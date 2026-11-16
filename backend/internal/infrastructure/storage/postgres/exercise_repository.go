@@ -2,6 +2,7 @@ package postgres
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"strings"
 	"time"
@@ -43,7 +44,7 @@ func (r *PostgresExerciseRepository) GetByIDAndTenant(ctx context.Context, id, t
 			       COALESCE(reference_solution, '') AS reference_solution,
 			       COALESCE(stale, false) AS stale,
 			       last_valid_dry_run_at, expected_complexity,
-			       config, tenant_id, created_at
+			       config, tenant_id, created_at, environment_snapshot
 			FROM exercises
 			WHERE id = $1 AND tenant_id = $2
 		`
@@ -64,7 +65,7 @@ func (r *PostgresExerciseRepository) GetByIDAndTenant(ctx context.Context, id, t
 			       COALESCE(reference_solution, '') AS reference_solution,
 			       COALESCE(stale, false) AS stale,
 			       last_valid_dry_run_at, expected_complexity,
-			       config, tenant_id, created_at
+			       config, tenant_id, created_at, environment_snapshot
 			FROM exercises
 			WHERE id = $1
 		`
@@ -74,6 +75,12 @@ func (r *PostgresExerciseRepository) GetByIDAndTenant(ctx context.Context, id, t
 	err := r.db.GetContext(ctx, &exercise, query, args...)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get exercise by id %s: %w", id, err)
+	}
+	if len(exercise.EnvironmentSnapshotJSON) > 0 {
+		var snapshot domain.EnvironmentSnapshot
+		if err := json.Unmarshal(exercise.EnvironmentSnapshotJSON, &snapshot); err == nil {
+			exercise.EnvironmentSnapshot = &snapshot
+		}
 	}
 
 	// Cargar casos de prueba desde exercise_test_cases con aislamiento tenant
@@ -326,6 +333,30 @@ func (r *PostgresExerciseRepository) Update(ctx context.Context, exercise *domai
 func (r *PostgresExerciseRepository) UpdateStatus(ctx context.Context, id, tenantID, status string) error {
 	query := `UPDATE exercises SET status = $1 WHERE id = $2 AND tenant_id = $3`
 	res, err := r.db.ExecContext(ctx, query, status, id, tenantID)
+	if err != nil {
+		return fmt.Errorf("failed to update status for exercise %s: %w", id, err)
+	}
+	rows, _ := res.RowsAffected()
+	if rows == 0 {
+		return fmt.Errorf("exercise %s not found in tenant", id)
+	}
+	return nil
+}
+
+// UpdateStatusWithEnvironmentSnapshot publica el ejercicio y persiste el pin
+// del entorno en la misma sentencia. Un snapshot nil limpia el pin anterior:
+// una publicación sin plantilla no debe conservar una decisión vieja.
+func (r *PostgresExerciseRepository) UpdateStatusWithEnvironmentSnapshot(ctx context.Context, id, tenantID, status string, snapshot *domain.EnvironmentSnapshot) error {
+	var payload []byte
+	if snapshot != nil {
+		encoded, err := json.Marshal(snapshot)
+		if err != nil {
+			return fmt.Errorf("failed to encode environment snapshot for exercise %s: %w", id, err)
+		}
+		payload = encoded
+	}
+	query := `UPDATE exercises SET status = $1, environment_snapshot = $2 WHERE id = $3 AND tenant_id = $4`
+	res, err := r.db.ExecContext(ctx, query, status, payload, id, tenantID)
 	if err != nil {
 		return fmt.Errorf("failed to update status for exercise %s: %w", id, err)
 	}

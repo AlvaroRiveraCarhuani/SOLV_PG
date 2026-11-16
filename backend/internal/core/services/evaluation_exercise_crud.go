@@ -51,6 +51,13 @@ func (s *EvaluationService) getHostTotalRAM(ctx context.Context) int {
 
 var ErrZeroPublicTestCases = fmt.Errorf("cannot publish exercise with 0 public test cases")
 
+// environmentSnapshotRepository es la capacidad opcional que persiste el pin
+// del entorno junto con el estado. El repositorio Postgres la implementa; los
+// dobles de prueba que no la implementan conservan la publicación sin pin.
+type environmentSnapshotRepository interface {
+	UpdateStatusWithEnvironmentSnapshot(ctx context.Context, id, tenantID, status string, snapshot *domain.EnvironmentSnapshot) error
+}
+
 // ErrDBInitScriptUnsupported rechaza un db_init_script que el primario declarado por la
 // plantilla no sabe aplicar.
 var ErrDBInitScriptUnsupported = errors.New("db_init_script no soportado por el motor primario de la plantilla")
@@ -78,9 +85,9 @@ func validateExerciseDBInitScript(ex *domain.Exercise, template *domain.AdminTem
 	return fmt.Errorf("%w: %s", ErrDBInitScriptUnsupported, template.Name)
 }
 
-func (s *EvaluationService) resolveAndApplyTemplate(ctx context.Context, ex *domain.Exercise) error {
+func (s *EvaluationService) resolveAndApplyTemplate(ctx context.Context, ex *domain.Exercise) (*domain.AdminTemplateReviewItem, error) {
 	if s.adminGovRepo == nil {
-		return nil
+		return nil, nil
 	}
 	if ex.EnvironmentType == "" {
 		ex.EnvironmentType = string(domain.EnvironmentTypeJuezEfimero)
@@ -92,24 +99,24 @@ func (s *EvaluationService) resolveAndApplyTemplate(ctx context.Context, ex *dom
 	if ex.TemplateID != "" {
 		template, err = s.adminGovRepo.GetTemplateByID(ctx, ex.TemplateID)
 		if err != nil {
-			return fmt.Errorf("failed to resolve template %s: %w", ex.TemplateID, err)
+			return nil, fmt.Errorf("failed to resolve template %s: %w", ex.TemplateID, err)
 		}
 	} else if ex.Language != "" {
 		template, err = s.adminGovRepo.GetTemplateForLanguage(ctx, ex.EnvironmentType, ex.Language)
 		if err != nil {
-			return fmt.Errorf("failed to resolve default template for language %s: %w", ex.Language, err)
+			return nil, fmt.Errorf("failed to resolve default template for language %s: %w", ex.Language, err)
 		}
 	}
 
 	if template != nil {
 		if !strings.EqualFold(template.Status, "approved") && !strings.EqualFold(template.Status, "APROBADA") {
-			return domain.ErrTemplateNotApproved
+			return nil, domain.ErrTemplateNotApproved
 		}
 		if !domain.TemplateSupportsEnvironment(template.TargetEnvironment, ex.EnvironmentType) {
-			return domain.ErrTemplateEnvironmentMismatch
+			return nil, domain.ErrTemplateEnvironmentMismatch
 		}
 		if err := validateExerciseDBInitScript(ex, template); err != nil {
-			return err
+			return nil, err
 		}
 
 		ex.TemplateID = template.ID
@@ -126,16 +133,21 @@ func (s *EvaluationService) resolveAndApplyTemplate(ctx context.Context, ex *dom
 			Name:              template.Name,
 			DockerImage:       template.DockerImage,
 			Entrypoint:        template.Entrypoint,
+			TimeoutMS:         template.TimeoutMS,
 			BaseRamMB:         template.BaseRamMB,
 			TargetEnvironment: template.TargetEnvironment,
 			ServicesConfig:    template.ServicesConfig,
 		}
 	}
-	return nil
+	return template, nil
 }
 
 func (s *EvaluationService) attachTemplateSummary(ctx context.Context, ex *domain.Exercise) {
 	if s.adminGovRepo == nil || ex == nil {
+		return
+	}
+	if ex.EnvironmentSnapshot != nil && !strings.EqualFold(ex.Status, "draft") {
+		ex.Template = ex.EnvironmentSnapshot.AsTemplateSummary()
 		return
 	}
 	var tpl *domain.AdminTemplateReviewItem
@@ -155,6 +167,7 @@ func (s *EvaluationService) attachTemplateSummary(ctx context.Context, ex *domai
 			Name:              tpl.Name,
 			DockerImage:       tpl.DockerImage,
 			Entrypoint:        tpl.Entrypoint,
+			TimeoutMS:         tpl.TimeoutMS,
 			BaseRamMB:         tpl.BaseRamMB,
 			TargetEnvironment: tpl.TargetEnvironment,
 			ServicesConfig:    tpl.ServicesConfig,
@@ -228,7 +241,7 @@ func (s *EvaluationService) CreateExercise(ctx context.Context, ex *domain.Exerc
 	if err := s.validateExerciseInputFormat(ex); err != nil {
 		return err
 	}
-	if err := s.resolveAndApplyTemplate(ctx, ex); err != nil {
+	if _, err := s.resolveAndApplyTemplate(ctx, ex); err != nil {
 		return err
 	}
 	if ex.Config.Algorithm != nil {
@@ -273,7 +286,7 @@ func (s *EvaluationService) UpdateExercise(ctx context.Context, ex *domain.Exerc
 	if err := s.validateExerciseInputFormat(ex); err != nil {
 		return err
 	}
-	if err := s.resolveAndApplyTemplate(ctx, ex); err != nil {
+	if _, err := s.resolveAndApplyTemplate(ctx, ex); err != nil {
 		return err
 	}
 	if ex.Config.Algorithm != nil {
@@ -355,7 +368,8 @@ func (s *EvaluationService) PublishExercise(ctx context.Context, exerciseID, ten
 		return nil, err
 	}
 
-	if err := s.resolveAndApplyTemplate(ctx, ex); err != nil {
+	template, err := s.resolveAndApplyTemplate(ctx, ex)
+	if err != nil {
 		return nil, err
 	}
 
@@ -383,12 +397,58 @@ func (s *EvaluationService) PublishExercise(ctx context.Context, exerciseID, ten
 		}
 	}
 
-	if err := s.exerciseRepo.UpdateStatus(ctx, exerciseID, tenantID, "published"); err != nil {
+	snapshot := buildEnvironmentSnapshot(template)
+	if repo, ok := s.exerciseRepo.(environmentSnapshotRepository); ok {
+		if err := repo.UpdateStatusWithEnvironmentSnapshot(ctx, exerciseID, tenantID, "published", snapshot); err != nil {
+			return nil, fmt.Errorf("failed to publish exercise: %w", err)
+		}
+	} else if err := s.exerciseRepo.UpdateStatus(ctx, exerciseID, tenantID, "published"); err != nil {
 		return nil, fmt.Errorf("failed to publish exercise: %w", err)
 	}
 
 	ex.Status = "published"
+	ex.EnvironmentSnapshot = snapshot
 	return ex, nil
+}
+
+// buildEnvironmentSnapshot congela la decisión efectiva de la plantilla. Los
+// bindings se ordenan con la misma regla que usa el arranque (primario primero)
+// para que la huella sea estable entre publicaciones equivalentes.
+func buildEnvironmentSnapshot(template *domain.AdminTemplateReviewItem) *domain.EnvironmentSnapshot {
+	if template == nil {
+		return nil
+	}
+	snapshot := &domain.EnvironmentSnapshot{
+		TemplateID:        template.ID,
+		TemplateName:      template.Name,
+		DockerImage:       template.DockerImage,
+		Entrypoint:        template.Entrypoint,
+		TimeoutMS:         template.TimeoutMS,
+		BaseRAMMB:         template.BaseRamMB,
+		TargetEnvironment: template.TargetEnvironment,
+		SetupScript:       template.SetupScript,
+	}
+	bindings := templateServiceBindings(&domain.Template{ServicesConfig: template.ServicesConfig})
+	snapshot.Bindings = make([]domain.EnvironmentSnapshotBinding, 0, len(bindings))
+	snapshot.InitContract = make([]domain.EnvironmentInitContract, 0, len(bindings))
+	for _, binding := range bindings {
+		engine := domain.CanonicalServiceEngine(binding.Engine)
+		snapshot.Bindings = append(snapshot.Bindings, domain.EnvironmentSnapshotBinding{
+			Role:        binding.EffectiveRole(),
+			Engine:      engine,
+			ComponentID: binding.ComponentID,
+			Version:     binding.Version,
+			EnvAlias:    binding.EffectiveEnvAlias(),
+			InitKind:    binding.InitKind(),
+		})
+		snapshot.InitContract = append(snapshot.InitContract, domain.EnvironmentInitContract{
+			Alias:  binding.EffectiveEnvAlias(),
+			Engine: engine,
+			Kind:   binding.InitKind(),
+		})
+	}
+	snapshot.VerificationFingerprint = snapshot.ComputeVerificationFingerprint()
+	return snapshot
 }
 
 // UnpublishExercise devuelve la práctica a borrador. Deja de estar disponible para
@@ -402,10 +462,15 @@ func (s *EvaluationService) UnpublishExercise(ctx context.Context, exerciseID, t
 		return nil, err
 	}
 
-	if err := s.exerciseRepo.UpdateStatus(ctx, exerciseID, tenantID, "draft"); err != nil {
+	if repo, ok := s.exerciseRepo.(environmentSnapshotRepository); ok {
+		if err := repo.UpdateStatusWithEnvironmentSnapshot(ctx, exerciseID, tenantID, "draft", nil); err != nil {
+			return nil, fmt.Errorf("failed to unpublish exercise: %w", err)
+		}
+	} else if err := s.exerciseRepo.UpdateStatus(ctx, exerciseID, tenantID, "draft"); err != nil {
 		return nil, fmt.Errorf("failed to unpublish exercise: %w", err)
 	}
 
 	ex.Status = "draft"
+	ex.EnvironmentSnapshot = nil
 	return ex, nil
 }

@@ -61,6 +61,8 @@ services:
         BUILD_DATE: ${SOLV_BUILD_DATE:-unknown}
     container_name: solv_backend
     restart: unless-stopped
+    # El API espera hasta 15 s a las peticiones en curso antes de cerrar.
+    stop_grace_period: 20s
     env_file:
       - .env
     environment:

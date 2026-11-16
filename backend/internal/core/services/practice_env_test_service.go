@@ -196,6 +196,11 @@ func (s *PracticeEnvTestService) resolveTemplate(ctx context.Context, exercise *
 	if s.templates == nil {
 		return nil, nil
 	}
+	if exercise != nil && exercise.EnvironmentSnapshot != nil && !strings.EqualFold(exercise.Status, "draft") {
+		if template := exercise.EnvironmentSnapshot.AsTemplate(); template != nil && strings.TrimSpace(template.DockerImage) != "" {
+			return template, nil
+		}
+	}
 	templateID := strings.TrimSpace(exercise.TemplateID)
 	if templateID == "" && subject != nil && subject.TemplateID != nil {
 		templateID = strings.TrimSpace(*subject.TemplateID)

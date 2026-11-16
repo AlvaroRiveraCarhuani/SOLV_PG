@@ -279,8 +279,12 @@ func (s *PracticeEnvironmentService) resolveExercise(ctx context.Context, exerci
 // resolveTemplateForPracticeEnvironment prioriza la plantilla del ejercicio sobre la de la
 // materia (hallazgo #8): el ejercicio define la imagen real con la que se trabaja.
 func (s *PracticeEnvironmentService) resolveTemplateForPracticeEnvironment(ctx context.Context, subjectID string, exercise *domain.Exercise) *domain.Template {
+	if tpl := templateFromEnvironmentSnapshot(exercise, "arranque"); tpl != nil {
+		return tpl
+	}
 	if exercise != nil && s.templateRepo != nil {
 		if templateID := strings.TrimSpace(exercise.TemplateID); templateID != "" {
+			log.Printf("[PracticeEnvironment] ejercicio %s: se resuelve la plantilla viva %s (fallback)", exercise.ID, templateID)
 			if tpl, err := s.templateRepo.GetTemplateByID(ctx, templateID); err == nil && tpl != nil {
 				return tpl
 			}
@@ -289,13 +293,40 @@ func (s *PracticeEnvironmentService) resolveTemplateForPracticeEnvironment(ctx c
 	return s.resolveTemplate(ctx, subjectID)
 }
 
+// templateFromEnvironmentSnapshot devuelve la plantilla congelada del ejercicio.
+// Un snapshot incompleto no se usa a medias: se registra y se deja que el
+// llamador resuelva la plantilla viva.
+func templateFromEnvironmentSnapshot(exercise *domain.Exercise, origin string) *domain.Template {
+	if exercise == nil || exercise.EnvironmentSnapshot == nil || strings.EqualFold(exercise.Status, "draft") {
+		return nil
+	}
+	tpl := exercise.EnvironmentSnapshot.AsTemplate()
+	if tpl == nil || strings.TrimSpace(tpl.DockerImage) == "" {
+		log.Printf("[PracticeEnvironment] ejercicio %s tiene un environment_snapshot inválido en %s: se usa la plantilla viva", exercise.ID, origin)
+		return nil
+	}
+	return tpl
+}
+
 // resolveTemplateForInstance prefiere la plantilla con la que nació el
 // laboratorio. Reconstruir el montaje (congelar o descongelar) tiene que usar la
 // misma imagen y los mismos servicios, aunque la materia haya cambiado de
 // plantilla después.
 func (s *PracticeEnvironmentService) resolveTemplateForInstance(ctx context.Context, instance *domain.PracticeEnvironment) *domain.Template {
+	if instance != nil && instance.ExerciseID != nil {
+		tenantID := domain.GetTenantID(ctx)
+		if tenantID == "" {
+			tenantID = domain.DefaultTenantID
+		}
+		if exercise := s.resolveExercise(ctx, *instance.ExerciseID, tenantID); exercise != nil {
+			if tpl := templateFromEnvironmentSnapshot(exercise, "reactivación"); tpl != nil {
+				return tpl
+			}
+		}
+	}
 	if instance != nil && s.templateRepo != nil && instance.TemplateID != nil {
 		if templateID := strings.TrimSpace(*instance.TemplateID); templateID != "" {
+			log.Printf("[PracticeEnvironment] entorno %s sin environment_snapshot legible: se resuelve la plantilla viva %s (fallback)", instance.ID, templateID)
 			if tpl, err := s.templateRepo.GetTemplateByID(ctx, templateID); err == nil && tpl != nil {
 				return tpl
 			}

@@ -156,6 +156,13 @@ func (m *mockExerciseRepoGov) UpdateStatus(ctx context.Context, id, tenantID, st
 	}
 	return nil
 }
+func (m *mockExerciseRepoGov) UpdateStatusWithEnvironmentSnapshot(ctx context.Context, id, tenantID, status string, snapshot *domain.EnvironmentSnapshot) error {
+	if ex, ok := m.exercises[id]; ok {
+		ex.Status = status
+		ex.EnvironmentSnapshot = snapshot
+	}
+	return nil
+}
 func (m *mockExerciseRepoGov) UpdateConfig(ctx context.Context, id, tenantID string, config domain.ExerciseConfig) error {
 	return nil
 }

@@ -525,6 +525,9 @@ type AdminTemplateReviewItem struct {
 	EOLMessage          string                  `db:"eol_message" json:"eol_message"`
 	EOLCheckedAt        *time.Time              `db:"eol_checked_at" json:"eol_checked_at,omitempty"`
 	CreatedAt           time.Time               `db:"created_at" json:"created_at"`
+	// PublishedExerciseCount cuenta las prácticas publicadas que todavía usan
+	// esta plantilla. La UI lo usa para advertir que editarla no cambia esos pins.
+	PublishedExerciseCount int `db:"published_exercise_count" json:"published_exercise_count"`
 }
 
 // TemplateCategory categoría institucional de entornos

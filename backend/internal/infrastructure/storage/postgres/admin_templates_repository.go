@@ -24,77 +24,79 @@ func isTemplateApproved(status string) bool {
 }
 
 type adminTemplateRow struct {
-	ID                  string     `db:"id"`
-	TenantID            *string    `db:"tenant_id"`
-	Name                string     `db:"name"`
-	DockerImage         string     `db:"docker_image"`
-	BaseRamMB           int        `db:"base_ram_mb"`
-	Status              string     `db:"status"`
-	RejectionReason     string     `db:"rejection_reason"`
-	ReviewedBy          *string    `db:"reviewed_by"`
-	ReviewedAt          *time.Time `db:"reviewed_at"`
-	RequestedBy         *string    `db:"requested_by"`
-	RequestedByName     *string    `db:"requested_by_name"`
-	Description         string     `db:"description"`
-	TargetEnvironment   string     `db:"target_environment"`
-	Entrypoint          string     `db:"entrypoint"`
-	TimeoutMS           int        `db:"timeout_ms"`
-	SampleInput         string     `db:"sample_input"`
-	CategoryID          *string    `db:"category_id"`
-	CategoryName        *string    `db:"category_name"`
-	ModelID             *string    `db:"model_id"`
-	ServicesConfig      []byte     `db:"services_config"`
-	ResourceProfile     []byte     `db:"resource_profile"`
-	SetupScript         string     `db:"setup_script"`
-	ToolsDeclared       []byte     `db:"tools_declared"`
-	StackConfig         []byte     `db:"stack_config"`
-	SmokeTestStatus     string     `db:"smoke_test_status"`
-	SmokeTestOutput     string     `db:"smoke_test_output"`
-	SecurityAuditStatus string     `db:"security_audit_status"`
-	CVECriticalCount    int        `db:"cve_critical_count"`
-	CVEHighCount        int        `db:"cve_high_count"`
-	SecurityAuditedAt   *time.Time `db:"security_audited_at"`
-	EOLStatus           string     `db:"eol_status"`
-	EOLDate             string     `db:"eol_date"`
-	EOLMessage          string     `db:"eol_message"`
-	EOLCheckedAt        *time.Time `db:"eol_checked_at"`
-	CreatedAt           time.Time  `db:"created_at"`
+	ID                     string     `db:"id"`
+	TenantID               *string    `db:"tenant_id"`
+	Name                   string     `db:"name"`
+	DockerImage            string     `db:"docker_image"`
+	BaseRamMB              int        `db:"base_ram_mb"`
+	Status                 string     `db:"status"`
+	RejectionReason        string     `db:"rejection_reason"`
+	ReviewedBy             *string    `db:"reviewed_by"`
+	ReviewedAt             *time.Time `db:"reviewed_at"`
+	RequestedBy            *string    `db:"requested_by"`
+	RequestedByName        *string    `db:"requested_by_name"`
+	Description            string     `db:"description"`
+	TargetEnvironment      string     `db:"target_environment"`
+	Entrypoint             string     `db:"entrypoint"`
+	TimeoutMS              int        `db:"timeout_ms"`
+	SampleInput            string     `db:"sample_input"`
+	CategoryID             *string    `db:"category_id"`
+	CategoryName           *string    `db:"category_name"`
+	ModelID                *string    `db:"model_id"`
+	ServicesConfig         []byte     `db:"services_config"`
+	ResourceProfile        []byte     `db:"resource_profile"`
+	SetupScript            string     `db:"setup_script"`
+	ToolsDeclared          []byte     `db:"tools_declared"`
+	StackConfig            []byte     `db:"stack_config"`
+	SmokeTestStatus        string     `db:"smoke_test_status"`
+	SmokeTestOutput        string     `db:"smoke_test_output"`
+	SecurityAuditStatus    string     `db:"security_audit_status"`
+	CVECriticalCount       int        `db:"cve_critical_count"`
+	CVEHighCount           int        `db:"cve_high_count"`
+	SecurityAuditedAt      *time.Time `db:"security_audited_at"`
+	EOLStatus              string     `db:"eol_status"`
+	EOLDate                string     `db:"eol_date"`
+	EOLMessage             string     `db:"eol_message"`
+	EOLCheckedAt           *time.Time `db:"eol_checked_at"`
+	CreatedAt              time.Time  `db:"created_at"`
+	PublishedExerciseCount int        `db:"published_exercise_count"`
 }
 
 func (row *adminTemplateRow) toDomain() *domain.AdminTemplateReviewItem {
 	item := &domain.AdminTemplateReviewItem{
-		ID:                  row.ID,
-		TenantID:            row.TenantID,
-		Name:                row.Name,
-		DockerImage:         row.DockerImage,
-		BaseRamMB:           row.BaseRamMB,
-		Status:              row.Status,
-		RejectionReason:     row.RejectionReason,
-		ReviewedBy:          row.ReviewedBy,
-		ReviewedAt:          row.ReviewedAt,
-		RequestedBy:         row.RequestedBy,
-		RequestedByName:     row.RequestedByName,
-		Description:         row.Description,
-		TargetEnvironment:   row.TargetEnvironment,
-		Entrypoint:          row.Entrypoint,
-		TimeoutMS:           row.TimeoutMS,
-		SampleInput:         row.SampleInput,
-		CategoryID:          row.CategoryID,
-		CategoryName:        row.CategoryName,
-		ModelID:             row.ModelID,
-		SetupScript:         row.SetupScript,
-		SmokeTestStatus:     row.SmokeTestStatus,
-		SmokeTestOutput:     row.SmokeTestOutput,
-		SecurityAuditStatus: row.SecurityAuditStatus,
-		CVECriticalCount:    row.CVECriticalCount,
-		CVEHighCount:        row.CVEHighCount,
-		SecurityAuditedAt:   row.SecurityAuditedAt,
-		EOLStatus:           row.EOLStatus,
-		EOLDate:             row.EOLDate,
-		EOLMessage:          row.EOLMessage,
-		EOLCheckedAt:        row.EOLCheckedAt,
-		CreatedAt:           row.CreatedAt,
-		ToolsDeclared:       []string{},
+		ID:                     row.ID,
+		TenantID:               row.TenantID,
+		Name:                   row.Name,
+		DockerImage:            row.DockerImage,
+		BaseRamMB:              row.BaseRamMB,
+		Status:                 row.Status,
+		RejectionReason:        row.RejectionReason,
+		ReviewedBy:             row.ReviewedBy,
+		ReviewedAt:             row.ReviewedAt,
+		RequestedBy:            row.RequestedBy,
+		RequestedByName:        row.RequestedByName,
+		Description:            row.Description,
+		TargetEnvironment:      row.TargetEnvironment,
+		Entrypoint:             row.Entrypoint,
+		TimeoutMS:              row.TimeoutMS,
+		SampleInput:            row.SampleInput,
+		CategoryID:             row.CategoryID,
+		CategoryName:           row.CategoryName,
+		ModelID:                row.ModelID,
+		SetupScript:            row.SetupScript,
+		SmokeTestStatus:        row.SmokeTestStatus,
+		SmokeTestOutput:        row.SmokeTestOutput,
+		SecurityAuditStatus:    row.SecurityAuditStatus,
+		CVECriticalCount:       row.CVECriticalCount,
+		CVEHighCount:           row.CVEHighCount,
+		SecurityAuditedAt:      row.SecurityAuditedAt,
+		EOLStatus:              row.EOLStatus,
+		EOLDate:                row.EOLDate,
+		EOLMessage:             row.EOLMessage,
+		EOLCheckedAt:           row.EOLCheckedAt,
+		CreatedAt:              row.CreatedAt,
+		PublishedExerciseCount: row.PublishedExerciseCount,
+		ToolsDeclared:          []string{},
 	}
 	if len(row.ServicesConfig) > 0 {
 		_ = json.Unmarshal(row.ServicesConfig, &item.ServicesConfig)
@@ -151,7 +153,12 @@ func (r *PostgresAdminGovernanceRepository) ListTemplates(
 			COALESCE(lt.eol_message, '') AS eol_message,
 			lt.eol_checked_at,
 			lt.security_audited_at,
-			lt.created_at
+			lt.created_at,
+			(SELECT COUNT(*)
+			 FROM exercises e
+			 WHERE e.template_id = lt.id
+			   AND e.status = 'published'
+			   AND ($1 = '' OR lt.tenant_id IS NULL OR e.tenant_id = NULLIF($1, '')::uuid)) AS published_exercise_count
 		FROM lab_templates lt
 		LEFT JOIN users u ON u.id = lt.requested_by
 		LEFT JOIN template_categories tc ON tc.id = lt.category_id

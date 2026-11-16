@@ -2,13 +2,18 @@ package main
 
 import (
 	"context"
+	"errors"
+	"fmt"
 	"log"
+	"net"
 	"net/http"
 	"os"
+	"os/signal"
 	"path/filepath"
 	"runtime"
 	"strconv"
 	"strings"
+	"syscall"
 	"time"
 
 	"github.com/docker/docker/client"
@@ -605,8 +610,60 @@ func main() {
 		ReadHeaderTimeout: 10 * time.Second,
 		IdleTimeout:       120 * time.Second,
 	}
-	if err := srv.ListenAndServe(); err != nil {
-		log.Fatalf("Server failed: %v", err)
+	shutdownSignal, stopSignals := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stopSignals()
+	listener, err := net.Listen("tcp", srv.Addr)
+	if err != nil {
+		log.Fatalf("Fatal: no se pudo abrir el puerto %s: %v", srv.Addr, err)
+	}
+	if err := serveUntilShutdown(srv, listener, shutdownSignal.Done(), 15*time.Second); err != nil {
+		log.Printf("API detenida con error: %v", err)
+	}
+	// El servidor dejó de aceptar tráfico; recién ahora se detienen los
+	// workers que dependen de la base y se cierran las conexiones vivas.
+	cancel()
+	qosWorker.Stop()
+	templateAuditWorker.Stop()
+	wsHub.CloseAll()
+	log.Println("API detenida de forma ordenada")
+}
+
+// serveUntilShutdown sirve hasta que se cierra la señal o el servidor falla.
+// Ante una señal, deja de aceptar conexiones, espera las peticiones en curso
+// hasta el timeout y solo entonces cierra el listener. Un timeout agotado se
+// informa y se fuerza el cierre para no dejar el proceso colgado.
+func serveUntilShutdown(srv *http.Server, listener net.Listener, shutdown <-chan struct{}, timeout time.Duration) error {
+	if srv == nil || listener == nil {
+		return errors.New("servidor HTTP o listener no inicializado")
+	}
+	if timeout <= 0 {
+		timeout = 15 * time.Second
+	}
+	serveErr := make(chan error, 1)
+	go func() {
+		serveErr <- srv.Serve(listener)
+	}()
+
+	select {
+	case err := <-serveErr:
+		if err == nil || errors.Is(err, http.ErrServerClosed) {
+			return nil
+		}
+		return err
+	case <-shutdown:
+		shutdownCtx, cancel := context.WithTimeout(context.Background(), timeout)
+		defer cancel()
+		shutdownErr := srv.Shutdown(shutdownCtx)
+		if shutdownErr != nil {
+			_ = srv.Close()
+		}
+		if err := <-serveErr; err != nil && !errors.Is(err, http.ErrServerClosed) {
+			return err
+		}
+		if shutdownErr != nil {
+			return fmt.Errorf("apagado del API incompleto: %w", shutdownErr)
+		}
+		return nil
 	}
 }
 

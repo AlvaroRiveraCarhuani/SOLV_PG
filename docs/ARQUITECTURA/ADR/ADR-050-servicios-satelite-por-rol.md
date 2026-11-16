@@ -122,7 +122,7 @@ Los bindings aplican a `IDE_PERSISTENTE`. `JUEZ_EFIMERO` y `AMBOS` siguen sin se
 |---|---|---|
 | 1 | Contrato de bindings, roles, invariantes y validación server-side | Implementado |
 | 2 | Capacidad: reserva del nodo separada de la cuota del alumno y fórmula de admisión | Implementado |
-| 3 | Pin del entorno al publicar y lectura en el arranque del workspace | Pendiente |
+| 3 | Pin del entorno al publicar y lectura en el arranque del workspace | Implementado |
 | 4 | Adaptadores, pipeline de N bindings, init por motor y scale-to-zero por conjunto | Implementado |
 | 5 | Aislamiento por motor y scope con tenant | Pendiente |
 | 6 | Studio (base principal + auxiliares), copiloto y modal docente | Pendiente |
@@ -150,7 +150,15 @@ La fase 1 y la fase 4 están acopladas: con el pipeline aprovisionando varios bi
 - **Tests:** `TestNodeSatelliteReserveMB_CountsEachEngineOnce` fija que la reserva es la misma con 2 que con 30 laboratorios, y `TestAdmissionBudgetDenied` cubre el alumno 30 y el caso que la cuenta anterior negaba.
 - **Pendiente de la fase 2:** `expected_mb` sigue viniendo del catálogo (`ram_delta_mb`) y no del adaptador; unificarlo y exponer la reserva en la telemetría de capacidad corresponde a la fase 7 y a ADR-049.
 
-Pendiente fuera de este corte: aislamiento por credenciales con tenant (fase 5), pin del entorno al publicar (fase 3), multi-selección en el Studio (fase 6) e identidad versionada del satélite (fase 7).
+### Detalle de lo implementado en la fase 3
+
+- **Persistencia:** al publicar, `PublishExercise` resuelve la plantilla efectiva y guarda `exercises.environment_snapshot` (JSONB, migración `00059`) con `template_id`, nombre, imagen, entrypoint, timeout, `base_ram_mb`, bindings resueltos, contrato de init (`sql`, `mongo-js`, `redis-cmds` o `none`), script de setup y `verification_fingerprint`. La escritura del estado y del pin ocurre en una sola sentencia.
+- **Lectura:** el arranque del workspace, la reactivación de un entorno y la prueba de práctica del docente priorizan `AsTemplate()` del snapshot. El juez usa `AsTemplateSummary()` cuando resuelve la plantilla del ejercicio. Editar la plantilla no reescribe publicaciones anteriores.
+- **Fallback:** un ejercicio publicado antes del corte (o un snapshot incompleto) resuelve la plantilla viva y deja el registro `sin environment_snapshot ... (fallback)` en el log. Un snapshot con imagen vacía no se aplica a medias.
+- **UI:** el Studio muestra cuántas prácticas publicadas usan la plantilla al editarla (`published_exercise_count`), con el aviso de que los cambios aplican solo a publicaciones nuevas.
+- **Huella:** `verification_fingerprint` es un SHA-256 determinista sobre los campos del snapshot; no incluye el propio campo de huella.
+
+Pendiente fuera de este corte: aislamiento por credenciales con tenant (fase 5), multi-selección en el Studio (fase 6) e identidad versionada del satélite (fase 7).
 
 ## Alternativas Descartadas
 

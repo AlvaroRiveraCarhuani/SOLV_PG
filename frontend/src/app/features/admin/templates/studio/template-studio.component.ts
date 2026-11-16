@@ -145,6 +145,7 @@ export class TemplateStudioComponent implements OnInit, OnDestroy {
   private readonly sub = new Subscription();
   private pollSub?: Subscription;
   private loadedTemplateItem: AdminTemplateItem | null = null;
+  readonly publishedExerciseCount = signal(0);
   private isDuplicateLoad = false;
   private readonly pendingDraft: StudioDraft | null;
 
@@ -732,6 +733,7 @@ export class TemplateStudioComponent implements OnInit, OnDestroy {
 
   private applyTemplateToStudio(tpl: AdminTemplateItem, isDuplicate: boolean): void {
     this.isNameManuallyEdited.set(true);
+    this.publishedExerciseCount.set(isDuplicate ? 0 : (tpl.published_exercise_count ?? 0));
     this.name.set(isDuplicate ? `(Copia) ${tpl.name}` : tpl.name);
     this.description.set(tpl.description || '');
     this.targetEnvironment.set((tpl.target_environment as TargetEnvironment) || 'IDE_PERSISTENTE');

@@ -1,6 +1,7 @@
 package domain
 
 import (
+	"crypto/sha256"
 	"database/sql/driver"
 	"encoding/json"
 	"errors"
@@ -312,9 +313,105 @@ type TemplateSummary struct {
 	Name              string         `json:"name"`
 	DockerImage       string         `json:"docker_image"`
 	Entrypoint        string         `json:"entrypoint,omitempty"`
+	TimeoutMS         int            `json:"timeout_ms,omitempty"`
 	BaseRamMB         int            `json:"base_ram_mb"`
 	TargetEnvironment string         `json:"target_environment"`
 	ServicesConfig    ServicesConfig `json:"services_config"`
+}
+
+// EnvironmentSnapshotBinding es un binding de servicio resuelto al publicar.
+// Guarda la decisión efectiva (rol, motor, alias e init), no la referencia viva
+// a la plantilla: editar la plantilla no cambia una publicación anterior.
+type EnvironmentSnapshotBinding struct {
+	Role        ServiceRole     `json:"role,omitempty"`
+	Engine      string          `json:"engine"`
+	ComponentID string          `json:"component_id,omitempty"`
+	Version     string          `json:"version,omitempty"`
+	EnvAlias    string          `json:"env_alias,omitempty"`
+	InitKind    ServiceInitKind `json:"init_kind"`
+}
+
+// EnvironmentInitContract deja explícito cómo se inicializa cada binding.
+type EnvironmentInitContract struct {
+	Alias  string          `json:"alias"`
+	Engine string          `json:"engine"`
+	Kind   ServiceInitKind `json:"kind"`
+}
+
+// EnvironmentSnapshot es el pin del entorno que se persiste al publicar un
+// ejercicio (ADR-050, D4). El arranque del workspace y el juez lo leen antes
+// que la plantilla viva; sin snapshot se usa la plantilla viva y se registra el
+// fallback.
+type EnvironmentSnapshot struct {
+	TemplateID              string                       `json:"template_id"`
+	TemplateName            string                       `json:"template_name,omitempty"`
+	DockerImage             string                       `json:"docker_image"`
+	Entrypoint              string                       `json:"entrypoint"`
+	TimeoutMS               int                          `json:"timeout_ms"`
+	BaseRAMMB               int                          `json:"base_ram_mb"`
+	TargetEnvironment       string                       `json:"target_environment,omitempty"`
+	Bindings                []EnvironmentSnapshotBinding `json:"bindings"`
+	InitContract            []EnvironmentInitContract    `json:"init_contract"`
+	SetupScript             string                       `json:"setup_script,omitempty"`
+	VerificationFingerprint string                       `json:"verification_fingerprint"`
+}
+
+// AsTemplateSummary reconstruye la vista de plantilla que consumen el juez y
+// los editores. No incluye el script de setup: quien arranca el contenedor usa
+// AsTemplate.
+func (s *EnvironmentSnapshot) AsTemplateSummary() *TemplateSummary {
+	if s == nil {
+		return nil
+	}
+	services := make([]ServiceRequirement, 0, len(s.Bindings))
+	for _, binding := range s.Bindings {
+		services = append(services, ServiceRequirement{
+			Role:        binding.Role,
+			Engine:      binding.Engine,
+			ComponentID: binding.ComponentID,
+			Version:     binding.Version,
+			EnvAlias:    binding.EnvAlias,
+		})
+	}
+	return &TemplateSummary{
+		ID:                s.TemplateID,
+		Name:              s.TemplateName,
+		DockerImage:       s.DockerImage,
+		Entrypoint:        s.Entrypoint,
+		TimeoutMS:         s.TimeoutMS,
+		BaseRamMB:         s.BaseRAMMB,
+		TargetEnvironment: s.TargetEnvironment,
+		ServicesConfig:    ServicesConfig{Services: services},
+	}
+}
+
+// AsTemplate reconstruye la plantilla que arranca el workspace con los valores
+// congelados en la publicación.
+func (s *EnvironmentSnapshot) AsTemplate() *Template {
+	summary := s.AsTemplateSummary()
+	if summary == nil {
+		return nil
+	}
+	return &Template{
+		ID:             summary.ID,
+		Name:           summary.Name,
+		DockerImage:    summary.DockerImage,
+		BaseRamMB:      summary.BaseRamMB,
+		ServicesConfig: summary.ServicesConfig,
+		SetupScript:    s.SetupScript,
+	}
+}
+
+// ComputeVerificationFingerprint devuelve una huella determinista del pin. El
+// propio campo de huella no participa del cálculo.
+func (s EnvironmentSnapshot) ComputeVerificationFingerprint() string {
+	s.VerificationFingerprint = ""
+	raw, err := json.Marshal(s)
+	if err != nil {
+		return ""
+	}
+	sum := sha256.Sum256(raw)
+	return fmt.Sprintf("%x", sum[:])[:16]
 }
 
 type Exercise struct {
@@ -343,7 +440,11 @@ type Exercise struct {
 	Config             ExerciseConfig   `json:"config" db:"config"`
 	TenantID           string           `json:"tenant_id" db:"tenant_id"`
 	Template           *TemplateSummary `json:"template,omitempty" db:"-"`
-	CreatedAt          time.Time        `json:"created_at" db:"created_at"`
+	// EnvironmentSnapshot es el pin de ADR-050. Se lee junto con el ejercicio y
+	// tiene prioridad sobre la plantilla viva al arrancar un entorno.
+	EnvironmentSnapshot     *EnvironmentSnapshot `json:"environment_snapshot,omitempty" db:"-"`
+	EnvironmentSnapshotJSON []byte               `json:"-" db:"environment_snapshot"`
+	CreatedAt               time.Time            `json:"created_at" db:"created_at"`
 }
 
 type ComplexityMeasurement struct {
