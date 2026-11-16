@@ -35,7 +35,7 @@ import (
 func main() {
 	var (
 		dsn, action, name, slug, adminEmail, adminFirst, adminLast, domains string
-		periodCode, periodName, periodStart, periodEnd                       string
+		periodCode, periodName, periodStart, periodEnd                      string
 	)
 
 	flag.StringVar(&dsn, "dsn", "", "database DSN (por defecto DATABASE_URL)")
