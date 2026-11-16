@@ -34,7 +34,8 @@ interface CourseLoadRaw {
 
 interface DirectTeacherResponse {
   message: string;
-  teacher?: TeacherItem;
+  data?: TeacherItem;
+  notified?: boolean;
 }
 
 @Injectable({

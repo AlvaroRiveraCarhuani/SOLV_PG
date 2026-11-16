@@ -140,5 +140,7 @@ export interface BatchDirectTeacherPayload {
 
 export interface BatchDirectTeacherResponse {
   message: string;
-  created_count: number;
+  registered_count: number;
+  total_processed: number;
+  notified: boolean;
 }

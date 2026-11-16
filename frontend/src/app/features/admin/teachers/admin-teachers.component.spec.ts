@@ -166,7 +166,7 @@ describe('AdminTeachersComponent Unit Tests', () => {
   });
 
   it('onDirectTeacherSubmitted llama a directRegisterTeacher y recarga docentes', () => {
-    mockTeachersService.directRegisterTeacher = vi.fn().mockReturnValue(of({ message: 'Docente registrado', teacher: {} }));
+    mockTeachersService.directRegisterTeacher = vi.fn().mockReturnValue(of({ message: 'Docente registrado', data: {}, notified: true }));
     component.onDirectTeacherSubmitted({
       email: 'nuevo@uab.edu.bo',
       first_name: 'Nuevo',
@@ -183,7 +183,7 @@ describe('AdminTeachersComponent Unit Tests', () => {
   });
 
   it('onBatchTeachersSubmitted llama a batchDirectRegister y muestra toast con conteo', () => {
-    mockTeachersService.batchDirectRegister = vi.fn().mockReturnValue(of({ message: 'Registrados', created_count: 5 }));
+    mockTeachersService.batchDirectRegister = vi.fn().mockReturnValue(of({ message: 'Registrados', registered_count: 5, total_processed: 5, notified: true }));
     component.onBatchTeachersSubmitted({
       emails: ['d1@uab.edu.bo', 'd2@uab.edu.bo'],
       send_notification: true

@@ -489,7 +489,7 @@ export class AdminTeachersComponent implements OnInit, OnDestroy {
       this.showInviteModal.set(false);
       if (res) {
         this.registeredInSession.set(true);
-        this.showToast(`${res.created_count} docentes registrados exitosamente`);
+        this.showToast(`${res.registered_count} docentes registrados exitosamente`);
         this.loadTeachers();
       } else {
         this.showToast('No se pudo procesar la importación masiva', true);
