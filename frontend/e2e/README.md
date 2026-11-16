@@ -1,8 +1,8 @@
-# Suite de Pruebas E2E Multi-Rol — Juez Virtual SOLV
+# Tests E2E multi-rol — Juez Virtual SOLV
 
-Esta suite implementa pruebas end-to-end (E2E) con **alta fidelidad multi-rol**, imitando el comportamiento real de Administradores, Docentes y Estudiantes en tiempo real con aislamiento de sesiones JWT y monitoreo forense automatizado.
+Este conjunto implementa tests end-to-end (E2E) con **alta fidelidad multi-rol**, imitando el comportamiento real de Administradores, Docentes y Estudiantes en tiempo real con aislamiento de sesiones JWT y monitoreo forense automatizado.
 
-> **Estado de la corrida (2026-11-10):** hay specs pendientes y el plan L3 no está validado. El detalle de cada uno, su último fallo y los comandos para cerrarlo están en [`docs/E2E/02-SPECS_PENDIENTES.md`](../../docs/E2E/02-SPECS_PENDIENTES.md).
+> **Estado de la corrida (2026-11-15):** 23 de 23 flujos en verde, sin fallos ni resultados inestables. El resumen versionado está en [`docs/E2E/03-RESUMEN_CORRIDA_2026-11-15.md`](../../docs/E2E/03-RESUMEN_CORRIDA_2026-11-15.md) y el catálogo vigente en [`docs/E2E/02-SPECS_PENDIENTES.md`](../../docs/E2E/02-SPECS_PENDIENTES.md).
 
 ---
 

@@ -69,4 +69,5 @@ La relación entre ambas documentaciones, junto a la tabla de correspondencia sl
 
 ## 9. Entorno Local y Pruebas E2E
 * [`OPERATIONS/GUIA_LOCAL_FEDORA.md`](OPERATIONS/GUIA_LOCAL_FEDORA.md): Cómo levantar SOLV en Fedora, verificar los servicios y entrar al navegador con Google o con una sesión local.
-* [`E2E/02-SPECS_PENDIENTES.md`](E2E/02-SPECS_PENDIENTES.md): Estado de los specs E2E pendientes, último fallo conocido y comandos para cerrar el plan L3.
+* [`E2E/02-SPECS_PENDIENTES.md`](E2E/02-SPECS_PENDIENTES.md): Catálogo E2E vigente; los 23 flujos de `e2e/flows/` quedaron en verde el 2026-11-15.
+* [`E2E/03-RESUMEN_CORRIDA_2026-11-15.md`](E2E/03-RESUMEN_CORRIDA_2026-11-15.md): Datos, duraciones y límites de la corrida E2E del 15 de noviembre.
