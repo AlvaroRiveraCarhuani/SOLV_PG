@@ -26,7 +26,8 @@ import {
   LucideCheckCircle2,
   LucideAlertCircle,
   LucideAlertTriangle,
-  LucidePower
+  LucidePower,
+  LucideTrash2
 } from '@lucide/angular';
 
 const CEILING_OPTIONS = [
@@ -53,6 +54,15 @@ export function validateBackupInt(raw: unknown, min: number, max: number, field:
 }
 
 const SERVIDOR_HELP_KEY = 'config-server';
+const ORPHAN_PRUNE_PHRASE = 'LIBERAR VOLUMENES HUERFANOS';
+
+/** Motivos estables del backend: la pantalla los explica, no los repite crudos. */
+const KEEP_REASON_LABELS: Record<string, string> = {
+  entorno_registrado: 'Pertenece a un entorno registrado',
+  fuera_del_espacio_de_la_plataforma: 'No es un volumen de laboratorio',
+  ya_no_es_huerfano: 'Tiene un contenedor asociado',
+  fallo_al_borrar: 'El daemon no permitió borrarlo'
+};
 
 @Component({
   selector: 'admin-config-servidor',
@@ -75,7 +85,8 @@ const SERVIDOR_HELP_KEY = 'config-server';
     LucideCheckCircle2,
     LucideAlertCircle,
     LucideAlertTriangle,
-    LucidePower
+    LucidePower,
+    LucideTrash2
   ],
   templateUrl: './admin-config-servidor.component.html',
   styleUrls: ['./admin-config-servidor.component.scss']
@@ -140,6 +151,84 @@ export class AdminConfigServidorComponent implements OnInit, OnDestroy {
   adoptRecommendedMaxContainers(): void {
     const recommended = this.recommendedMaxContainers();
     if (recommended > 0) this.selectedMaxContainers.set(recommended);
+  }
+
+  // ------------------------------------------------------------------
+  // Espacio en disco: volúmenes sin dueño
+  // ------------------------------------------------------------------
+  readonly orphanPlan = this.servidorService.orphanPlan;
+  readonly orphansLoading = this.servidorService.orphansLoading;
+  readonly orphansError = this.servidorService.orphansError;
+  readonly selectedOrphanNames = signal<string[]>([]);
+  readonly orphanModalOpen = signal(false);
+  readonly orphanPhrase = signal('');
+  readonly isPruningOrphans = signal(false);
+
+  readonly orphanPhraseValid = computed(() => this.orphanPhrase() === ORPHAN_PRUNE_PHRASE);
+  readonly selectedOrphanMB = computed(() => {
+    const selected = new Set(this.selectedOrphanNames());
+    return (this.orphanPlan()?.orphans ?? [])
+      .filter((volume) => selected.has(volume.name))
+      .reduce((total, volume) => total + volume.size_mb, 0);
+  });
+  readonly canOpenOrphanModal = computed(
+    () => this.selectedOrphanNames().length > 0 && !this.isPruningOrphans()
+  );
+  readonly canConfirmOrphanPrune = computed(
+    () => this.orphanPhraseValid() && this.selectedOrphanNames().length > 0 && !this.isPruningOrphans()
+  );
+
+  isOrphanSelected(name: string): boolean {
+    return this.selectedOrphanNames().includes(name);
+  }
+
+  toggleOrphan(name: string): void {
+    this.selectedOrphanNames.update((current) =>
+      current.includes(name) ? current.filter((item) => item !== name) : [...current, name]
+    );
+  }
+
+  reloadOrphans(): void {
+    this.servidorService.loadOrphanVolumes();
+  }
+
+  selectAllOrphans(): void {
+    this.selectedOrphanNames.set((this.orphanPlan()?.orphans ?? []).map((volume) => volume.name));
+  }
+
+  openOrphanModal(): void {
+    if (!this.canOpenOrphanModal()) return;
+    this.orphanPhrase.set('');
+    this.orphanModalOpen.set(true);
+  }
+
+  closeOrphanModal(): void {
+    this.orphanModalOpen.set(false);
+  }
+
+  confirmOrphanPrune(): void {
+    if (!this.canConfirmOrphanPrune()) return;
+    this.isPruningOrphans.set(true);
+
+    this.servidorService.pruneOrphanVolumes(this.selectedOrphanNames(), this.orphanPhrase()).subscribe({
+      next: (res) => {
+        this.isPruningOrphans.set(false);
+        this.orphanModalOpen.set(false);
+        this.selectedOrphanNames.set([]);
+        this.showToast(
+          `Se liberaron ${res.data.deleted.length} volumen(es): ${this.formatBytes(res.data.freed_mb * 1048576)}. Quedan ${this.formatBytes(res.data.remaining_orphan_mb * 1048576)} recuperables.`
+        );
+        this.servidorService.loadOrphanVolumes();
+      },
+      error: (err) => {
+        this.isPruningOrphans.set(false);
+        this.showToast(this.servidorService.resolveError(err), 'error');
+      }
+    });
+  }
+
+  formatKeepReason(reason: string): string {
+    return KEEP_REASON_LABELS[reason] ?? reason;
   }
 
   // Respaldos: estrategia local (frecuencia/retención)
@@ -280,6 +369,7 @@ export class AdminConfigServidorComponent implements OnInit, OnDestroy {
       }
     });
     this.servidorService.loadAll();
+    this.servidorService.loadOrphanVolumes();
   }
 
   ngOnDestroy(): void {

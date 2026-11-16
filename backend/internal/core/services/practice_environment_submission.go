@@ -14,6 +14,64 @@ import (
 	"solv-backend/internal/core/domain"
 )
 
+// strictVolumeSnapshotter es una capacidad opcional del orquestador: la lectura
+// que falla en vez de recortar. Con ella la entrega rechaza un proyecto que no
+// entra en el tope; sin ella se queda con lo que entra, como antes.
+type strictVolumeSnapshotter interface {
+	SnapshotPracticeEnvironmentVolumeStrict(ctx context.Context, volumeName string, maxBytes int64) ([]domain.PracticeEnvironmentVolumeFile, error)
+}
+
+func snapshotForSubmission(ctx context.Context, store domain.PracticeEnvironmentVolumeStore, volumeName string, maxBytes int64) ([]domain.PracticeEnvironmentVolumeFile, error) {
+	if strict, ok := store.(strictVolumeSnapshotter); ok {
+		return strict.SnapshotPracticeEnvironmentVolumeStrict(ctx, volumeName, maxBytes)
+	}
+	return store.SnapshotPracticeEnvironmentVolume(ctx, volumeName, maxBytes)
+}
+
+// volumeUsageMeasurer es una capacidad opcional del orquestador: medir el
+// volumen sin depender de que el adaptador de pruebas la implemente.
+type volumeUsageMeasurer interface {
+	MeasurePracticeEnvironmentVolumeMB(ctx context.Context, volumeName string) (int64, error)
+}
+
+// annotateDiskLimit deja en el entorno la cuota vigente para que la pantalla
+// muestre "usado de total". La medición la escribe el barrido de disco: acá no se
+// consulta el daemon.
+func (s *PracticeEnvironmentService) annotateDiskLimit(ctx context.Context, environment *domain.PracticeEnvironment) {
+	if environment == nil {
+		return
+	}
+	tenantID := environment.TenantID
+	if tenantID == "" {
+		tenantID = domain.DefaultTenantID
+	}
+	environment.DiskLimitMB = s.effectivePolicies(ctx, tenantID).EffectiveDiskQuotaMB()
+}
+
+// diskQuotaVerdict mide el volumen y lo compara con la política del nodo. Un
+// adaptador sin medición deja pasar la entrega y lo deja dicho en el log: nunca
+// se bloquea a un alumno por una medición que no se pudo hacer.
+func (s *PracticeEnvironmentService) diskQuotaVerdict(ctx context.Context, tenantID, environmentID, volumeName string) *domain.DiskQuotaVerdict {
+	measurer, ok := s.docker.(volumeUsageMeasurer)
+	if !ok {
+		return nil
+	}
+	policies := s.effectivePolicies(ctx, tenantID)
+	if policies.EffectiveDiskQuotaMB() <= 0 {
+		return nil
+	}
+	usedMB, err := measurer.MeasurePracticeEnvironmentVolumeMB(ctx, volumeName)
+	if err != nil {
+		log.Printf("[Disk Quota] entorno %s: no se pudo medir el volumen: %v", environmentID, err)
+		return nil
+	}
+	verdict := domain.EvaluateDiskQuota(usedMB*1024*1024, policies.EffectiveDiskQuotaMB(), policies.EffectiveDiskWarningPct(), policies.EffectiveDiskBlockPct())
+	if verdict.Status == domain.DiskQuotaWarning {
+		log.Printf("[Disk Quota] entorno %s: %s", environmentID, verdict.Message)
+	}
+	return &verdict
+}
+
 const (
 	// maxProjectSnapshotBytes acota el snapshot entregado a SpeedGrader.
 	maxProjectSnapshotBytes    = 4 * 1024 * 1024
@@ -78,23 +136,35 @@ func (s *PracticeEnvironmentService) SubmitPracticeEnvironmentProject(ctx contex
 	}
 
 	volumeName := environment.VolumeName()
+	// Cuota blanda de disco: se mide el volumen antes de escribir la entrega y
+	// un entorno lleno se frena con un mensaje accionable en vez de crecer hasta
+	// quedarse sin nodo.
+	if verdict := s.diskQuotaVerdict(ctx, tenantID, environmentID, volumeName); verdict != nil {
+		if verdict.Status == domain.DiskQuotaFull {
+			return nil, fmt.Errorf("%w: %s; borrá archivos generados o cachés y volvé a entregar", domain.ErrDiskQuotaExceeded, verdict.Message)
+		}
+	}
 	if len(files) > 0 {
 		if err := volumeStore.WritePracticeEnvironmentVolumeFiles(ctx, volumeName, files); err != nil {
 			return nil, fmt.Errorf("failed to write project files: %w", err)
 		}
 	}
 
-	volumeFiles, err := volumeStore.SnapshotPracticeEnvironmentVolume(ctx, volumeName, maxProjectSnapshotBytes)
+	volumeFiles, err := snapshotForSubmission(ctx, volumeStore, volumeName, maxProjectSnapshotBytes)
 	if err != nil {
+		if errors.Is(err, domain.ErrPracticeEnvironmentSnapshotTooLarge) {
+			// El detalle del adaptador trae la ruta y el tamaño.
+			return nil, fmt.Errorf("the project to submit exceeds the total limit of 4 MB: %w", err)
+		}
 		return nil, fmt.Errorf("failed to snapshot environment volume: %w", err)
 	}
 
 	if len(volumeFiles) > maxSubmissionSnapshotFiles {
-		return nil, fmt.Errorf("environment %s has more than %d files to submit", environmentID, maxSubmissionSnapshotFiles)
+		return nil, fmt.Errorf("environment %s has %d files to submit; the limit is %d", environmentID, len(volumeFiles), maxSubmissionSnapshotFiles)
 	}
 	for _, file := range volumeFiles {
 		if len(file.Content) > maxSubmissionFileBytes {
-			return nil, fmt.Errorf("environment %s has a file larger than %d bytes: %s", environmentID, maxSubmissionFileBytes, file.Path)
+			return nil, fmt.Errorf("environment %s has a file larger than %d bytes (%d bytes): %s", environmentID, maxSubmissionFileBytes, len(file.Content), file.Path)
 		}
 	}
 

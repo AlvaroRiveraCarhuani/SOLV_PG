@@ -75,11 +75,14 @@ func (s *PracticeEnvironmentService) SetPracticeEnvironmentMount(ctx context.Con
 	envVars = append(envVars, s.workspaceDependencyEnvVars(ctx, instance.TenantID, valueOrEmpty(instance.ExerciseID))...)
 	envVars = append(envVars, provision.Env...)
 
+	runtimePolicies := s.effectivePolicies(ctx, instance.TenantID)
 	config := domain.PracticeEnvironmentContainerConfig{
 		Image:               imageName,
 		ContainerName:       fmt.Sprintf("solv-environment-%s", instance.ID),
 		VolumeName:          instance.VolumeName(),
 		MemoryLimitMB:       ramLimitMB,
+		CPUNanos:            domain.CPUQuotaNanos(runtimePolicies.EffectivePracticeCPUMillis()),
+		PidsLimit:           runtimePolicies.EffectivePidsLimit(),
 		NetworkName:         "solv-traefik-net",
 		Labels:              labels,
 		Env:                 envVars,
@@ -87,6 +90,7 @@ func (s *PracticeEnvironmentService) SetPracticeEnvironmentMount(ctx context.Con
 		HostPort:            hostPort,
 		AttachSatellitesNet: provision.UsesManagedContainer,
 		ReadOnly:            readOnly,
+		ExamNoEgress:        instance.EnvironmentProfile.IsExam() && s.examNetworkPolicyFor(ctx, instance.TenantID, instance.ExerciseID) == domain.ExamNetworkNone,
 	}
 
 	containerID, err := s.docker.StartPracticeEnvironmentContainer(ctx, config)
@@ -99,5 +103,6 @@ func (s *PracticeEnvironmentService) SetPracticeEnvironmentMount(ctx context.Con
 	}
 	instance.ContainerID = &containerID
 	instance.MemoryLimitMB = ramLimitMB
+	instance.CPUMillis = runtimePolicies.EffectivePracticeCPUMillis()
 	return nil
 }

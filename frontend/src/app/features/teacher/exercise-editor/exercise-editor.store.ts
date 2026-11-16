@@ -42,6 +42,11 @@ export interface ExerciseMetadata {
   allow_resubmit: boolean;
   auto_checkpoint: boolean;
   purpose: 'class' | 'exam';
+  exam_network: 'none' | 'egress';
+  exam_network_reason: string;
+  // Resultado de la verificación sin red. Solo lectura: lo escribe publicar.
+  exam_offline_status?: 'passed' | 'failed' | 'skipped' | '';
+  exam_offline_output?: string;
   per_student_seed: boolean;
   language: string;
   allowed_languages: string[];
@@ -102,6 +107,8 @@ export class ExerciseEditorStore {
     allow_resubmit: true,
     auto_checkpoint: true,
     purpose: 'class',
+    exam_network: 'none',
+    exam_network_reason: '',
     per_student_seed: false,
     language: '',
     allowed_languages: [],
@@ -881,6 +888,10 @@ export class ExerciseEditorStore {
             allow_resubmit: ex.config?.ide?.allow_resubmit ?? true,
             auto_checkpoint: ex.config?.ide?.auto_checkpoint ?? true,
             purpose: (ex.purpose as 'class' | 'exam') || 'class',
+            exam_network: (ex.exam_network as 'none' | 'egress') || 'none',
+            exam_network_reason: ex.exam_network_reason || '',
+            exam_offline_status: ex.exam_offline_status || '',
+            exam_offline_output: ex.exam_offline_output || '',
             per_student_seed: !!ex.per_student_seed,
             language: ex.language || '',
             allowed_languages: ex.language ? [ex.language] : [],
@@ -949,6 +960,8 @@ export class ExerciseEditorStore {
       difficulty: meta.difficulty || undefined,
       tags: meta.tags,
       purpose: meta.purpose,
+      exam_network: meta.purpose === 'exam' ? meta.exam_network : 'none',
+      exam_network_reason: meta.purpose === 'exam' && meta.exam_network === 'egress' ? meta.exam_network_reason.trim() : undefined,
       per_student_seed: meta.per_student_seed,
       language: meta.language,
       time_limit_ms: meta.time_limit_ms,
@@ -1145,6 +1158,8 @@ export class ExerciseEditorStore {
       allow_resubmit: true,
       auto_checkpoint: true,
       purpose: 'class',
+      exam_network: 'none',
+      exam_network_reason: '',
       per_student_seed: false,
       language: '',
       allowed_languages: [],

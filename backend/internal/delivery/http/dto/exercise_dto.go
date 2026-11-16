@@ -10,25 +10,29 @@ type PublicTestCase struct {
 }
 
 type ExercisePublicResponse struct {
-	ID              string           `json:"id"`
-	SubjectID       *string          `json:"subject_id,omitempty"`
-	Title           string           `json:"title"`
-	Description     string           `json:"description"`
-	Type            string           `json:"type"`
-	EnvironmentType string           `json:"environment_type,omitempty"`
-	Difficulty      *string          `json:"difficulty,omitempty"`
-	Tags            []string         `json:"tags,omitempty"`
-	Purpose         string           `json:"purpose,omitempty"`
-	PerStudentSeed  bool             `json:"per_student_seed,omitempty"`
-	Language        string           `json:"language,omitempty"`
-	Boilerplate     string           `json:"boilerplate,omitempty"`
-	TimeLimitMs     int              `json:"time_limit_ms,omitempty"`
-	MemoryMB        int              `json:"memory_mb,omitempty"`
-	MemoryLimitMB   int              `json:"memory_limit_mb,omitempty"`
-	Constraints     []string         `json:"constraints,omitempty"`
-	PublicTestCases []PublicTestCase `json:"public_test_cases,omitempty"`
-	AllowResubmit   bool             `json:"allow_resubmit,omitempty"`
-	AutoCheckpoint  bool             `json:"auto_checkpoint,omitempty"`
+	ID              string   `json:"id"`
+	SubjectID       *string  `json:"subject_id,omitempty"`
+	Title           string   `json:"title"`
+	Description     string   `json:"description"`
+	Type            string   `json:"type"`
+	EnvironmentType string   `json:"environment_type,omitempty"`
+	Difficulty      *string  `json:"difficulty,omitempty"`
+	Tags            []string `json:"tags,omitempty"`
+	Purpose         string   `json:"purpose,omitempty"`
+	// ExamNetwork explica al alumno las condiciones del examen: sin salida a
+	// internet por defecto, o con la excepción que declaró el docente.
+	ExamNetwork       string           `json:"exam_network,omitempty"`
+	ExamNetworkReason string           `json:"exam_network_reason,omitempty"`
+	PerStudentSeed    bool             `json:"per_student_seed,omitempty"`
+	Language          string           `json:"language,omitempty"`
+	Boilerplate       string           `json:"boilerplate,omitempty"`
+	TimeLimitMs       int              `json:"time_limit_ms,omitempty"`
+	MemoryMB          int              `json:"memory_mb,omitempty"`
+	MemoryLimitMB     int              `json:"memory_limit_mb,omitempty"`
+	Constraints       []string         `json:"constraints,omitempty"`
+	PublicTestCases   []PublicTestCase `json:"public_test_cases,omitempty"`
+	AllowResubmit     bool             `json:"allow_resubmit,omitempty"`
+	AutoCheckpoint    bool             `json:"auto_checkpoint,omitempty"`
 }
 
 func ToExercisePublicResponse(ex *domain.Exercise) *ExercisePublicResponse {
@@ -37,21 +41,23 @@ func ToExercisePublicResponse(ex *domain.Exercise) *ExercisePublicResponse {
 	}
 
 	resp := &ExercisePublicResponse{
-		ID:              ex.ID,
-		SubjectID:       ex.SubjectID,
-		Title:           ex.Title,
-		Description:     ex.Description,
-		Type:            string(ex.Type),
-		EnvironmentType: ex.EnvironmentType,
-		Difficulty:      ex.Difficulty,
-		Tags:            ex.Tags,
-		Purpose:         ex.Purpose,
-		PerStudentSeed:  ex.PerStudentSeed,
-		Language:        ex.Language,
-		Boilerplate:     ex.Boilerplate,
-		TimeLimitMs:     ex.TimeLimitMS,
-		MemoryMB:        ex.MemoryLimitMB,
-		MemoryLimitMB:   ex.MemoryLimitMB,
+		ID:                ex.ID,
+		SubjectID:         ex.SubjectID,
+		Title:             ex.Title,
+		Description:       ex.Description,
+		Type:              string(ex.Type),
+		EnvironmentType:   ex.EnvironmentType,
+		Difficulty:        ex.Difficulty,
+		Tags:              ex.Tags,
+		Purpose:           ex.Purpose,
+		ExamNetwork:       domain.NormalizeExamNetwork(ex.ExamNetwork),
+		ExamNetworkReason: ex.ExamNetworkReason,
+		PerStudentSeed:    ex.PerStudentSeed,
+		Language:          ex.Language,
+		Boilerplate:       ex.Boilerplate,
+		TimeLimitMs:       ex.TimeLimitMS,
+		MemoryMB:          ex.MemoryLimitMB,
+		MemoryLimitMB:     ex.MemoryLimitMB,
 	}
 
 	if ex.Config.Algorithm != nil {

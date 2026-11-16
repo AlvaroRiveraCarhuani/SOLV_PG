@@ -25,7 +25,7 @@ import { CodeEditorComponent } from '@shared/components/code-editor/code-editor.
 import { ComboboxComponent, ComboboxOption } from '@shared/components/combobox/combobox.component';
 import { VerdictBadgeComponent } from '@shared/components/verdict-badge/verdict-badge.component';
 import { DateTextPipe } from '@shared/pipes/date-text.pipe';
-import { PracticeEnvironment } from '@core/models/environment.model';
+import { EnvironmentState, PracticeEnvironment } from '@core/models/environment.model';
 import {
   StudentEvaluationResultDTO,
   StudentPublicExerciseDTO,
@@ -57,6 +57,14 @@ function encodeUtf8Base64(text: string): string {
 }
 
 import { EnvironmentLabelPipe } from '@shared/pipes/environment-label.pipe';
+
+/** Cuota de CPU en milésimas como texto legible; vacío si no hay cuota guardada. */
+export function formatCPUQuota(cpuMillis: number): string {
+  if (!Number.isFinite(cpuMillis) || cpuMillis <= 0) return '';
+  const cores = cpuMillis / 1000;
+  if (Number.isInteger(cores)) return cores === 1 ? '1 núcleo' : `${cores} núcleos`;
+  return `${cores.toFixed(1)} núcleos`;
+}
 
 @Component({
   selector: 'student-exercise-solver',
@@ -169,6 +177,116 @@ export class StudentExerciseSolverComponent implements OnInit {
   });
 
   readonly environmentIsRunning = computed<boolean>(() => this.environment()?.status === 'running');
+
+  /**
+   * Estado que ve el alumno. Sale del campo calculado por el servidor; si no
+   * viene (respuesta vieja), se deduce del estado guardado.
+   */
+  /**
+   * El examen ya terminó: se sabe al intentar abrirlo, aunque no haya entorno
+   * cargado. Sin esto el alumno solo veía un error y nunca "Examen cerrado".
+   */
+  readonly examClosed = signal<boolean>(false);
+
+  /**
+   * Aviso de espacio antes del bloqueo: la cuota es blanda y el alumno tiene que
+   * poder liberar lugar mientras sigue trabajando.
+   */
+  readonly diskNotice = computed<{ tone: 'warning' | 'full'; text: string } | null>(() => {
+    const environment = this.environment();
+    if (!environment || (environment.state !== 'disk_warning' && environment.state !== 'disk_full')) {
+      return null;
+    }
+    const used = environment.disk_used_mb ?? 0;
+    const limit = environment.disk_limit_mb ?? 0;
+    if (environment.state === 'disk_full') {
+      return {
+        tone: 'full',
+        text: `Tu espacio está lleno (${used} MB de ${limit} MB). Borrá archivos generados, como node_modules, y volvé a entregar; tu editor sigue abierto.`
+      };
+    }
+    const percent = limit > 0 ? Math.round((used * 100) / limit) : 0;
+    return {
+      tone: 'warning',
+      text: `Tu espacio está al ${percent}% (${used} MB de ${limit} MB). El límite es blando: podés seguir trabajando y borrar archivos generados para liberar lugar.`
+    };
+  });
+
+  /**
+   * Los tres números de cuota del entorno: perfil declarado por la plantilla,
+   * memoria concedida por la admisión y CPU aplicada. La advertencia aparece
+   * solo cuando la concedida quedó por debajo de la declarada.
+   */
+  readonly resourceQuota = computed<{
+    declaredMB: number;
+    grantedMB: number;
+    cpuText: string;
+    reduced: boolean;
+  } | null>(() => {
+    const environment = this.environment();
+    if (!environment) return null;
+    const declaredMB = environment.memory_profile_mb ?? 0;
+    const grantedMB = environment.memory_limit_mb ?? 0;
+    const cpuText = formatCPUQuota(environment.cpu_millis ?? 0);
+    if (grantedMB <= 0 && cpuText === '') return null;
+    return {
+      declaredMB,
+      grantedMB,
+      cpuText,
+      reduced: declaredMB > 0 && grantedMB > 0 && grantedMB < declaredMB
+    };
+  });
+
+  readonly purgingCaches = signal<boolean>(false);
+
+  /**
+   * Limpia las carpetas que se regeneran y actualiza el aviso con la medición
+   * que devuelve el servidor, sin recargar la pantalla.
+   */
+  async purgeCaches(): Promise<void> {
+    const environment = this.environment();
+    if (!environment?.id || this.purgingCaches()) {
+      return;
+    }
+    this.purgingCaches.set(true);
+    try {
+      const result = await this.studentService.purgeEnvironmentCaches(environment.id);
+      this.environment.set({
+        ...environment,
+        disk_used_mb: result.used_mb,
+        disk_limit_mb: result.limit_mb,
+        disk_state: (result.state as 'ok' | 'warning' | 'full') ?? 'ok',
+        state: result.state === 'warning' ? 'disk_warning' : result.state === 'full' ? 'disk_full' : 'ready'
+      });
+    } catch (error) {
+      const message = (error as { error?: { message?: unknown } } | null)?.error?.message;
+      this.environmentError.set(
+        typeof message === 'string' && message.trim() ? message : 'No se pudieron borrar los archivos generados.'
+      );
+    } finally {
+      this.purgingCaches.set(false);
+    }
+  }
+
+  readonly environmentState = computed<EnvironmentState>(() => {
+    if (this.examClosed()) {
+      return 'closed';
+    }
+    const env = this.environment();
+    if (env?.state) {
+      return env.state;
+    }
+    if (!env) {
+      return 'preparing';
+    }
+    if (env.status === 'frozen') {
+      return 'closed';
+    }
+    if (env.status === 'failed' || env.status === 'oom_killed') {
+      return 'failed';
+    }
+    return env.status === 'running' ? 'ready' : 'preparing';
+  });
 
   readonly canResubmitProject = computed<boolean>(() => this.exercise()?.allow_resubmit ?? true);
 
@@ -362,6 +480,7 @@ export class StudentExerciseSolverComponent implements OnInit {
 
     this.isStartingEnvironment.set(true);
     this.environmentError.set(null);
+    this.examClosed.set(false);
 
     try {
       const environment = await this.studentService.startEnvironment(subjectId, ex.id);
@@ -381,7 +500,13 @@ export class StudentExerciseSolverComponent implements OnInit {
       }
     } catch (error) {
       tab?.close();
-      const backendMessage = (error as { error?: { message?: unknown } } | null)?.error?.message;
+      const body = (error as { error?: { message?: unknown; error?: { code?: unknown } } } | null)?.error;
+      if (body?.error?.code === 'environment_frozen') {
+        // El examen terminó: el aviso de estado lo explica, no un error suelto.
+        this.examClosed.set(true);
+        return;
+      }
+      const backendMessage = body?.message;
       this.environmentError.set(
         typeof backendMessage === 'string' && backendMessage.trim()
           ? backendMessage

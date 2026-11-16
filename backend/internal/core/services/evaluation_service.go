@@ -20,6 +20,26 @@ type EvaluationService struct {
 	snapshotRepo      domain.GeneratedCaseSnapshotRepository
 	workspaceProjects *WorkspaceProjectService
 	ownership         domain.SubjectOwnershipReader
+	// environments cuenta los entornos de un ejercicio para decidir si su
+	// propósito puede cambiar. Sin este repositorio el cambio sigue permitido.
+	environments domain.PracticeEnvironmentRepository
+	// purposeAudit registra el cambio de propósito con el motivo del docente.
+	purposeAudit domain.AuditLogRepository
+	// examOfflineVerifier corre el proyecto base sin red antes de publicar un
+	// examen cerrado. Sin verificador la publicación no se bloquea.
+	examOfflineVerifier domain.ExamOfflineVerifier
+}
+
+// SetPracticeEnvironments habilita la comprobación de entornos abiertos antes de
+// cambiar el propósito de un ejercicio.
+func (s *EvaluationService) SetPracticeEnvironments(repo domain.PracticeEnvironmentRepository) {
+	s.environments = repo
+}
+
+// SetPurposeAuditRepository registra el cambio de propósito con su motivo. Es
+// best-effort: un fallo de auditoría no revierte la edición.
+func (s *EvaluationService) SetPurposeAuditRepository(repo domain.AuditLogRepository) {
+	s.purposeAudit = repo
 }
 
 // SetSubjectOwnership habilita el alcance docente en el alta y la edición de

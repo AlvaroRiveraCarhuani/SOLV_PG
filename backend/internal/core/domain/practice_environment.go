@@ -2,6 +2,7 @@ package domain
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"strings"
@@ -109,6 +110,19 @@ type PracticeEnvironment struct {
 	Status        string  `db:"status" json:"status"`
 	AccessURL     string  `db:"access_url" json:"access_url"`
 	MemoryLimitMB int64   `db:"memory_limit_mb" json:"memory_limit_mb"`
+	// MemoryProfileMB es lo que declaró la plantilla (o la política) antes del
+	// préstamo de memoria del nodo. Con MemoryLimitMB se explica la diferencia
+	// entre lo pedido y lo concedido.
+	MemoryProfileMB int64 `db:"memory_profile_mb" json:"memory_profile_mb,omitempty"`
+	// CPUMillis es la cuota absoluta de CPU con la que se creó el contenedor.
+	// Cero significa que no se persistió la cuota (registros anteriores).
+	CPUMillis int64 `db:"cpu_millis" json:"cpu_millis,omitempty"`
+	// DiskUsedMB y DiskState son la última medición del barrido de disco; la
+	// pantalla lee el valor guardado y no mide nada. DiskLimitMB sale de la
+	// política vigente al responder y no se persiste.
+	DiskUsedMB  int64  `db:"disk_used_mb" json:"disk_used_mb"`
+	DiskState   string `db:"disk_state" json:"disk_state"`
+	DiskLimitMB int64  `db:"-" json:"disk_limit_mb,omitempty"`
 	// EnvironmentProfile es el perfil aplicado en la última apertura. Se
 	// recalcula desde el propósito del ejercicio; el valor persistido sirve para
 	// auditar con qué reglas se ejecutó.
@@ -153,6 +167,15 @@ func PracticeEnvironmentVolumeName(studentID, subjectID string, exerciseID *stri
 	return fmt.Sprintf("solv_workspace_%s_%s_%s", studentID, subjectID, trimmed)
 }
 
+// NextExamAttempt devuelve el número del intento que sigue a uno cerrado. El
+// primero es el 1: el intento 0 es la práctica y nunca cuenta como examen.
+func NextExamAttempt(current int) int {
+	if current < 1 {
+		return 1
+	}
+	return current + 1
+}
+
 // PracticeEnvironmentAttemptVolumeName arma el volumen de un intento. La
 // práctica usa el volumen de siempre (intento 0); el examen estrena uno por
 // intento, así no hereda lo que hubiera quedado antes.
@@ -187,9 +210,17 @@ type PracticeEnvironmentContainerConfig struct {
 	ContainerName string
 	VolumeName    string
 	MemoryLimitMB int64
-	NetworkName   string
-	Labels        map[string]string
-	Env           []string
+	// CPUNanos es la cuota absoluta de CPU. Cero deja el contenedor sin cuota.
+	CPUNanos int64
+	// PidsLimit acota los procesos del contenedor. Cero usa el tope del runtime.
+	PidsLimit int64
+	// ExamNoEgress encierra el entorno en una red interna sin puerta de enlace.
+	// El editor se publica por un proxy que Traefik sí alcanza, porque una red
+	// interna no admite puertos publicados.
+	ExamNoEgress bool
+	NetworkName  string
+	Labels       map[string]string
+	Env          []string
 	// SetupScript es el script de inicialización de la plantilla compuesta.
 	// Cuando está presente, el runtime lo ejecuta una sola vez por sesión.
 	SetupScript string
@@ -217,6 +248,96 @@ type PracticeEnvironmentVolumeFile struct {
 // escribir el volumen nombrado del environment sin depender del estado del
 // contenedor. Se resuelve por type-assertion para no ampliar
 // PracticeEnvironmentOrchestrator (y no romper sus mocks).
+// Estados guardados de la última medición de disco.
+const (
+	DiskStateOK      = "ok"
+	DiskStateWarning = "warning"
+	DiskStateFull    = "full"
+)
+
+// PracticeEnvironmentDiskUsageRecorder guarda la medición del barrido. Se resuelve
+// por type-assertion para no ampliar PracticeEnvironmentRepository.
+type PracticeEnvironmentDiskUsageRecorder interface {
+	RecordDiskUsage(ctx context.Context, environmentID string, usedMB int64, state string) error
+}
+
+// ErrPracticeEnvironmentSnapshotTooLarge indica que el contenido del volumen no
+// entra en el tope de la lectura. Una entrega lo trata como error para no
+// guardar medio proyecto; los avisos de clase siguen recortando a propósito.
+var ErrPracticeEnvironmentSnapshotTooLarge = errors.New("el contenido del volumen excede el tope de la lectura")
+
+// PracticeEnvironmentState es el estado que ve el alumno. Se calcula del
+// registro y no se guarda: una columna aparte se quedaría vieja en cuanto el
+// contenedor cambia sin pasar por el servicio.
+type PracticeEnvironmentState string
+
+const (
+	// PracticeEnvironmentStatePreparing: el contenedor todavía no responde o el
+	// proyecto base todavía se está escribiendo.
+	PracticeEnvironmentStatePreparing PracticeEnvironmentState = "preparing"
+	// PracticeEnvironmentStateReady: el alumno puede entrar y escribir.
+	PracticeEnvironmentStateReady PracticeEnvironmentState = "ready"
+	// PracticeEnvironmentStateClosed: el examen terminó y el volumen está en solo
+	// lectura.
+	PracticeEnvironmentStateClosed PracticeEnvironmentState = "closed"
+	// PracticeEnvironmentStateFailed: el arranque falló o el contenedor murió por
+	// memoria.
+	PracticeEnvironmentStateFailed PracticeEnvironmentState = "failed"
+	// PracticeEnvironmentStateDiskWarning: el volumen pasó el umbral de aviso. El
+	// editor sigue abierto; solo se le pide al alumno que libere espacio.
+	PracticeEnvironmentStateDiskWarning PracticeEnvironmentState = "disk_warning"
+	// PracticeEnvironmentStateDiskFull: la entrega se frena hasta que baje del
+	// umbral. El editor no se cierra: perder trabajo sin guardar es peor que una
+	// entrega rechazada.
+	PracticeEnvironmentStateDiskFull PracticeEnvironmentState = "disk_full"
+)
+
+// State traduce el registro al estado visible. Un examen cerrado manda sobre
+// cualquier otro estado: lo importante para el alumno es que no puede escribir.
+func (p PracticeEnvironment) State() PracticeEnvironmentState {
+	switch {
+	case p.FrozenAt != nil || p.Status == PracticeEnvironmentStatusFrozen:
+		return PracticeEnvironmentStateClosed
+	case p.Status == PracticeEnvironmentStatusFailed || p.Status == PracticeEnvironmentStatusOOMKilled:
+		return PracticeEnvironmentStateFailed
+	case p.Status != PracticeEnvironmentStatusRunning:
+		return PracticeEnvironmentStatePreparing
+	case p.DiskState == DiskStateFull:
+		return PracticeEnvironmentStateDiskFull
+	case p.DiskState == DiskStateWarning:
+		return PracticeEnvironmentStateDiskWarning
+	case p.WorkspaceSeedMode == WorkspaceSeedModeProject && failedSeedStatus(p.WorkspaceInitStatus):
+		// La siembra no se va a recuperar sola: decir "preparando" deja al alumno
+		// esperando un entorno que no va a abrir.
+		return PracticeEnvironmentStateFailed
+	case p.WorkspaceSeedMode == WorkspaceSeedModeProject && p.WorkspaceInitStatus != WorkspaceInitStatusSetupDone:
+		return PracticeEnvironmentStatePreparing
+	default:
+		return PracticeEnvironmentStateReady
+	}
+}
+
+// failedSeedStatus dice si la siembra del proyecto quedó en un estado del que no
+// se sale solo: cuarentena, fallo o volumen perdido.
+func failedSeedStatus(status string) bool {
+	switch status {
+	case WorkspaceInitStatusFailed, WorkspaceInitStatusQuarantined, WorkspaceInitStatusMissing:
+		return true
+	default:
+		return false
+	}
+}
+
+// MarshalJSON agrega el estado calculado a cada respuesta del entorno. Los
+// campos guardados quedan igual.
+func (p PracticeEnvironment) MarshalJSON() ([]byte, error) {
+	type plain PracticeEnvironment
+	return json.Marshal(struct {
+		plain
+		State PracticeEnvironmentState `json:"state"`
+	}{plain: plain(p), State: p.State()})
+}
+
 type PracticeEnvironmentVolumeStore interface {
 	SnapshotPracticeEnvironmentVolume(ctx context.Context, volumeName string, maxBytes int64) ([]PracticeEnvironmentVolumeFile, error)
 	WritePracticeEnvironmentVolumeFiles(ctx context.Context, volumeName string, files map[string]string) error

@@ -231,3 +231,24 @@ El docente puede revisar el estado de sus solicitudes desde su módulo de ajuste
 | `GET` | `/api/v1/docker-templates/requests` | `?teacher_id=me` | Lista solicitudes del docente con sus estados (`pending`, `approved`, `rejected`). |
 | `DELETE` | `/api/v1/docker-templates/requests/{id}` | — | Cancela una solicitud mientras se encuentre en estado pendiente. |
 | `POST` | `/api/v1/labs/{id}/test-cases/import` | `multipart/form-data` (CSV/JSON) | Carga masiva de casos de prueba para el Juez Automático. |
+
+## Acceso a internet en un examen (ADR-085)
+
+Cuando el propósito es **Examen / Calificado**, el editor muestra la elección de
+red del examen:
+
+| Opción | Qué hace |
+| :--- | :--- |
+| **Sin internet** (por defecto) | El entorno corre en una red interna sin puerta de enlace. El editor funciona; no se pueden descargar dependencias ni consultar sitios externos. |
+| **Excepción con motivo** | Devuelve la salida a internet y exige un motivo de al menos 10 caracteres. El motivo queda en la auditoría y el alumno ve que el examen tiene acceso. |
+
+La red se decide por ejercicio. Un examen sin salida no se puede cambiar a mitad
+de la ventana: el entorno abierto conserva la red con la que nació y la política
+nueva se aplica al siguiente arranque.
+
+Si tu proyecto base instala dependencias al arrancar, ejecutá esa instalación
+antes de publicar: con la salida cerrada, la instalación remota no va a funcionar
+durante el examen. Al publicar, la plataforma corre el proyecto base en un
+contenedor sin red y, si el setup o el arranque necesitan internet, rechaza la
+publicación e indica el paso que falló. El checklist muestra el resultado de esa
+comprobación antes y después de publicar.

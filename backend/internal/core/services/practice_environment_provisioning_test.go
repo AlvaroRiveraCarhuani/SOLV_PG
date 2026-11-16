@@ -49,6 +49,24 @@ func (m *mockPracticeEnvironmentRepo) Create(ctx context.Context, ws *domain.Pra
 	return nil
 }
 
+// RestartExamAttempt avanza el intento sobre la misma fila de la práctica, como
+// hace el repositorio real.
+func (m *mockPracticeEnvironmentRepo) RestartExamAttempt(ctx context.Context, id, tenantID string, attempt int, profile domain.EnvironmentProfile, seedVersionID *string, seedMode, seedStatus string) error {
+	ws, ok := m.environments[id]
+	if !ok {
+		return domain.ErrNotFound
+	}
+	ws.ExamAttempt = attempt
+	ws.EnvironmentProfile = profile
+	ws.FrozenAt = nil
+	ws.Status = domain.PracticeEnvironmentStatusPending
+	ws.ContainerID = nil
+	ws.WorkspaceProjectVersionID = seedVersionID
+	ws.WorkspaceSeedMode = seedMode
+	ws.WorkspaceInitStatus = seedStatus
+	return nil
+}
+
 func (m *mockPracticeEnvironmentRepo) UpdateContainerID(ctx context.Context, id string, containerID string) error {
 	if ws, ok := m.environments[id]; ok {
 		ws.ContainerID = &containerID

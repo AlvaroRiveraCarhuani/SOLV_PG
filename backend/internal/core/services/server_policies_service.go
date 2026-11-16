@@ -103,6 +103,17 @@ func (s *ServerPoliciesService) lookup(ctx context.Context, tenantID string) (*d
 	if policies.HostSafetyCeilingPct <= 0 {
 		policies.HostSafetyCeilingPct = 85
 	}
+	// Las políticas guardadas antes de este cambio no traen los campos nuevos:
+	// se completan con el default para no dejar el nodo con topes en cero.
+	if policies.PidsLimit <= 0 {
+		policies.PidsLimit = defaults.PidsLimit
+	}
+	if policies.DiskWarningPct <= 0 || policies.DiskWarningPct > 100 {
+		policies.DiskWarningPct = defaults.DiskWarningPct
+	}
+	if policies.DiskBlockPct <= 0 || policies.DiskBlockPct > 100 {
+		policies.DiskBlockPct = defaults.DiskBlockPct
+	}
 	return &policies, true, nil
 }
 
@@ -149,6 +160,63 @@ func (s *ServerPoliciesService) Update(ctx context.Context, tenantID string, dto
 			}
 		}
 		current.HostSafetyCeilingPct = *dto.HostSafetyCeilingPct
+	}
+	if dto.PracticeCPUMillis != nil {
+		if !containsInt(domain.AllowedPracticeCPUMillis, *dto.PracticeCPUMillis) {
+			return nil, &PoliciesValidationError{
+				Code:    "practice_cpu_invalid",
+				Message: fmt.Sprintf("practice_cpu_millis debe ser uno de: %s (0 = sin límite). Recibido: %d", allowedList(domain.AllowedPracticeCPUMillis), *dto.PracticeCPUMillis),
+			}
+		}
+		current.PracticeCPUMillis = *dto.PracticeCPUMillis
+	}
+	if dto.PidsLimit != nil {
+		if !containsInt(domain.AllowedPidsLimits, *dto.PidsLimit) {
+			return nil, &PoliciesValidationError{
+				Code:    "pids_limit_invalid",
+				Message: fmt.Sprintf("pids_limit debe ser uno de: %s. Recibido: %d", allowedList(domain.AllowedPidsLimits), *dto.PidsLimit),
+			}
+		}
+		current.PidsLimit = *dto.PidsLimit
+	}
+	if dto.DiskQuotaMB != nil {
+		if !containsInt(domain.AllowedDiskQuotasMB, *dto.DiskQuotaMB) {
+			return nil, &PoliciesValidationError{
+				Code:    "disk_quota_invalid",
+				Message: fmt.Sprintf("disk_quota_mb debe ser uno de: %s (0 = sin cuota). Recibido: %d", allowedList(domain.AllowedDiskQuotasMB), *dto.DiskQuotaMB),
+			}
+		}
+		current.DiskQuotaMB = *dto.DiskQuotaMB
+	}
+	if dto.DiskWarningPct != nil || dto.DiskBlockPct != nil {
+		warnPct := current.EffectiveDiskWarningPct()
+		blockPct := current.EffectiveDiskBlockPct()
+		if dto.DiskWarningPct != nil {
+			warnPct = *dto.DiskWarningPct
+		}
+		if dto.DiskBlockPct != nil {
+			blockPct = *dto.DiskBlockPct
+		}
+		if warnPct < 1 || warnPct > 99 {
+			return nil, &PoliciesValidationError{
+				Code:    "disk_warning_invalid",
+				Message: fmt.Sprintf("disk_warning_pct debe estar entre 1 y 99. Recibido: %d", warnPct),
+			}
+		}
+		if blockPct < 1 || blockPct > 100 {
+			return nil, &PoliciesValidationError{
+				Code:    "disk_block_invalid",
+				Message: fmt.Sprintf("disk_block_pct debe estar entre 1 y 100. Recibido: %d", blockPct),
+			}
+		}
+		if warnPct >= blockPct {
+			return nil, &PoliciesValidationError{
+				Code:    "disk_thresholds_invalid",
+				Message: fmt.Sprintf("disk_warning_pct (%d) debe ser menor que disk_block_pct (%d)", warnPct, blockPct),
+			}
+		}
+		current.DiskWarningPct = warnPct
+		current.DiskBlockPct = blockPct
 	}
 
 	// Un techo derivado acompaña al techo de seguridad que se acaba de guardar:

@@ -166,6 +166,16 @@ func (c *Client) StartPracticeEnvironmentContainer(ctx context.Context, config d
 	if hostPort == "" {
 		hostPort = "0" // puerto dinámico elegido por el daemon
 	}
+	// La cuota la declara la política del nodo; sin política se conserva el
+	// comportamiento previo: un núcleo y el mismo tope de procesos que revisión.
+	cpuNanos := config.CPUNanos
+	if cpuNanos <= 0 {
+		cpuNanos = 1_000_000_000
+	}
+	pidsLimit := config.PidsLimit
+	if pidsLimit <= 0 {
+		pidsLimit = 512
+	}
 	hostConfig := &container.HostConfig{
 		Binds: []string{
 			environmentVolumeBind(config.VolumeName, config.ReadOnly),
@@ -173,6 +183,8 @@ func (c *Client) StartPracticeEnvironmentContainer(ctx context.Context, config d
 		Resources: container.Resources{
 			Memory:            memLimit * 1024 * 1024,
 			MemoryReservation: memReservation * 1024 * 1024,
+			NanoCPUs:          cpuNanos,
+			PidsLimit:         &pidsLimit,
 		},
 		NetworkMode: container.NetworkMode(config.NetworkName),
 		SecurityOpt: []string{"no-new-privileges:true"},
@@ -184,6 +196,19 @@ func (c *Client) StartPracticeEnvironmentContainer(ctx context.Context, config d
 			},
 		},
 		ExtraHosts: []string{"host.docker.internal:host-gateway"},
+	}
+
+	// El examen sin salida vive en una red interna: no se publica el puerto en
+	// el contenedor (Docker no lo permite en una red interna) y no se agrega el
+	// host gateway, que sería una ruta hacia el host. El editor se publica por
+	// el proxy que se crea después del arranque.
+	if config.ExamNoEgress {
+		if err := c.ensureExamNetwork(ctx); err != nil {
+			return "", err
+		}
+		hostConfig.NetworkMode = container.NetworkMode(examNetworkName)
+		hostConfig.PortBindings = nil
+		hostConfig.ExtraHosts = nil
 	}
 
 	if companionMount := resolveCompanionExtensionMount(); companionMount != "" {
@@ -213,9 +238,19 @@ func (c *Client) StartPracticeEnvironmentContainer(ctx context.Context, config d
 		envList = append(envList, fmt.Sprintf("NODE_OPTIONS=--max-old-space-size=%d", maxOldSpace))
 	}
 
+	labels := config.Labels
+	if config.ExamNoEgress {
+		labels = make(map[string]string, len(config.Labels)+1)
+		for key, value := range config.Labels {
+			labels[key] = value
+		}
+		for key, value := range examNoEgressLabels() {
+			labels[key] = value
+		}
+	}
 	containerConfig := &container.Config{
 		Image:        config.Image,
-		Labels:       mergeTestRunLabels(config.Labels),
+		Labels:       mergeTestRunLabels(labels),
 		Env:          envList,
 		ExposedPorts: nat.PortSet{nat.Port(environmentServerPort): struct{}{}},
 	}
@@ -279,10 +314,23 @@ func (c *Client) StartPracticeEnvironmentContainer(ctx context.Context, config d
 	// satélites para resolver 'solv-sat-<engine>'. Si la conexión falla, el contenedor
 	// se descarta: un laboratorio sin su base de datos fallaría de forma confusa y
 	// silenciosa más adelante.
-	if config.AttachSatellitesNet {
+	if config.AttachSatellitesNet && !config.ExamNoEgress {
 		if netErr := c.attachContainerToSatellitesNetwork(ctx, resp.ID); netErr != nil {
 			_ = c.cli.ContainerRemove(context.Background(), resp.ID, container.RemoveOptions{Force: true})
 			return "", fmt.Errorf("failed to attach environment container %q to %s: %w", config.ContainerName, satellitesNetworkName, netErr)
+		}
+	}
+
+	if config.ExamNoEgress {
+		if config.AttachSatellitesNet {
+			if netErr := c.attachExamToSatellitesNetwork(ctx, resp.ID); netErr != nil {
+				_ = c.cli.ContainerRemove(context.Background(), resp.ID, container.RemoveOptions{Force: true})
+				return "", fmt.Errorf("failed to attach exam container %q to %s: %w", config.ContainerName, examSatellitesNetworkName, netErr)
+			}
+		}
+		if proxyErr := c.startExamEditorProxy(ctx, config, hostPort, resp.ID); proxyErr != nil {
+			_ = c.cli.ContainerRemove(context.Background(), resp.ID, container.RemoveOptions{Force: true})
+			return "", proxyErr
 		}
 	}
 
@@ -485,6 +533,10 @@ func (c *Client) HibernateContainer(ctx context.Context, containerID string) err
 
 // StopAndRemoveContainer detiene y elimina el contenedor respetando estrictamente el volumen persistente.
 func (c *Client) StopAndRemoveContainer(ctx context.Context, containerID string) error {
+	// El proxy del editor de un examen cuelga del contenedor principal: si se
+	// borra antes, no queda un puerto publicado apuntando a la nada.
+	c.removeExamProxy(ctx, containerID)
+
 	timeout := 5
 	stopOpts := container.StopOptions{Timeout: &timeout}
 

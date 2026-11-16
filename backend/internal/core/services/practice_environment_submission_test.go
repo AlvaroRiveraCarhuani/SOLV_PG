@@ -333,3 +333,47 @@ func TestSubmitPracticeEnvironmentProject_UnknownPracticeEnvironmentIsNotFound(t
 		t.Error("un entorno inexistente no debe generar una entrega")
 	}
 }
+
+// La corrección lee la copia entregada: lo que el alumno escriba después en el
+// volumen no cambia lo que quedó guardado en la entrega.
+func TestSubmitPracticeEnvironmentProject_LaEntregaCongelaLaCopia(t *testing.T) {
+	wsRepo := newMockPracticeEnvironmentRepo()
+	orch := &fakeVolumeOrchestrator{
+		mockOrchestrator: &mockOrchestrator{},
+		snapshotFiles:    []domain.PracticeEnvironmentVolumeFile{{Path: "main.py", Content: []byte("print('entregado')\n")}},
+	}
+	subRepo := &fakeSubmissionRepo{}
+	svc := services.NewPracticeEnvironmentService(wsRepo, orch, &mockHostMonitor{}).
+		WithExerciseSubmission(nil, subRepo)
+
+	practice := testExerciseID
+	environment := &domain.PracticeEnvironment{
+		ID:         "77777777-7777-4777-8777-777777777777",
+		TenantID:   domain.DefaultTenantID,
+		StudentID:  "student-1",
+		SubjectID:  "subject-1",
+		ExerciseID: &practice,
+		Status:     domain.PracticeEnvironmentStatusRunning,
+	}
+	if err := wsRepo.Create(context.Background(), environment); err != nil {
+		t.Fatalf("no se pudo preparar el environment: %v", err)
+	}
+
+	if _, err := svc.SubmitPracticeEnvironmentProject(context.Background(), environment.ID, "student-1", testExerciseID, nil); err != nil {
+		t.Fatalf("la entrega no debía fallar: %v", err)
+	}
+	entregado := subRepo.created
+	if entregado == nil || !strings.Contains(entregado.Code, "print('entregado')") {
+		t.Fatalf("la entrega debía guardar el código entregado: %+v", entregado)
+	}
+
+	// El alumno sigue editando el volumen después de entregar.
+	orch.snapshotFiles = []domain.PracticeEnvironmentVolumeFile{{Path: "main.py", Content: []byte("print('posterior')\n")}}
+
+	if strings.Contains(entregado.Code, "posterior") {
+		t.Fatal("la entrega no puede cambiar con el volumen vivo")
+	}
+	if !strings.Contains(entregado.Code, "print('entregado')") {
+		t.Fatal("la entrega debía conservar el código del momento de entregar")
+	}
+}

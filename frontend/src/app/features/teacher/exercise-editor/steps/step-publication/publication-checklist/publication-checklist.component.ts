@@ -60,6 +60,28 @@ export class PublicationChecklistComponent {
     this.store.setStudentPreviewOpen(true, 'simulation');
   }
 
+  /**
+   * Estado de la verificación sin red. Solo aplica al examen en Entorno de
+   * Desarrollo con la salida cerrada: es la condición que se verifica al
+   * publicar y la que el docente necesita ver antes de intentarlo.
+   */
+  readonly offlineVerificationNote = computed<string | null>(() => {
+    const meta = this.store.metadata();
+    if (meta.environment_type !== 'IDE_PERSISTENTE') return null;
+    if (meta.purpose !== 'exam' || meta.exam_network !== 'none') return null;
+
+    switch (meta.exam_offline_status) {
+      case 'passed':
+        return 'Verificado: el proyecto base compila y arranca sin red.';
+      case 'failed':
+        return 'La última verificación sin red falló: revisá el detalle antes de publicar.';
+      case 'skipped':
+        return meta.exam_offline_output || 'Sin proyecto base publicado: no hay nada que verificar sin red.';
+      default:
+        return 'Sin verificar: la comprobación sin red corre al publicar.';
+    }
+  });
+
   readonly blockersOpen = signal<boolean>(true);
   readonly warningsOpen = signal<boolean>(true);
   readonly infoOpen = signal<boolean>(true);

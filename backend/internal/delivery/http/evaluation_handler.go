@@ -260,9 +260,28 @@ func (h *EvaluationHandler) UpdateExercise(w http.ResponseWriter, r *http.Reques
 		ex.Type = existing.Type
 	}
 
-	if err := h.service.UpdateExercise(r.Context(), &ex); err != nil {
+	// El cambio de propósito viaja con su confirmación aparte: el cuerpo del
+	// ejercicio no gana campos que no se guardan.
+	var purposeChange struct {
+		Confirm bool   `json:"confirm_purpose_change"`
+		Reason  string `json:"reason"`
+	}
+	_ = json.Unmarshal(bodyBytes, &purposeChange)
+
+	if err := h.service.UpdateExerciseWithPurposeConfirmation(r.Context(), &ex, services.PurposeChangeConfirmation{
+		Confirmed: purposeChange.Confirm,
+		Reason:    purposeChange.Reason,
+	}); err != nil {
 		if errors.Is(err, domain.ErrNotFound) {
 			SendError(w, http.StatusNotFound, "Exercise not found", "El ejercicio no existe o su materia no pertenece al docente")
+			return
+		}
+		if errors.Is(err, services.ErrExercisePurposeChangeBlocked) || errors.Is(err, services.ErrExercisePurposeChangeConfirmationNeeded) {
+			SendError(w, http.StatusConflict, "exercise_purpose_change_blocked", err.Error())
+			return
+		}
+		if errors.Is(err, services.ErrExercisePurposeChangeReasonNeeded) {
+			SendError(w, http.StatusUnprocessableEntity, "exercise_purpose_change_reason_required", err.Error())
 			return
 		}
 		if isValidationError(err) || errors.Is(err, domain.ErrWorkspaceProjectManagedBoilerplate) {
@@ -409,6 +428,11 @@ func (h *EvaluationHandler) PublishExercise(w http.ResponseWriter, r *http.Reque
 		}
 		if errors.Is(err, services.ErrZeroPublicTestCases) || strings.Contains(err.Error(), "0 public test cases") {
 			SendError(w, 422, "NO_PUBLIC_TEST_CASES", "No se puede publicar un ejercicio sin al menos un caso de prueba público")
+			return
+		}
+		var offlineErr *domain.ExamOfflineVerificationError
+		if errors.As(err, &offlineErr) {
+			SendError(w, 422, "EXAM_OFFLINE_VERIFICATION_FAILED", offlineErr.Error())
 			return
 		}
 		SendError(w, http.StatusInternalServerError, "INTERNAL_ERROR", "Error al publicar el ejercicio: "+err.Error())

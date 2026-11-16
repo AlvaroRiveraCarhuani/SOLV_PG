@@ -27,6 +27,49 @@ const (
 	EnvironmentTypeIDEPersistente EnvironmentType = "IDE_PERSISTENTE"
 )
 
+// Política de red del entorno de examen. `none` lo encierra en una red interna
+// sin puerta de enlace: el editor sigue alcanzable por Traefik y la salida a
+// internet no existe. `egress` es la excepción declarada por el docente.
+const (
+	ExamNetworkNone   = "none"
+	ExamNetworkEgress = "egress"
+)
+
+var (
+	ErrExamNetworkInvalid        = errors.New("invalid exam network policy")
+	ErrExamNetworkReasonRequired = errors.New("exam network egress requires a reason")
+	ErrExamNetworkRequiresExam   = errors.New("exam network policy applies only to exam exercises")
+)
+
+// NormalizeExamNetwork convierte vacío en `none` y recorta espacios.
+func NormalizeExamNetwork(network string) string {
+	trimmed := strings.TrimSpace(network)
+	if trimmed == "" {
+		return ExamNetworkNone
+	}
+	return trimmed
+}
+
+// ValidateExamNetwork exige que la excepción `egress` sea explícita, tenga
+// motivo y pertenezca a un ejercicio de examen. La salida cerrada es el
+// default; lo que se declara es la excepción.
+func ValidateExamNetwork(purpose, network, reason string) error {
+	switch NormalizeExamNetwork(network) {
+	case ExamNetworkNone:
+		return nil
+	case ExamNetworkEgress:
+		if purpose != string(ExercisePurposeExam) {
+			return ErrExamNetworkRequiresExam
+		}
+		if len(strings.TrimSpace(reason)) < 10 {
+			return ErrExamNetworkReasonRequired
+		}
+		return nil
+	default:
+		return ErrExamNetworkInvalid
+	}
+}
+
 type ExercisePurpose string
 
 const (
@@ -415,31 +458,40 @@ func (s EnvironmentSnapshot) ComputeVerificationFingerprint() string {
 }
 
 type Exercise struct {
-	ID                 string           `json:"id" db:"id"`
-	SubjectID          *string          `json:"subject_id,omitempty" db:"subject_id"`
-	Title              string           `json:"title" db:"title"`
-	Description        string           `json:"description" db:"description"`
-	Type               ExerciseType     `json:"type" db:"type"`
-	EnvironmentType    string           `json:"environment_type" db:"environment_type"`
-	TemplateID         string           `json:"template_id" db:"template_id"`
-	Difficulty         *string          `json:"difficulty,omitempty" db:"difficulty"`
-	Tags               pq.StringArray   `json:"tags" db:"tags"`
-	Purpose            string           `json:"purpose" db:"purpose"` // class, exam
-	PerStudentSeed     bool             `json:"per_student_seed" db:"per_student_seed"`
-	DueDate            *time.Time       `json:"due_date,omitempty" db:"due_date"`
-	Boilerplate        string           `json:"boilerplate" db:"boilerplate"`
-	Status             string           `json:"status" db:"status"` // draft, published, closed
-	Language           string           `json:"language" db:"language"`
-	TimeLimitMS        int              `json:"time_limit_ms" db:"time_limit_ms"`
-	MemoryLimitMB      int              `json:"memory_limit_mb" db:"memory_limit_mb"`
-	ReferenceSolution  string           `json:"reference_solution" db:"reference_solution"`
-	Stale              bool             `json:"stale" db:"stale"`
-	LastValidDryRunAt  *time.Time       `json:"last_valid_dry_run_at,omitempty" db:"last_valid_dry_run_at"`
-	ModuleID           *string          `json:"module_id,omitempty" db:"module_id"`
-	ExpectedComplexity *string          `json:"expected_complexity,omitempty" db:"expected_complexity"`
-	Config             ExerciseConfig   `json:"config" db:"config"`
-	TenantID           string           `json:"tenant_id" db:"tenant_id"`
-	Template           *TemplateSummary `json:"template,omitempty" db:"-"`
+	ID              string         `json:"id" db:"id"`
+	SubjectID       *string        `json:"subject_id,omitempty" db:"subject_id"`
+	Title           string         `json:"title" db:"title"`
+	Description     string         `json:"description" db:"description"`
+	Type            ExerciseType   `json:"type" db:"type"`
+	EnvironmentType string         `json:"environment_type" db:"environment_type"`
+	TemplateID      string         `json:"template_id" db:"template_id"`
+	Difficulty      *string        `json:"difficulty,omitempty" db:"difficulty"`
+	Tags            pq.StringArray `json:"tags" db:"tags"`
+	Purpose         string         `json:"purpose" db:"purpose"` // class, exam
+	// ExamNetwork declara si el entorno puede salir a internet. `none` por
+	// defecto; `egress` exige motivo y solo aplica a ejercicios de examen.
+	ExamNetwork       string `json:"exam_network" db:"exam_network"`
+	ExamNetworkReason string `json:"exam_network_reason" db:"exam_network_reason"`
+	// ExamOffline* guarda el resultado de la verificación previa a publicar un
+	// examen sin salida. Vacío significa que todavía no se corrió.
+	ExamOfflineStatus    string           `json:"exam_offline_status" db:"exam_offline_status"`
+	ExamOfflineOutput    string           `json:"exam_offline_output" db:"exam_offline_output"`
+	ExamOfflineCheckedAt *time.Time       `json:"exam_offline_checked_at,omitempty" db:"exam_offline_checked_at"`
+	PerStudentSeed       bool             `json:"per_student_seed" db:"per_student_seed"`
+	DueDate              *time.Time       `json:"due_date,omitempty" db:"due_date"`
+	Boilerplate          string           `json:"boilerplate" db:"boilerplate"`
+	Status               string           `json:"status" db:"status"` // draft, published, closed
+	Language             string           `json:"language" db:"language"`
+	TimeLimitMS          int              `json:"time_limit_ms" db:"time_limit_ms"`
+	MemoryLimitMB        int              `json:"memory_limit_mb" db:"memory_limit_mb"`
+	ReferenceSolution    string           `json:"reference_solution" db:"reference_solution"`
+	Stale                bool             `json:"stale" db:"stale"`
+	LastValidDryRunAt    *time.Time       `json:"last_valid_dry_run_at,omitempty" db:"last_valid_dry_run_at"`
+	ModuleID             *string          `json:"module_id,omitempty" db:"module_id"`
+	ExpectedComplexity   *string          `json:"expected_complexity,omitempty" db:"expected_complexity"`
+	Config               ExerciseConfig   `json:"config" db:"config"`
+	TenantID             string           `json:"tenant_id" db:"tenant_id"`
+	Template             *TemplateSummary `json:"template,omitempty" db:"-"`
 	// EnvironmentSnapshot es el pin de ADR-050. Se lee junto con el ejercicio y
 	// tiene prioridad sobre la plantilla viva al arrancar un entorno.
 	EnvironmentSnapshot     *EnvironmentSnapshot `json:"environment_snapshot,omitempty" db:"-"`
@@ -483,6 +535,13 @@ func (ex *Exercise) Validate() error {
 	// flujos históricos (import y DTOs que omiten el campo).
 	if ex.TimeLimitMS != 0 && (ex.TimeLimitMS < 100 || ex.TimeLimitMS > 30000) {
 		return ErrTimeLimitOutOfRange
+	}
+	if err := ValidateExamNetwork(ex.Purpose, ex.ExamNetwork, ex.ExamNetworkReason); err != nil {
+		return err
+	}
+	ex.ExamNetwork = NormalizeExamNetwork(ex.ExamNetwork)
+	if ex.ExamNetwork == ExamNetworkNone {
+		ex.ExamNetworkReason = ""
 	}
 	if ide := ex.Config.IDE; ide != nil {
 		if ide.AppPort != 0 && (ide.AppPort < 1 || ide.AppPort > 65535) {

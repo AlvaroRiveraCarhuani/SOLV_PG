@@ -85,6 +85,10 @@ La lectura correcta es: el producto está implementado y los flujos principales 
 | :--- | :---: | :---: | :--- |
 | `dashboard-customization-and-course-theming` | 0/8 | No | Sin iniciar |
 | `feat-teacher-experience` | 14/14 | Sí | Verificado, sin archivar |
+| `separar-practica-y-examen` | 28/29 | No | Implementado, sin `verify-report`; falta el informe de `tools/test-impact` |
+| `dimensionamiento-practica-ram-cpu` | 9/27 | No | Cuota de CPU y tope de procesos por política del nodo aplicados en el contenedor, `cpu_millis` y perfil declarado persistidos por entorno, ficha del alumno y vista del docente con los tres números y aviso de cuota reducida, con ADR-084; faltan la medición en el servidor, la decisión de perfiles y los tests |
+| `cuota-de-disco-por-entorno` | 13/27 | No | Cuota blanda medida por un barrido cada 5 minutos, persistida, aviso al 80%, freno de entrega al 100%, limpieza de cachés con confirmación, liberación de volúmenes sin dueño con frase y auditoría, rechazo de altas bajo el 5% libre y ADR-084; faltan los tests de integración, la corrida de recuperación en el nodo y la cuota dura XFS |
+| `red-del-examen` | 12/19 | No | Política `exam_network` por ejercicio, red interna `solv-exam-net`, proxy del editor, red interna de satélites, regla en `DOCKER-USER`, aviso al alumno, auditoría de la excepción y verificación del proyecto base sin red al publicar, con rechazo por paso y estado en el checklist (ADR-085); faltan los tests y la corrida en el nodo |
 | `servicios-satelite-por-rol` | 0/37 | No | Sin iniciar |
 | `template-environment-studio` | 18/18 | Sí | Verificado, sin archivar |
 
@@ -98,6 +102,7 @@ Los cambios con tareas completas pero sin `verify-report` no se consideran cerra
 
 | Fecha | Cambio |
 | :--- | :--- |
+| 2026-11-16 | Se implementa la separación de práctica y examen (ADR-083): perfil derivado del propósito, volumen por intento, recuperatorio, guardas de pausa y de cambio de propósito, estado calculado del entorno y avisos en la pantalla del alumno. Falta el informe de `tools/test-impact`. |
 | 2026-11-16 | Se implementan el pin de entorno de ADR-050 fase 3 (snapshot JSONB, fallback y aviso de uso en el Studio) y el apagado ordenado del API con `SIGTERM`/`SIGINT`, `Shutdown` y cierre coordinado de workers. |
 | 2026-11-16 | Se incorpora el Slice 17, se corrigen los estados de frontend de los Slice 12, 14 y 16, se registra el resultado de la auditoría y se separan implementación, verificación y operación. |
 | 2026-11-16 | Se archivan cinco cambios OpenSpec con `verify-report`; se sincronizan cuatro specs vigentes y se corrige el contrato de conteo de la importación masiva de docentes. |

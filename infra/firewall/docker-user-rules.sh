@@ -56,4 +56,23 @@ if [ -n "$INTERFACE_SOLV" ] && [ -n "$GATEWAY_SOLV" ]; then
     done
 fi
 
+# Defensa adicional del examen sin salida. La red interna no tiene puerta de
+# enlace y ya corta el tráfico, pero si el contenedor recibiera una segunda red
+# con gateway esta regla lo deja sin salida igual. La lista se deriva de la
+# etiqueta que pone el backend al crear el entorno, no de una lista de IPs a mano.
+if command -v docker &>/dev/null; then
+    echo "Configurando defensa de contenedores de examen etiquetados..."
+    EXAM_CONTAINERS=$(docker ps -q --filter "label=solv.exam.no-egress=true" 2>/dev/null || true)
+    for cid in $EXAM_CONTAINERS; do
+        EXAM_IP=$(docker inspect -f '{{range .NetworkSettings.Networks}}{{.IPAddress}} {{end}}' "$cid" 2>/dev/null | awk '{print $1}')
+        if [ -z "$EXAM_IP" ]; then
+            continue
+        fi
+        echo "=> Contenedor de examen $cid ($EXAM_IP) sin salida"
+        apply_rule DOCKER-USER -s "$EXAM_IP" -o eth0 ! -d 10.0.0.0/8 -j DROP
+        apply_rule DOCKER-USER -s "$EXAM_IP" -o eth0 ! -d 172.16.0.0/12 -j DROP
+        apply_rule DOCKER-USER -s "$EXAM_IP" -o eth0 ! -d 192.168.0.0/16 -j DROP
+    done
+fi
+
 echo "=== Reglas de firewall aplicadas exitosamente ==="

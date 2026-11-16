@@ -188,6 +188,72 @@ describe('StudentExerciseSolverComponent', () => {
     expect(projectSubmitPayloads).toEqual([{ exercise_id: 'ex-101' }]);
   });
 
+  it('muestra los tres estados del examen y recuerda que la práctica sigue intacta', () => {
+    const current = component.exercise();
+    component.exercise.set({
+      ...current!,
+      purpose: 'exam',
+      type: 'project',
+      environment_type: 'IDE_PERSISTENTE'
+    });
+
+    component.environment.set({ id: 'ws-1', status: 'pending' } as unknown as PracticeEnvironment);
+    fixture.detectChanges();
+    expect(component.environmentState()).toBe('preparing');
+    expect(fixture.nativeElement.textContent).toContain('Preparando tu examen');
+
+    component.environment.set({
+      id: 'ws-1',
+      status: 'running',
+      state: 'ready'
+    } as unknown as PracticeEnvironment);
+    fixture.detectChanges();
+    expect(component.environmentState()).toBe('ready');
+    expect(fixture.nativeElement.textContent).toContain('Estás rindiendo el examen');
+    expect(fixture.nativeElement.textContent).toContain('Tu práctica de esta materia sigue intacta');
+
+    component.environment.set({ id: 'ws-1', status: 'frozen' } as unknown as PracticeEnvironment);
+    fixture.detectChanges();
+    expect(component.environmentState()).toBe('closed');
+    expect(fixture.nativeElement.textContent).toContain('Examen cerrado');
+  });
+
+  it('muestra "Examen cerrado" cuando el examen ya terminó y el entorno no carga', async () => {
+    const current = component.exercise();
+    component.exercise.set({
+      ...current!,
+      purpose: 'exam',
+      type: 'project',
+      environment_type: 'IDE_PERSISTENTE'
+    });
+    const openSpy = vi.spyOn(window, 'open').mockReturnValue(null);
+    const startSpy = vi.spyOn(mockStudentService, 'startEnvironment').mockRejectedValueOnce({
+      error: {
+        error: { code: 'environment_frozen' },
+        message: 'El examen terminó: tu entorno quedó en solo lectura'
+      }
+    });
+
+    await component.openEnvironment();
+    fixture.detectChanges();
+
+    expect(component.environment()).toBeNull();
+    expect(component.examClosed()).toBe(true);
+    expect(component.environmentState()).toBe('closed');
+    expect(fixture.nativeElement.textContent).toContain('Examen cerrado');
+
+    startSpy.mockRestore();
+    openSpy.mockRestore();
+  });
+
+  it('no muestra el aviso de examen en una práctica', () => {
+    component.environment.set({ id: 'ws-1', status: 'running' } as unknown as PracticeEnvironment);
+    fixture.detectChanges();
+
+    expect(component.environmentState()).toBe('ready');
+    expect(fixture.nativeElement.querySelector('.exam-state')).toBeNull();
+  });
+
   it('pide confirmación antes de entregar un examen y no deja reentregar', async () => {
     const current = component.exercise();
     component.exercise.set({

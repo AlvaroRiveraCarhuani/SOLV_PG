@@ -219,3 +219,128 @@ en ejecución.
 Lo que no cambia: si ni la base entra, el entorno se rechaza con
 `host_memory_exhausted`, y el techo por contenedor sigue siendo 4096 MB, que es
 el perfil Intensivo que el administrador ya podía definir en una plantilla.
+
+## 9. Disco: cuánto ocupa un laboratorio y qué pasa cuando se llena
+
+La cuota de disco es **blanda y se mide**. No hay un límite que el sistema de
+archivos haga cumplir: `StorageOpt size` cubre la capa escribible del
+contenedor y no los volúmenes nombrados, y `prjquota` necesita un volumen
+lógico XFS que el nodo todavía no tiene (sección 10).
+
+| Pieza | Valor | Dónde se configura |
+| :--- | :--- | :--- |
+| Cuota por entorno | 1024 MB | `disk_quota_mb` de la política del servidor (`0` = sin cuota) |
+| Aviso | 80% | `disk_warning_pct` |
+| Bloqueo de entrega | 100% | `disk_block_pct` |
+| Barrido de medición | cada 5 minutos | `DiskUsageWorker` |
+| Piso de disco del nodo | 5% libre | `DefaultHostDiskFloorPct` |
+
+El barrido mide un volumen por entorno abierto con un contenedor efímero
+(`du -sm`, volumen en solo lectura), guarda `disk_used_mb` y `disk_state`, y la
+ficha lee lo guardado: refrescar la pantalla no abre contenedores. La entrega
+mide en el momento de escribir, que es cuando el volumen crece.
+
+| Estado | Umbral | Qué ve el alumno |
+| :--- | :--- | :--- |
+| `ok` | < 80% | nada |
+| `disk_warning` | ≥ 80% | aviso con el uso, el límite y que la cuota es blanda; puede seguir trabajando y entregando |
+| `disk_full` | ≥ 100% | la entrega responde 409 `disk_quota_exceeded` y la ficha ofrece liberar espacio |
+
+El editor **no** se cierra al llenarse la cuota: cerrarlo en medio del trabajo
+pierde código sin guardar, y con el disco lleno el entorno podría no volver a
+arrancar. Frenar la entrega corta el crecimiento igual, porque la entrega es lo
+que escribe el proyecto.
+
+El botón «Liberar espacio» de la ficha borra solo rutas que la herramienta
+regenera (`node_modules`, `.cache`, `dist`, `build`, `target`, `__pycache__`,
+`.pytest_cache`, `.next`), vuelve a medir y deja el estado en `ok` si baja del
+umbral. No toca código del alumno ni un examen congelado.
+
+### Liberación de volúmenes sin dueño
+
+`GET /api/v1/admin/server/storage/orphans` cruza los volúmenes con `LINK=0`
+(una lectura de `/system/df`, no un `du` del árbol) contra todos los entornos
+registrados, en cualquier estado. `POST .../orphans/prune` borra solo los
+nombres elegidos, exige la frase `LIBERAR VOLUMENES HUERFANOS` y deja una
+entrada `ORPHAN_VOLUME_RELEASED` en `audit_logs` por volumen.
+
+Tres barreras, en este orden:
+
+1. Solo `solv_workspace_*`. La base (`pg_data`), los respaldos y cualquier
+   volumen de otra pila quedan fuera por nombre, aunque estén sin contenedor:
+   con el stack detenido, `pg_data` también aparece con `LINK=0`.
+2. Ningún entorno registrado puede reclamarlo, aunque esté hibernado, congelado
+   o fallido.
+3. El plan se recalcula al borrar y el daemon se llama sin `force`: un volumen
+   que se montó mientras la pantalla estaba abierta se rechaza, no se destruye.
+
+La corrida inicial es una tarea de servidor: abrir Configuración → Servidor →
+Espacio en Disco, guardar la lista con fecha y liberar solo lo que el panel
+marque como recuperable. No hay worker automático: un volumen recién creado
+puede no estar reclamado en base todavía.
+
+Límites conocidos:
+
+- Entre dos barridos, un volumen puede pasarse de la cuota. El freno del nodo
+  es el rechazo de altas por debajo del 5% libre (`503 host_disk_exhausted`).
+- La liberación no borra intentos de examen: se conservan como evidencia
+  (ADR-083) y se liberan a mano.
+
+## 10. Separación del disco de la base y camino a la cuota dura
+
+Pendiente de ejecución en el servidor. Nada de esta sección está aplicado.
+
+Estado medido (2026-11-16, `asus-server`): `/var/lib/docker` es ext4 sobre LVM
+(`ubuntu-vg-ubuntu-lv`), 98 GB totales con 34 GB libres; `pg_data` vive en el
+mismo sistema de archivos que los volúmenes de laboratorio. Un disco de
+entornos lleno deja la plataforma sin poder registrar entregas ni notas.
+
+### 10.1 Base de notas en su propio volumen lógico
+
+1. Verificar el espacio del grupo: `vgs ubuntu-vg` y `lvs`. Si no hay hueco, usar
+   el HDD de datos fríos.
+2. Respaldo verificado antes de mover: crear respaldo desde el panel y
+   comprobar el checksum con «Verificar».
+3. Ventana de mantenimiento: activar Modo Mantenimiento y detener el stack.
+4. Crear el volumen lógico (`lvcreate -L 20G -n solv_pg ubuntu-vg`), formatearlo
+   ext4 y montarlo en `/var/lib/solv/pg` con entrada en `/etc/fstab`.
+5. Copiar `pg_data` con `rsync -aHAX` conservando dueño y permisos; apuntar el
+   servicio `postgres` a la ruta nueva (`/var/lib/solv/pg:/var/lib/postgresql`).
+6. Arrancar y comprobar: `pg_isready`, conteo de tablas, una entrega de prueba y
+   la latencia de una consulta de notas.
+7. Vuelta atrás: restaurar el montaje anterior y arrancar. El volumen viejo no se
+   borra hasta que el nuevo haya servido una jornada completa.
+
+### 10.2 Volumen XFS con `prjquota` para cuota dura
+
+1. Crear un volumen lógico para los volúmenes de entorno, formatearlo (`mkfs.xfs
+   -f`), montarlo con `defaults,prjquota` en `/etc/fstab` y remontar.
+2. Mover los volúmenes existentes con el entorno detenido: copiar el contenido
+   con el mismo nombre y montar cada uno en el sistema de archivos nuevo.
+3. Asignar un identificador de proyecto por volumen
+   (`xfs_quota -x -c 'project -s ...'`) y fijar `bhard` con la cuota de la
+   política.
+4. Verificar el rechazo de escritura al llegar al límite y leer el reporte con
+   `xfs_quota -x -c 'report -h'`.
+
+Mientras ese volumen no exista, la cuota sigue siendo blanda y la interfaz no
+afirma que el sistema operativo rechace la escritura.
+
+## Volúmenes de examen e intentos
+
+Cada examen nace en su propio volumen (`_exam_<n>`, ADR-083). El volumen de la
+práctica queda aparte, y cada recuperatorio agrega uno más. Nada los borra solo:
+el intento anterior se conserva como evidencia.
+
+Para dimensionar el disco, el espacio de exámenes es:
+
+```
+alumnos × intentos (1 + recuperatorios) × tamaño del proyecto base
+```
+
+Un examen con 40 alumnos, dos intentos y proyectos de 20 MB ocupa cerca de
+1,6 GB en volúmenes, además de lo que se haya escrito dentro. La limpieza de
+volúmenes de intentos cerrados es una tarea pendiente: hoy se liberan a mano.
+
+El estado del entorno que ve el alumno (`preparing`, `ready`, `closed`,
+`failed`) se calcula del registro, así que no agrega tráfico ni columnas.

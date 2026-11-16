@@ -2,6 +2,7 @@ package services
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log"
 	"strings"
@@ -46,6 +47,8 @@ func (s *PracticeEnvironmentService) reactivatePracticeEnvironment(ctx context.C
 		baseRAMMB = int64(template.BaseRamMB)
 	}
 	ramLimitMB := baseRAMMB
+	// El perfil declarado se conserva aunque el préstamo conceda otra cosa.
+	declaredRAMMB := baseRAMMB
 	if s.policiesService == nil && instance.MemoryLimitMB > 0 {
 		// Sin políticas inyectadas (dobles de test, ciclos anteriores) se
 		// conserva el límite del registro: no hay presupuesto que recalcular.
@@ -105,17 +108,21 @@ func (s *PracticeEnvironmentService) reactivatePracticeEnvironment(ctx context.C
 	envVars = append(envVars, s.workspaceDependencyEnvVars(ctx, instance.TenantID, exerciseIDStr)...)
 	envVars = append(envVars, provision.Env...)
 
+	runtimePolicies := s.effectivePolicies(ctx, instance.TenantID)
 	config := domain.PracticeEnvironmentContainerConfig{
 		Image:               imageName,
 		ContainerName:       containerName,
 		VolumeName:          volumeName,
 		MemoryLimitMB:       ramLimitMB,
+		CPUNanos:            domain.CPUQuotaNanos(runtimePolicies.EffectivePracticeCPUMillis()),
+		PidsLimit:           runtimePolicies.EffectivePidsLimit(),
 		NetworkName:         networkName,
 		Labels:              labels,
 		Env:                 envVars,
 		SetupScript:         sanitizePracticeEnvironmentSetupScript(template),
 		HostPort:            hostPort,
 		AttachSatellitesNet: provision.UsesManagedContainer,
+		ExamNoEgress:        instance.EnvironmentProfile.IsExam() && s.examNetworkPolicyFor(ctx, instance.TenantID, instance.ExerciseID) == domain.ExamNetworkNone,
 	}
 
 	containerID, err := s.docker.StartPracticeEnvironmentContainer(ctx, config)
@@ -126,16 +133,46 @@ func (s *PracticeEnvironmentService) reactivatePracticeEnvironment(ctx context.C
 
 	_ = s.repo.UpdateContainerID(ctx, instance.ID, containerID)
 	_ = s.repo.UpdateStatus(ctx, instance.ID, domain.PracticeEnvironmentStatusRunning)
-	_ = s.repo.UpdateMemoryLimit(ctx, instance.ID, ramLimitMB)
+	// La memoria concedida, el perfil declarado y la CPU viajan juntos: la ficha
+	// necesita los tres para explicar la cuota real con la que despertó.
+	if recorder, ok := s.repo.(resourceQuotaRecorder); ok {
+		_ = recorder.RecordResourceQuota(ctx, instance.ID, ramLimitMB, declaredRAMMB, runtimePolicies.EffectivePracticeCPUMillis())
+	} else {
+		_ = s.repo.UpdateMemoryLimit(ctx, instance.ID, ramLimitMB)
+	}
 	_ = s.repo.RecordHeartbeat(ctx, instance.ID)
 
 	instance.ContainerID = &containerID
 	instance.Status = domain.PracticeEnvironmentStatusRunning
 	instance.MemoryLimitMB = ramLimitMB
+	instance.MemoryProfileMB = declaredRAMMB
+	instance.CPUMillis = runtimePolicies.EffectivePracticeCPUMillis()
 	if linkSession {
 		s.linkSessionToAula(ctx, instance)
 	}
 	return instance, nil
+}
+
+// examNetworkPolicyFor devuelve la política que declaró el ejercicio. Si no se
+// puede leer (ejercicio borrado, repositorio ausente), conserva la salida: es
+// el comportamiento previo y no corta la red de un examen en curso por un
+// error de lectura. La salida cerrada se aplica cuando el ejercicio la declara.
+func (s *PracticeEnvironmentService) examNetworkPolicyFor(ctx context.Context, tenantID string, exerciseID *string) string {
+	if exerciseID == nil || strings.TrimSpace(*exerciseID) == "" {
+		return domain.ExamNetworkEgress
+	}
+	exercise := s.resolveExercise(ctx, *exerciseID, tenantID)
+	if exercise == nil {
+		return domain.ExamNetworkEgress
+	}
+	return domain.NormalizeExamNetwork(exercise.ExamNetwork)
+}
+
+// resourceQuotaRecorder es la capacidad opcional del repositorio de guardar la
+// cuota concedida, el perfil declarado y la CPU en una sola escritura. Sin ella
+// se conserva el camino anterior, que solo actualiza la memoria.
+type resourceQuotaRecorder interface {
+	RecordResourceQuota(ctx context.Context, id string, memoryMB, profileMB, cpuMillis int64) error
 }
 
 func (s *PracticeEnvironmentService) RecordHeartbeat(ctx context.Context, environmentID string) error {
@@ -206,10 +243,19 @@ func (s *PracticeEnvironmentService) TerminatePracticeEnvironment(ctx context.Co
 	return nil
 }
 
+// ErrExamPauseForbidden impide apagar a mano un entorno de examen. El apagado
+// por inactividad ya está exento por perfil; esto cierra la otra puerta, la del
+// docente o el administrador que pausa a mitad del examen y deja al alumno sin
+// su espacio.
+var ErrExamPauseForbidden = errors.New("un entorno de examen no se puede pausar a mano")
+
 func (s *PracticeEnvironmentService) HibernatePracticeEnvironment(ctx context.Context, environmentID string) error {
 	ws, err := s.environmentOrNotFound(ctx, environmentID)
 	if err != nil {
 		return err
+	}
+	if ws.EnvironmentProfile.IsExam() {
+		return ErrExamPauseForbidden
 	}
 
 	if ws.ContainerID != nil && *ws.ContainerID != "" {
@@ -228,13 +274,21 @@ func (s *PracticeEnvironmentService) HibernatePracticeEnvironment(ctx context.Co
 }
 
 func (s *PracticeEnvironmentService) GetPracticeEnvironmentByID(ctx context.Context, environmentID string) (*domain.PracticeEnvironment, error) {
-	return s.repo.GetByID(ctx, environmentID)
+	environment, err := s.repo.GetByID(ctx, environmentID)
+	if err != nil || environment == nil {
+		return environment, err
+	}
+	s.annotateDiskLimit(ctx, environment)
+	return environment, nil
 }
 
 func (s *PracticeEnvironmentService) PausePracticeEnvironment(ctx context.Context, environmentID string) (*domain.PracticeEnvironment, error) {
 	ws, err := s.environmentOrNotFound(ctx, environmentID)
 	if err != nil {
 		return nil, err
+	}
+	if ws.EnvironmentProfile.IsExam() {
+		return nil, ErrExamPauseForbidden
 	}
 
 	if ws.ContainerID != nil && *ws.ContainerID != "" {

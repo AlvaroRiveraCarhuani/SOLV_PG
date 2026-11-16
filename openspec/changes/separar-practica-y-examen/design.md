@@ -26,6 +26,8 @@ congelado y sujeto a la retención existente.
 | Captura de tecleo | (a) siempre (b) solo en examen, aplicada en el cliente (c) solo en examen, aplicada en el servidor | (b) se puede desactivar desde el navegador; (c) es la única que se puede afirmar | (c): el servidor rechaza eventos de entornos con perfil de práctica |
 | Hibernación en examen | (a) mismo worker (b) exención total (c) exención salvo presión de host | (b) permite que el host quede sin memoria durante la ventana | (c): el worker puede hibernar por presión y lo audita, nunca por inactividad |
 | Aviso al alumno | (a) redirección silenciosa (b) estado explícito con mensaje | (a) se lee como pérdida de trabajo | (b): `preparing` → `ready` → `closed` |
+| Segunda vuelta del examen | (a) reabrir el mismo intento (b) fila nueva por intento (c) avanzar el intento en la misma fila | (a) el alumno rinde recuperando los archivos del examen anterior; (b) choca con `idx_workspaces_practice_scope`, que admite una sola fila por persona, materia y práctica | (c): el intento avanza en la fila existente y el volumen nuevo se siembra desde la versión base, así que el intento anterior queda intacto en su volumen |
+| Cuándo hay segunda vuelta | (a) cualquier reapertura del entorno (b) el número de entregas (c) una convocatoria de examen abierta después del cierre | (a) deja reabrir para seguir escribiendo después de entregar; (b) no distingue un recuperatorio de una entrega repetida | (c): la segunda vuelta depende del docente, que abre el aula del recuperatorio. Recargar la página no reabre nada |
 
 ## Decisiones que pertenecen a otros cambios
 
@@ -35,6 +37,8 @@ congelado y sujeto a la retención existente.
   declarada por el docente y verificación del proyecto base sin salida al publicar.
   `EnvironmentProfileSpec` no declara política de red, para no tener dos fuentes para la
   misma decisión.
+  **Decidido:** la política vive en el ejercicio (`exam_network`, `none` por defecto) y la
+  red interna con su proxy de editor quedaron implementadas en el ADR-085.
 
 ## Data Model
 
@@ -74,9 +78,11 @@ sequenceDiagram
     S->>P: ResolveProfile(exam)
     P-->>S: EnvironmentProfile{ram_mb, no_idle_hibernate, keystrokes_on, fresh_workspace}
     S->>R: ¿hay entorno previo del ejercicio?
-    alt existe y su intento está cerrado
-        S->>R: crea fila con exam_attempt+1
-        S->>D: crea volumen nuevo del intento
+    alt existe, su intento está cerrado y hay convocatoria nueva
+        S->>R: avanza exam_attempt en la misma fila
+        S->>D: crea volumen nuevo del intento y lo siembra
+    else existe y está cerrado sin convocatoria nueva
+        S-->>F: entorno congelado
     else no existe
         S->>D: crea volumen del intento 1
     end

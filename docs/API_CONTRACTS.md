@@ -2018,6 +2018,41 @@ Devuelve el estado del nodo y del tenant desde **hechos medidos** (ADR-049): tel
 `capacity_basis`) con el techo que sostiene el host. `capacity_basis` es
 `host_ram` con medición y `unavailable` sin ella.
 
+#### Volúmenes sin contenedor (`GET|POST /api/v1/admin/server/storage/orphans`)
+
+`GET` cruza una lectura de `/system/df` contra todos los entornos registrados y
+devuelve qué volúmenes se pueden liberar y cuáles se conservan. Solo `solv_workspace_*`
+es candidato: la base, los respaldos y los volúmenes de otras pilas quedan fuera por
+nombre, aunque aparezcan con `LINK=0`.
+
+```json
+{
+  "data": {
+    "orphans": [{ "name": "solv_workspace_<alumno>_<materia>_<practica>", "size_mb": 842 }],
+    "kept": [{ "name": "solv_workspace_<alumno>_<materia>_<practica>_exam_1", "size_mb": 120, "reason": "entorno_registrado" }],
+    "total_orphan_mb": 842,
+    "total_kept_mb": 120
+  }
+}
+```
+
+Motivos de conservación: `entorno_registrado`, `fuera_del_espacio_de_la_plataforma`,
+`ya_no_es_huerfano`, `fallo_al_borrar`.
+
+`POST /api/v1/admin/server/storage/orphans/prune` libera solo los nombres elegidos:
+
+```json
+{ "volume_names": ["solv_workspace_..."], "confirmation_phrase": "LIBERAR VOLUMENES HUERFANOS", "reason": "opcional" }
+```
+
+- `200` con `deleted`, `skipped`, `freed_mb` y `remaining_orphan_mb`. Cada volumen
+  borrado deja un evento `ORPHAN_VOLUME_RELEASED` en `audit_logs` con su tamaño y motivo.
+- El plan se recalcula al borrar y el daemon se llama sin `force`: un volumen que se
+  montó mientras la pantalla estaba abierta se informa como conservado.
+- `400 empty_selection`; `422 invalid_confirmation_phrase` o `selection_too_large`
+  (tope de 200 por corrida); `503 inventory_unavailable` cuando no se pudo leer el
+  daemon o los entornos registrados, en cuyo caso no se borra nada.
+
 #### Estados de environment nuevos (ADR-049)
 
 | Estado | Origen | Efecto |
@@ -2636,3 +2671,36 @@ Sin cuerpo. Publica el borrador vigente como una versión inmutable y mueve el p
 | `500` | `workspace_project_error` | Fallo interno sin detalles sensibles. |
 
 Los cinco endpoints responden con el sobre `{ data, error, message }` y el mismo mensaje en español que muestra el editor. La consulta y el guardado son de lectura y escritura del borrador; solo la publicación crea una versión y solo el arranque de un entorno escribe el volumen del alumno.
+
+---
+
+## Red del Examen (ADR-085)
+
+`exercises.exam_network` vale `none` (por defecto) o `egress`. `exam_network_reason`
+acompaña a la excepción.
+
+- `GET /api/v1/exercises/{id}` con rol `student` devuelve el DTO público con
+  `exam_network` y `exam_network_reason`. El alta y la edición
+  (`POST /api/v1/exercises`, `PUT /api/v1/exercises/{id}`) aceptan los dos campos.
+- `egress` exige `purpose = exam` y un motivo de al menos 10 caracteres; el alta o la
+  edición responden `422` con el error de validación (`exam network egress requires a
+  reason`, `exam network policy applies only to exam exercises`,
+  `invalid exam network policy`). Con `none` se ignora el motivo.
+- Cada guardado con `egress` deja `EXAM_NETWORK_EGRESS_GRANTED` en `audit_logs`
+  (`resource_type = exercise`, `resource_id`, motivo en `metadata.reason`).
+- Con `none`, el entorno arranca en la red interna `solv-exam-net` sin puerta de enlace.
+  El editor se publica por `<contenedor>-proxy`, que vive en esa red y en la de Traefik;
+  el contenedor del examen no publica puertos ni recibe `host.docker.internal`.
+- Los motores gestionados se alcanzan por `solv-exam-satellites-net` (interna), nunca por
+  `solv-satellites-net`, que tiene gateway.
+- `POST /api/v1/exercises/{id}/publish` verifica el proyecto base sin red cuando el
+  ejercicio es de examen, `IDE_PERSISTENTE` y `exam_network = none`. Si el setup o el
+  arranque necesitan red responde `422` con `EXAM_OFFLINE_VERIFICATION_FAILED`, el paso
+  (`setup`, `run`, `proyecto`, `tiempo`) y las últimas líneas del log; el ejercicio queda
+  en borrador.
+- `GET /api/v1/exercises/{id}` devuelve `exam_offline_status` (`''`, `passed`, `failed`,
+  `skipped`), `exam_offline_output` (recortado a 4000 caracteres) y
+  `exam_offline_checked_at`. Un fallo de infraestructura se registra como `skipped` y no
+  bloquea la publicación.
+- `POST /api/v1/teacher/courses/{courseId}/exercises/{exerciseId}/ide` devuelve también
+  `memory_limit_mb`, `memory_profile_mb` y `cpu_millis` del entorno del docente.

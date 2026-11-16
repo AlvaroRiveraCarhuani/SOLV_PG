@@ -108,6 +108,52 @@ import { EnvironmentLabelPipe } from '@shared/pipes/environment-label.pipe';
           </span>
         </div>
       }
+
+      <!-- Red del examen: salida cerrada por defecto, excepción con motivo -->
+      @if (store.metadata().purpose === 'exam') {
+        <div class="config-cluster network-cluster">
+          <span class="cluster-label">Acceso a internet</span>
+          <div class="segmented-control" role="radiogroup" aria-label="Acceso a internet del examen">
+            <button
+              type="button"
+              class="segment-btn"
+              [class.active]="store.metadata().exam_network === 'none'"
+              (click)="selectExamNetwork('none')"
+              role="radio"
+              [attr.aria-checked]="store.metadata().exam_network === 'none'"
+            >
+              <span>Sin internet</span>
+            </button>
+            <button
+              type="button"
+              class="segment-btn"
+              [class.active]="store.metadata().exam_network === 'egress'"
+              (click)="selectExamNetwork('egress')"
+              role="radio"
+              [attr.aria-checked]="store.metadata().exam_network === 'egress'"
+            >
+              <span>Excepción con motivo</span>
+            </button>
+          </div>
+          @if (store.metadata().exam_network === 'egress') {
+            <label class="network-reason-label" for="exam-network-reason">
+              Motivo de la excepción (mínimo 10 caracteres)
+            </label>
+            <textarea
+              id="exam-network-reason"
+              class="network-reason"
+              rows="2"
+              placeholder="Ej. El examen consume una API pública de tipos de cambio"
+              [value]="store.metadata().exam_network_reason"
+              (input)="updateExamNetworkReason($event)"
+            ></textarea>
+          } @else {
+            <p class="network-hint">
+              El editor funciona, pero el entorno no tiene salida a internet. La excepción queda auditada.
+            </p>
+          }
+        </div>
+      }
     </div>
   `,
   styleUrl: './modality-purpose-cards.component.scss'
@@ -129,6 +175,18 @@ export class ModalityPurposeCardsComponent {
     } else {
       this.store.updateMetadata({ purpose });
     }
+  }
+
+  selectExamNetwork(network: 'none' | 'egress'): void {
+    this.store.updateMetadata({
+      exam_network: network,
+      exam_network_reason: network === 'none' ? '' : this.store.metadata().exam_network_reason
+    });
+  }
+
+  updateExamNetworkReason(event: Event): void {
+    const value = (event.target as HTMLTextAreaElement).value;
+    this.store.updateMetadata({ exam_network: 'egress', exam_network_reason: value });
   }
 
   onSeedContainerClick(): void {

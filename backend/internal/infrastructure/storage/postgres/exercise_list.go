@@ -67,6 +67,7 @@ func (r *PostgresExerciseRepository) ListBySubject(ctx context.Context, tenantID
 		       COALESCE(language, 'python') AS language, 
 		       COALESCE(time_limit_ms, 1000) AS time_limit_ms, 
 		       COALESCE(memory_limit_mb, 128) AS memory_limit_mb, 
+		       COALESCE(exam_network, 'none') AS exam_network, COALESCE(exam_network_reason, '') AS exam_network_reason, COALESCE(exam_offline_status, '') AS exam_offline_status, COALESCE(exam_offline_output, '') AS exam_offline_output, exam_offline_checked_at, 
 		       COALESCE(reference_solution, '') AS reference_solution,
 		       COALESCE(stale, false) AS stale,
 		       last_valid_dry_run_at,

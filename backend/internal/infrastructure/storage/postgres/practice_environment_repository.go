@@ -17,6 +17,49 @@ func NewPostgresPracticeEnvironmentRepository(db *sqlx.DB) domain.PracticeEnviro
 	return &PostgresPracticeEnvironmentRepository{db: db}
 }
 
+// CountByExerciseAndStatus cuenta los entornos de un ejercicio en un estado. La
+// edición del ejercicio la usa para decidir si su propósito puede cambiar: con
+// entornos abiertos el perfil ya aplicado no se puede reescribir.
+func (r *PostgresPracticeEnvironmentRepository) CountByExerciseAndStatus(ctx context.Context, tenantID, exerciseID, status string) (int, error) {
+	var total int
+	err := r.db.GetContext(ctx, &total, `
+		SELECT COUNT(*)
+		FROM environments
+		WHERE tenant_id = $1 AND exercise_id = $2::uuid AND status = $3
+	`, tenantID, exerciseID, status)
+	if err != nil {
+		return 0, fmt.Errorf("failed to count environments by status: %w", err)
+	}
+	return total, nil
+}
+
+// RestartExamAttempt deja la práctica lista para un intento nuevo: avanza el
+// número, borra el cierre, suelta el contenedor anterior y reinicia la siembra
+// sobre el volumen que corresponde al intento. La fila es la misma porque la
+// base admite una sola por (persona, materia, ejercicio).
+func (r *PostgresPracticeEnvironmentRepository) RestartExamAttempt(ctx context.Context, id, tenantID string, attempt int, profile domain.EnvironmentProfile, seedVersionID *string, seedMode, seedStatus string) error {
+	result, err := r.db.ExecContext(ctx, `
+		UPDATE environments
+		SET exam_attempt = $3,
+		    environment_profile = $4,
+		    frozen_at = NULL,
+		    status = 'pending',
+		    container_id = NULL,
+		    workspace_project_version_id = $5,
+		    workspace_seed_mode = $6,
+		    workspace_init_status = $7,
+		    updated_at = NOW()
+		WHERE id = $1::uuid AND tenant_id = $2
+	`, id, tenantID, attempt, string(profile), seedVersionID, seedMode, seedStatus)
+	if err != nil {
+		return fmt.Errorf("failed to restart exam attempt: %w", err)
+	}
+	if affected, rowsErr := result.RowsAffected(); rowsErr == nil && affected == 0 {
+		return domain.ErrNotFound
+	}
+	return nil
+}
+
 // GetByStudentSubjectExercise devuelve el entorno de una práctica concreta de
 // la persona (alumno o docente). Es una capacidad opcional del repositorio: el
 // ciclo de vida la usa solo para entornos acotados a un ejercicio, sin
@@ -27,7 +70,7 @@ func (r *PostgresPracticeEnvironmentRepository) GetByStudentSubjectExercise(ctx 
 		tenantID = domain.DefaultTenantID
 	}
 	query := `
-		SELECT id, student_id, subject_id, template_id, type, container_id, status, access_url, memory_limit_mb, environment_profile, exam_attempt, last_heartbeat_at, last_oom_killed_at, oom_strike_count, COALESCE(semgrep_audit, '{}'::jsonb) AS semgrep_audit, tenant_id, exercise_id, frozen_at, workspace_project_version_id, workspace_seed_mode, workspace_init_status, created_at, updated_at
+		SELECT id, student_id, subject_id, template_id, type, container_id, status, access_url, memory_limit_mb, environment_profile, exam_attempt, last_heartbeat_at, last_oom_killed_at, oom_strike_count, COALESCE(semgrep_audit, '{}'::jsonb) AS semgrep_audit, tenant_id, exercise_id, frozen_at, workspace_project_version_id, workspace_seed_mode, workspace_init_status, disk_used_mb, disk_state, cpu_millis, memory_profile_mb, created_at, updated_at
 		FROM environments
 		WHERE student_id = $1 AND subject_id = $2 AND exercise_id = $3 AND tenant_id = $4
 		LIMIT 1
@@ -71,7 +114,7 @@ func (r *PostgresPracticeEnvironmentRepository) GetByID(ctx context.Context, id 
 		tenantID = domain.DefaultTenantID
 	}
 	query := `
-		SELECT id, student_id, subject_id, template_id, type, container_id, status, access_url, memory_limit_mb, environment_profile, exam_attempt, last_heartbeat_at, last_oom_killed_at, oom_strike_count, COALESCE(semgrep_audit, '{}'::jsonb) AS semgrep_audit, tenant_id, exercise_id, frozen_at, workspace_project_version_id, workspace_seed_mode, workspace_init_status, created_at, updated_at
+		SELECT id, student_id, subject_id, template_id, type, container_id, status, access_url, memory_limit_mb, environment_profile, exam_attempt, last_heartbeat_at, last_oom_killed_at, oom_strike_count, COALESCE(semgrep_audit, '{}'::jsonb) AS semgrep_audit, tenant_id, exercise_id, frozen_at, workspace_project_version_id, workspace_seed_mode, workspace_init_status, disk_used_mb, disk_state, cpu_millis, memory_profile_mb, created_at, updated_at
 		FROM environments
 		WHERE id = $1 AND tenant_id = $2
 	`
@@ -124,12 +167,32 @@ func (r *PostgresPracticeEnvironmentRepository) Create(ctx context.Context, envi
 		}
 	}
 	query := `
-		INSERT INTO environments (id, student_id, subject_id, template_id, type, container_id, status, access_url, memory_limit_mb, environment_profile, exam_attempt, last_heartbeat_at, last_oom_killed_at, oom_strike_count, semgrep_audit, tenant_id, exercise_id, frozen_at, workspace_project_version_id, workspace_seed_mode, workspace_init_status, created_at, updated_at)
-		VALUES (:id, :student_id, :subject_id, :template_id, :type, :container_id, :status, :access_url, :memory_limit_mb, :environment_profile, :exam_attempt, :last_heartbeat_at, :last_oom_killed_at, :oom_strike_count, :semgrep_audit, :tenant_id, :exercise_id, :frozen_at, :workspace_project_version_id, :workspace_seed_mode, :workspace_init_status, :created_at, :updated_at)
+		INSERT INTO environments (id, student_id, subject_id, template_id, type, container_id, status, access_url, memory_limit_mb, memory_profile_mb, cpu_millis, environment_profile, exam_attempt, last_heartbeat_at, last_oom_killed_at, oom_strike_count, semgrep_audit, tenant_id, exercise_id, frozen_at, workspace_project_version_id, workspace_seed_mode, workspace_init_status, disk_used_mb, disk_state, created_at, updated_at)
+		VALUES (:id, :student_id, :subject_id, :template_id, :type, :container_id, :status, :access_url, :memory_limit_mb, :memory_profile_mb, :cpu_millis, :environment_profile, :exam_attempt, :last_heartbeat_at, :last_oom_killed_at, :oom_strike_count, :semgrep_audit, :tenant_id, :exercise_id, :frozen_at, :workspace_project_version_id, :workspace_seed_mode, :workspace_init_status, :created_at, :updated_at)
 	`
 	_, err := r.db.NamedExecContext(ctx, query, environment)
 	if err != nil {
 		return fmt.Errorf("failed to create environment record via sqlx: %w", err)
+	}
+	return nil
+}
+
+// RecordResourceQuota guarda la cuota con la que quedó el contenedor: memoria
+// concedida, perfil declarado por la plantilla y CPU. La ficha del entorno lee
+// estos valores para explicar la diferencia entre lo pedido y lo aplicado.
+func (r *PostgresPracticeEnvironmentRepository) RecordResourceQuota(ctx context.Context, id string, memoryMB, profileMB, cpuMillis int64) error {
+	tenantID := domain.GetTenantID(ctx)
+	if tenantID == "" {
+		tenantID = domain.DefaultTenantID
+	}
+	query := `
+		UPDATE environments
+		SET memory_limit_mb = $2, memory_profile_mb = $3, cpu_millis = $4, updated_at = $5
+		WHERE id = $1 AND tenant_id = $6
+	`
+	_, err := r.db.ExecContext(ctx, query, id, memoryMB, profileMB, cpuMillis, time.Now(), tenantID)
+	if err != nil {
+		return fmt.Errorf("failed to record resource quota for environment %s: %w", id, err)
 	}
 	return nil
 }
@@ -164,6 +227,20 @@ func (r *PostgresPracticeEnvironmentRepository) UpdateStatus(ctx context.Context
 	_, err := r.db.ExecContext(ctx, query, id, status, time.Now(), tenantID)
 	if err != nil {
 		return fmt.Errorf("failed to update status for environment %s: %w", id, err)
+	}
+	return nil
+}
+
+// RecordDiskUsage guarda la última medición del volumen. La escribe el barrido de
+// disco; ningún camino de lectura mide por su cuenta.
+func (r *PostgresPracticeEnvironmentRepository) RecordDiskUsage(ctx context.Context, environmentID string, usedMB int64, state string) error {
+	_, err := r.db.ExecContext(ctx, `
+		UPDATE environments
+		SET disk_used_mb = $2, disk_state = $3, updated_at = NOW()
+		WHERE id = $1
+	`, environmentID, usedMB, state)
+	if err != nil {
+		return fmt.Errorf("failed to record disk usage for environment %s: %w", environmentID, err)
 	}
 	return nil
 }
@@ -266,7 +343,7 @@ func (r *PostgresPracticeEnvironmentRepository) GetActivePracticeEnvironments(ct
 		tenantID = domain.DefaultTenantID
 	}
 	query := `
-		SELECT id, student_id, subject_id, template_id, type, container_id, status, access_url, memory_limit_mb, environment_profile, exam_attempt, last_heartbeat_at, last_oom_killed_at, oom_strike_count, COALESCE(semgrep_audit, '{}'::jsonb) AS semgrep_audit, tenant_id, exercise_id, frozen_at, workspace_project_version_id, workspace_seed_mode, workspace_init_status, created_at, updated_at
+		SELECT id, student_id, subject_id, template_id, type, container_id, status, access_url, memory_limit_mb, environment_profile, exam_attempt, last_heartbeat_at, last_oom_killed_at, oom_strike_count, COALESCE(semgrep_audit, '{}'::jsonb) AS semgrep_audit, tenant_id, exercise_id, frozen_at, workspace_project_version_id, workspace_seed_mode, workspace_init_status, disk_used_mb, disk_state, cpu_millis, memory_profile_mb, created_at, updated_at
 		FROM environments
 		WHERE status IN ('running', 'pending', 'unknown') AND tenant_id = $1
 	`
@@ -316,13 +393,13 @@ func (r *PostgresPracticeEnvironmentRepository) GetAllRunningPracticeEnvironment
 	var args []interface{}
 	if tenantID == "" {
 		query = `
-			SELECT id, student_id, subject_id, template_id, type, container_id, status, access_url, memory_limit_mb, environment_profile, exam_attempt, last_heartbeat_at, last_oom_killed_at, oom_strike_count, COALESCE(semgrep_audit, '{}'::jsonb) AS semgrep_audit, tenant_id, exercise_id, frozen_at, workspace_project_version_id, workspace_seed_mode, workspace_init_status, created_at, updated_at
+			SELECT id, student_id, subject_id, template_id, type, container_id, status, access_url, memory_limit_mb, environment_profile, exam_attempt, last_heartbeat_at, last_oom_killed_at, oom_strike_count, COALESCE(semgrep_audit, '{}'::jsonb) AS semgrep_audit, tenant_id, exercise_id, frozen_at, workspace_project_version_id, workspace_seed_mode, workspace_init_status, disk_used_mb, disk_state, cpu_millis, memory_profile_mb, created_at, updated_at
 			FROM environments
 			WHERE status IN ('running', 'frozen')
 		`
 	} else {
 		query = `
-			SELECT id, student_id, subject_id, template_id, type, container_id, status, access_url, memory_limit_mb, environment_profile, exam_attempt, last_heartbeat_at, last_oom_killed_at, oom_strike_count, COALESCE(semgrep_audit, '{}'::jsonb) AS semgrep_audit, tenant_id, exercise_id, frozen_at, workspace_project_version_id, workspace_seed_mode, workspace_init_status, created_at, updated_at
+			SELECT id, student_id, subject_id, template_id, type, container_id, status, access_url, memory_limit_mb, environment_profile, exam_attempt, last_heartbeat_at, last_oom_killed_at, oom_strike_count, COALESCE(semgrep_audit, '{}'::jsonb) AS semgrep_audit, tenant_id, exercise_id, frozen_at, workspace_project_version_id, workspace_seed_mode, workspace_init_status, disk_used_mb, disk_state, cpu_millis, memory_profile_mb, created_at, updated_at
 			FROM environments
 			WHERE status IN ('running', 'frozen') AND tenant_id = $1
 		`
@@ -342,7 +419,7 @@ func (r *PostgresPracticeEnvironmentRepository) GetByType(ctx context.Context, e
 		tenantID = domain.DefaultTenantID
 	}
 	query := `
-		SELECT id, student_id, subject_id, template_id, type, container_id, status, access_url, memory_limit_mb, environment_profile, exam_attempt, last_heartbeat_at, last_oom_killed_at, oom_strike_count, COALESCE(semgrep_audit, '{}'::jsonb) AS semgrep_audit, tenant_id, exercise_id, frozen_at, workspace_project_version_id, workspace_seed_mode, workspace_init_status, created_at, updated_at
+		SELECT id, student_id, subject_id, template_id, type, container_id, status, access_url, memory_limit_mb, environment_profile, exam_attempt, last_heartbeat_at, last_oom_killed_at, oom_strike_count, COALESCE(semgrep_audit, '{}'::jsonb) AS semgrep_audit, tenant_id, exercise_id, frozen_at, workspace_project_version_id, workspace_seed_mode, workspace_init_status, disk_used_mb, disk_state, cpu_millis, memory_profile_mb, created_at, updated_at
 		FROM environments
 		WHERE type = $1 AND tenant_id = $2
 	`
@@ -352,6 +429,36 @@ func (r *PostgresPracticeEnvironmentRepository) GetByType(ctx context.Context, e
 		return nil, fmt.Errorf("failed to get environments by type %s: %w", environmentType, err)
 	}
 	return environments, nil
+}
+
+// ListRegisteredVolumeNames devuelve los volúmenes que reclama algún entorno
+// registrado, en cualquier estado y de cualquier tenant. La liberación de
+// huérfanos la usa para no borrar el workspace de un entorno hibernado,
+// congelado o fallido que todavía tiene fila en base.
+func (r *PostgresPracticeEnvironmentRepository) ListRegisteredVolumeNames(ctx context.Context) ([]string, error) {
+	const query = `
+		SELECT student_id, subject_id, exercise_id, exam_attempt
+		FROM environments
+		WHERE exercise_id IS NOT NULL
+	`
+	var rows []struct {
+		StudentID   string  `db:"student_id"`
+		SubjectID   string  `db:"subject_id"`
+		ExerciseID  *string `db:"exercise_id"`
+		ExamAttempt int     `db:"exam_attempt"`
+	}
+	if err := r.db.SelectContext(ctx, &rows, query); err != nil {
+		return nil, fmt.Errorf("failed to list registered environment volume names: %w", err)
+	}
+
+	names := make([]string, 0, len(rows))
+	for _, row := range rows {
+		name := domain.PracticeEnvironmentAttemptVolumeName(row.StudentID, row.SubjectID, row.ExerciseID, row.ExamAttempt)
+		if name != "" {
+			names = append(names, name)
+		}
+	}
+	return names, nil
 }
 
 func (r *PostgresPracticeEnvironmentRepository) SaveSemgrepAudit(ctx context.Context, id string, auditJSON []byte) error {

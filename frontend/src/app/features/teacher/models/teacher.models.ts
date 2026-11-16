@@ -361,6 +361,8 @@ export interface CreateExerciseRequestDTO {
   difficulty?: 'easy' | 'medium' | 'hard';
   tags?: string[];
   purpose?: 'class' | 'exam';
+  exam_network?: 'none' | 'egress';
+  exam_network_reason?: string;
   per_student_seed?: boolean;
   language?: string;
   boilerplate?: string;
@@ -383,6 +385,8 @@ export interface UpdateExerciseRequestDTO {
   difficulty?: 'easy' | 'medium' | 'hard';
   tags?: string[];
   purpose?: 'class' | 'exam';
+  exam_network?: 'none' | 'egress';
+  exam_network_reason?: string;
   per_student_seed?: boolean;
   language?: string;
   boilerplate?: string;
@@ -804,6 +808,11 @@ export interface ExerciseDetailDTO {
   difficulty?: 'easy' | 'medium' | 'hard' | string | null;
   tags?: string[];
   purpose?: string;
+  exam_network?: 'none' | 'egress';
+  exam_network_reason?: string;
+  exam_offline_status?: 'passed' | 'failed' | 'skipped' | '';
+  exam_offline_output?: string;
+  exam_offline_checked_at?: string | null;
   per_student_seed?: boolean;
   due_date?: string | null;
   boilerplate?: string;

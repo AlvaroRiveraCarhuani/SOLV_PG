@@ -25,7 +25,7 @@ import { marked } from 'marked';
 import katex from 'katex';
 
 import { TeacherCourseService } from '../../services/teacher-course.service';
-import { TeacherEnvironmentService } from '../../services/teacher-environment.service';
+import { PracticeIDESession, TeacherEnvironmentService } from '../../services/teacher-environment.service';
 import { PracticeEnvTestService } from '../../services/practice-env-test.service';
 import { PracticeEnvTestJob, StudentPracticeDatabase } from '../../models/practice-env-test.models';
 import { ExerciseDetailDTO, TeacherLabStats, TestCaseDTO } from '../../models/teacher.models';
@@ -137,6 +137,8 @@ export class PracticeDetailComponent implements OnInit, OnDestroy {
   envTestError = signal<string | null>(null);
   isOpeningIde = signal<boolean>(false);
   ideError = signal<string | null>(null);
+  /** Cuota del último entorno abierto por el docente, tal como la concedió el host. */
+  ideQuota = signal<Pick<PracticeIDESession, 'memory_limit_mb' | 'memory_profile_mb' | 'cpu_millis'> | null>(null);
   studentDatabases = signal<StudentPracticeDatabase[]>([]);
   isLoadingDatabases = signal<boolean>(false);
   databasesError = signal<string | null>(null);
@@ -332,6 +334,11 @@ export class PracticeDetailComponent implements OnInit, OnDestroy {
     this.environment.openPracticeIDE(this.courseId(), practice.id).subscribe({
       next: session => {
         this.isOpeningIde.set(false);
+        this.ideQuota.set(session ? {
+          memory_limit_mb: session.memory_limit_mb,
+          memory_profile_mb: session.memory_profile_mb,
+          cpu_millis: session.cpu_millis
+        } : null);
         if (!session?.access_url) {
           tab?.close();
           this.ideError.set('El entorno arrancó pero todavía no tiene una URL de acceso.');
@@ -352,6 +359,12 @@ export class PracticeDetailComponent implements OnInit, OnDestroy {
         this.ideError.set(this.environment.describePracticeIDEError(err));
       }
     });
+  }
+
+  /** Muestra la cuota de CPU en vCPU con el mismo criterio que la ficha del alumno. */
+  formatCpuMillis(millis: number): string {
+    const cores = millis / 1000;
+    return `${Number.isInteger(cores) ? cores : cores.toFixed(2)} vCPU`;
   }
 
   startEnvTest(): void {

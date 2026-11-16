@@ -41,6 +41,7 @@ import {
   getAddonEcosystemLabel,
   getCompatibleAddonsCountForRuntime,
   getComponentProfileLabel,
+  isManageableTechComponent,
   isOrphanAddonInCatalog
 } from '../components/model-library/model-library.utils';
 
@@ -232,7 +233,7 @@ export class TechCatalogComponent implements OnInit, OnDestroy {
     }
     this.templatesService.getTechCatalog(undefined, true).subscribe({
       next: items => {
-        this.techComponents.set(items);
+        this.techComponents.set((items || []).filter(isManageableTechComponent));
         this.isLoading.set(false);
       },
       error: () => {

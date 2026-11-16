@@ -170,6 +170,20 @@
       }
     </div>
 
+    @if (offlineVerificationNote(); as note) {
+      <div
+        class="offline-verification-note"
+        [class.is-failed]="store.metadata().exam_offline_status === 'failed'"
+      >
+        @if (store.metadata().exam_offline_status === 'failed') {
+          <svg lucideAlertTriangle class="note-icon"></svg>
+        } @else {
+          <svg lucideShieldCheck class="note-icon"></svg>
+        }
+        <span>{{ note }}</span>
+      </div>
+    }
+
     <!-- Banner de Estado de Publicación -->
     <div class="publication-status-banner">
       @if (hasBlockers()) {

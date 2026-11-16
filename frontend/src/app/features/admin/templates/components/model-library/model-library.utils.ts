@@ -42,6 +42,15 @@ export function filterModelsForLibrary(params: {
   });
 }
 
+export function isManageableTechComponent(comp: TemplateComponent | null | undefined): boolean {
+  if (!comp) return false;
+  if (comp.slug === 'db-none') return false;
+  if (comp.layer === 'database' && (comp.service_engine === 'none' || comp.sub_category === 'none')) {
+    return false;
+  }
+  return true;
+}
+
 export function filterAndSortTechComponentsForLibrary(params: {
   components: TemplateComponent[];
   searchQuery: string;
@@ -53,6 +62,10 @@ export function filterAndSortTechComponentsForLibrary(params: {
 
   return components
     .filter(c => {
+      if (!isManageableTechComponent(c)) {
+        return false;
+      }
+
       if (query) {
         const matchesName = (c.name || '').toLowerCase().includes(query);
         const matchesSlug = (c.slug || '').toLowerCase().includes(query);
@@ -209,10 +222,19 @@ export function computeComponentMemoryBadge(
     return { label: `${ram > 0 ? ram : 256} MB`, detail: 'Perfil estándar', variant: 'standard' };
   }
 
-  const ram = comp.ram_delta_mb || 256;
+  // Capa Base de Datos (database)
+  if (comp.slug === 'db-none' || comp.service_engine === 'none') {
+    return { label: '0 MB', detail: 'Sin servicio', variant: 'light' };
+  }
+
+  const ram = comp.ram_delta_mb ?? 0;
+  if (ram === 0 || comp.service_engine === 'sqlite') {
+    return { label: '0 MB', detail: 'En archivo (disco)', variant: 'light' };
+  }
+
   return {
     label: `${ram} MB`,
-    detail: 'Base de datos',
+    detail: 'Satélite residente',
     variant: ram >= 512 ? 'heavy' : 'standard'
   };
 }

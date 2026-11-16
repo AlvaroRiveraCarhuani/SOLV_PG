@@ -78,6 +78,27 @@ interface ApiEnvelope<T> {
   message?: string;
 }
 
+/** Volumen que el inventario decidió conservar, con el motivo. */
+export interface KeptVolumeItem {
+  name: string;
+  size_mb: number;
+  reason: string;
+}
+
+export interface OrphanVolumePlan {
+  orphans: { name: string; size_mb: number }[];
+  kept: KeptVolumeItem[];
+  total_orphan_mb: number;
+  total_kept_mb: number;
+}
+
+export interface OrphanVolumePruneResult {
+  deleted: { name: string; size_mb: number }[];
+  skipped: KeptVolumeItem[];
+  freed_mb: number;
+  remaining_orphan_mb: number;
+}
+
 /** Resultado tipado de verifyBackup: { data: { is_valid, ... } } */
 export interface VerifyBackupResult {
   execution_id: string;
@@ -98,6 +119,9 @@ export class AdminConfigServidorService {
   readonly backups = signal<BackupExecutionItem[]>([]);
   readonly isLoading = signal(false);
   readonly error = signal<string | null>(null);
+  readonly orphanPlan = signal<OrphanVolumePlan | null>(null);
+  readonly orphansLoading = signal(false);
+  readonly orphansError = signal<string | null>(null);
 
   loadAll(): void {
     this.isLoading.set(true);
@@ -129,6 +153,29 @@ export class AdminConfigServidorService {
     }).subscribe({
       next: () => this.isLoading.set(false),
       error: () => this.isLoading.set(false)
+    });
+  }
+
+  /** Lee el daemon y cruza los volúmenes sin contenedor contra los entornos en base. */
+  loadOrphanVolumes(): void {
+    this.orphansLoading.set(true);
+    this.orphansError.set(null);
+    this.http.get<ApiEnvelope<OrphanVolumePlan>>('/api/v1/admin/server/storage/orphans').subscribe({
+      next: (res) => {
+        this.orphanPlan.set(res.data);
+        this.orphansLoading.set(false);
+      },
+      error: (err) => {
+        this.orphansError.set(this.resolveError(err));
+        this.orphansLoading.set(false);
+      }
+    });
+  }
+
+  pruneOrphanVolumes(volumeNames: string[], confirmationPhrase: string): Observable<ApiEnvelope<OrphanVolumePruneResult>> {
+    return this.http.post<ApiEnvelope<OrphanVolumePruneResult>>('/api/v1/admin/server/storage/orphans/prune', {
+      volume_names: volumeNames,
+      confirmation_phrase: confirmationPhrase
     });
   }
 

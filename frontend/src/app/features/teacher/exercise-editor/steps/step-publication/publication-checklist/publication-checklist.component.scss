@@ -431,3 +431,34 @@
     }
   }
 }
+
+// Verificación sin red del examen: el estado se ve antes de publicar.
+.offline-verification-note {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-2);
+  padding: var(--space-3);
+  font-family: var(--font-sans);
+  font-size: var(--text-sm);
+  color: var(--text-secondary);
+  background-color: var(--bg-surface-subtle);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+
+  .note-icon {
+    flex: 0 0 auto;
+    width: 1rem;
+    height: 1rem;
+    color: var(--color-success);
+  }
+
+  &.is-failed {
+    color: var(--color-error);
+    background-color: var(--color-error-subtle);
+    border-color: var(--color-error-border);
+
+    .note-icon {
+      color: var(--color-error);
+    }
+  }
+}

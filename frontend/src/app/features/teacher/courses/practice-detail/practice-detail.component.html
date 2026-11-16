@@ -56,6 +56,30 @@
               </span>
             }
 
+            @if (ideQuota(); as quota) {
+              @if (quota.memory_limit_mb) {
+                <span class="meta-separator">·</span>
+                <span class="meta-item">
+                  RAM:
+                  <code machineData>{{ quota.memory_limit_mb }} MB</code>
+                </span>
+              }
+              @if (quota.memory_profile_mb) {
+                <span class="meta-separator">·</span>
+                <span class="meta-item">
+                  Perfil:
+                  <code machineData>{{ quota.memory_profile_mb }} MB</code>
+                </span>
+              }
+              @if (quota.cpu_millis) {
+                <span class="meta-separator">·</span>
+                <span class="meta-item">
+                  CPU:
+                  <code machineData>{{ formatCpuMillis(quota.cpu_millis) }}</code>
+                </span>
+              }
+            }
+
             @if (isJudge() && practice.expected_complexity) {
               <span class="meta-separator">·</span>
               <span class="meta-item">

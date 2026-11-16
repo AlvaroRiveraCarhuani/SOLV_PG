@@ -65,8 +65,20 @@ func (c *Client) ensurePracticeEnvironmentHelperImage(ctx context.Context) error
 
 // SnapshotPracticeEnvironmentVolume lee el volumen nombrado con un contenedor efímero en
 // solo lectura y devuelve los archivos de código encontrados. Funciona igual con
-// el environment corriendo, hibernado o eliminado.
+// el environment corriendo, hibernado o eliminado. Cuando el contenido pasa el
+// tope se queda con lo que entra: sirve para avisos y respaldos.
 func (c *Client) SnapshotPracticeEnvironmentVolume(ctx context.Context, volumeName string, maxBytes int64) ([]domain.PracticeEnvironmentVolumeFile, error) {
+	return c.snapshotPracticeEnvironmentVolume(ctx, volumeName, maxBytes, false)
+}
+
+// SnapshotPracticeEnvironmentVolumeStrict es la misma lectura, pero falla con
+// ErrPracticeEnvironmentSnapshotTooLarge en vez de recortar. Una entrega no
+// puede quedarse con medio proyecto sin que nadie se entere.
+func (c *Client) SnapshotPracticeEnvironmentVolumeStrict(ctx context.Context, volumeName string, maxBytes int64) ([]domain.PracticeEnvironmentVolumeFile, error) {
+	return c.snapshotPracticeEnvironmentVolume(ctx, volumeName, maxBytes, true)
+}
+
+func (c *Client) snapshotPracticeEnvironmentVolume(ctx context.Context, volumeName string, maxBytes int64, strict bool) ([]domain.PracticeEnvironmentVolumeFile, error) {
 	if strings.TrimSpace(volumeName) == "" {
 		return nil, fmt.Errorf("environment volume name is required")
 	}
@@ -122,7 +134,7 @@ func (c *Client) SnapshotPracticeEnvironmentVolume(ctx context.Context, volumeNa
 		return nil, fmt.Errorf("failed to demultiplex environment snapshot stream: %w", err)
 	}
 
-	return parsePracticeEnvironmentSnapshotTar(stdout.Bytes(), maxBytes)
+	return parsePracticeEnvironmentSnapshotTarWithLimit(stdout.Bytes(), maxBytes, strict)
 }
 
 // WritePracticeEnvironmentVolumeFiles escribe archivos en el volumen del environment usando
@@ -211,6 +223,94 @@ func (c *Client) ListPracticeEnvironmentBackupDirs(ctx context.Context, volumeNa
 		dirs = append(dirs, rel)
 	}
 	return dirs, nil
+}
+
+// practiceEnvironmentCachePaths son las rutas que se regeneran solas al compilar
+// o instalar. La limpieza nunca toca código del alumno: solo lo que la
+// herramienta vuelve a crear.
+var practiceEnvironmentCachePaths = []string{
+	"node_modules",
+	".cache",
+	"dist",
+	"build",
+	"target",
+	"__pycache__",
+	".pytest_cache",
+	".next",
+}
+
+// PurgePracticeEnvironmentCaches borra rutas de caché del volumen y devuelve los
+// MB liberados. Solo acepta rutas de la lista blanca: un error de llamada no
+// puede borrar el trabajo del alumno.
+func (c *Client) PurgePracticeEnvironmentCaches(ctx context.Context, volumeName string, paths []string) (int64, error) {
+	allowed := make(map[string]struct{}, len(practiceEnvironmentCachePaths))
+	for _, path := range practiceEnvironmentCachePaths {
+		allowed[path] = struct{}{}
+	}
+	if len(paths) == 0 {
+		paths = practiceEnvironmentCachePaths
+	}
+	clean := make([]string, 0, len(paths))
+	for _, raw := range paths {
+		rel := normalizePracticeEnvironmentPath(raw)
+		if _, ok := allowed[rel]; !ok {
+			return 0, fmt.Errorf("refusing to purge non-cache environment path %q", raw)
+		}
+		clean = append(clean, rel)
+	}
+	if err := c.ensurePracticeEnvironmentHelperImage(ctx); err != nil {
+		return 0, err
+	}
+
+	mount := shellQuote(environmentVolumeMountPoint)
+	quoted := make([]string, 0, len(clean))
+	for _, rel := range clean {
+		quoted = append(quoted, shellQuote(path.Join(environmentVolumeMountPoint, rel)))
+	}
+	script := fmt.Sprintf(
+		"before=$(du -sm %s 2>/dev/null | cut -f1); for p in %s; do rm -rf $p; done; after=$(du -sm %s 2>/dev/null | cut -f1); echo \"${before:-0} ${after:-0}\"",
+		mount, strings.Join(quoted, " "), mount,
+	)
+	output, err := c.runPracticeEnvironmentVolumeShell(ctx, volumeName, false, script)
+	if err != nil {
+		return 0, err
+	}
+
+	var before, after int64
+	if _, scanErr := fmt.Sscanf(strings.TrimSpace(string(output)), "%d %d", &before, &after); scanErr != nil {
+		return 0, fmt.Errorf("salida inesperada al limpiar %s: %q", volumeName, strings.TrimSpace(string(output)))
+	}
+	freed := before - after
+	if freed < 0 {
+		freed = 0
+	}
+	return freed, nil
+}
+
+// MeasurePracticeEnvironmentVolumeMB devuelve el tamaño del volumen en MB. El
+// backend no puede leer el punto de montaje de Docker sin root, así que la
+// medición corre dentro de un contenedor helper con el volumen en solo lectura.
+func (c *Client) MeasurePracticeEnvironmentVolumeMB(ctx context.Context, volumeName string) (int64, error) {
+	if err := c.ensurePracticeEnvironmentHelperImage(ctx); err != nil {
+		return 0, err
+	}
+	script := fmt.Sprintf("du -sm %s 2>/dev/null | cut -f1", shellQuote(environmentVolumeMountPoint))
+	output, err := c.runPracticeEnvironmentVolumeShell(ctx, volumeName, true, script)
+	if err != nil {
+		return 0, err
+	}
+	raw := strings.TrimSpace(string(output))
+	if raw == "" {
+		return 0, fmt.Errorf("no se pudo medir el volumen %s: salida vacía", volumeName)
+	}
+	var megabytes int64
+	if _, scanErr := fmt.Sscanf(raw, "%d", &megabytes); scanErr != nil {
+		return 0, fmt.Errorf("salida inesperada al medir %s: %q", volumeName, raw)
+	}
+	if megabytes < 0 {
+		return 0, fmt.Errorf("tamaño negativo al medir %s: %d", volumeName, megabytes)
+	}
+	return megabytes, nil
 }
 
 // DeletePracticeEnvironmentVolumePaths borra carpetas de respaldo ya validadas. La lista
@@ -319,8 +419,18 @@ func shellQuote(value string) string {
 
 // parsePracticeEnvironmentSnapshotTar convierte el tar del volumen en archivos de código
 // deterministas: ignora directorios excluidos, binarios y archivos que exceden el
-// tope indicado.
+// tope indicado, y se queda con lo que entra.
 func parsePracticeEnvironmentSnapshotTar(raw []byte, maxBytes int64) ([]domain.PracticeEnvironmentVolumeFile, error) {
+	return parsePracticeEnvironmentSnapshotTarWithLimit(raw, maxBytes, false)
+}
+
+// parsePracticeEnvironmentSnapshotTarStrict es igual, pero un archivo que no entra
+// devuelve error con su ruta y tamaño en lugar de desaparecer del resultado.
+func parsePracticeEnvironmentSnapshotTarStrict(raw []byte, maxBytes int64) ([]domain.PracticeEnvironmentVolumeFile, error) {
+	return parsePracticeEnvironmentSnapshotTarWithLimit(raw, maxBytes, true)
+}
+
+func parsePracticeEnvironmentSnapshotTarWithLimit(raw []byte, maxBytes int64, strict bool) ([]domain.PracticeEnvironmentVolumeFile, error) {
 	reader := tar.NewReader(bytes.NewReader(raw))
 	files := make([]domain.PracticeEnvironmentVolumeFile, 0, 32)
 	var accumulated int64
@@ -344,6 +454,9 @@ func parsePracticeEnvironmentSnapshotTar(raw []byte, maxBytes int64) ([]domain.P
 			continue
 		}
 		if header.Size <= 0 || header.Size > maxBytes {
+			if strict && header.Size > maxBytes {
+				return nil, fmt.Errorf("%w: %s (%d bytes)", domain.ErrPracticeEnvironmentSnapshotTooLarge, relPath, header.Size)
+			}
 			continue
 		}
 
@@ -355,6 +468,9 @@ func parsePracticeEnvironmentSnapshotTar(raw []byte, maxBytes int64) ([]domain.P
 			continue
 		}
 		if accumulated+int64(len(content)) > maxBytes {
+			if strict {
+				return nil, fmt.Errorf("%w: %s no entra en el tope (%d de %d bytes)", domain.ErrPracticeEnvironmentSnapshotTooLarge, relPath, accumulated+int64(len(content)), maxBytes)
+			}
 			break
 		}
 		accumulated += int64(len(content))

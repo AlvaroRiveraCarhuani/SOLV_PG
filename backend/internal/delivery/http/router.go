@@ -30,6 +30,7 @@ type Handlers struct {
 	ClassAdvanceHandler           *ClassAdvanceHandler
 	AdminHandler                  *AdminHandler
 	AdminAcademicHandler          *AdminAcademicHandler
+	AdminStorageHandler           *AdminStorageHandler
 	StudentHandler                *StudentHandler
 	TeacherHandler                *TeacherHandler
 	NotificationHandler           *NotificationHandler
@@ -95,6 +96,13 @@ func registerServerPoliciesRoutes(mux *http.ServeMux, deps *Handlers) {
 	if deps.ServerPoliciesHandler != nil {
 		mux.Handle("GET /api/v1/admin/server/policies", admin(http.HandlerFunc(deps.ServerPoliciesHandler.GetPolicies)))
 		mux.Handle("PUT /api/v1/admin/server/policies", adminAudited(http.HandlerFunc(deps.ServerPoliciesHandler.UpdatePolicies)))
+	}
+
+	// Liberación de volúmenes sin contenedor: la lectura es de solo consulta y
+	// el borrado queda en la auditoría con una entrada por volumen.
+	if deps.AdminStorageHandler != nil {
+		mux.Handle("GET /api/v1/admin/server/storage/orphans", admin(http.HandlerFunc(deps.AdminStorageHandler.GetOrphanVolumes)))
+		mux.Handle("POST /api/v1/admin/server/storage/orphans/prune", adminAudited(http.HandlerFunc(deps.AdminStorageHandler.PruneOrphanVolumes)))
 	}
 }
 
@@ -559,6 +567,7 @@ func registerPracticeEnvironmentRoutes(mux *http.ServeMux, h *PracticeEnvironmen
 	if tenantMiddleware != nil {
 		mux.Handle("POST /api/v1/environments/start", tenantMiddleware(rateLimitMiddleware(http.HandlerFunc(h.StartPracticeEnvironment))))
 		mux.Handle("POST /api/v1/environments/{id}/pause", tenantMiddleware(http.HandlerFunc(h.PausePracticeEnvironment)))
+		mux.Handle("POST /api/v1/environments/{id}/purge-caches", tenantMiddleware(http.HandlerFunc(h.PurgeEnvironmentCaches)))
 		mux.Handle("DELETE /api/v1/environments/{id}", tenantMiddleware(http.HandlerFunc(h.TerminatePracticeEnvironment)))
 		mux.Handle("GET /api/v1/environments/{id}/audit", tenantMiddleware(http.HandlerFunc(h.GetSemgrepAudit)))
 		mux.Handle("POST /api/v1/environments/{id}/heartbeat", tenantMiddleware(http.HandlerFunc(h.Heartbeat)))
@@ -567,6 +576,7 @@ func registerPracticeEnvironmentRoutes(mux *http.ServeMux, h *PracticeEnvironmen
 	} else {
 		mux.Handle("POST /api/v1/environments/start", WithAuth(rateLimitMiddleware(http.HandlerFunc(h.StartPracticeEnvironment))))
 		mux.Handle("POST /api/v1/environments/{id}/pause", WithAuth(http.HandlerFunc(h.PausePracticeEnvironment)))
+		mux.Handle("POST /api/v1/environments/{id}/purge-caches", WithAuth(http.HandlerFunc(h.PurgeEnvironmentCaches)))
 		mux.Handle("DELETE /api/v1/environments/{id}", WithAuth(http.HandlerFunc(h.TerminatePracticeEnvironment)))
 		mux.Handle("GET /api/v1/environments/{id}/audit", WithAuth(http.HandlerFunc(h.GetSemgrepAudit)))
 		mux.Handle("POST /api/v1/environments/{id}/heartbeat", WithAuth(http.HandlerFunc(h.Heartbeat)))

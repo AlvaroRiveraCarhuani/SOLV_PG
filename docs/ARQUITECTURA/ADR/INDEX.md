@@ -89,3 +89,6 @@ Este documento consolida todas las Decisiones de Arquitectura (ADRs) tomadas dur
 | 080 | [Propiedad de los Datos: Capas Propias, Espejadas y Derivadas](ADR-080-propiedad-de-datos-propias-espejadas-derivadas.md) | Aceptado | Core |
 | 081 | [Alta de Institución, Catálogo Base y Fin del Nombre Hardcodeado](ADR-081-alta-de-institucion-y-catalogo-base.md) | Aceptado | Core |
 | 082 | [Préstamo de Memoria en la Admisión y Techo Único de Cuota por Entorno](ADR-082-prestamo-de-memoria-en-la-admision.md) | Aceptado | Core |
+| 083 | [Perfil y Estado del Entorno según el Propósito del Ejercicio](ADR-083-perfil-de-entorno-por-proposito.md) | Aceptado | Docencia |
+| 084 | [Cuotas de CPU, Procesos y Disco por Entorno](ADR-084-cuotas-de-cpu-procesos-y-disco.md) | Aceptado | Capacidad |
+| 085 | [Aislamiento de Salida a Internet en Ejercicios de Examen](ADR-085-aislamiento-de-salida-en-examenes.md) | Aceptado | Seguridad |

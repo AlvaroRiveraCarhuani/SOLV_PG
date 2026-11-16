@@ -160,6 +160,8 @@ export interface StudentPublicExerciseDTO {
   difficulty?: string;
   tags?: string[];
   purpose?: string;
+  exam_network?: 'none' | 'egress';
+  exam_network_reason?: string;
   per_student_seed?: boolean;
   language?: string;
   boilerplate?: string;
@@ -297,6 +299,23 @@ export class StudentService {
       this.submissionsHistory.set([]);
       return [];
     }
+  }
+
+  /**
+   * Borra del volumen las carpetas que se regeneran (node_modules, dist y
+   * similares) y devuelve el espacio liberado con la medición nueva.
+   */
+  async purgeEnvironmentCaches(
+    environmentId: string
+  ): Promise<{ freed_mb: number; used_mb: number; limit_mb: number; state?: string }> {
+    const resp = await firstValueFrom(
+      this.http.post<
+        { freed_mb: number; used_mb: number; limit_mb: number; state?: string } | {
+          data?: { freed_mb: number; used_mb: number; limit_mb: number; state?: string };
+        }
+      >(`/api/v1/environments/${environmentId}/purge-caches`, {}, { withCredentials: true })
+    );
+    return resp && 'data' in resp && resp.data ? resp.data : (resp as { freed_mb: number; used_mb: number; limit_mb: number; state?: string });
   }
 
   async startEnvironment(subjectId: string, exerciseId?: string): Promise<PracticeEnvironment> {

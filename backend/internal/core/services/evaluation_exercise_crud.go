@@ -258,7 +258,46 @@ func (s *EvaluationService) CreateExercise(ctx context.Context, ex *domain.Exerc
 			return err
 		}
 	}
-	return s.exerciseRepo.Create(ctx, ex)
+	if err := s.exerciseRepo.Create(ctx, ex); err != nil {
+		return err
+	}
+	s.recordExamNetworkException(ctx, ex)
+	return nil
+}
+
+// recordExamNetworkException deja en auditoría la excepción de salida del
+// examen con el motivo que escribió el docente. Best-effort, como el resto.
+func (s *EvaluationService) recordExamNetworkException(ctx context.Context, ex *domain.Exercise) {
+	if ex == nil || ex.ExamNetwork != domain.ExamNetworkEgress || s.purposeAudit == nil {
+		return
+	}
+	actorID, _ := domain.TeacherWriteScope(ctx)
+	if strings.TrimSpace(actorID) == "" {
+		actorID = domain.GetUserID(ctx)
+	}
+	tenantID := ex.TenantID
+	if strings.TrimSpace(tenantID) == "" {
+		tenantID = domain.GetTenantID(ctx)
+	}
+	if strings.TrimSpace(actorID) == "" || strings.TrimSpace(tenantID) == "" {
+		return
+	}
+	meta, err := json.Marshal(map[string]any{
+		"reason":  ex.ExamNetworkReason,
+		"purpose": ex.Purpose,
+	})
+	if err != nil {
+		return
+	}
+	resourceID := ex.ID
+	_ = s.purposeAudit.Create(ctx, &domain.AuditLog{
+		TenantID:     tenantID,
+		ActorID:      actorID,
+		Action:       "EXAM_NETWORK_EGRESS_GRANTED",
+		ResourceType: "exercise",
+		ResourceID:   &resourceID,
+		Metadata:     meta,
+	})
 }
 
 // normalizeTimeLimit establece la columna time_limit_ms como fuente de verdad
@@ -275,8 +314,74 @@ func (s *EvaluationService) normalizeTimeLimit(ex *domain.Exercise) {
 	}
 }
 
+// PurposeChangeConfirmation acompaña la edición cuando el docente cambia el
+// propósito con entornos ya cerrados. No forma parte del ejercicio: el cuerpo
+// del ejercicio no gana campos que no se guardan.
+type PurposeChangeConfirmation struct {
+	Confirmed bool
+	Reason    string
+}
+
+var (
+	// ErrExercisePurposeChangeBlocked impide cambiar el propósito con entornos
+	// abiertos: el entorno abierto conserva el perfil con el que nació, así que el
+	// alumno quedaría en un examen sin las reglas del examen, o al revés.
+	ErrExercisePurposeChangeBlocked = errors.New("no se puede cambiar el propósito con entornos abiertos")
+	// ErrExercisePurposeChangeConfirmationNeeded pide confirmación cuando el
+	// cambio alcanza entornos cerrados.
+	ErrExercisePurposeChangeConfirmationNeeded = errors.New("cambiar el propósito con entornos cerrados pide confirmación")
+	// ErrExercisePurposeChangeReasonNeeded pide el motivo de esa confirmación.
+	ErrExercisePurposeChangeReasonNeeded = errors.New("la confirmación del cambio de propósito pide motivo")
+)
+
+// environmentStatusCounter es una capacidad opcional del repositorio de
+// entornos: cuenta los de un ejercicio por estado.
+type environmentStatusCounter interface {
+	CountByExerciseAndStatus(ctx context.Context, tenantID, exerciseID, status string) (int, error)
+}
+
+// purposeChangeDecision es el cambio aceptado, listo para auditar.
+type purposeChangeDecision struct {
+	from       string
+	to         string
+	hibernated int
+	reason     string
+}
+
+// decidePurposeChange concentra la regla, sin repositorios: con entornos
+// abiertos no hay cambio; con entornos cerrados hace falta confirmación y
+// motivo; sin entornos, el cambio es libre.
+func decidePurposeChange(from, to string, running, hibernated int, confirmation PurposeChangeConfirmation) (*purposeChangeDecision, error) {
+	from = strings.ToLower(strings.TrimSpace(from))
+	to = strings.ToLower(strings.TrimSpace(to))
+	if to == "" || from == to {
+		return nil, nil
+	}
+	if running > 0 {
+		return nil, fmt.Errorf("%w: %d entornos abiertos", ErrExercisePurposeChangeBlocked, running)
+	}
+	if hibernated == 0 {
+		return &purposeChangeDecision{from: from, to: to}, nil
+	}
+	if !confirmation.Confirmed {
+		return nil, fmt.Errorf("%w: %d entornos cerrados", ErrExercisePurposeChangeConfirmationNeeded, hibernated)
+	}
+	if strings.TrimSpace(confirmation.Reason) == "" {
+		return nil, ErrExercisePurposeChangeReasonNeeded
+	}
+	return &purposeChangeDecision{from: from, to: to, hibernated: hibernated, reason: strings.TrimSpace(confirmation.Reason)}, nil
+}
+
 func (s *EvaluationService) UpdateExercise(ctx context.Context, ex *domain.Exercise) error {
+	return s.UpdateExerciseWithPurposeConfirmation(ctx, ex, PurposeChangeConfirmation{})
+}
+
+func (s *EvaluationService) UpdateExerciseWithPurposeConfirmation(ctx context.Context, ex *domain.Exercise, confirmation PurposeChangeConfirmation) error {
 	if err := s.assertExerciseUpdateWritable(ctx, ex); err != nil {
+		return err
+	}
+	decision, err := s.checkPurposeChange(ctx, ex, confirmation)
+	if err != nil {
 		return err
 	}
 	s.normalizeTimeLimit(ex)
@@ -322,7 +427,79 @@ func (s *EvaluationService) UpdateExercise(ctx context.Context, ex *domain.Exerc
 		}
 	}
 
-	return s.exerciseRepo.Update(ctx, ex)
+	if err := s.exerciseRepo.Update(ctx, ex); err != nil {
+		return err
+	}
+	s.recordPurposeChange(ctx, ex, decision)
+	s.recordExamNetworkException(ctx, ex)
+	return nil
+}
+
+// checkPurposeChange decide si el propósito puede cambiar y con qué recaudos.
+func (s *EvaluationService) checkPurposeChange(ctx context.Context, ex *domain.Exercise, confirmation PurposeChangeConfirmation) (*purposeChangeDecision, error) {
+	if s.environments == nil || s.exerciseRepo == nil {
+		return nil, nil
+	}
+	current, err := s.exerciseRepo.GetByIDAndTenant(ctx, ex.ID, ex.TenantID)
+	if err != nil || current == nil {
+		return nil, nil
+	}
+	if strings.EqualFold(strings.TrimSpace(current.Purpose), strings.TrimSpace(ex.Purpose)) {
+		return nil, nil
+	}
+	// Un ejercicio sin propósito explícito se comporta como práctica: si el
+	// cuerpo no lo manda, se compara contra ese valor para no perder el cambio.
+	if strings.TrimSpace(ex.Purpose) == "" {
+		ex.Purpose = string(domain.ExercisePurposeClass)
+	}
+	counter, ok := s.environments.(environmentStatusCounter)
+	if !ok {
+		return nil, nil
+	}
+	running, err := counter.CountByExerciseAndStatus(ctx, ex.TenantID, ex.ID, string(domain.PracticeEnvironmentStatusRunning))
+	if err != nil {
+		return nil, err
+	}
+	hibernated, err := counter.CountByExerciseAndStatus(ctx, ex.TenantID, ex.ID, string(domain.PracticeEnvironmentStatusHibernated))
+	if err != nil {
+		return nil, err
+	}
+	return decidePurposeChange(current.Purpose, ex.Purpose, running, hibernated, confirmation)
+}
+
+// recordPurposeChange deja el cambio en la auditoría con el motivo que escribió
+// el docente. Es best-effort, como el resto del proyecto.
+func (s *EvaluationService) recordPurposeChange(ctx context.Context, ex *domain.Exercise, decision *purposeChangeDecision) {
+	if decision == nil || s.purposeAudit == nil {
+		return
+	}
+	actorID, _ := domain.TeacherWriteScope(ctx)
+	if strings.TrimSpace(actorID) == "" {
+		// Un administrador no viene con alcance docente: el actor autenticado es
+		// el que queda en la auditoría.
+		actorID = domain.GetUserID(ctx)
+	}
+	if strings.TrimSpace(actorID) == "" || strings.TrimSpace(ex.TenantID) == "" {
+		return
+	}
+	meta, err := json.Marshal(map[string]any{
+		"from":       decision.from,
+		"to":         decision.to,
+		"hibernated": decision.hibernated,
+		"reason":     decision.reason,
+	})
+	if err != nil {
+		return
+	}
+	resourceID := ex.ID
+	_ = s.purposeAudit.Create(ctx, &domain.AuditLog{
+		TenantID:     ex.TenantID,
+		ActorID:      actorID,
+		Action:       "EXERCISE_PURPOSE_CHANGED",
+		ResourceType: "exercise",
+		ResourceID:   &resourceID,
+		Metadata:     meta,
+	})
 }
 
 func (s *EvaluationService) BulkAddTestCases(ctx context.Context, exerciseID, tenantID string, testCases []domain.TestCase) error {
@@ -395,6 +572,10 @@ func (s *EvaluationService) PublishExercise(ctx context.Context, exerciseID, ten
 		if ex.Stale {
 			return nil, domain.ErrExerciseStale
 		}
+	}
+
+	if err := s.verifyExamProjectOffline(ctx, ex, template); err != nil {
+		return nil, err
 	}
 
 	snapshot := buildEnvironmentSnapshot(template)

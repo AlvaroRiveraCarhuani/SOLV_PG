@@ -29,6 +29,22 @@ type environmentExerciseRepository interface {
 	GetByStudentSubjectExercise(ctx context.Context, studentID, subjectID, exerciseID string) (*domain.PracticeEnvironment, error)
 }
 
+// examAttemptOpener es una capacidad opcional del enlace con el aula: dice
+// cuándo se abrió la última convocatoria de un ejercicio de examen. El alta la
+// usa para distinguir un recuperatorio de una recarga de la página. Sin ella, el
+// entorno cerrado sigue cerrado y no se estrena intento.
+type examAttemptOpener interface {
+	LatestExamSessionOpen(ctx context.Context, tenantID, subjectID, exerciseID string) (time.Time, bool, error)
+}
+
+// examAttemptRestarter es una capacidad opcional del repositorio: deja la fila
+// de la práctica lista para un intento nuevo, con su volumen y su siembra. La
+// fila es una sola por práctica, así que el recuperatorio avanza el número en
+// lugar de abrir un registro paralelo.
+type examAttemptRestarter interface {
+	RestartExamAttempt(ctx context.Context, id, tenantID string, attempt int, profile domain.EnvironmentProfile, seedVersionID *string, seedMode, seedStatus string) error
+}
+
 type PracticeEnvironmentService struct {
 	repo            domain.PracticeEnvironmentRepository
 	docker          domain.PracticeEnvironmentOrchestrator
@@ -38,6 +54,9 @@ type PracticeEnvironmentService struct {
 	exerciseRepo    domain.ExerciseRepository
 	submissionRepo  domain.SubmissionRepository
 	policiesService *ServerPoliciesService
+	// diskFreeProbe mide el espacio libre del nodo. Sin sonda declarada no se
+	// bloquean altas: la comprobación es una guarda, no un requisito.
+	diskFreeProbe func() (float64, error)
 	// workspaceProjects es la fuente de la versión publicada que se asigna al
 	// entorno. Sin este repositorio el ciclo anterior sigue funcionando, pero no
 	// se siembra ningún proyecto.
@@ -159,6 +178,12 @@ func (s *PracticeEnvironmentService) hostTotalMB() (int, bool) {
 // SetPoliciesService inyecta las políticas QoS del tenant (submódulo 14.6):
 // la RAM de la política es el default por alumno y max_containers el techo
 // de concurrencia en la admisión. Sin inyección rigen los defaults del dominio.
+// SetDiskFreeProbe conecta la medición de espacio libre del nodo con la admisión.
+func (s *PracticeEnvironmentService) SetDiskFreeProbe(probe func() (float64, error)) *PracticeEnvironmentService {
+	s.diskFreeProbe = probe
+	return s
+}
+
 func (s *PracticeEnvironmentService) SetPoliciesService(policies *ServerPoliciesService) *PracticeEnvironmentService {
 	s.policiesService = policies
 	return s
@@ -522,6 +547,104 @@ func initialExamAttempt(profile domain.EnvironmentProfile) int {
 	return 0
 }
 
+// canStartNewExamAttempt decide si un entorno cerrado se puede volver a abrir
+// como intento nuevo. Solo hay segunda vuelta cuando el docente abrió otra
+// convocatoria del mismo ejercicio después del cierre y esa convocatoria ya
+// empezó: abrir el aula para mañana no habilita rendir hoy. La recarga de la
+// página no habilita nada.
+func (s *PracticeEnvironmentService) canStartNewExamAttempt(ctx context.Context, tenantID, subjectID string, closed *domain.PracticeEnvironment) bool {
+	if closed == nil || closed.FrozenAt == nil || closed.ExerciseID == nil {
+		return false
+	}
+	opener, ok := s.sessionLinker.(examAttemptOpener)
+	if !ok {
+		return false
+	}
+	openedAt, found, err := opener.LatestExamSessionOpen(ctx, tenantID, subjectID, *closed.ExerciseID)
+	if err != nil {
+		log.Printf("[PracticeEnvironment] no se pudo leer la convocatoria del ejercicio %s: %v", *closed.ExerciseID, err)
+		return false
+	}
+	if !found {
+		return false
+	}
+	return openedAt.After(*closed.FrozenAt) && !openedAt.After(time.Now())
+}
+
+// startExamRetake abre el intento siguiente de un examen ya cerrado. La fila de
+// la práctica se reutiliza (la base admite una sola por práctica), avanza el
+// número de intento y estrena volumen sembrado con la versión publicada: el
+// alumno rinde sin los archivos del intento anterior, que quedan intactos en el
+// volumen anterior.
+func (s *PracticeEnvironmentService) startExamRetake(ctx context.Context, closed *domain.PracticeEnvironment, template *domain.Template, exercise *domain.Exercise, tenantID, subjectID string, profile domain.EnvironmentProfile, linkSession bool) (*domain.PracticeEnvironment, error) {
+	restarter, ok := s.repo.(examAttemptRestarter)
+	if !ok {
+		return nil, errors.New("el repositorio de entornos no soporta intentos de examen")
+	}
+
+	provision, err := s.ensureExerciseSatelliteDB(ctx, closed.StudentID, subjectID, template, exercise)
+	if err != nil {
+		return nil, err
+	}
+	seedVersion, err := s.resolveWorkspaceSeed(ctx, tenantID, exercise)
+	if err != nil {
+		return nil, err
+	}
+	seedMode := domain.WorkspaceSeedModeNone
+	seedStatus := domain.WorkspaceInitStatusNotRequired
+	var seedVersionID *string
+	if seedVersion != nil {
+		seedMode = domain.WorkspaceSeedModeProject
+		seedStatus = domain.WorkspaceInitStatusPending
+		seedVersionID = &seedVersion.ID
+	}
+
+	attempt := domain.NextExamAttempt(closed.ExamAttempt)
+	s.stopRetiredExamAttempt(ctx, closed)
+	if err := restarter.RestartExamAttempt(ctx, closed.ID, tenantID, attempt, profile, seedVersionID, seedMode, seedStatus); err != nil {
+		return nil, fmt.Errorf("failed to restart exam attempt: %w", err)
+	}
+
+	closed.ExamAttempt = attempt
+	closed.EnvironmentProfile = profile
+	closed.FrozenAt = nil
+	closed.Status = domain.PracticeEnvironmentStatusPending
+	closed.ContainerID = nil
+	closed.WorkspaceProjectVersionID = seedVersionID
+	closed.WorkspaceSeedMode = seedMode
+	closed.WorkspaceInitStatus = seedStatus
+
+	if err := s.docker.EnsureVolumeExists(ctx, closed.VolumeName()); err != nil {
+		_ = s.repo.UpdateStatus(ctx, closed.ID, domain.PracticeEnvironmentStatusFailed)
+		return nil, fmt.Errorf("failed to ensure named volume %s: %w", closed.VolumeName(), err)
+	}
+	if seedVersion != nil {
+		seed, seedErr := workspaceSeedFromVersion(seedVersion)
+		if seedErr != nil {
+			_ = s.setWorkspaceInitStatus(ctx, closed, domain.WorkspaceInitStatusQuarantined)
+			_ = s.repo.UpdateStatus(ctx, closed.ID, domain.PracticeEnvironmentStatusFailed)
+			return nil, seedErr
+		}
+		if seedErr := s.seedWorkspaceVolume(ctx, closed, seed); seedErr != nil {
+			_ = s.repo.UpdateStatus(ctx, closed.ID, domain.PracticeEnvironmentStatusFailed)
+			return nil, seedErr
+		}
+	}
+
+	return s.reactivatePracticeEnvironment(ctx, closed, provision, linkSession)
+}
+
+// stopRetiredExamAttempt apaga el contenedor del intento que quedó cerrado. El
+// volumen no se toca: sigue siendo la evidencia de lo que el alumno hizo.
+func (s *PracticeEnvironmentService) stopRetiredExamAttempt(ctx context.Context, previous *domain.PracticeEnvironment) {
+	if previous == nil || previous.ContainerID == nil || strings.TrimSpace(*previous.ContainerID) == "" {
+		return
+	}
+	if err := s.docker.StopAndRemoveContainer(ctx, *previous.ContainerID); err != nil {
+		log.Printf("[PracticeEnvironment] no se pudo detener el contenedor del intento anterior %s: %v", *previous.ContainerID, err)
+	}
+}
+
 // startPracticeEnvironment abre (o reutiliza) el entorno de una práctica. El alcance es
 // siempre un ejercicio: sin práctica no hay entorno, porque un entorno por
 // materia mezclaría el código de todas las prácticas en un mismo volumen.
@@ -602,9 +725,21 @@ func (s *PracticeEnvironmentService) startPracticeEnvironment(ctx context.Contex
 		}
 	}
 
+	// declaredRAMMB es el perfil que pidió la plantilla, antes del préstamo. Se
+	// guarda junto a la cuota concedida para explicar la diferencia en la ficha.
+	declaredRAMMB := ramLimitMB
+
 	// 1. Verificación de Admisión del Host con la memoria real calculada
 	if !s.hostMonitor.CanAllocateMemory(ramLimitMB) {
 		return nil, ErrHostMemoryExhausted
+	}
+	// El disco también es admisión: un nodo por debajo del piso no suma entornos
+	// nuevos, y los que ya están abiertos siguen como están.
+	if s.diskFreeProbe != nil {
+		if freePct, err := s.diskFreeProbe(); err == nil && domain.IsHostDiskCritical(freePct, domain.DefaultHostDiskFloorPct) {
+			log.Printf("[Admission] disco del nodo con %.1f%% libre: se rechazan altas de entorno", freePct)
+			return nil, domain.ErrHostDiskExhausted
+		}
 	}
 
 	// 2. Verificación de Idempotencia y Estado Previos. El entorno se busca por
@@ -617,45 +752,51 @@ func (s *PracticeEnvironmentService) startPracticeEnvironment(ctx context.Contex
 	if err == nil && existing != nil {
 		// Un examen cerrado no se reabre por recargar la página: el volumen quedó
 		// en solo lectura y la escritura vuelve únicamente con la excepción del
-		// docente (ADR-005 §5).
+		// docente (ADR-005 §5). La segunda vuelta es otra cosa: cuando el docente
+		// abrió otra convocatoria después del cierre, el alumno estrena intento y
+		// volumen, y este registro queda congelado como evidencia del anterior.
 		if existing.FrozenAt != nil || existing.Status == domain.PracticeEnvironmentStatusFrozen {
-			return nil, domain.ErrPracticeEnvironmentFrozen
-		}
-
-		// El entorno es único por (student_id, subject_id, exercise_id). Si ya
-		// existía, la base satélite y el db_init_script del ejercicio también
-		// deben quedar asegurados antes de devolverlo o reactivarlo. El registro
-		// de _solv_exercise_migrations hace la operación idempotente.
-		provision, dbErr := s.ensureExerciseSatelliteDB(ctx, userID, subjectID, template, exercise)
-		if dbErr != nil {
-			return nil, dbErr
-		}
-		if seedErr := s.ensureExistingWorkspaceSeed(ctx, existing); seedErr != nil {
-			_ = s.repo.UpdateStatus(ctx, existing.ID, domain.PracticeEnvironmentStatusFailed)
-			return nil, seedErr
-		}
-
-		if existing.Status == domain.PracticeEnvironmentStatusRunning {
-			// El registro puede sobrevivir al contenedor (limpieza de Docker,
-			// reinicio del nodo). Antes de devolver la URL se comprueba que el
-			// contenedor siga en el daemon; si ya no está, se reconstruye en vez
-			// de entregar un enlace que no carga.
-			if s.containerAlive(ctx, existing.ContainerID) {
-				return existing, nil
+			if !profile.IsExam() || !s.canStartNewExamAttempt(ctx, tenantID, subjectID, existing) {
+				return nil, domain.ErrPracticeEnvironmentFrozen
 			}
+			return s.startExamRetake(ctx, existing, template, exercise, tenantID, subjectID, profile, linkSession)
+		} else {
+
+			// El entorno es único por (student_id, subject_id, exercise_id). Si ya
+			// existía, la base satélite y el db_init_script del ejercicio también
+			// deben quedar asegurados antes de devolverlo o reactivarlo. El registro
+			// de _solv_exercise_migrations hace la operación idempotente.
+			provision, dbErr := s.ensureExerciseSatelliteDB(ctx, userID, subjectID, template, exercise)
+			if dbErr != nil {
+				return nil, dbErr
+			}
+			if seedErr := s.ensureExistingWorkspaceSeed(ctx, existing); seedErr != nil {
+				_ = s.repo.UpdateStatus(ctx, existing.ID, domain.PracticeEnvironmentStatusFailed)
+				return nil, seedErr
+			}
+
+			if existing.Status == domain.PracticeEnvironmentStatusRunning {
+				// El registro puede sobrevivir al contenedor (limpieza de Docker,
+				// reinicio del nodo). Antes de devolver la URL se comprueba que el
+				// contenedor siga en el daemon; si ya no está, se reconstruye en vez
+				// de entregar un enlace que no carga.
+				if s.containerAlive(ctx, existing.ContainerID) {
+					return existing, nil
+				}
+				return s.reactivatePracticeEnvironment(ctx, existing, provision, linkSession)
+			}
+
+			// Verificación de Castigo por OOMKilled (Sistema de 3 Strikes = 5 minutos de bloqueo)
+			if existing.OOMStrikeCount >= domain.MaxOOMStrikes && existing.LastOOMKilledAt != nil {
+				if time.Since(*existing.LastOOMKilledAt) < domain.OOMCooldownDuration {
+					remaining := domain.OOMCooldownDuration - time.Since(*existing.LastOOMKilledAt)
+					return nil, fmt.Errorf("%w (%d s remaining)", ErrOOMKilledCooldownPenalty, int(remaining.Seconds()))
+				}
+				_ = s.repo.ResetOOMStrikes(ctx, existing.ID)
+			}
+
 			return s.reactivatePracticeEnvironment(ctx, existing, provision, linkSession)
 		}
-
-		// Verificación de Castigo por OOMKilled (Sistema de 3 Strikes = 5 minutos de bloqueo)
-		if existing.OOMStrikeCount >= domain.MaxOOMStrikes && existing.LastOOMKilledAt != nil {
-			if time.Since(*existing.LastOOMKilledAt) < domain.OOMCooldownDuration {
-				remaining := domain.OOMCooldownDuration - time.Since(*existing.LastOOMKilledAt)
-				return nil, fmt.Errorf("%w (%d s remaining)", ErrOOMKilledCooldownPenalty, int(remaining.Seconds()))
-			}
-			_ = s.repo.ResetOOMStrikes(ctx, existing.ID)
-		}
-
-		return s.reactivatePracticeEnvironment(ctx, existing, provision, linkSession)
 	}
 
 	// 0.1 Techo de concurrencia del tenant (max_containers): hard gate.
@@ -737,6 +878,8 @@ func (s *PracticeEnvironmentService) startPracticeEnvironment(ctx context.Contex
 		Status:                    domain.PracticeEnvironmentStatusPending,
 		AccessURL:                 accessURL,
 		MemoryLimitMB:             ramLimitMB,
+		MemoryProfileMB:           declaredRAMMB,
+		CPUMillis:                 policies.EffectivePracticeCPUMillis(),
 		LastHeartbeatAt:           time.Now(),
 		WorkspaceProjectVersionID: seedVersionID,
 		WorkspaceSeedMode:         seedMode,
@@ -808,12 +951,17 @@ func (s *PracticeEnvironmentService) startPracticeEnvironment(ctx context.Contex
 		ContainerName:       containerName,
 		VolumeName:          volumeName,
 		MemoryLimitMB:       ramLimitMB,
+		CPUNanos:            domain.CPUQuotaNanos(policies.EffectivePracticeCPUMillis()),
+		PidsLimit:           policies.EffectivePidsLimit(),
 		NetworkName:         networkName,
 		Labels:              labels,
 		Env:                 envVars,
 		SetupScript:         sanitizePracticeEnvironmentSetupScript(template),
 		HostPort:            hostPort,
 		AttachSatellitesNet: provision.UsesManagedContainer,
+		// Un examen sin excepción no tiene salida: el contenedor va a la red
+		// interna y el editor se publica por proxy.
+		ExamNoEgress: profile.IsExam() && exercise != nil && domain.NormalizeExamNetwork(exercise.ExamNetwork) == domain.ExamNetworkNone,
 	}
 
 	// 10. Instanciación e inicio del contenedor OpenVSCode Server

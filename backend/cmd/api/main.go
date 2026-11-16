@@ -130,6 +130,9 @@ func main() {
 	semgrepWorker := services.NewSemgrepWorker(environmentRepo, dockerClient, "internal/infrastructure/semgrep/rules")
 	evaluationService := services.NewEvaluationService(exerciseRepo, astAnalyzer, semgrepWorker, dockerRunner)
 	evaluationService.SetWorkspaceProjectService(workspaceProjectService)
+	// Publicar un examen sin salida corre el proyecto base en la red interna:
+	// si necesita instalar en línea, la publicación se rechaza.
+	evaluationService.SetExamOfflineVerifier(dockerClient)
 	// Alta y edición de ejercicios acotadas a las materias del docente.
 	evaluationService.SetSubjectOwnership(subjectRepo)
 	generatedCaseSnapshotRepo := postgres.NewPostgresGeneratedCaseSnapshotRepository(db.GetDB())
@@ -168,6 +171,11 @@ func main() {
 	// muy por debajo de lo que su hardware sostiene.
 	serverPoliciesService := services.NewServerPoliciesService(tenantRepo).WithHostTotalRAM(system.HostTotalRAMMB)
 	environmentService.SetPoliciesService(serverPoliciesService)
+	// Admisión por disco: el nodo no abre entornos nuevos por debajo del piso de
+	// espacio libre, aunque tenga RAM para ellos.
+	environmentService.SetDiskFreeProbe(func() (float64, error) {
+		return system.HostFreeDiskPercent("/")
+	})
 	// Scale-to-Zero de motores de base de datos auto-orquestados: el worker de QoS apaga
 	// los satélites (mysql, mariadb, mongodb, redis) que ya no usa ningún laboratorio.
 	qosWorker.SetManagedSatelliteReconciler(environmentService.ReconcileIdleManagedSatellitesScheduled)
@@ -182,6 +190,10 @@ func main() {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	qosWorker.Start(ctx)
+	// La medición de disco corre en su propio barrido: la pantalla lee el último
+	// valor guardado y nunca espera a Docker.
+	diskUsageWorker := services.NewDiskUsageWorker(environmentService.SweepDiskUsage, services.DiskUsageSweepInterval)
+	diskUsageWorker.Start(ctx)
 	go zombieCollector.Start(ctx)
 
 	// Un turno cada treinta segundos: el techo de quince minutos es del worker,
@@ -240,6 +252,11 @@ func main() {
 	tenantMiddleware := middleware.WithTenant(tenantRepo, []byte(jwtSecret))
 
 	auditLogRepo := postgres.NewAuditLogRepository(db.GetDB())
+	// Cambiar el propósito de un ejercicio con entornos abiertos deja al alumno en
+	// un examen sin las reglas del examen: la edición consulta los entornos y
+	// deja el cambio en la auditoría con el motivo del docente.
+	evaluationService.SetPracticeEnvironments(environmentRepo)
+	evaluationService.SetPurposeAuditRepository(auditLogRepo)
 
 	// Reconciliacion bidireccional (D2, ADR-049): el collector saca contenedores
 	// sin registro; el reconciler marca registros sin contenedor (orphaned) y
@@ -293,6 +310,11 @@ func main() {
 	adminHandler.SetMetricsSampleStore(metricsSampleRepo)
 	adminHandler.SetPoliciesService(serverPoliciesService)
 	serverPoliciesHandler := httpdelivery.NewServerPoliciesHandler(serverPoliciesService)
+	// Liberación de volúmenes sin contenedor desde el panel. El servicio cruza el
+	// daemon con los entornos registrados y audita cada borrado.
+	diskOrphanService := services.NewDiskOrphanService(dockerClient, environmentRepo)
+	diskOrphanService.SetAuditRepository(auditLogRepo)
+	adminStorageHandler := httpdelivery.NewAdminStorageHandler(diskOrphanService)
 	// Módulo de IA Híbrida (Nube + Servidor Local LAN) gobernado por institución:
 	// cifrado AES-256-GCM de la API Key, escudo anti-SSRF y cuota horaria por usuario.
 	aiSettingsService := services.NewAISettingsService(tenantRepo)
@@ -555,6 +577,7 @@ func main() {
 		ClassAdvanceHandler:           classAdvanceHandler,
 		AdminHandler:                  adminHandler,
 		ServerPoliciesHandler:         serverPoliciesHandler,
+		AdminStorageHandler:           adminStorageHandler,
 		AISettingsHandler:             aiSettingsHandler,
 		AICopilotHandler:              aiCopilotHandler,
 		TenantLogoHandler:             tenantLogoHandler,
@@ -623,6 +646,7 @@ func main() {
 	// workers que dependen de la base y se cierran las conexiones vivas.
 	cancel()
 	qosWorker.Stop()
+	diskUsageWorker.Stop()
 	templateAuditWorker.Stop()
 	wsHub.CloseAll()
 	log.Println("API detenida de forma ordenada")

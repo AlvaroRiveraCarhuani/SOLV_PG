@@ -19,7 +19,7 @@ El inventario describe capacidades técnicas, no certificación operativa. El sc
 | **05** | Autenticación ForwardAuth HttpOnly | `GET /api/v1/auth/verify` valida la cookie `solv_session` para Traefik. | 8 | ADR-017 | `COMPLETADO` |
 | **06** | Modelo unificado de environments | Laboratorios e IDE efímeros en la tabla `environments` con discriminador de tipo. | 8 | ADR-019 | `COMPLETADO` |
 | **07** | Sanitización y truncado de entradas y salidas | Límite de 64 KB en buffers `stdin`/`stdout` del evaluador. | 9 | — | `PENDIENTE` |
-| **08** | Cuotas de disco por volumen | Límite de almacenamiento en volúmenes Docker de estudiante. | 9 | ADR-001 | `PARCIAL` |
+| **08** | Cuotas de disco por volumen | Medición por entorno, aviso al 80%, freno de entrega al 100%, limpieza de cachés y liberación de volúmenes sin dueño; falta la cuota dura XFS. | 9 | ADR-084 | `PARCIAL` |
 | **09** | Rate limiting perimetral en Traefik | Limitación por IP y por tenant en el proxy. | 10 | — | `PENDIENTE` |
 | **10** | Circuit breakers y fail-fast | Detección automática de saturación de Docker o PostgreSQL. | 10 | — | `PARCIAL` |
 | **11** | Apagado ordenado | Captura de `SIGTERM`/`SIGINT` para cerrar servidor, workers y contenedores efímeros. | 10 | — | `PENDIENTE` |
@@ -60,7 +60,7 @@ El inventario describe capacidades técnicas, no certificación operativa. El sc
 | :---: | :--- | :--- |
 | **03** | `no-new-privileges` y `CapDrop: ALL` en varios runners. | Perfiles Seccomp y AppArmor aplicados a los contenedores de práctica. |
 | **07** | Límite de 64 MB para leer snapshots de volumen. | Truncado de `stdout`/`stderr` del evaluador a 64 KB; el límite actual no cubre la salida. |
-| **08** | Volúmenes nombrados y límites de lectura de snapshots. | Cuota de disco real por volumen; no se encontró `StorageOpt` ni equivalente. |
+| **08** | Barrido de medición cada 5 minutos (`disk_used_mb`, `disk_state`), cuota blanda en la política (`disk_quota_mb`), aviso al 80%, entrega rechazada con 409 al 100%, limpieza de cachés por entorno e inventario de volúmenes sin contenedor con frase y auditoría por volumen (`GET/POST /api/v1/admin/server/storage/orphans`). | Cuota dura: `StorageOpt size` no cubre volúmenes nombrados, así que hace falta un volumen XFS con `prjquota` y el asignador de proyecto por volumen. También falta separar `pg_data` del sistema de archivos de los entornos. |
 | **09** | Rate limiting de aplicación en login, envíos, keystrokes y arranque de entornos. | Rate limiting perimetral en Traefik; el control actual vive en el backend. |
 | **10** | Reacción manual de emergencia y reinicio del pool desde el panel admin. | Circuit breaker automático y fail-fast con umbrales medidos. |
 | **11** | `http.Server` con timeouts de cabecera e inactividad. | Captura de señales, `Shutdown`, cierre de workers y limpieza de contenedores. |

@@ -119,7 +119,13 @@ func (h *PracticeEnvironmentHandler) StartPracticeEnvironment(w http.ResponseWri
 			return
 		}
 		if errors.Is(err, domain.ErrPracticeEnvironmentFrozen) {
-			SendError(w, http.StatusConflict, err.Error(), "El examen terminó: tu entorno quedó en solo lectura")
+			// Código estable: la pantalla del alumno distingue un examen cerrado de
+			// un fallo de arranque sin mirar el texto del mensaje.
+			SendError(w, http.StatusConflict, "environment_frozen", "El examen terminó: tu entorno quedó en solo lectura")
+			return
+		}
+		if errors.Is(err, domain.ErrHostDiskExhausted) {
+			SendError(w, http.StatusServiceUnavailable, "host_disk_exhausted", "El servidor se quedó sin espacio en disco: no se abren entornos nuevos hasta liberar lugar")
 			return
 		}
 		if errors.Is(err, domain.ErrWorkspaceSeedVolumeUnavailable) {
@@ -213,6 +219,11 @@ func (h *PracticeEnvironmentHandler) OpenPracticeIDE(w http.ResponseWriter, r *h
 		"status":         instance.Status,
 		"access_url":     instance.AccessURL,
 		"volume_name":    instance.VolumeName(),
+		// La vista del docente muestra los tres números de la cuota con el
+		// mismo criterio que la ficha del alumno.
+		"memory_limit_mb":   instance.MemoryLimitMB,
+		"memory_profile_mb": instance.MemoryProfileMB,
+		"cpu_millis":        instance.CPUMillis,
 	}, "IDE de la práctica listo")
 }
 
@@ -304,7 +315,7 @@ func (h *PracticeEnvironmentHandler) RestartPracticeEnvironment(w http.ResponseW
 			return
 		}
 		if errors.Is(err, domain.ErrPracticeEnvironmentFrozen) {
-			SendError(w, http.StatusConflict, err.Error(), "El examen terminó: tu entorno quedó en solo lectura")
+			SendError(w, http.StatusConflict, "environment_frozen", "El examen terminó: tu entorno quedó en solo lectura")
 			return
 		}
 		if errors.Is(err, domain.ErrNotFound) {
@@ -316,6 +327,36 @@ func (h *PracticeEnvironmentHandler) RestartPracticeEnvironment(w http.ResponseW
 	}
 
 	SendJSON(w, http.StatusOK, instance, "Entorno reiniciado exitosamente")
+}
+
+// PurgeEnvironmentCaches borra las carpetas que se regeneran (node_modules y
+// similares) para que el alumno pueda volver a entregar sin perder código.
+func (h *PracticeEnvironmentHandler) PurgeEnvironmentCaches(w http.ResponseWriter, r *http.Request) {
+	environmentID := r.PathValue("id")
+	if environmentID == "" {
+		SendError(w, http.StatusBadRequest, "Missing environment ID", "Se requiere el ID del environment")
+		return
+	}
+	if _, ok := h.authorizeEnvironment(w, r, environmentID); !ok {
+		return
+	}
+
+	result, err := h.service.PurgeEnvironmentCaches(r.Context(), environmentID, nil)
+	if err != nil {
+		switch {
+		case errors.Is(err, domain.ErrPracticeEnvironmentFrozen):
+			SendError(w, http.StatusConflict, "environment_frozen", "El examen terminó: tu entorno quedó en solo lectura")
+		case errors.Is(err, domain.ErrNotFound):
+			SendError(w, http.StatusNotFound, "environment_not_found", "El entorno no existe o ya fue eliminado")
+		case errors.Is(err, services.ErrPracticeEnvironmentVolumeUnavailable):
+			SendError(w, http.StatusServiceUnavailable, "volume_unavailable", "La limpieza no está disponible en este momento")
+		default:
+			SendError(w, http.StatusInternalServerError, err.Error(), "Error al limpiar los archivos generados")
+		}
+		return
+	}
+
+	SendJSON(w, http.StatusOK, result, "Archivos generados borrados")
 }
 
 func (h *PracticeEnvironmentHandler) PausePracticeEnvironment(w http.ResponseWriter, r *http.Request) {
@@ -333,6 +374,10 @@ func (h *PracticeEnvironmentHandler) PausePracticeEnvironment(w http.ResponseWri
 	if err != nil {
 		if errors.Is(err, domain.ErrNotFound) {
 			SendError(w, http.StatusNotFound, "environment_not_found", "El laboratorio no existe o ya fue eliminado")
+			return
+		}
+		if errors.Is(err, services.ErrExamPauseForbidden) {
+			SendError(w, http.StatusConflict, "exam_environment_paused", "Un examen en curso no se puede pausar: se cierra desde el aula")
 			return
 		}
 		SendError(w, http.StatusInternalServerError, err.Error(), "Error al pausar el environment")
@@ -481,6 +526,8 @@ func (h *PracticeEnvironmentHandler) SubmitPracticeEnvironmentProject(w http.Res
 			SendError(w, http.StatusNotFound, err.Error(), "El entorno que intentas entregar no existe")
 		case errors.Is(err, domain.ErrPracticeEnvironmentFrozen):
 			SendError(w, http.StatusConflict, err.Error(), "El examen terminó: tu entorno quedó en solo lectura")
+		case errors.Is(err, domain.ErrDiskQuotaExceeded):
+			SendError(w, http.StatusConflict, "disk_quota_exceeded", err.Error())
 		case errors.Is(err, services.ErrSubmissionNotConfigured), errors.Is(err, services.ErrPracticeEnvironmentVolumeUnavailable):
 			SendError(w, http.StatusServiceUnavailable, err.Error(), "La entrega de proyecto no está disponible en este momento")
 		default:

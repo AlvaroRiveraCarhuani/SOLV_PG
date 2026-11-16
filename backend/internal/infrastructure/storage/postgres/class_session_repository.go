@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/jmoiron/sqlx"
 	"github.com/lib/pq"
@@ -578,4 +579,28 @@ func (r *PostgresClassSessionRepository) AttachPracticeEnvironmentToOpenSession(
 		return fmt.Errorf("failed to record session presence for environment: %w", err)
 	}
 	return nil
+}
+
+// LatestExamSessionOpen devuelve la hora de apertura de la convocatoria más
+// nueva de un ejercicio de examen. El alta del entorno la usa para distinguir un
+// recuperatorio (hubo una convocatoria posterior al cierre del intento) de una
+// recarga de la página, que no reabre nada.
+func (r *PostgresClassSessionRepository) LatestExamSessionOpen(ctx context.Context, tenantID, subjectID, exerciseID string) (time.Time, bool, error) {
+	var openedAt time.Time
+	err := r.db.GetContext(ctx, &openedAt, `
+		SELECT cs.opens_at
+		FROM class_sessions cs
+		JOIN exercises e ON e.id = cs.exercise_id AND e.tenant_id = cs.tenant_id
+		WHERE cs.tenant_id = $1 AND cs.subject_id = $2::uuid AND cs.exercise_id = $3::uuid
+		  AND e.purpose = 'exam'
+		ORDER BY cs.opens_at DESC
+		LIMIT 1
+	`, tenantID, subjectID, exerciseID)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return time.Time{}, false, nil
+		}
+		return time.Time{}, false, fmt.Errorf("failed to resolve latest exam session: %w", err)
+	}
+	return openedAt, true, nil
 }

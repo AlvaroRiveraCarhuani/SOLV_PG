@@ -83,6 +83,28 @@ describe('TechCatalogComponent', () => {
       is_system: true,
       is_active: false,
       sort_order: 30
+    },
+    {
+      id: 'db-none',
+      slug: 'db-none',
+      layer: 'database',
+      sub_category: 'none',
+      name: 'Sin Base de Datos',
+      description: 'Solo archivos de código en la carpeta del estudiante',
+      icon_key: 'docker',
+      base_image: '',
+      compatible_runtimes: ['universal'],
+      install_mode: 'none',
+      package_names: [],
+      build_layer_snippet: '',
+      setup_snippet: '',
+      judge_entrypoint: '',
+      tools_provided: [],
+      service_engine: 'none',
+      ram_delta_mb: 0,
+      is_system: true,
+      is_active: true,
+      sort_order: 300
     }
   ];
 
@@ -123,6 +145,13 @@ describe('TechCatalogComponent', () => {
     expect(component.backendRuntimesCount()).toBe(1);
     expect(component.webRuntimesCount()).toBe(0);
     expect(component.addonsCount()).toBe(1);
+    expect(component.databasesCount()).toBe(1);
+  });
+
+  it('excluye la pseudo-tecnología db-none de los conteos y de las tarjetas del catálogo', () => {
+    expect(component.techComponents().some(c => c.slug === 'db-none')).toBe(false);
+    expect(component.filteredTechComponents().some(c => c.slug === 'db-none')).toBe(false);
+    expect(compiled.textContent).not.toContain('Sin Base de Datos');
     expect(component.databasesCount()).toBe(1);
   });
 

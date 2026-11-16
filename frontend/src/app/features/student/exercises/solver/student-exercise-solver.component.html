@@ -151,6 +151,18 @@
             <ul class="ide-rules-list">
               <li>Se entrega el entorno de esta práctica tal como está en el IDE; no hay que copiar archivos.</li>
               <li>La entrega queda pendiente de calificación hasta que el docente la revise con la rúbrica.</li>
+              @if (isExamProject()) {
+                @if (exercise()?.exam_network === 'egress') {
+                  <li>
+                    Este examen tiene acceso a internet por una excepción declarada por el docente.
+                  </li>
+                } @else {
+                  <li>
+                    Este examen no tiene acceso a internet: el editor funciona, pero no podés
+                    descargar dependencias ni consultar sitios externos.
+                  </li>
+                }
+              }
               <li>
                 @if (isExamProject()) {
                   Al entregar, tu entorno queda en solo lectura. El docente puede reabrirte con un motivo.
@@ -210,6 +222,77 @@
                 <p class="ide-ready">
                   <svg lucideCheckCircle2 class="ide-ready-icon" aria-hidden="true"></svg>
                   <span>Entorno listo para trabajar.</span>
+                </p>
+              }
+
+              @if (resourceQuota(); as quota) {
+                <dl class="quota-summary">
+                  <div class="quota-item">
+                    <dt>RAM asignada</dt>
+                    <dd><span class="font-mono" machineData>{{ quota.grantedMB }} MB</span></dd>
+                  </div>
+                  @if (quota.declaredMB > 0) {
+                    <div class="quota-item">
+                      <dt>Perfil de la plantilla</dt>
+                      <dd><span class="font-mono" machineData>{{ quota.declaredMB }} MB</span></dd>
+                    </div>
+                  }
+                  @if (quota.cpuText) {
+                    <div class="quota-item">
+                      <dt>CPU</dt>
+                      <dd><span class="font-mono" machineData>{{ quota.cpuText }}</span></dd>
+                    </div>
+                  }
+                </dl>
+                @if (quota.reduced) {
+                  <p class="empty-note" role="status">
+                    La cuota concedida es menor que el perfil de la plantilla porque el servidor
+                    está ocupado. Al reabrir el entorno con menos carga puede subir.
+                  </p>
+                }
+              }
+
+              @if (diskNotice(); as aviso) {
+                <p class="empty-note" [class.ide-error]="aviso.tone === 'full'" role="status">
+                  {{ aviso.text }}
+                </p>
+                <button
+                  type="button"
+                  class="btn-primary"
+                  [disabled]="purgingCaches()"
+                  (click)="purgeCaches()"
+                >
+                  {{ purgingCaches() ? 'Borrando archivos generados…' : 'Borrar archivos generados' }}
+                </button>
+              }
+
+              @if (isExamProject() && (environment() || examClosed())) {
+                @switch (environmentState()) {
+                  @case ('preparing') {
+                    <p class="empty-note exam-state" role="status">
+                      Preparando tu examen: se está armando un espacio nuevo con el proyecto base.
+                    </p>
+                  }
+                  @case ('ready') {
+                    <p class="empty-note exam-state" role="status">
+                      Estás rindiendo el examen. Al entregar, el espacio queda en solo lectura y no se
+                      puede seguir editando.
+                    </p>
+                  }
+                  @case ('closed') {
+                    <p class="empty-note exam-state" role="status">
+                      Examen cerrado: tu espacio quedó en solo lectura. El docente puede reabrirte con un
+                      motivo.
+                    </p>
+                  }
+                  @default {
+                    <p class="ide-error exam-state" role="alert">
+                      No se pudo preparar tu examen. Recargá la página; si sigue igual, avisá al docente.
+                    </p>
+                  }
+                }
+                <p class="empty-note">
+                  Tu práctica de esta materia sigue intacta: el examen usa un espacio aparte.
                 </p>
               }
 

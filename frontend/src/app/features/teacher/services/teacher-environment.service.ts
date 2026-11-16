@@ -20,6 +20,10 @@ export interface PracticeIDESession {
   status: string;
   access_url: string;
   volume_name?: string;
+  /** Cuota concedida al entorno. El docente ve los mismos números que el alumno. */
+  memory_limit_mb?: number;
+  memory_profile_mb?: number;
+  cpu_millis?: number;
 }
 
 /**

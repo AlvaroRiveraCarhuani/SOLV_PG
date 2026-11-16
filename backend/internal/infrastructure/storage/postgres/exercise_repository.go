@@ -41,6 +41,7 @@ func (r *PostgresExerciseRepository) GetByIDAndTenant(ctx context.Context, id, t
 			       COALESCE(language, 'python') AS language, 
 			       COALESCE(time_limit_ms, 1000) AS time_limit_ms, 
 			       COALESCE(memory_limit_mb, 128) AS memory_limit_mb, 
+		       COALESCE(exam_network, 'none') AS exam_network, COALESCE(exam_network_reason, '') AS exam_network_reason, COALESCE(exam_offline_status, '') AS exam_offline_status, COALESCE(exam_offline_output, '') AS exam_offline_output, exam_offline_checked_at, 
 			       COALESCE(reference_solution, '') AS reference_solution,
 			       COALESCE(stale, false) AS stale,
 			       last_valid_dry_run_at, expected_complexity,
@@ -62,6 +63,7 @@ func (r *PostgresExerciseRepository) GetByIDAndTenant(ctx context.Context, id, t
 			       COALESCE(language, 'python') AS language, 
 			       COALESCE(time_limit_ms, 1000) AS time_limit_ms, 
 			       COALESCE(memory_limit_mb, 128) AS memory_limit_mb, 
+		       COALESCE(exam_network, 'none') AS exam_network, COALESCE(exam_network_reason, '') AS exam_network_reason, COALESCE(exam_offline_status, '') AS exam_offline_status, COALESCE(exam_offline_output, '') AS exam_offline_output, exam_offline_checked_at, 
 			       COALESCE(reference_solution, '') AS reference_solution,
 			       COALESCE(stale, false) AS stale,
 			       last_valid_dry_run_at, expected_complexity,
@@ -212,11 +214,13 @@ func (r *PostgresExerciseRepository) Create(ctx context.Context, exercise *domai
 		INSERT INTO exercises (
 			id, subject_id, title, description, type, environment_type, template_id, difficulty, tags, purpose, per_student_seed,
 			due_date, boilerplate, status, language, time_limit_ms, memory_limit_mb,
+			exam_network, exam_network_reason,
 			reference_solution, stale, expected_complexity, config, tenant_id
 		)
 		VALUES (
 			:id, :subject_id, :title, :description, :type, :environment_type, CAST(NULLIF(:template_id, '') AS uuid), :difficulty, :tags, :purpose, :per_student_seed,
 			:due_date, :boilerplate, :status, :language, :time_limit_ms, :memory_limit_mb,
+			:exam_network, :exam_network_reason,
 			:reference_solution, :stale, :expected_complexity, :config, :tenant_id
 		)
 	`
@@ -287,6 +291,8 @@ func (r *PostgresExerciseRepository) Update(ctx context.Context, exercise *domai
 		    language = :language,
 		    time_limit_ms = :time_limit_ms,
 		    memory_limit_mb = :memory_limit_mb,
+		    exam_network = :exam_network,
+		    exam_network_reason = :exam_network_reason,
 		    reference_solution = :reference_solution,
 		    stale = :stale,
 		    expected_complexity = :expected_complexity,
@@ -328,6 +334,22 @@ func (r *PostgresExerciseRepository) Update(ctx context.Context, exercise *domai
 	}
 
 	return tx.Commit()
+}
+
+// RecordExamOfflineVerification guarda el resultado de la verificación sin red.
+// Es una sentencia propia: editar el ejercicio no borra el último resultado y
+// publicar no necesita reescribir el resto de la fila.
+func (r *PostgresExerciseRepository) RecordExamOfflineVerification(ctx context.Context, exerciseID, tenantID, status, output string) error {
+	query := `UPDATE exercises SET exam_offline_status = $1, exam_offline_output = $2, exam_offline_checked_at = NOW() WHERE id = $3 AND tenant_id = $4`
+	res, err := r.db.ExecContext(ctx, query, status, output, exerciseID, tenantID)
+	if err != nil {
+		return fmt.Errorf("failed to record exam offline verification for exercise %s: %w", exerciseID, err)
+	}
+	rows, _ := res.RowsAffected()
+	if rows == 0 {
+		return fmt.Errorf("exercise %s not found in tenant", exerciseID)
+	}
+	return nil
 }
 
 func (r *PostgresExerciseRepository) UpdateStatus(ctx context.Context, id, tenantID, status string) error {

@@ -67,6 +67,49 @@ para calificar. Un intento cerrado MUST NOT admitir escritura.
 - GIVEN un intento de examen ya entregado y congelado
 - WHEN el alumno intenta abrirlo o entregar de nuevo
 - THEN el sistema responde que el entorno está congelado
+
+---
+
+### Requirement: Recuperatorio sobre intento nuevo
+
+El sistema MUST abrir un intento nuevo cuando el alumno vuelve a un examen ya cerrado y
+existe una convocatoria del mismo ejercicio abierta después de ese cierre. Sin esa
+convocatoria el intento MUST seguir cerrado: recargar la página MUST NOT reabrir nada. El
+intento nuevo MUST arrancar sobre un volumen distinto del anterior, sembrado desde la
+versión base vigente; el volumen del intento cerrado MUST conservarse sin cambios.
+
+#### Scenario: Convocatoria nueva habilita el recuperatorio
+- GIVEN un alumno con el intento 1 cerrado y congelado
+- AND una sesión de examen del mismo ejercicio abierta después de ese cierre
+- WHEN el alumno abre el examen
+- THEN el entorno pasa al intento 2
+- AND arranca sobre un volumen distinto, sembrado desde la versión base
+- AND los archivos del intento 1 no están presentes.
+
+#### Scenario: Sin convocatoria nueva el examen sigue cerrado
+- GIVEN un alumno con el intento cerrado y congelado
+- AND ninguna sesión de examen abierta después del cierre
+- WHEN el alumno abre el examen
+- THEN el sistema responde que el entorno está congelado
+- AND el número de intento no cambia.
+
+#### Scenario: Una convocatoria futura no habilita rendir hoy
+- GIVEN un alumno con el intento cerrado
+- AND una sesión de examen del mismo ejercicio que abre más adelante
+- WHEN el alumno abre el examen antes de esa hora
+- THEN el sistema responde que el entorno está congelado.
+
+#### Scenario: Una práctica no tiene intentos
+- GIVEN un entorno de práctica congelado
+- AND una convocatoria nueva del mismo ejercicio
+- WHEN se abre el entorno
+- THEN el sistema responde que el entorno está congelado.
+
+#### Scenario: Reabrir el mismo intento es otra operación
+- GIVEN un examen cerrado con un alumno afectado por una caída del entorno
+- WHEN el docente usa la excepción individual con motivo
+- THEN el alumno recupera la escritura sobre el mismo intento
+- AND el número de intento no cambia.
 - AND no se crea un intento nuevo dentro de la misma ventana.
 
 ---

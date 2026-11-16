@@ -315,6 +315,74 @@
   font-size: var(--text-xs);
 }
 
+// Liberación de volúmenes sin dueño
+.orphan-select-cell {
+  width: 2.5rem;
+
+  .orphan-select-label {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+  }
+
+  input[type='checkbox'] {
+    width: 16px;
+    height: 16px;
+    cursor: pointer;
+    accent-color: var(--tenant-primary);
+  }
+}
+
+.storage-details {
+  margin-top: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  background-color: var(--bg-surface-subtle);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+
+  summary {
+    cursor: pointer;
+    font-family: var(--font-sans);
+    font-size: var(--text-sm);
+    font-weight: 600;
+    color: var(--text-secondary);
+  }
+}
+
+.storage-kept-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin: var(--space-3) 0 0;
+  padding: 0;
+  list-style: none;
+
+  li {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-2) var(--space-3);
+    align-items: baseline;
+    font-size: var(--text-xs);
+  }
+
+  code {
+    font-family: var(--font-mono);
+    color: var(--text-primary);
+    word-break: break-all;
+  }
+}
+
+.storage-kept-reason {
+  font-family: var(--font-sans);
+  color: var(--text-secondary);
+}
+
 .col-date {
   font-family: var(--font-mono);
   font-size: var(--text-xs);

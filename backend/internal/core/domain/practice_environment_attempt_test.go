@@ -4,6 +4,21 @@ import "testing"
 
 func ptrString(v string) *string { return &v }
 
+// El recuperatorio suma uno al intento cerrado. Un entorno sin intento (práctica,
+// o fila anterior a la separación) empieza en 1: el intento 0 nunca es examen.
+func TestNextExamAttempt(t *testing.T) {
+	cases := map[int]int{
+		0: 1,
+		1: 2,
+		2: 3,
+	}
+	for current, want := range cases {
+		if got := NextExamAttempt(current); got != want {
+			t.Errorf("desde el intento %d se esperaba %d, se obtuvo %d", current, want, got)
+		}
+	}
+}
+
 // La práctica conserva su volumen de siempre. El examen estrena uno por intento:
 // el volumen del intento anterior queda intacto y nunca se reutiliza.
 func TestPracticeEnvironmentAttemptVolumeName(t *testing.T) {

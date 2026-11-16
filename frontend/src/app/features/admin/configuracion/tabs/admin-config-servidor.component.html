@@ -355,8 +355,169 @@
         />
       </div>
     </div>
+    <!-- ================= BLOQUE 4: Espacio en disco ================= -->
+    <div class="server-card" data-tour="server-storage">
+      <div class="card-header">
+        <div class="card-title-group">
+          <svg lucideHardDrive class="card-icon"></svg>
+          <div>
+            <h2 class="section-title section-title-flush">Espacio en Disco</h2>
+            <p class="card-hint">
+              Volúmenes de laboratorio que ningún entorno registrado reclama. La plataforma
+              solo libera volúmenes <code>solv_workspace_*</code> sin contenedor: nunca toca
+              la base de notas, los respaldos ni los volúmenes de otras pilas del daemon.
+            </p>
+          </div>
+        </div>
+        <button
+          type="button"
+          class="btn-outline trigger-btn"
+          (click)="reloadOrphans()"
+          [disabled]="orphansLoading()"
+          title="Lee el daemon y cruza los volúmenes sin contenedor contra los entornos registrados">
+          <svg lucideHardDrive class="btn-icon"></svg>
+          @if (orphansLoading()) {
+            <span>Leyendo...</span>
+          } @else {
+            <span>Revisar Volúmenes</span>
+          }
+        </button>
+      </div>
+
+      @if (orphansError()) {
+        <div class="maintenance-warning">
+          <svg lucideAlertTriangle></svg>
+          <span>{{ orphansError() }}</span>
+        </div>
+      }
+
+      @if (orphanPlan(); as plan) {
+        <div class="storage-status-strip">
+          <div class="storage-status-item">
+            <span class="storage-status-label">Recuperable</span>
+            <span class="storage-status-value font-mono" machineData>{{ formatBytes(plan.total_orphan_mb * 1048576) }}</span>
+          </div>
+          <div class="storage-status-item">
+            <span class="storage-status-label">Volúmenes sin contenedor</span>
+            <span class="storage-status-value font-mono" machineData>{{ plan.orphans.length }}</span>
+          </div>
+          <div class="storage-status-item">
+            <span class="storage-status-label">Conservados</span>
+            <span class="storage-status-value">
+              <span class="font-mono" machineData>{{ plan.kept.length }}</span>
+              · {{ formatBytes(plan.total_kept_mb * 1048576) }}
+            </span>
+          </div>
+        </div>
+
+        @if (plan.orphans.length === 0) {
+          <p class="maintenance-copy">No hay volúmenes sin dueño pendientes de liberar.</p>
+        } @else {
+          <div class="backups-table-wrap">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th class="orphan-select-cell" scope="col"><span class="orphan-select-label">Seleccionar</span></th>
+                  <th>Volumen</th>
+                  <th>Tamaño</th>
+                </tr>
+              </thead>
+              <tbody>
+                @for (volume of plan.orphans; track volume.name) {
+                  <tr>
+                    <td class="orphan-select-cell">
+                      <input
+                        type="checkbox"
+                        [checked]="isOrphanSelected(volume.name)"
+                        (change)="toggleOrphan(volume.name)"
+                        [attr.aria-label]="'Seleccionar ' + volume.name" />
+                    </td>
+                    <td class="col-mono"><code machineData>{{ volume.name }}</code></td>
+                    <td class="col-mono">{{ formatBytes(volume.size_mb * 1048576) }}</td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+          </div>
+
+          <div class="card-actions-row">
+            <button type="button" class="btn-outline" (click)="selectAllOrphans()">
+              Seleccionar Todos
+            </button>
+            <button type="button" class="btn-primary" (click)="openOrphanModal()" [disabled]="!canOpenOrphanModal()">
+              <svg lucideTrash2 class="btn-icon"></svg>
+              <span>
+                Liberar Seleccionados ({{ selectedOrphanNames().length }} · {{ formatBytes(selectedOrphanMB() * 1048576) }})
+              </span>
+            </button>
+          </div>
+        }
+
+        @if (plan.kept.length > 0) {
+          <details class="storage-details">
+            <summary>Volúmenes conservados ({{ plan.kept.length }})</summary>
+            <ul class="storage-kept-list">
+              @for (volume of plan.kept; track volume.name) {
+                <li>
+                  <code machineData>{{ volume.name }}</code>
+                  <span class="storage-kept-reason">{{ formatKeepReason(volume.reason) }}</span>
+                </li>
+              }
+            </ul>
+          </details>
+        }
+      }
+    </div>
   }
 </div>
+
+<!-- ================= Modal: liberación de volúmenes sin dueño ================= -->
+@if (orphanModalOpen()) {
+  <modal-shell animate.leave="motion-modal-out"
+    title="Liberar Volúmenes sin Contenedor"
+    subtitle="Acción irreversible sobre el almacenamiento del nodo"
+    intent="warning"
+    (close)="closeOrphanModal()">
+    <svg modal-icon lucideTrash2 class="icon"></svg>
+
+    <div class="maintenance-warning">
+      <svg lucideAlertTriangle></svg>
+      <span>
+        Se eliminarán {{ selectedOrphanNames().length }} volumen(es) y se liberarán
+        {{ formatBytes(selectedOrphanMB() * 1048576) }}. Solo se borran volúmenes sin
+        contenedor que ningún entorno registrado reclama; el código de un laboratorio en
+        uso no se toca. La operación no se puede deshacer.
+      </span>
+    </div>
+
+    <form-field
+      label="Confirmación (escribe LIBERAR VOLUMENES HUERFANOS)"
+      for="orphan-confirm"
+      [error]="orphanPhrase().length > 0 && !orphanPhraseValid() ? 'La frase debe coincidir exactamente con LIBERAR VOLUMENES HUERFANOS.' : ''">
+      <input
+        id="orphan-confirm"
+        type="text"
+        class="form-input"
+        placeholder="LIBERAR VOLUMENES HUERFANOS"
+        autocomplete="off"
+        [ngModel]="orphanPhrase()"
+        (ngModelChange)="orphanPhrase.set($event)" />
+    </form-field>
+
+    <ng-container modal-footer>
+      <button type="button" class="btn-outline" (click)="closeOrphanModal()" [disabled]="isPruningOrphans()">
+        Cancelar
+      </button>
+      <button type="button" class="btn-primary" (click)="confirmOrphanPrune()" [disabled]="!canConfirmOrphanPrune()">
+        @if (isPruningOrphans()) {
+          <span>Liberando...</span>
+        } @else {
+          <span>Confirmar y Liberar</span>
+        }
+      </button>
+    </ng-container>
+  </modal-shell>
+}
 
 <!-- ================= Modal: confirmación de mantenimiento ================= -->
 @if (maintenanceModalOpen()) {
