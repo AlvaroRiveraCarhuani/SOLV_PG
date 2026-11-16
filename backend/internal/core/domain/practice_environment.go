@@ -44,15 +44,78 @@ const (
 	EWMASafetyMarginFactor float64 = 1.25
 )
 
+// EnvironmentProfile declara las reglas que aplican a un entorno según el
+// momento académico. Se deriva del propósito del ejercicio y nunca lo envía el
+// cliente: un examen no puede quedar en perfil de práctica por un campo del
+// formulario.
+type EnvironmentProfile string
+
+const (
+	EnvironmentProfilePractice EnvironmentProfile = "practice"
+	EnvironmentProfileExam     EnvironmentProfile = "exam"
+)
+
+// ProfileForPurpose traduce el propósito del ejercicio al perfil del entorno.
+// Un propósito ausente o desconocido cae en práctica: el perfil de examen exige
+// que el ejercicio se haya declarado como examen.
+func ProfileForPurpose(purpose string) EnvironmentProfile {
+	if ExercisePurpose(purpose) == ExercisePurposeExam {
+		return EnvironmentProfileExam
+	}
+	return EnvironmentProfilePractice
+}
+
+func (p EnvironmentProfile) IsExam() bool {
+	return p == EnvironmentProfileExam
+}
+
+// EnvironmentProfileSpec declara qué cambia por momento. No lleva memoria: el
+// cupo lo decide la política del servidor y el préstamo de la admisión.
+type EnvironmentProfileSpec struct {
+	Profile                 EnvironmentProfile
+	IdleHibernation         bool
+	HostPressureHibernation bool
+	KeystrokeCapture        bool
+	FreshWorkspace          bool
+	FreezeOnSubmit          bool
+}
+
+// ProfileSpecFor devuelve el conjunto de reglas de un perfil. Un perfil
+// desconocido se comporta como práctica: los privilegios del examen se
+// conceden solo con el perfil declarado.
+func ProfileSpecFor(profile EnvironmentProfile) EnvironmentProfileSpec {
+	if profile == EnvironmentProfileExam {
+		return EnvironmentProfileSpec{
+			Profile:                 EnvironmentProfileExam,
+			HostPressureHibernation: true,
+			KeystrokeCapture:        true,
+			FreshWorkspace:          true,
+			FreezeOnSubmit:          true,
+		}
+	}
+	return EnvironmentProfileSpec{
+		Profile:                 EnvironmentProfilePractice,
+		IdleHibernation:         true,
+		HostPressureHibernation: true,
+	}
+}
+
 type PracticeEnvironment struct {
-	ID              string     `db:"id" json:"environment_id"`
-	StudentID       string     `db:"student_id" json:"student_id"`
-	SubjectID       string     `db:"subject_id" json:"subject_id"`
-	Type            string     `db:"type" json:"type"`
-	ContainerID     *string    `db:"container_id" json:"-"`
-	Status          string     `db:"status" json:"status"`
-	AccessURL       string     `db:"access_url" json:"access_url"`
-	MemoryLimitMB   int64      `db:"memory_limit_mb" json:"memory_limit_mb"`
+	ID            string  `db:"id" json:"environment_id"`
+	StudentID     string  `db:"student_id" json:"student_id"`
+	SubjectID     string  `db:"subject_id" json:"subject_id"`
+	Type          string  `db:"type" json:"type"`
+	ContainerID   *string `db:"container_id" json:"-"`
+	Status        string  `db:"status" json:"status"`
+	AccessURL     string  `db:"access_url" json:"access_url"`
+	MemoryLimitMB int64   `db:"memory_limit_mb" json:"memory_limit_mb"`
+	// EnvironmentProfile es el perfil aplicado en la última apertura. Se
+	// recalcula desde el propósito del ejercicio; el valor persistido sirve para
+	// auditar con qué reglas se ejecutó.
+	EnvironmentProfile EnvironmentProfile `db:"environment_profile" json:"environment_profile"`
+	// ExamAttempt cuenta los intentos de examen del entorno. Cero en práctica;
+	// el primer examen es 1 y forma parte del nombre del volumen del intento.
+	ExamAttempt     int        `db:"exam_attempt" json:"exam_attempt"`
 	LastHeartbeatAt time.Time  `db:"last_heartbeat_at" json:"last_heartbeat_at"`
 	LastOOMKilledAt *time.Time `db:"last_oom_killed_at" json:"last_oom_killed_at,omitempty"`
 	OOMStrikeCount  int        `db:"oom_strike_count" json:"oom_strike_count"`
@@ -90,12 +153,23 @@ func PracticeEnvironmentVolumeName(studentID, subjectID string, exerciseID *stri
 	return fmt.Sprintf("solv_workspace_%s_%s_%s", studentID, subjectID, trimmed)
 }
 
-// VolumeName devuelve el volumen del entorno según su alcance.
+// PracticeEnvironmentAttemptVolumeName arma el volumen de un intento. La
+// práctica usa el volumen de siempre (intento 0); el examen estrena uno por
+// intento, así no hereda lo que hubiera quedado antes.
+func PracticeEnvironmentAttemptVolumeName(studentID, subjectID string, exerciseID *string, attempt int) string {
+	base := PracticeEnvironmentVolumeName(studentID, subjectID, exerciseID)
+	if base == "" || attempt <= 0 {
+		return base
+	}
+	return fmt.Sprintf("%s_exam_%d", base, attempt)
+}
+
+// VolumeName devuelve el volumen del entorno según su alcance e intento.
 func (w *PracticeEnvironment) VolumeName() string {
 	if w == nil {
 		return ""
 	}
-	return PracticeEnvironmentVolumeName(w.StudentID, w.SubjectID, w.ExerciseID)
+	return PracticeEnvironmentAttemptVolumeName(w.StudentID, w.SubjectID, w.ExerciseID, w.ExamAttempt)
 }
 
 var (

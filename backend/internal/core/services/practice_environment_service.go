@@ -502,6 +502,26 @@ func (s *PracticeEnvironmentService) containerAlive(ctx context.Context, contain
 	return false
 }
 
+// resolveEnvironmentProfile deriva el perfil del entorno desde el propósito del
+// ejercicio. Sin ejercicio no se puede afirmar que sea un examen: la ausencia
+// cae en práctica y nunca concede los privilegios del examen.
+func (s *PracticeEnvironmentService) resolveEnvironmentProfile(exercise *domain.Exercise) domain.EnvironmentProfile {
+	if exercise == nil {
+		return domain.EnvironmentProfilePractice
+	}
+	return domain.ProfileForPurpose(exercise.Purpose)
+}
+
+// initialExamAttempt fija el intento con el que nace un entorno: cero en
+// práctica y uno en examen. El volumen del intento uno no coincide con el de
+// práctica, así que un examen nunca arranca sobre archivos previos.
+func initialExamAttempt(profile domain.EnvironmentProfile) int {
+	if profile.IsExam() {
+		return 1
+	}
+	return 0
+}
+
 // startPracticeEnvironment abre (o reutiliza) el entorno de una práctica. El alcance es
 // siempre un ejercicio: sin práctica no hay entorno, porque un entorno por
 // materia mezclaría el código de todas las prácticas en un mismo volumen.
@@ -512,6 +532,10 @@ func (s *PracticeEnvironmentService) startPracticeEnvironment(ctx context.Contex
 	}
 
 	exercise := s.resolveExercise(ctx, exerciseID, tenantID)
+	// El perfil sale del ejercicio y se guarda al crear el entorno. Ninguna
+	// petición lo declara: el cliente no elige si corre en modo examen.
+	profile := s.resolveEnvironmentProfile(exercise)
+	attempt := initialExamAttempt(profile)
 	// Sin catálogo de ejercicios el servicio no puede afirmar que la práctica no
 	// existe. En producción el catálogo siempre está inyectado, así que la
 	// validación sigue vigente.
@@ -685,7 +709,7 @@ func (s *PracticeEnvironmentService) startPracticeEnvironment(ctx context.Contex
 	}
 	accessURL := buildPracticeEnvironmentAccessURL(environmentID, hostPort)
 	containerName := fmt.Sprintf("solv-environment-%s", environmentID)
-	volumeName := domain.PracticeEnvironmentVolumeName(userID, subjectID, exerciseIDPtr)
+	volumeName := domain.PracticeEnvironmentAttemptVolumeName(userID, subjectID, exerciseIDPtr, attempt)
 	networkName := "solv-traefik-net"
 
 	seedVersion, err := s.resolveWorkspaceSeed(ctx, tenantID, exercise)
@@ -708,6 +732,8 @@ func (s *PracticeEnvironmentService) startPracticeEnvironment(ctx context.Contex
 		SubjectID:                 subjectID,
 		TemplateID:                templateIDStr,
 		ExerciseID:                exerciseIDPtr,
+		EnvironmentProfile:        profile,
+		ExamAttempt:               attempt,
 		Status:                    domain.PracticeEnvironmentStatusPending,
 		AccessURL:                 accessURL,
 		MemoryLimitMB:             ramLimitMB,

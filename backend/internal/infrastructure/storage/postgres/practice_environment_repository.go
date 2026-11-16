@@ -27,7 +27,7 @@ func (r *PostgresPracticeEnvironmentRepository) GetByStudentSubjectExercise(ctx 
 		tenantID = domain.DefaultTenantID
 	}
 	query := `
-		SELECT id, student_id, subject_id, template_id, type, container_id, status, access_url, memory_limit_mb, last_heartbeat_at, last_oom_killed_at, oom_strike_count, COALESCE(semgrep_audit, '{}'::jsonb) AS semgrep_audit, tenant_id, exercise_id, frozen_at, workspace_project_version_id, workspace_seed_mode, workspace_init_status, created_at, updated_at
+		SELECT id, student_id, subject_id, template_id, type, container_id, status, access_url, memory_limit_mb, environment_profile, exam_attempt, last_heartbeat_at, last_oom_killed_at, oom_strike_count, COALESCE(semgrep_audit, '{}'::jsonb) AS semgrep_audit, tenant_id, exercise_id, frozen_at, workspace_project_version_id, workspace_seed_mode, workspace_init_status, created_at, updated_at
 		FROM environments
 		WHERE student_id = $1 AND subject_id = $2 AND exercise_id = $3 AND tenant_id = $4
 		LIMIT 1
@@ -71,7 +71,7 @@ func (r *PostgresPracticeEnvironmentRepository) GetByID(ctx context.Context, id 
 		tenantID = domain.DefaultTenantID
 	}
 	query := `
-		SELECT id, student_id, subject_id, template_id, type, container_id, status, access_url, memory_limit_mb, last_heartbeat_at, last_oom_killed_at, oom_strike_count, COALESCE(semgrep_audit, '{}'::jsonb) AS semgrep_audit, tenant_id, exercise_id, frozen_at, workspace_project_version_id, workspace_seed_mode, workspace_init_status, created_at, updated_at
+		SELECT id, student_id, subject_id, template_id, type, container_id, status, access_url, memory_limit_mb, environment_profile, exam_attempt, last_heartbeat_at, last_oom_killed_at, oom_strike_count, COALESCE(semgrep_audit, '{}'::jsonb) AS semgrep_audit, tenant_id, exercise_id, frozen_at, workspace_project_version_id, workspace_seed_mode, workspace_init_status, created_at, updated_at
 		FROM environments
 		WHERE id = $1 AND tenant_id = $2
 	`
@@ -100,6 +100,9 @@ func (r *PostgresPracticeEnvironmentRepository) Create(ctx context.Context, envi
 	if environment.Type == "" {
 		environment.Type = domain.PracticeEnvironmentTypeIDEPersistente
 	}
+	if environment.EnvironmentProfile == "" {
+		environment.EnvironmentProfile = domain.EnvironmentProfilePractice
+	}
 	if environment.LastHeartbeatAt.IsZero() {
 		environment.LastHeartbeatAt = time.Now()
 	}
@@ -121,8 +124,8 @@ func (r *PostgresPracticeEnvironmentRepository) Create(ctx context.Context, envi
 		}
 	}
 	query := `
-		INSERT INTO environments (id, student_id, subject_id, template_id, type, container_id, status, access_url, memory_limit_mb, last_heartbeat_at, last_oom_killed_at, oom_strike_count, semgrep_audit, tenant_id, exercise_id, frozen_at, workspace_project_version_id, workspace_seed_mode, workspace_init_status, created_at, updated_at)
-		VALUES (:id, :student_id, :subject_id, :template_id, :type, :container_id, :status, :access_url, :memory_limit_mb, :last_heartbeat_at, :last_oom_killed_at, :oom_strike_count, :semgrep_audit, :tenant_id, :exercise_id, :frozen_at, :workspace_project_version_id, :workspace_seed_mode, :workspace_init_status, :created_at, :updated_at)
+		INSERT INTO environments (id, student_id, subject_id, template_id, type, container_id, status, access_url, memory_limit_mb, environment_profile, exam_attempt, last_heartbeat_at, last_oom_killed_at, oom_strike_count, semgrep_audit, tenant_id, exercise_id, frozen_at, workspace_project_version_id, workspace_seed_mode, workspace_init_status, created_at, updated_at)
+		VALUES (:id, :student_id, :subject_id, :template_id, :type, :container_id, :status, :access_url, :memory_limit_mb, :environment_profile, :exam_attempt, :last_heartbeat_at, :last_oom_killed_at, :oom_strike_count, :semgrep_audit, :tenant_id, :exercise_id, :frozen_at, :workspace_project_version_id, :workspace_seed_mode, :workspace_init_status, :created_at, :updated_at)
 	`
 	_, err := r.db.NamedExecContext(ctx, query, environment)
 	if err != nil {
@@ -263,7 +266,7 @@ func (r *PostgresPracticeEnvironmentRepository) GetActivePracticeEnvironments(ct
 		tenantID = domain.DefaultTenantID
 	}
 	query := `
-		SELECT id, student_id, subject_id, template_id, type, container_id, status, access_url, memory_limit_mb, last_heartbeat_at, last_oom_killed_at, oom_strike_count, COALESCE(semgrep_audit, '{}'::jsonb) AS semgrep_audit, tenant_id, exercise_id, frozen_at, workspace_project_version_id, workspace_seed_mode, workspace_init_status, created_at, updated_at
+		SELECT id, student_id, subject_id, template_id, type, container_id, status, access_url, memory_limit_mb, environment_profile, exam_attempt, last_heartbeat_at, last_oom_killed_at, oom_strike_count, COALESCE(semgrep_audit, '{}'::jsonb) AS semgrep_audit, tenant_id, exercise_id, frozen_at, workspace_project_version_id, workspace_seed_mode, workspace_init_status, created_at, updated_at
 		FROM environments
 		WHERE status IN ('running', 'pending', 'unknown') AND tenant_id = $1
 	`
@@ -313,13 +316,13 @@ func (r *PostgresPracticeEnvironmentRepository) GetAllRunningPracticeEnvironment
 	var args []interface{}
 	if tenantID == "" {
 		query = `
-			SELECT id, student_id, subject_id, template_id, type, container_id, status, access_url, memory_limit_mb, last_heartbeat_at, last_oom_killed_at, oom_strike_count, COALESCE(semgrep_audit, '{}'::jsonb) AS semgrep_audit, tenant_id, exercise_id, frozen_at, workspace_project_version_id, workspace_seed_mode, workspace_init_status, created_at, updated_at
+			SELECT id, student_id, subject_id, template_id, type, container_id, status, access_url, memory_limit_mb, environment_profile, exam_attempt, last_heartbeat_at, last_oom_killed_at, oom_strike_count, COALESCE(semgrep_audit, '{}'::jsonb) AS semgrep_audit, tenant_id, exercise_id, frozen_at, workspace_project_version_id, workspace_seed_mode, workspace_init_status, created_at, updated_at
 			FROM environments
 			WHERE status IN ('running', 'frozen')
 		`
 	} else {
 		query = `
-			SELECT id, student_id, subject_id, template_id, type, container_id, status, access_url, memory_limit_mb, last_heartbeat_at, last_oom_killed_at, oom_strike_count, COALESCE(semgrep_audit, '{}'::jsonb) AS semgrep_audit, tenant_id, exercise_id, frozen_at, workspace_project_version_id, workspace_seed_mode, workspace_init_status, created_at, updated_at
+			SELECT id, student_id, subject_id, template_id, type, container_id, status, access_url, memory_limit_mb, environment_profile, exam_attempt, last_heartbeat_at, last_oom_killed_at, oom_strike_count, COALESCE(semgrep_audit, '{}'::jsonb) AS semgrep_audit, tenant_id, exercise_id, frozen_at, workspace_project_version_id, workspace_seed_mode, workspace_init_status, created_at, updated_at
 			FROM environments
 			WHERE status IN ('running', 'frozen') AND tenant_id = $1
 		`
@@ -339,7 +342,7 @@ func (r *PostgresPracticeEnvironmentRepository) GetByType(ctx context.Context, e
 		tenantID = domain.DefaultTenantID
 	}
 	query := `
-		SELECT id, student_id, subject_id, template_id, type, container_id, status, access_url, memory_limit_mb, last_heartbeat_at, last_oom_killed_at, oom_strike_count, COALESCE(semgrep_audit, '{}'::jsonb) AS semgrep_audit, tenant_id, exercise_id, frozen_at, workspace_project_version_id, workspace_seed_mode, workspace_init_status, created_at, updated_at
+		SELECT id, student_id, subject_id, template_id, type, container_id, status, access_url, memory_limit_mb, environment_profile, exam_attempt, last_heartbeat_at, last_oom_killed_at, oom_strike_count, COALESCE(semgrep_audit, '{}'::jsonb) AS semgrep_audit, tenant_id, exercise_id, frozen_at, workspace_project_version_id, workspace_seed_mode, workspace_init_status, created_at, updated_at
 		FROM environments
 		WHERE type = $1 AND tenant_id = $2
 	`
