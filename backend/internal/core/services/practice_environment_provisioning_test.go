@@ -445,24 +445,30 @@ func TestPracticeEnvironmentService_DefaultFallbackWithoutTemplate(t *testing.T)
 func TestPracticeEnvironmentService_PoliciesAdmission(t *testing.T) {
 	policiesJSON := []byte(`{"server_policies":{"ram_limit_mb":256,"inactivity_minutes":15,"max_containers":2,"updated_at":"2026-01-01T00:00:00Z"}}`)
 
-	newSvcWithPolicies := func(wsRepo *mockPracticeEnvironmentRepo, subjRepo *mockSubjectRepo, tplRepo *mockTemplateRepo) *services.PracticeEnvironmentService {
+	// El host se fija en 4 GB para que el préstamo de memoria (ADR-082) no
+	// dependa de la máquina que corre la prueba: con ese nodo la base de 256 MB
+	// sube a 1536 MB y la de 1024 MB se queda igual.
+	newSvcWithPolicies := func(wsRepo *mockPracticeEnvironmentRepo, subjRepo *mockSubjectRepo, tplRepo *mockTemplateRepo, hostMB int) *services.PracticeEnvironmentService {
 		polSvc := services.NewServerPoliciesService(&mockTenantRepo{config: policiesJSON})
 		return services.NewPracticeEnvironmentService(wsRepo, &mockOrchestrator{}, &mockHostMonitor{}).
 			WithProvisioning(subjRepo, tplRepo).
+			WithHostTotalMemory(func() (int, bool) { return hostMB, true }).
 			SetPoliciesService(polSvc)
 	}
 
-	t.Run("la RAM de la política es el default sin plantilla", func(t *testing.T) {
+	t.Run("la RAM de la política es la base y el hueco del nodo la presta", func(t *testing.T) {
 		wsRepo := newMockPracticeEnvironmentRepo()
 		subjRepo := &mockSubjectRepo{subjects: map[string]*domain.Subject{}}
-		svc := newSvcWithPolicies(wsRepo, subjRepo, &mockTemplateRepo{templates: map[string]*domain.Template{}})
+		svc := newSvcWithPolicies(wsRepo, subjRepo, &mockTemplateRepo{templates: map[string]*domain.Template{}}, 4096)
 
 		ws, err := svc.StartPracticeEnvironmentForExercise(context.Background(), "student-pol", "subj-sin-plantilla", testPracticeID)
 		if err != nil {
 			t.Fatalf("error inesperado: %v", err)
 		}
-		if ws.MemoryLimitMB != 256 {
-			t.Errorf("esperado RAM de política = 256, obtenido: %d", ws.MemoryLimitMB)
+		// Política de 256 MB sobre un nodo de 4 GB: el préstamo sube al perfil
+		// más alto que deja sitio a otro entorno del mismo tamaño (1536 MB).
+		if ws.MemoryLimitMB != 1536 {
+			t.Errorf("esperado préstamo sobre la política = 1536, obtenido: %d", ws.MemoryLimitMB)
 		}
 	})
 
@@ -475,7 +481,9 @@ func TestPracticeEnvironmentService_PoliciesAdmission(t *testing.T) {
 		tplRepo := &mockTemplateRepo{templates: map[string]*domain.Template{
 			tplID: {ID: tplID, DockerImage: "solv/cs:1gb", BaseRamMB: 1024},
 		}}
-		svc := newSvcWithPolicies(wsRepo, subjRepo, tplRepo)
+		// Nodo de 3 GB: el hueco no alcanza para prestar 1536 MB, así que la
+		// cuota queda en la base que impone la plantilla.
+		svc := newSvcWithPolicies(wsRepo, subjRepo, tplRepo, 2941)
 
 		ws, err := svc.StartPracticeEnvironmentForExercise(context.Background(), "student-1gb", "subj-1gb", testPracticeID)
 		if err != nil {
@@ -490,7 +498,7 @@ func TestPracticeEnvironmentService_PoliciesAdmission(t *testing.T) {
 		wsRepo := newMockPracticeEnvironmentRepo()
 		wsRepo.active = []*domain.PracticeEnvironment{{ID: "ws-1"}, {ID: "ws-2"}}
 		subjRepo := &mockSubjectRepo{subjects: map[string]*domain.Subject{}}
-		svc := newSvcWithPolicies(wsRepo, subjRepo, &mockTemplateRepo{templates: map[string]*domain.Template{}})
+		svc := newSvcWithPolicies(wsRepo, subjRepo, &mockTemplateRepo{templates: map[string]*domain.Template{}}, 4096)
 
 		_, err := svc.StartPracticeEnvironmentForExercise(context.Background(), "student-full", "subj-x", testPracticeID)
 		if err == nil {

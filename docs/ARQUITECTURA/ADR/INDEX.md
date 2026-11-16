@@ -88,3 +88,4 @@ Este documento consolida todas las Decisiones de Arquitectura (ADRs) tomadas dur
 | 079 | [Identificador Externo y Reconciliación de la Nómina](ADR-079-identificador-externo-y-reconciliacion-de-nomina.md) | Aceptado | Core |
 | 080 | [Propiedad de los Datos: Capas Propias, Espejadas y Derivadas](ADR-080-propiedad-de-datos-propias-espejadas-derivadas.md) | Aceptado | Core |
 | 081 | [Alta de Institución, Catálogo Base y Fin del Nombre Hardcodeado](ADR-081-alta-de-institucion-y-catalogo-base.md) | Aceptado | Core |
+| 082 | [Préstamo de Memoria en la Admisión y Techo Único de Cuota por Entorno](ADR-082-prestamo-de-memoria-en-la-admision.md) | Aceptado | Core |

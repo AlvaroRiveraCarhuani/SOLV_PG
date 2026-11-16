@@ -62,17 +62,141 @@ func (s *PracticeEnvironmentService) nodeSatelliteReserveMB(ctx context.Context,
 	return reserveMB
 }
 
-// admissionBudgetDenied decide si el presupuesto comprometido del nodo admite un
-// laboratorio nuevo. committedMB es la suma de los techos de los laboratorios activos;
-// labLimitMB es el techo del contenedor del alumno que se quiere admitir y reserveMB la
-// memoria que los contenedores satélite compartidos ocupan una sola vez en el nodo.
-func admissionBudgetDenied(committedMB, labLimitMB, reserveMB, hostMB, ceilingPct int64) bool {
+// admissionAllocatableMB es la RAM que la admisión reparte entre laboratorios:
+// el techo de seguridad aplicado sobre la RAM total medida del nodo.
+//
+// La reserva de plataforma (PlatformReserveMB) es un supuesto de planificación
+// del panel de capacidad, no una compuerta de admisión: descontarla acá negaría
+// entornos que hoy entran. El techo de seguridad ya deja ese margen libre.
+func admissionAllocatableMB(hostMB, ceilingPct int64) int64 {
 	if hostMB <= 0 {
-		return false
+		return 0
 	}
-	if ceilingPct <= 0 {
+	if ceilingPct <= 0 || ceilingPct > 100 {
 		ceilingPct = 85
 	}
-	allocatableMB := hostMB * ceilingPct / 100
-	return committedMB+labLimitMB+reserveMB > allocatableMB
+	return hostMB * ceilingPct / 100
+}
+
+// loanQuotaMB decide cuánta memoria recibe un entorno nuevo con el presupuesto
+// que sobra en el nodo.
+//
+// La cuota base la fijan la política del tenant y la plantilla, y es el piso:
+// ningún alumno recibe menos. Mientras el nodo tenga hueco, la cuota se dobla
+// hasta el techo duro, pero solo si al concederla sigue entrando otro entorno
+// del mismo tamaño. Así el préstamo no deja sin lugar al siguiente alumno que
+// abra su laboratorio, y cuando la clase se llena la base vuelve a ser la cuota.
+//
+// committedMB es la suma de los techos de los laboratorios activos y reserveMB
+// la memoria que los satélites compartidos ocupan una sola vez en el nodo.
+// Devuelve 0 cuando ni la base entra: la admisión rechaza el entorno.
+//
+// Solo concede perfiles reconocidos: una cuota de 3072 MB no la entiende nadie
+// que mire el panel ni una plantilla.
+func loanQuotaMB(baseMB, committedMB, reserveMB, hostMB, ceilingPct, hardQuotaMB int64) int64 {
+	if baseMB <= 0 {
+		return 0
+	}
+	budgetMB := admissionAllocatableMB(hostMB, ceilingPct) - committedMB - reserveMB
+	if budgetMB < baseMB {
+		return 0
+	}
+	if hardQuotaMB < baseMB {
+		hardQuotaMB = baseMB
+	}
+
+	grantedMB := baseMB
+	for _, tierMB := range loanQuotaTiersMB {
+		if tierMB <= baseMB {
+			continue
+		}
+		if tierMB > hardQuotaMB {
+			break
+		}
+		// El préstamo deja sitio para otro entorno del tamaño que concede.
+		if tierMB*2 > budgetMB {
+			break
+		}
+		grantedMB = tierMB
+	}
+	return grantedMB
+}
+
+// loanQuotaTiersMB son los perfiles que el préstamo puede conceder, de menor a
+// mayor. Son los mismos niveles con los que el administrador define plantillas:
+// el préstamo no inventa tamaños que la interfaz no pueda explicar.
+var loanQuotaTiersMB = []int64{512, 768, 1024, 1536, 2048, 4096}
+
+// reserveAdmissionQuota decide la cuota de un entorno nuevo y aparta ese monto
+// del presupuesto mientras se crea su registro. El apartado cubre el hueco
+// entre la decisión y la fila en la base: dos aperturas simultáneas no pueden
+// quedarse con el mismo hueco libre. Devuelve la cuota concedida y la función
+// que libera la reserva, que debe llamarse cuando el entorno ya tiene su fila o
+// cuando el alta falló.
+func (s *PracticeEnvironmentService) reserveAdmissionQuota(active []*domain.PracticeEnvironment, baseMB, reserveMB, hostMB int64, ceilingPct int) (int64, func(), error) {
+	s.admissionMu.Lock()
+	defer s.admissionMu.Unlock()
+
+	var committedMB int64
+	for _, ws := range active {
+		if ws != nil {
+			committedMB += ws.MemoryLimitMB
+		}
+	}
+	// Lo que está en vuelo todavía no tiene fila y también ocupa lugar.
+	committedMB += s.admissionInFlightMB
+
+	grantedMB := loanQuotaMB(baseMB, committedMB, reserveMB, hostMB, int64(ceilingPct), domain.HardQuotaMemoryMB)
+	if grantedMB <= 0 {
+		return 0, func() {}, ErrHostMemoryExhausted
+	}
+
+	s.admissionInFlightMB += grantedMB
+	released := false
+	release := func() {
+		s.admissionMu.Lock()
+		defer s.admissionMu.Unlock()
+		if released {
+			return
+		}
+		released = true
+		s.admissionInFlightMB -= grantedMB
+	}
+	return grantedMB, release, nil
+}
+
+// loanQuotaForReactivation recalcula la cuota de un entorno que se reconstruye al
+// despertar. El préstamo no sobrevive a la hibernación: al volver, la cuota se
+// decide otra vez con el presupuesto del momento y nunca queda por debajo de la
+// base. Un entorno que no cabe no se rechaza —ya existe—: despierta con la base.
+//
+// El propio entorno se excluye del comprometido: al hibernar dejó de contar y
+// volver a sumarlo sería contar dos veces el mismo cupo.
+func (s *PracticeEnvironmentService) loanQuotaForReactivation(ctx context.Context, instance *domain.PracticeEnvironment, baseMB int64, active []*domain.PracticeEnvironment, ceilingPct int) int64 {
+	if instance == nil || baseMB <= 0 {
+		return baseMB
+	}
+	hostMB, measured := s.hostTotalMB()
+	if !measured || hostMB <= 0 {
+		return baseMB
+	}
+	template := s.resolveTemplateForInstance(ctx, instance)
+	reserveMB := s.nodeSatelliteReserveMB(ctx, active, template)
+
+	var committedMB int64
+	for _, ws := range active {
+		if ws == nil || ws.ID == instance.ID {
+			continue
+		}
+		committedMB += ws.MemoryLimitMB
+	}
+
+	grantedMB := loanQuotaMB(baseMB, committedMB, reserveMB, int64(hostMB), int64(ceilingPct), domain.HardQuotaMemoryMB)
+	if grantedMB <= 0 {
+		return baseMB
+	}
+	if grantedMB > baseMB {
+		log.Printf("[Admission Loan] el entorno %s despierta con %d MB sobre una base de %d MB", instance.ID, grantedMB, baseMB)
+	}
+	return grantedMB
 }

@@ -55,7 +55,7 @@ $$\text{Límite Máximo Duro } (memory.max) = \text{base\_ram\_mb} \times 2$$
 **Ejemplo de dimensionamiento para una base de 1024 MB:**
 - Memoria mínima garantizada: 512 MB.
 - Umbral de contención: 1536 MB.
-- Límite absoluto de corte (OOM): 2048 MB.
+- Límite absoluto de corte (OOM): 4096 MB.
 
 ### 2.3 Perfiles Recomendados por Lenguaje
 - **C / C++:** 512 MB en Juez Evaluador / 1024 MB en Laboratorio Interactivo.

@@ -12,7 +12,7 @@ La creación de un entorno pasa por dos compuertas independientes
 | Compuerta | De dónde sale | Qué pasa si se alcanza |
 |---|---|---|
 | Techo por institución | `max_containers` de las políticas del servidor | `503 max_containers_reached` |
-| Presupuesto de RAM del host | RAM total × `host_safety_ceiling_pct` − reserva de plataforma − satélites | `503 host_memory_exhausted` |
+| Presupuesto de RAM del host | RAM total × `host_safety_ceiling_pct` − cuotas comprometidas − satélites | `503 host_memory_exhausted` |
 
 Manda la menor. Por eso un techo chico en un servidor grande no protege de nada:
 solo desperdicia hardware. Hasta ahora el techo por defecto era `40`, un número
@@ -193,3 +193,29 @@ como techo de admisión pero el panel sigue informando los entornos vivos.
 
 Si el host se queda sin memoria, primero se baja el techo y se hibernan entornos;
 el procedimiento de emergencia está en `docs/OPERATIONS/incident-runbook.md` §6.
+
+## 8. Préstamo de memoria cuando el nodo tiene hueco
+
+La cuota de un entorno no es un número fijo. La admisión toma la base que fijan
+la política del tenant y la plantilla, y le suma un préstamo mientras el nodo
+tenga lugar (`loanQuotaMB`, ADR-082):
+
+```
+presupuesto = RAM total × techo de seguridad − comprometido − satélites
+préstamo    = el perfil más alto (512 … 4096) que deja sitio a otro igual
+```
+
+El préstamo nunca deja sin lugar al siguiente alumno: un perfil entra solo si
+`2 × perfil ≤ presupuesto`. En un nodo de 12 GB el primer entorno recibe
+4096 MB, el segundo 2048 y el tercero 1536; cuando la clase se llena, la cuota
+vuelve a los 512 MB de la base. En el nodo de medición de la sección 5 (8 GB) el
+primero recibe 2048 MB.
+
+El préstamo no sobrevive a la hibernación: al despertar, el entorno vuelve a
+pedir cuota y recibe la que quepa en ese momento. Esa es la válvula que devuelve
+la memoria a la clase sin apagar a nadie y sin bajarle el límite a un contenedor
+en ejecución.
+
+Lo que no cambia: si ni la base entra, el entorno se rechaza con
+`host_memory_exhausted`, y el techo por contenedor sigue siendo 4096 MB, que es
+el perfil Intensivo que el administrador ya podía definir en una plantilla.

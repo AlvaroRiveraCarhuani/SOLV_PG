@@ -3,6 +3,7 @@ package services
 import (
 	"context"
 	"errors"
+	"fmt"
 	"testing"
 
 	"solv-backend/internal/core/domain"
@@ -105,59 +106,169 @@ func TestNodeSatelliteReserveMB_SkipsExternalHost(t *testing.T) {
 	}
 }
 
-func TestAdmissionBudgetDenied(t *testing.T) {
+// La cuota de un entorno es su base más el préstamo que permita el hueco del
+// nodo, y el préstamo siempre deja sitio para otro entorno del mismo tamaño.
+// Devuelve 0 cuando ni la base entra: la admisión rechaza el entorno.
+func TestLoanQuotaMB(t *testing.T) {
 	tests := []struct {
 		name        string
+		baseMB      int64
 		committedMB int64
-		labLimitMB  int64
 		reserveMB   int64
 		hostMB      int64
 		ceilingPct  int64
-		want        bool
+		hardQuotaMB int64
+		want        int64
 	}{
 		{
-			// 2 alumnos × 512 MB + 256 MB de MongoDB sobre un nodo de 8 GB: entra.
-			name: "dos alumnos con mongo entran", committedMB: 1024, labLimitMB: 512, reserveMB: 256,
-			hostMB: 8192, ceilingPct: 85, want: false,
+			// Nodo de 12 GB vacío: 10200 MB de techo, la base se dobla hasta 4096.
+			name: "nodo vacío presta hasta el techo duro", baseMB: 512,
+			hostMB: 12000, ceilingPct: 85, hardQuotaMB: 4096, want: 4096,
 		},
 		{
-			// El alumno 30 sobre un nodo de 18 GB: sin satélites entra, con MongoDB y
-			// Redis reservados una sola vez ya no.
-			name: "treinta alumnos sin satélites", committedMB: 29 * 512, labLimitMB: 512, reserveMB: 0,
-			hostMB: 18432, ceilingPct: 85, want: false,
+			// Con otro entorno de 4096 abierto quedan 6104 MB: caben dos de 2048.
+			name: "con un entorno comprometido presta 2048", baseMB: 512, committedMB: 4096,
+			hostMB: 12000, ceilingPct: 85, hardQuotaMB: 4096, want: 2048,
 		},
 		{
-			name: "treinta alumnos con mongo y redis", committedMB: 29 * 512, labLimitMB: 512, reserveMB: 352,
-			hostMB: 18432, ceilingPct: 85, want: true,
+			name: "con dos entornos comprometidos presta 1536", baseMB: 512, committedMB: 6144,
+			hostMB: 12000, ceilingPct: 85, hardQuotaMB: 4096, want: 1536,
 		},
 		{
-			// La cuenta anterior (768 MB por laboratorio por el delta del satélite)
-			// negaba el décimo alumno en un nodo de 8 GB: 9 × 768 + 768 > 6963.
-			name: "la cuenta vieja negaba el décimo alumno", committedMB: 9 * 768, labLimitMB: 768, reserveMB: 0,
-			hostMB: 8192, ceilingPct: 85, want: true,
+			// La cuenta de satélites no se multiplica por alumno, pero sí reduce
+			// el hueco del nodo.
+			name: "los satélites reducen el préstamo", baseMB: 512, reserveMB: 6000,
+			hostMB: 12000, ceilingPct: 85, hardQuotaMB: 4096, want: 2048,
 		},
 		{
-			// Con la cuota del laboratorio sin el delta, el mismo décimo alumno entra.
-			name: "la cuenta nueva admite el décimo alumno", committedMB: 9 * 512, labLimitMB: 512, reserveMB: 256,
-			hostMB: 8192, ceilingPct: 85, want: false,
+			// 2 alumnos × 512 MB + 256 MB de MongoDB sobre un nodo de 8 GB: entra
+			// con 1024 MB, que deja sitio a otro del mismo tamaño.
+			name: "dos alumnos con mongo entran sin apretar", baseMB: 512, committedMB: 1024, reserveMB: 256,
+			hostMB: 8192, ceilingPct: 85, hardQuotaMB: 4096, want: 2048,
 		},
 		{
-			name: "sin host no se decide", committedMB: 100, labLimitMB: 100, reserveMB: 100,
-			hostMB: 0, ceilingPct: 85, want: false,
+			// El décimo alumno en un nodo de 8 GB ya no entraba con la cuenta de
+			// 768 MB por laboratorio.
+			name: "la cuenta vieja negaba el décimo alumno", baseMB: 768, committedMB: 9 * 768,
+			hostMB: 8192, ceilingPct: 85, hardQuotaMB: 4096, want: 0,
+		},
+		{
+			// Con la cuota sin el delta del satélite, el décimo alumno entra con
+			// la base: no hay hueco para prestar.
+			name: "la cuota actual admite el décimo alumno", baseMB: 512, committedMB: 9 * 512, reserveMB: 256,
+			hostMB: 8192, ceilingPct: 85, hardQuotaMB: 4096, want: 1024,
+		},
+		{
+			// El alumno 30 sobre un nodo de 18 GB, sin satélites.
+			name: "treinta alumnos sin satélites", baseMB: 512, committedMB: 29 * 512,
+			hostMB: 18432, ceilingPct: 85, hardQuotaMB: 4096, want: 512,
+		},
+		{
+			name: "treinta alumnos con mongo y redis", baseMB: 512, committedMB: 29 * 512, reserveMB: 352,
+			hostMB: 18432, ceilingPct: 85, hardQuotaMB: 4096, want: 0,
+		},
+		{
+			name: "sin host no se decide", baseMB: 512,
+			hostMB: 0, ceilingPct: 85, hardQuotaMB: 4096, want: 0,
 		},
 		{
 			// Sin techo configurado rige el 85%: 8192 × 85% = 6963.
-			name: "techo por defecto", committedMB: 7000, labLimitMB: 512, reserveMB: 0,
-			hostMB: 8192, ceilingPct: 0, want: true,
+			name: "techo por defecto", baseMB: 512, committedMB: 7000,
+			hostMB: 8192, ceilingPct: 0, hardQuotaMB: 4096, want: 0,
+		},
+		{
+			// Un perfil Intensivo (Datos & IA) que pide 4096 no se recorta.
+			name: "la base de 4096 se respeta", baseMB: 4096,
+			hostMB: 12000, ceilingPct: 85, hardQuotaMB: 4096, want: 4096,
+		},
+		{
+			name: "la base de 1536 dobla a 2048 y no a 4096", baseMB: 1536,
+			hostMB: 8192, ceilingPct: 85, hardQuotaMB: 4096, want: 2048,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := admissionBudgetDenied(tt.committedMB, tt.labLimitMB, tt.reserveMB, tt.hostMB, tt.ceilingPct)
+			got := loanQuotaMB(tt.baseMB, tt.committedMB, tt.reserveMB, tt.hostMB, tt.ceilingPct, tt.hardQuotaMB)
 			if got != tt.want {
-				t.Fatalf("denegado esperado %v, obtenido %v", tt.want, got)
+				t.Fatalf("cuota esperada %d MB, obtenida %d MB", tt.want, got)
 			}
 		})
+	}
+}
+
+// Dos aperturas seguidas no pueden quedarse con el mismo hueco: la primera
+// aparta su cuota mientras no tiene fila y la segunda ya ve ese monto tomado.
+func TestReserveAdmissionQuota_NoReparteElMismoHuecoDosVeces(t *testing.T) {
+	svc := NewPracticeEnvironmentService(nil, nil, nil)
+
+	first, releaseFirst, err := svc.reserveAdmissionQuota(nil, 512, 0, 12000, 85)
+	if err != nil {
+		t.Fatalf("la primera apertura debió entrar: %v", err)
+	}
+	if first != 4096 {
+		t.Fatalf("la primera apertura esperaba 4096 MB, obtuvo %d MB", first)
+	}
+
+	second, releaseSecond, err := svc.reserveAdmissionQuota(nil, 512, 0, 12000, 85)
+	if err != nil {
+		t.Fatalf("la segunda apertura debió entrar: %v", err)
+	}
+	if second != 2048 {
+		t.Fatalf("la segunda apertura esperaba 2048 MB sobre el hueco restante, obtuvo %d MB", second)
+	}
+
+	releaseFirst()
+	releaseSecond()
+	// Liberar dos veces no devuelve el monto dos veces.
+	releaseFirst()
+
+	third, releaseThird, err := svc.reserveAdmissionQuota(nil, 512, 0, 12000, 85)
+	if err != nil {
+		t.Fatalf("la tercera apertura debió entrar: %v", err)
+	}
+	if third != 4096 {
+		t.Fatalf("con las reservas liberadas esperaba 4096 MB, obtuvo %d MB", third)
+	}
+	releaseThird()
+}
+
+// Sin hueco ni para la base, el entorno se rechaza.
+func TestReserveAdmissionQuota_RechazaSinHuecoParaLaBase(t *testing.T) {
+	svc := NewPracticeEnvironmentService(nil, nil, nil)
+	active := []*domain.PracticeEnvironment{{ID: "ws-1", MemoryLimitMB: 512}}
+
+	if _, _, err := svc.reserveAdmissionQuota(active, 512, 0, 1024, 85); !errors.Is(err, ErrHostMemoryExhausted) {
+		t.Fatalf("esperaba ErrHostMemoryExhausted, obtuvo %v", err)
+	}
+}
+
+// El préstamo no sobrevive a la hibernación: el entorno vuelve con la base si
+// la clase ya llenó el nodo, y con lo que quepa si todavía hay hueco.
+func TestLoanQuotaForReactivation_CaducaElPrestamo(t *testing.T) {
+	svc := NewPracticeEnvironmentService(nil, nil, nil)
+	svc.hostTotalMBFn = func() (int, bool) { return 12000, true }
+	ctx := context.Background()
+	env := &domain.PracticeEnvironment{ID: "env-a"}
+
+	if got := svc.loanQuotaForReactivation(ctx, env, 512, nil, 85); got != 4096 {
+		t.Fatalf("con el nodo vacío esperaba 4096 MB, obtuvo %d MB", got)
+	}
+
+	full := make([]*domain.PracticeEnvironment, 0, 6)
+	for i := 0; i < 6; i++ {
+		full = append(full, &domain.PracticeEnvironment{ID: fmt.Sprintf("env-%d", i), MemoryLimitMB: 2048})
+	}
+	if got := svc.loanQuotaForReactivation(ctx, env, 512, full, 85); got != 512 {
+		t.Fatalf("con la clase llena esperaba la base de 512 MB, obtuvo %d MB", got)
+	}
+
+	// El propio entorno no se cuenta dos veces: al hibernar dejó de sumar.
+	withPeer := []*domain.PracticeEnvironment{
+		env,
+		{ID: "env-b", MemoryLimitMB: 4096},
+	}
+	if got := svc.loanQuotaForReactivation(ctx, env, 512, withPeer, 85); got != 2048 {
+		t.Fatalf("esperaba 2048 MB sobre el hueco restante, obtuvo %d MB", got)
 	}
 }

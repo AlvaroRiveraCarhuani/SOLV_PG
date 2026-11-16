@@ -64,6 +64,17 @@ type PracticeEnvironmentService struct {
 	// entre procesos queda respaldada por el estado persistido del entorno.
 	workspaceSeedMu    sync.Mutex
 	workspaceSeedLocks map[string]*sync.Mutex
+
+	// admissionMu serializa la decisión de cuota y el monto que está en vuelo.
+	// Sin ella, dos aperturas simultáneas leen el mismo hueco libre y ambas se
+	// quedan con el préstamo.
+	admissionMu         sync.Mutex
+	admissionInFlightMB int64
+
+	// hostTotalMBFn mide la RAM total del nodo. Es un campo para que los tests
+	// fijen el tamaño del host: el préstamo no puede depender de la máquina que
+	// corre la prueba.
+	hostTotalMBFn func() (int, bool)
 }
 
 func NewPracticeEnvironmentService(repo domain.PracticeEnvironmentRepository, docker domain.PracticeEnvironmentOrchestrator, hostMonitor domain.HostMonitor) *PracticeEnvironmentService {
@@ -73,6 +84,7 @@ func NewPracticeEnvironmentService(repo domain.PracticeEnvironmentRepository, do
 		hostMonitor:        hostMonitor,
 		satelliteLastUse:   make(map[string]time.Time),
 		workspaceSeedLocks: make(map[string]*sync.Mutex),
+		hostTotalMBFn:      hostTotalMB,
 	}
 }
 
@@ -119,6 +131,29 @@ func (s *PracticeEnvironmentService) SetWorkspaceProjects(repo domain.WorkspaceP
 func (s *PracticeEnvironmentService) SetExamSubmissionFreezer(freezer ExamPracticeEnvironmentFreezer) *PracticeEnvironmentService {
 	s.examFreezer = freezer
 	return s
+}
+
+// WithHostTotalMemory fija la fuente de la RAM total del nodo. En producción se
+// mide con gopsutil; los tests fijan un tamaño para que el préstamo de memoria
+// no dependa de la máquina que corre la prueba.
+func (s *PracticeEnvironmentService) WithHostTotalMemory(measure func() (int, bool)) *PracticeEnvironmentService {
+	if s == nil {
+		return s
+	}
+	if measure == nil {
+		s.hostTotalMBFn = hostTotalMB
+		return s
+	}
+	s.hostTotalMBFn = measure
+	return s
+}
+
+// hostTotalMB mide la RAM total del nodo con la fuente configurada.
+func (s *PracticeEnvironmentService) hostTotalMB() (int, bool) {
+	if s.hostTotalMBFn != nil {
+		return s.hostTotalMBFn()
+	}
+	return hostTotalMB()
 }
 
 // SetPoliciesService inyecta las políticas QoS del tenant (submódulo 14.6):
@@ -607,9 +642,10 @@ func (s *PracticeEnvironmentService) startPracticeEnvironment(ctx context.Contex
 
 	// Control de Admisión por Presupuesto Comprometido (Host Safety Ceiling).
 	// Los satélites son contenedores compartidos: su reserva se descuenta una sola
-	// vez por motor, no por cada laboratorio que declara ese motor.
+	// vez por motor, no por cada laboratorio que declara ese motor. La cuota que
+	// sale de acá es la base más el préstamo que permita el hueco del nodo.
 	if s.policiesService != nil {
-		hostRAMMB, measured := hostTotalMB()
+		hostRAMMB, measured := s.hostTotalMB()
 		if !measured {
 			// Sin medida del host no se puede presupuestar: se rechaza el entorno
 			// nuevo en vez de asumir una capacidad que nadie leyó.
@@ -617,14 +653,20 @@ func (s *PracticeEnvironmentService) startPracticeEnvironment(ctx context.Contex
 			return nil, ErrHostMemoryExhausted
 		}
 
-		var committedMB int64
-		for _, ws := range active {
-			if ws != nil {
-				committedMB += ws.MemoryLimitMB
-			}
-		}
 		reserveMB := s.nodeSatelliteReserveMB(ctx, active, template)
-		if admissionBudgetDenied(committedMB, ramLimitMB, reserveMB, int64(hostRAMMB), int64(ceilingPct)) {
+		grantedMB, release, grantErr := s.reserveAdmissionQuota(active, ramLimitMB, reserveMB, int64(hostRAMMB), ceilingPct)
+		if grantErr != nil {
+			return nil, grantErr
+		}
+		// La reserva se libera al salir: para entonces el entorno ya tiene su fila
+		// y cuenta como comprometido, o el alta falló y no debe contar.
+		defer release()
+
+		if grantedMB > ramLimitMB {
+			log.Printf("[Admission Loan] nodo de %d MB: el entorno de %s recibe %d MB sobre una base de %d MB", hostRAMMB, userID, grantedMB, ramLimitMB)
+		}
+		ramLimitMB = grantedMB
+		if !s.hostMonitor.CanAllocateMemory(ramLimitMB) {
 			return nil, ErrHostMemoryExhausted
 		}
 	}

@@ -171,8 +171,12 @@ func TestQoSAutoBurstingAndDualValidation(t *testing.T) {
 		}()
 	}
 
-	if ws.MemoryLimitMB != 256 {
-		t.Errorf("Expected base MemoryLimitMB to be 256, got %d", ws.MemoryLimitMB)
+	// La política de 256 MB es el piso de la cuota. Con el nodo de 8 GB y la
+	// clase vacía, la admisión presta memoria por encima de la base (ADR-082):
+	// lo que este test fija es que la base se respete como piso y que el
+	// contenedor reciba exactamente la cuota concedida.
+	if ws.MemoryLimitMB < 256 {
+		t.Errorf("Expected MemoryLimitMB to be at least the 256 MB policy base, got %d", ws.MemoryLimitMB)
 	}
 
 	// 2. Probar worker QoS (Auto-Bursting + Hibernación) con intervalo corto de prueba (100ms)
@@ -193,6 +197,10 @@ func TestQoSAutoBurstingAndDualValidation(t *testing.T) {
 
 	if !metrics.IsRunning {
 		t.Errorf("Expected container to be running")
+	}
+
+	if limitMB := metrics.MemoryLimitBytes / (1024 * 1024); limitMB != ws.MemoryLimitMB {
+		t.Errorf("El contenedor corre con %d MB y la cuota concedida es %d MB", limitMB, ws.MemoryLimitMB)
 	}
 
 	t.Logf("PASS: QoS Auto-Bursting worker and Dual-Validation Hibernation cycle verified successfully! Initial RAM: %d MB", ws.MemoryLimitMB)

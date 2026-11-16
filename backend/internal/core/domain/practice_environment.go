@@ -29,8 +29,12 @@ const (
 	PracticeEnvironmentTypeIDEPersistente = "IDE_PERSISTENTE"
 	PracticeEnvironmentTypeJuezEfimero    = "JUEZ_EFIMERO"
 
-	DefaultBaseMemoryMB int64   = 256
-	HardQuotaMemoryMB   int64   = 2048
+	DefaultBaseMemoryMB int64 = 256
+	// HardQuotaMemoryMB es el mayor techo que puede alcanzar un entorno. No es
+	// la protección del nodo: esa la ejerce el presupuesto de admisión sobre la
+	// RAM total del host. El techo por contenedor es alto para que un perfil
+	// Intensivo (Datos & IA) quepa cuando el nodo tiene hueco (ADR-082).
+	HardQuotaMemoryMB   int64   = 4096
 	MinHostFreeRAMPct   float64 = 15.0 // Porcentaje mínimo de RAM libre en el Host
 	MaxOOMStrikes       int     = 3
 	OOMCooldownDuration         = 5 * time.Minute

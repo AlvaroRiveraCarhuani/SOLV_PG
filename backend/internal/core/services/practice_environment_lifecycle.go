@@ -37,20 +37,35 @@ func (s *PracticeEnvironmentService) reactivatePracticeEnvironment(ctx context.C
 	// práctica abierta antes de un cambio de plantilla no se reconstruye con la
 	// imagen de otra práctica de la materia.
 	template := s.resolveTemplateForInstance(ctx, instance)
-	// La reactivación preserva el límite vigente en BD (refleja política,
-	// plantilla y auto-bursting acumulados); solo recalcula si no hay valor.
-	ramLimitMB := instance.MemoryLimitMB
-	if ramLimitMB <= 0 {
-		ramLimitMB = int64(s.effectivePolicies(ctx, instance.TenantID).RAMLimitMB)
+
+	// La cuota al despertar se decide otra vez: el préstamo no sobrevive a la
+	// hibernación. La base la fijan la política y la plantilla; el hueco del
+	// nodo decide cuánto se presta en este momento (ADR-082).
+	baseRAMMB := int64(s.effectivePolicies(ctx, instance.TenantID).RAMLimitMB)
+	if template != nil && template.BaseRamMB >= 256 && int64(template.BaseRamMB) > baseRAMMB {
+		baseRAMMB = int64(template.BaseRamMB)
 	}
+	ramLimitMB := baseRAMMB
+	if s.policiesService == nil && instance.MemoryLimitMB > 0 {
+		// Sin políticas inyectadas (dobles de test, ciclos anteriores) se
+		// conserva el límite del registro: no hay presupuesto que recalcular.
+		ramLimitMB = instance.MemoryLimitMB
+	} else {
+		policies := s.effectivePolicies(ctx, instance.TenantID)
+		ceilingPct := policies.HostSafetyCeilingPct
+		if ceilingPct <= 0 {
+			ceilingPct = 85
+		}
+		if s.repo != nil {
+			if active, activeErr := s.repo.GetActivePracticeEnvironments(ctx); activeErr == nil {
+				ramLimitMB = s.loanQuotaForReactivation(ctx, instance, baseRAMMB, active, ceilingPct)
+			}
+		}
+	}
+
 	imageName := domain.OpenVSCodeImage
-	if template != nil {
-		if template.BaseRamMB >= 256 && int64(template.BaseRamMB) > ramLimitMB {
-			ramLimitMB = int64(template.BaseRamMB)
-		}
-		if strings.TrimSpace(template.DockerImage) != "" {
-			imageName = strings.TrimSpace(template.DockerImage)
-		}
+	if template != nil && strings.TrimSpace(template.DockerImage) != "" {
+		imageName = strings.TrimSpace(template.DockerImage)
 	}
 
 	containerName := fmt.Sprintf("solv-environment-%s", instance.ID)
