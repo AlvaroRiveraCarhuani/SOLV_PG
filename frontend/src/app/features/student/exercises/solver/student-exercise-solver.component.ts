@@ -299,7 +299,8 @@ export class StudentExerciseSolverComponent implements OnInit {
     const delta = nextCode.length - prevLen;
     this.sourceCode.set(nextCode);
 
-    if (delta !== 0) {
+    // Solo el examen registra tecleo: la entrega de práctica no se supervisa.
+    if (delta !== 0 && this.exercise()?.purpose === 'exam') {
       const lines = nextCode.split('\n');
       const isPaste = Math.abs(delta) > 25;
       this.keystrokeBuffer.push({
@@ -470,7 +471,7 @@ export class StudentExerciseSolverComponent implements OnInit {
 
       if (subResp.id) {
         this.lastSubmissionId.set(subResp.id);
-        if (this.keystrokeBuffer.length > 0) {
+        if (this.exercise()?.purpose === 'exam' && this.keystrokeBuffer.length > 0) {
           const eventsToFlush = [...this.keystrokeBuffer];
           this.keystrokeBuffer.length = 0;
           await this.studentService.saveKeystrokeEvents(subResp.id, eventsToFlush);

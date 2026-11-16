@@ -278,6 +278,10 @@ func (h *SubmissionHandler) SaveKeystrokeEvents(w http.ResponseWriter, r *http.R
 			SendError(w, http.StatusForbidden, "submission_forbidden", "La entrega no pertenece al alumno autenticado")
 			return
 		}
+		if errors.Is(err, services.ErrKeystrokeCaptureDisabled) {
+			SendError(w, http.StatusForbidden, "keystroke_capture_disabled", "El registro de tecleo solo aplica a entregas de examen")
+			return
+		}
 		if errors.Is(err, services.ErrSubmissionNotConfigured) {
 			SendError(w, http.StatusServiceUnavailable, "submission_persistence_unavailable", "La persistencia de eventos no está configurada en esta instancia")
 			return

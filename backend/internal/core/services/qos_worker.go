@@ -164,6 +164,13 @@ func (w *QoSOrchestratorWorker) runCycle(ctx context.Context) {
 			}
 		}
 
+		// Un examen no se duerme por inactividad: el alumno puede estar pensando
+		// sin tocar el teclado y el entorno no puede desaparecerle a mitad. El
+		// perfil de práctica sí se apaga, porque ahí la inactividad es real.
+		if !domain.ProfileSpecFor(ws.EnvironmentProfile).IdleHibernation {
+			continue
+		}
+
 		// 3. Hibernación Segura por Validación Dual (Intención vs Realidad)
 		w.mu.Lock()
 		hist, exists := w.history[ws.ID]

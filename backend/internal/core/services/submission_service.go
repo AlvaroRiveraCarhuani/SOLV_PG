@@ -16,6 +16,11 @@ import (
 // integridad académica: un alumno sólo alimenta la suya.
 var ErrSubmissionForbidden = errors.New("submission does not belong to the caller")
 
+// ErrKeystrokeCaptureDisabled marca el intento de registrar tecleo sobre una
+// entrega de práctica. El registro es evidencia del examen: una actividad de
+// clase no se supervisa.
+var ErrKeystrokeCaptureDisabled = errors.New("keystroke capture is disabled for practice submissions")
+
 type SubmissionService struct {
 	repo          domain.SubmissionRepository
 	keystrokeRepo domain.KeystrokeRepository
@@ -79,10 +84,29 @@ func (s *SubmissionService) SaveKeystrokeEvents(ctx context.Context, tenantID, s
 		}
 	}
 
+	if !s.keystrokeCaptureEnabled(ctx, tenantID, submission) {
+		return 0, ErrKeystrokeCaptureDisabled
+	}
+
 	if err := s.keystrokeRepo.SaveBatch(ctx, submissionID, events); err != nil {
 		return 0, fmt.Errorf("failed to save keystroke events: %w", err)
 	}
 	return len(events), nil
+}
+
+// keystrokeCaptureEnabled resuelve el propósito del ejercicio de la entrega:
+// solo el examen registra tecleo. Sin catálogo inyectado, sin ejercicio o si la
+// lectura falla se conserva el registro, para no perder evidencia por un error
+// de consulta.
+func (s *SubmissionService) keystrokeCaptureEnabled(ctx context.Context, tenantID string, submission *domain.Submission) bool {
+	if s == nil || s.exerciseRepo == nil || submission == nil || submission.ExerciseID == "" {
+		return true
+	}
+	exercise, err := s.exerciseRepo.GetByIDAndTenant(ctx, submission.ExerciseID, tenantID)
+	if err != nil || exercise == nil {
+		return true
+	}
+	return domain.ProfileForPurpose(exercise.Purpose).IsExam()
 }
 
 type CreateSubmissionDTO struct {
