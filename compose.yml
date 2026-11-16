@@ -91,7 +91,7 @@ services:
     labels:
       - "traefik.enable=true"
       - "traefik.docker.network=solv_net"
-      - "traefik.http.routers.solv-api.rule=Host(`${SOLV_HOST:?SOLV_HOST no está definido: copiá example.env a .env y poné el dominio de la institución}`) && (PathPrefix(`/api`) || PathPrefix(`/ws`))"
+      - "traefik.http.routers.solv-api.rule=Host(`${SOLV_HOST:?SOLV_HOST no está definido: copiá example.env a .env y poné el dominio de la institución}`) && (PathPrefix(`/api`) || PathPrefix(`/ws`) || PathPrefix(`/auth`))"
       - "traefik.http.routers.solv-api.entrypoints=websecure"
       - "traefik.http.routers.solv-api.priority=10"
       - "traefik.http.routers.solv-api.tls=true"

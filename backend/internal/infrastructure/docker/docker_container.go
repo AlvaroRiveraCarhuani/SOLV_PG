@@ -638,6 +638,11 @@ func isPracticeEnvironmentManagedContainer(names []string, labels map[string]str
 	if labels["solv.review_environment"] == "true" {
 		return false
 	}
+	// Contenedores gestionados por compose (como solv_backend o solv_frontend)
+	// llevan traefik.enable=true pero no son entornos de práctica.
+	if labels["com.docker.compose.project"] != "" {
+		return false
+	}
 	for _, name := range names {
 		trimmed := strings.TrimPrefix(name, "/")
 		if strings.HasPrefix(trimmed, "solv-environment-") {

@@ -98,7 +98,11 @@ export class TenantService {
       if (hostname && hostname !== 'localhost' && hostname !== '127.0.0.1' && !isIP) {
         const parts = hostname.split('.');
         if (parts.length >= 2) {
-          return parts[0].toLowerCase();
+          const first = parts[0].toLowerCase();
+          if (first === 'solv' || first === 'www') {
+            return '';
+          }
+          return first;
         }
       }
     }
