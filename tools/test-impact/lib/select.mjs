@@ -121,10 +121,51 @@ function emptySuites() {
   };
 }
 
-function fullSuites(policy, scope, backendGraph, frontendGraph, reason) {
+function e2eSpecsFromList(policy, specs) {
+  return uniqueSorted(specs)
+    .map((spec) => e2eSpecMetadata(policy, spec))
+    .filter(Boolean);
+}
+
+/**
+ * Traduce la declaración E2E de una regla global a la suite `frontend-e2e`.
+ * `all` conserva el catálogo completo; `none` declara que el cambio no altera
+ * ningún flujo de navegador y no paga Playwright; una lista ejecuta esos flujos.
+ * El valor ausente equivale a `all`: solo una renuncia explícita reduce el
+ * alcance.
+ */
+function resolveE2eSelection(policy, mode) {
+  if (mode === 'none') {
+    return {
+      selected: false,
+      specs: [],
+      reason: 'el cambio no altera flujos de navegador'
+    };
+  }
+  if (Array.isArray(mode)) {
+    const specs = e2eSpecsFromList(policy, mode);
+    return specs.length
+      ? { selected: true, specs, reason: `${specs.length} flujo(s) declarados por la regla global` }
+      : { selected: false, specs: [], reason: 'la regla global no declara flujos de navegador' };
+  }
+  return { selected: true, specs: allE2eSpecs(policy), reason: null };
+}
+
+/**
+ * Combina las reglas globales que alcanzan al cambio: gana el alcance más
+ * amplio declarado, nunca el más cómodo.
+ */
+function combineE2eModes(entries) {
+  if (entries.some((entry) => entry.e2e === undefined || entry.e2e === 'all')) return 'all';
+  const specs = uniqueSorted(entries.flatMap((entry) => (Array.isArray(entry.e2e) ? entry.e2e : [])));
+  return specs.length > 0 ? specs : 'none';
+}
+
+function fullSuites(policy, scope, backendGraph, frontendGraph, reason, options = {}) {
   const suites = emptySuites();
   const includeBackend = scope === 'all' || scope === 'backend';
   const includeFrontend = scope === 'all' || scope === 'frontend';
+  const e2e = resolveE2eSelection(policy, options.e2e);
 
   suites.gates = suite(includeFrontend, reason);
   suites['asset-validation'] = suite(
@@ -142,7 +183,7 @@ function fullSuites(policy, scope, backendGraph, frontendGraph, reason) {
   suites['frontend-unit'] = includeFrontend
     ? suite(true, reason, { specs: [...frontendGraph.allSpecs], full: true })
     : suite(false, 'alcance de backend');
-  suites['frontend-e2e'] = suite(true, reason, { specs: allE2eSpecs(policy) });
+  suites['frontend-e2e'] = suite(e2e.selected, e2e.reason || reason, { specs: e2e.specs });
   suites.migrations = suite(includeBackend, reason);
   suites.build = suite(true, reason, { backend: includeBackend, frontend: includeFrontend });
   suites.security = suite(true, reason);
@@ -282,6 +323,9 @@ export function createPlan({ policy, changes, backendGraph, frontendGraph, optio
     });
   }
 
+  const globalEntries = annotated.flatMap((change) => change.globals);
+  const globalE2e = combineE2eModes(globalEntries);
+
   const globalAll = annotated.some((change) => change.globals.some((entry) => entry.scope === 'all'));
   if (globalAll) {
     const triggers = uniqueSorted(
@@ -294,7 +338,9 @@ export function createPlan({ policy, changes, backendGraph, frontendGraph, optio
       levelTitle: policy.levels.L3.title,
       levelReasons: [{ source: 'global', level: 'L3', reason: `configuración global: ${triggers.join(', ')}` }],
       reason: `configuración global modificada: ${triggers.join(', ')}`,
-      suites: fullSuites(policy, 'all', backendGraph, frontendGraph, 'configuración global')
+      suites: fullSuites(policy, 'all', backendGraph, frontendGraph, 'configuración global', {
+        e2e: globalE2e
+      })
     });
   }
 
@@ -339,6 +385,10 @@ export function createPlan({ policy, changes, backendGraph, frontendGraph, optio
       structural.push(filePath);
     }
   }
+
+  // El alcance completo por eliminación o renombrado conserva el catálogo E2E;
+  // una regla global con alcance acotado solo hereda lo que ella misma declara.
+  const structuralScope = scopeFull.backend || scopeFull.frontend;
 
   const scopedGlobalBackend = annotated.some((change) =>
     change.globals.some((entry) => entry.scope === 'backend')
@@ -411,12 +461,13 @@ export function createPlan({ policy, changes, backendGraph, frontendGraph, optio
   const buildBackend =
     scopeFull.backend ||
     areas.some((area) => area.backend === true && area.build === true) ||
-    criticalIds.includes('shared-contracts');
+    criticalIds.includes('backend-contracts');
   const templateCompile = annotated.some((change) => change.templateNeedsCompile);
   let buildFrontend =
     scopeFull.frontend ||
     templateCompile ||
-    areas.some((area) => area.frontend === true && area.build === true);
+    areas.some((area) => area.frontend === true && area.build === true) ||
+    criticalIds.includes('frontend-contracts');
   const bootstrapCompile = areas.some((area) => area.id === 'frontend-bootstrap');
   // La optimización visual no puede anular una obligación crítica de
   // compilación ni la compilación de una plantilla sin spec.
@@ -667,7 +718,9 @@ export function createPlan({ policy, changes, backendGraph, frontendGraph, optio
       reason: `${basePlan.reason}; alcance completo de ${
         scope === 'all' ? 'backend y frontend' : scope
       } por eliminación, renombrado o configuración global`,
-      suites: fullSuites(policy, scope, backendGraph, frontendGraph, 'alcance completo')
+      suites: fullSuites(policy, scope, backendGraph, frontendGraph, 'alcance completo', {
+        e2e: structuralScope ? 'all' : globalE2e
+      })
     });
   }
 

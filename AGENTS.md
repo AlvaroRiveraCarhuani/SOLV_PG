@@ -22,7 +22,8 @@ La política única es `tools/test-impact/policy.json`. No repitas globs, suites
 umbrales en scripts, workflows, documentación o instrucciones de agentes: el
 selector, el CI y el ejecutor local leen ese archivo.
 
-- Plan del cambio: `node tools/test-impact/cli.mjs plan --base origin/main --working-tree --output impact-plan.json --format text`
+- Plan del cambio en local: `node tools/test-impact/cli.mjs plan --working-tree --output impact-plan.json --format text` (mide el working tree contra `HEAD`)
+- Plan de cierre antes del PR: `node tools/test-impact/cli.mjs plan --base origin/main --working-tree --output impact-plan.json --format text`
 - Suites del plan: `node tools/test-impact/run.mjs --all --plan impact-plan.json --report impact-report.json`
 - Informe legible: `node tools/test-impact/cli.mjs report --file impact-report.json --plan impact-plan.json`
 - Suite aislada: `node tools/test-impact/run.mjs --partial --suite <id> --plan impact-plan.json --report impact-report-<id>.json`

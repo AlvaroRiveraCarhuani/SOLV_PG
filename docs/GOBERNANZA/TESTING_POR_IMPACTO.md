@@ -1,6 +1,6 @@
 # Testing por impacto
 
-Estado: vigente · Política v4
+Estado: vigente · Política v5
 
 ## Qué resuelve
 
@@ -347,6 +347,26 @@ Una eliminación o un renombrado de código activa el alcance completo del lado
 afectado. Un icono o un asset público valida el recurso y no ejecuta Go,
 PostgreSQL, Docker ni Playwright. Un cambio visual de una pantalla conserva su
 spec de componente, pero no paga E2E ni build sin necesidad.
+
+## Ciclo local y cierre de entrega
+
+La base es parte de la medición, no del nivel. Sin `--base`, una ejecución
+manual mide el working tree contra `HEAD`: solo lo que todavía no se commiteó.
+Medir contra `origin/main` en cada iteración arrastra el diff acumulado de la
+rama y escala a L3 cambios que no son globales.
+
+| Momento | Base | Qué mide |
+| :--- | :--- | :--- |
+| Iteración local | `HEAD`, por defecto | Lo que no está commiteado |
+| Cierre antes del PR | `--base origin/main` | La rama completa |
+| CI | La que pasa el workflow | El PR o el push |
+
+Correr la suite que el plan seleccionó no valida el cambio: para eso hace falta
+un `--all` sobre un plan no sintético. Tiempos de referencia medidos en el
+equipo de desarrollo de 8 GB y cuatro núcleos: `backend-unit` 17 s,
+`backend-integration` 102 s, `frontend-unit` 3 min, `backend-docker` 9 min y los
+23 flujos E2E entre 25 y 35 min. Una iteración de backend se resuelve en unos
+cuatro minutos; el cierre completo corresponde a la entrega, no a cada edición.
 
 ## Suites
 

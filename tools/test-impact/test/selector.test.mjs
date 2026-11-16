@@ -27,7 +27,7 @@ function planForFile(filePath, options = {}) {
 }
 
 test('la política se valida y declara todas las suites', () => {
-  assert.equal(policy.version, 4);
+  assert.equal(policy.version, 5);
   for (const suite of [
     'gates',
     'asset-validation',
@@ -195,13 +195,16 @@ test('un servicio de Go ejecuta su paquete y sus dependientes, más integración
   assert.equal(plan.mode, 'targeted');
 });
 
-test('un cambio de dominio compartido activa backend y frontend completos', () => {
+test('un cambio de dominio de Go ejecuta todo el backend sin las specs de Angular', () => {
   const plan = planForFile('backend/internal/core/domain/user.go');
   assert.equal(plan.mode, 'targeted');
   assert.equal(plan.suites['backend-unit'].full, true);
-  assert.equal(plan.suites['frontend-unit'].full, true);
+  // Un tipo de Go no puede alterar una spec de Angular: el contrato se valida
+  // donde vive, y los flujos que recorren la API siguen ejecutándose.
+  assert.equal(plan.suites['frontend-unit'].selected, false);
   assert.equal(plan.suites['backend-integration'].selected, true);
-  assert.ok(plan.criticalAreas.includes('shared-contracts'));
+  assert.ok(plan.criticalAreas.includes('backend-contracts'));
+  assert.equal(plan.suites['frontend-e2e'].selected, true);
   assert.equal(plan.suites.security.selected, true);
 });
 
@@ -348,13 +351,16 @@ test('una dependencia del frontend recompleta y ejecuta todas las specs sin toca
   assert.equal(plan.suites['build'].selected, true);
 });
 
-test('las dependencias del backend ejecutan todo el backend y todos los E2E', () => {
+test('las dependencias del backend recompilan todo el backend sin pagar E2E', () => {
   const plan = planForFile('backend/go.mod');
   assert.equal(plan.mode, 'full');
   assert.equal(plan.suites['backend-unit'].full, true);
   assert.equal(plan.suites['backend-docker'].selected, true);
   assert.equal(plan.suites['frontend-unit'].selected, false);
-  assert.equal(plan.suites['frontend-e2e'].specs.length, 24);
+  // La regla declara que la API la cubre la integración: una dependencia de Go
+  // no cambia ningún flujo de navegador y no abre Playwright.
+  assert.equal(plan.suites['frontend-e2e'].selected, false);
+  assert.equal(plan.suites['frontend-e2e'].specs.length, 0);
 });
 
 test('eliminar un archivo de código activa alcance completo de su lado', () => {

@@ -53,6 +53,12 @@ function parseArgs(argv) {
 }
 
 function defaultBase(repoRoot) {
+  // Sin base explícita, una ejecución manual mide lo que todavía no está
+  // commiteado: comparar contra origin/main arrastra el diff acumulado de la
+  // rama y escala a L3 cambios que no son globales. El CI y el cierre antes del
+  // PR pasan su base explícita, así que este default no cambia esa medición.
+  const ci = process.env.CI === 'true' || process.env.GITHUB_ACTIONS === 'true';
+  if (!ci && resolveCommit(repoRoot, 'HEAD')) return 'HEAD';
   if (resolveCommit(repoRoot, 'origin/main')) return 'origin/main';
   if (resolveCommit(repoRoot, 'HEAD~1')) return 'HEAD~1';
   return null;

@@ -74,6 +74,15 @@ export function validatePolicy(policy, repoRoot) {
     );
     assert(LEVELS.has(trigger.level), `${trigger.id}.level inválido`);
     assert(typeof trigger.reason === 'string' && trigger.reason.length > 0, `${trigger.id} sin reason`);
+    // `e2e` declara si la regla global alcanza flujos de navegador: el catálogo
+    // completo, ninguno, o una lista explícita. Ausente equivale al catálogo.
+    assert(
+      trigger.e2e === undefined || trigger.e2e === 'all' || trigger.e2e === 'none' || Array.isArray(trigger.e2e),
+      `${trigger.id}.e2e debe ser "all", "none" o una lista de flujos`
+    );
+    for (const spec of Array.isArray(trigger.e2e) ? trigger.e2e : []) {
+      assert(policy.e2e.specs[spec], `${trigger.id} referencia un flujo E2E desconocido: ${spec}`);
+    }
   }
 
   for (const entry of policy.critical) {

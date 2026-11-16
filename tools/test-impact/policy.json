@@ -1,5 +1,5 @@
 {
-  "version": 4,
+  "version": 5,
   "description": "Fuente única de verdad para seleccionar pruebas por impacto en SOLV. Los scripts, el CI y las instrucciones de agentes leen este archivo; no repiten estas reglas.",
   "limits": {
     "maxChangedFiles": 200
@@ -71,6 +71,7 @@
         "Makefile"
       ],
       "scope": "all",
+      "e2e": "all",
       "reason": "cambia la política, el selector o el CI",
       "level": "L3"
     },
@@ -84,8 +85,9 @@
         "**/Dockerfile*",
         "example.env"
       ],
-      "scope": "all",
-      "reason": "infraestructura o configuración compartida",
+      "scope": "backend",
+      "e2e": "none",
+      "reason": "infraestructura del nodo o del despliegue: no altera flujos de navegador",
       "level": "L3"
     },
     {
@@ -95,7 +97,8 @@
         "backend/go.sum"
       ],
       "scope": "backend",
-      "reason": "dependencias del backend",
+      "e2e": "none",
+      "reason": "dependencias del backend: la API la cubre la integración, no el navegador",
       "level": "L3"
     },
     {
@@ -114,6 +117,7 @@
         "frontend/playwright*.mjs"
       ],
       "scope": "frontend",
+      "e2e": "all",
       "reason": "configuración global del frontend",
       "level": "L3"
     }
@@ -296,25 +300,41 @@
       "level": "L2"
     },
     {
-      "id": "shared-contracts",
+      "id": "backend-contracts",
       "globs": [
         "backend/internal/delivery/http/dto/**",
         "backend/internal/core/domain/**",
-        "backend/internal/domain/**",
-        "frontend/src/app/**/models/**",
-        "frontend/src/app/shared/constants/**",
-        "frontend/src/app/shared/models/**"
+        "backend/internal/domain/**"
       ],
       "backendUnit": "all",
       "backendIntegration": true,
-      "frontendUnit": "all",
+      "frontendUnit": false,
       "backendDocker": false,
       "migrations": false,
       "e2e": [
         "e2e/flows/01-core-lifecycle.spec.mjs",
         "e2e/flows/03-hard/09-exam-mode-seed.spec.mjs"
       ],
-      "reason": "contrato compartido entre módulos o capas",
+      "reason": "contrato de backend: los tipos de Go no alcanzan las specs de Angular",
+      "level": "L3"
+    },
+    {
+      "id": "frontend-contracts",
+      "globs": [
+        "frontend/src/app/**/models/**",
+        "frontend/src/app/shared/constants/**",
+        "frontend/src/app/shared/models/**"
+      ],
+      "frontendUnit": "all",
+      "backendUnit": false,
+      "backendIntegration": false,
+      "backendDocker": false,
+      "migrations": false,
+      "e2e": [
+        "e2e/flows/01-core-lifecycle.spec.mjs",
+        "e2e/flows/03-hard/09-exam-mode-seed.spec.mjs"
+      ],
+      "reason": "contrato de frontend: modelos y constantes que consumen varias vistas",
       "level": "L3"
     },
     {
@@ -634,6 +654,16 @@
       "id": "frontend-admin-services",
       "globs": [
         "frontend/src/app/features/admin/services/**"
+      ],
+      "level": "L1",
+      "frontend": true,
+      "build": true,
+      "e2e": []
+    },
+    {
+      "id": "frontend-admin-configuracion",
+      "globs": [
+        "frontend/src/app/features/admin/configuracion/**"
       ],
       "level": "L1",
       "frontend": true,

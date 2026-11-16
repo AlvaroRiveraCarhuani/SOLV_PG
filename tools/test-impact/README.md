@@ -5,12 +5,13 @@ Este directorio solo la interpreta.
 
 ```bash
 node tools/test-impact/cli.mjs validate
-node tools/test-impact/cli.mjs plan --base origin/main --working-tree --format text
+node tools/test-impact/cli.mjs plan --working-tree --format text          # local: working tree contra HEAD
+node tools/test-impact/cli.mjs plan --base origin/main --working-tree --format text  # cierre antes del PR
 node tools/test-impact/cli.mjs explain backend/internal/core/services/auth_service.go
 node tools/test-impact/cli.mjs report --file impact-report.json --plan impact-plan.json
 
 # Todas las suites obligatorias del plan.
-node tools/test-impact/cli.mjs plan --base origin/main --working-tree --output impact-plan.json
+node tools/test-impact/cli.mjs plan --working-tree --output impact-plan.json
 node tools/test-impact/run.mjs --all --plan impact-plan.json --report impact-report.json
 
 # Una suite concreta: la ejecución parcial debe declararse.
