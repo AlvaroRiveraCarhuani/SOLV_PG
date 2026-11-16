@@ -15,7 +15,7 @@
 | E2E | 23 de 23 flujos en verde el 2026-11-15, 554 s, sin fallos ni omitidos. |
 | Lint de backend | `golangci-lint` reporta 909 hallazgos; el gate no está limpio. |
 | Integración, Docker y migraciones | No se re-ejecutaron en esta auditoría; la evidencia disponible es histórica. |
-| OpenSpec | 7 cambios sin `verify-report`; 2 de ellos sin tareas iniciadas; 9 cambios activos sin archivar. |
+| OpenSpec | 2 cambios sin `verify-report`, ambos sin tareas iniciadas; 4 activos y 5 archivados el 2026-11-16 con reporte. |
 | Operación | Sin apagado ordenado del API; ADR-050 fase 3 sin implementar; checklist pre-piloto `NO CERTIFICADO`. |
 
 La lectura correcta es: el producto está implementado y los flujos principales pasan, pero la validación integral y la operación del piloto no están cerradas.
@@ -71,7 +71,7 @@ La lectura correcta es: el producto está implementado y los flujos principales 
 
 ## 4. Brechas abiertas
 
-1. **Cierre de OpenSpec.** Siete cambios no tienen `verify-report`; cinco tienen todas las tareas marcadas y dos no tienen tareas iniciadas. Ninguno de los nueve cambios activos está archivado.
+1. **Cierre de OpenSpec.** Quedan dos cambios sin `verify-report` y sin tareas iniciadas: `dashboard-customization-and-course-theming` y `servicios-satelite-por-rol`. Los cinco cambios con tareas completas se archivaron el 2026-11-16; dos de ellos quedaron como superados por ADR-055, ADR-057 y ADR-062.
 2. **Pin del entorno.** La fase 3 de ADR-050, que fija la plantilla al publicar y la lee al arrancar el workspace, sigue `Pendiente`.
 3. **Apagado ordenado.** `backend/cmd/api/main.go` crea `http.Server` y llama a `ListenAndServe` sin capturar `SIGTERM` ni cerrar servidor, workers y contenedores de forma coordinada.
 4. **Lint de backend.** Los 909 hallazgos de `golangci-lint` impiden declarar el gate de calidad en verde, aunque `go vet` y los tests pasen.
@@ -85,15 +85,12 @@ La lectura correcta es: el producto está implementado y los flujos principales 
 
 | Cambio | Tareas | `verify-report` | Estado |
 | :--- | :---: | :---: | :--- |
-| `alta-docentes-y-servicio-smtp` | 25/25 | No | Cerrado sin verificación formal |
 | `dashboard-customization-and-course-theming` | 0/8 | No | Sin iniciar |
 | `feat-teacher-experience` | 14/14 | Sí | Verificado, sin archivar |
-| `fix-respaldo-corrupto` | 13/13 | No | Cerrado sin verificación formal |
 | `servicios-satelite-por-rol` | 0/37 | No | Sin iniciar |
-| `teacher-anti-plagiarism` | 6/6 | No | Cerrado sin verificación formal |
-| `teacher-contents-repository` | 10/10 | No | Cerrado sin verificación formal |
-| `teacher-workspace-navigation-and-queue` | 8/8 | No | Cerrado sin verificación formal |
 | `template-environment-studio` | 18/18 | Sí | Verificado, sin archivar |
+
+Archivados el 2026-11-16 con `verify-report`: `alta-docentes-y-servicio-smtp` (25/25, PASS WITH WARNINGS), `fix-respaldo-corrupto` (13/13, PASS WITH WARNINGS), `teacher-contents-repository` (10/10, PASS WITH WARNINGS), `teacher-anti-plagiarism` (6/6, SUPERSEDED por ADR-062) y `teacher-workspace-navigation-and-queue` (8/8, SUPERSEDED por ADR-055, ADR-057 y ADR-062). Los dos últimos conservan su spec solo como historia y no se fusionaron con `openspec/specs/`.
 
 Los cambios con tareas completas pero sin `verify-report` no se consideran cerrados por este mapa. La verificación formal sigue siendo el requisito de archivo.
 
@@ -104,3 +101,4 @@ Los cambios con tareas completas pero sin `verify-report` no se consideran cerra
 | Fecha | Cambio |
 | :--- | :--- |
 | 2026-11-16 | Se incorpora el Slice 17, se corrigen los estados de frontend de los Slice 12, 14 y 16, se registra el resultado de la auditoría y se separan implementación, verificación y operación. |
+| 2026-11-16 | Se archivan cinco cambios OpenSpec con `verify-report`; se sincronizan cuatro specs vigentes y se corrige el contrato de conteo de la importación masiva de docentes. |
