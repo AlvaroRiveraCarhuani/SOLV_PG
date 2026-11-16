@@ -97,8 +97,7 @@
         "backend/go.sum"
       ],
       "scope": "backend",
-      "e2e": "none",
-      "reason": "dependencias del backend: la API la cubre la integración, no el navegador",
+      "reason": "dependencias del backend: cambian el binario que ejecuta el flujo completo",
       "level": "L3"
     },
     {

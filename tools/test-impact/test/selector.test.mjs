@@ -351,16 +351,15 @@ test('una dependencia del frontend recompleta y ejecuta todas las specs sin toca
   assert.equal(plan.suites['build'].selected, true);
 });
 
-test('las dependencias del backend recompilan todo el backend sin pagar E2E', () => {
+test('las dependencias del backend ejecutan todo el backend y todos los E2E', () => {
   const plan = planForFile('backend/go.mod');
   assert.equal(plan.mode, 'full');
   assert.equal(plan.suites['backend-unit'].full, true);
   assert.equal(plan.suites['backend-docker'].selected, true);
   assert.equal(plan.suites['frontend-unit'].selected, false);
-  // La regla declara que la API la cubre la integración: una dependencia de Go
-  // no cambia ningún flujo de navegador y no abre Playwright.
-  assert.equal(plan.suites['frontend-e2e'].selected, false);
-  assert.equal(plan.suites['frontend-e2e'].specs.length, 0);
+  // El E2E ejecuta el binario compilado con las dependencias nuevas: es el único
+  // conjunto que ve el efecto de un cambio en go.mod de punta a punta.
+  assert.equal(plan.suites['frontend-e2e'].specs.length, 24);
 });
 
 test('eliminar un archivo de código activa alcance completo de su lado', () => {
