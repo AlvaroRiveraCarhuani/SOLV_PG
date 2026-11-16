@@ -40,8 +40,11 @@ func (r *PostgresExamFreezeRepository) SessionIsExam(ctx context.Context, tenant
 }
 
 // ParticipantPracticeEnvironments devuelve el laboratorio de cada participante en la
-// materia del aula. Los alumnos sin entorno no aparecen: no hay volumen que
-// congelar y el barrido no tiene que inventar filas.
+// práctica del aula. Un entorno de otra práctica de la misma materia no se congela:
+// cerrar el examen de una práctica no puede bloquear el trabajo de las demás.
+// Los entornos anteriores al alcance por práctica no tienen ejercicio y se
+// incluyen, porque no hay otro dato que los ubique. Los alumnos sin entorno no
+// aparecen: no hay volumen que congelar y el barrido no tiene que inventar filas.
 func (r *PostgresExamFreezeRepository) ParticipantPracticeEnvironments(ctx context.Context, tenantID, sessionID string) ([]domain.ExamFreezePracticeEnvironment, error) {
 	var rows []domain.ExamFreezePracticeEnvironment
 	err := r.db.SelectContext(ctx, &rows, `
@@ -52,6 +55,7 @@ func (r *PostgresExamFreezeRepository) ParticipantPracticeEnvironments(ctx conte
 		  ON w.student_id = p.student_id
 		 AND w.subject_id = cs.subject_id
 		 AND w.tenant_id = cs.tenant_id
+		 AND (cs.exercise_id IS NULL OR w.exercise_id IS NULL OR w.exercise_id = cs.exercise_id)
 		WHERE p.session_id = $1::uuid AND p.tenant_id = $2
 		ORDER BY p.student_id
 	`, sessionID, tenantID)
@@ -63,7 +67,9 @@ func (r *PostgresExamFreezeRepository) ParticipantPracticeEnvironments(ctx conte
 
 // ClosedExamSessions lista las aulas cerradas de examen que todavía tienen
 // algún laboratorio editable. El barrido las recorre una vez y, al marcarlas,
-// dejan de aparecer.
+// dejan de aparecer. Solo cuenta el entorno de la práctica del aula: un
+// laboratorio de otra práctica de la misma materia mantendría el examen en la
+// lista para siempre, sin nada que congelar.
 func (r *PostgresExamFreezeRepository) ClosedExamSessions(ctx context.Context, limit int) ([]domain.ExamSessionRef, error) {
 	if limit <= 0 {
 		limit = 50
@@ -78,6 +84,7 @@ func (r *PostgresExamFreezeRepository) ClosedExamSessions(ctx context.Context, l
 		  ON w.student_id = p.student_id
 		 AND w.subject_id = cs.subject_id
 		 AND w.tenant_id = cs.tenant_id
+		 AND (cs.exercise_id IS NULL OR w.exercise_id IS NULL OR w.exercise_id = cs.exercise_id)
 		WHERE cs.status = 'closed'
 		  AND e.purpose = 'exam'
 		  AND w.frozen_at IS NULL

@@ -38,6 +38,9 @@ func TestExamFreezeRepository(t *testing.T) {
 	environmentClosedID := uuid.NewString()
 	environmentOpenID := uuid.NewString()
 	environmentClassID := uuid.NewString()
+	// Entorno del mismo alumno y la misma materia, pero de otra práctica: cerrar
+	// el examen no puede congelarlo.
+	environmentOtherExerciseID := uuid.NewString()
 
 	var templateID string
 	if err := conn.GetContext(ctx, &templateID,
@@ -55,7 +58,7 @@ func TestExamFreezeRepository(t *testing.T) {
 	t.Cleanup(func() {
 		cleanup := context.Background()
 		_, _ = conn.ExecContext(cleanup, `DELETE FROM class_sessions WHERE id IN ($1, $2, $3)`, closedExamID, openExamID, closedClassID)
-		_, _ = conn.ExecContext(cleanup, `DELETE FROM environments WHERE id IN ($1, $2, $3)`, environmentClosedID, environmentOpenID, environmentClassID)
+		_, _ = conn.ExecContext(cleanup, `DELETE FROM environments WHERE id IN ($1, $2, $3, $4)`, environmentClosedID, environmentOpenID, environmentClassID, environmentOtherExerciseID)
 		_, _ = conn.ExecContext(cleanup, `DELETE FROM exercises WHERE id IN ($1, $2)`, examExerciseID, classExerciseID)
 		_, _ = conn.ExecContext(cleanup, `DELETE FROM subjects WHERE id = $1`, subjectID)
 		_, _ = conn.ExecContext(cleanup, `DELETE FROM users WHERE id IN ($1, $2, $3, $4)`, teacherID, studentClosedID, studentOpenID, studentClassID)
@@ -108,6 +111,9 @@ func TestExamFreezeRepository(t *testing.T) {
 			VALUES ($1, $2, $3, $4, 'running', 'IDE_PERSISTENTE', 'http://127.0.0.1:3000')`,
 			environment.id, environment.studentID, subjectID, tenantID)
 	}
+	mustExec(`INSERT INTO environments (id, student_id, subject_id, exercise_id, tenant_id, status, type, access_url)
+		VALUES ($1, $2, $3, $4, $5, 'running', 'IDE_PERSISTENTE', 'http://127.0.0.1:3001')`,
+		environmentOtherExerciseID, studentClosedID, subjectID, classExerciseID, tenantID)
 
 	repo := postgres.NewPostgresExamFreezeRepository(conn)
 
