@@ -1,5 +1,5 @@
 import { execFileSync } from 'node:child_process';
-import { isRelevantIgnoredSource } from './artifacts.mjs';
+import { isGeneratedArtifact, isRelevantIgnoredSource } from './artifacts.mjs';
 
 function git(repoRoot, args, { allowFailure = false } = {}) {
   try {
@@ -95,7 +95,8 @@ export function collectChanges({
     changes.push(...parseNameStatus(unstaged));
     changes.push(...parseNameStatus(staged));
     for (const file of untracked.split(/\r?\n/)) {
-      if (file.trim()) changes.push({ status: 'A', path: file.trim() });
+      const clean = file.trim();
+      if (clean && !isGeneratedArtifact(clean)) changes.push({ status: 'A', path: clean });
     }
     // Un archivo ignorado que parece fuente no puede desaparecer del diff. Se
     // excluyen dependencias, builds, cachés y secretos locales.
