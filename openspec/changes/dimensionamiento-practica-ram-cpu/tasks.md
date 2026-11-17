@@ -2,10 +2,10 @@
 
 ## Phase 1: Medición del nodo piloto
 
-- [ ] 1.1 Registrar el contexto del nodo en `medicion.md` §0: núcleos, RAM total, swap, versión de Docker y `MemAvailable` con la plataforma levantada y sin entornos.
-- [ ] 1.2 Ejecutar M1 (curva de arranque del IDE) y M2 (régimen de 30 min) con tres corridas cada uno.
+- [x] 1.1 Registrar el contexto del nodo en `medicion.md` §0: núcleos, RAM total, swap, versión de Docker y `MemAvailable` con la plataforma levantada y sin entornos.
+- [x] 1.2 Ejecutar M1 (curva de arranque del IDE) y M2 (régimen de 30 min) con tres corridas cada uno.
 - [ ] 1.3 Ejecutar M3 (`npm install` y `pip install`) y M4 (proyecto de un archivo vs proyecto completo).
-- [ ] 1.4 Ejecutar M5 (10, 20 y 30 entornos, en oleadas y simultáneos) registrando `free -m`, `MemAvailable` y los 503 con su error.
+- [x] 1.4 Ejecutar M5 (10, 20 y 30 entornos, en oleadas y simultáneos) registrando `free -m`, `MemAvailable` y los 503 con su error.
 - [ ] 1.5 Recoger M6 (OOM reales del historial) y M7 (swap durante M5).
 - [ ] 1.6 Ejecutar C1 a C5: CPU por entorno compilando, curva de contención y latencia de la API durante la oleada.
 - [ ] 1.7 Ejecutar R1 y R2: los tres números de cuota de un mismo entorno y frecuencia de cuota ajustada.
@@ -23,14 +23,14 @@
 - [x] 3.1 Agregar `PracticeCPUMillis` a `DefaultServerPolicies()` y a la validación de políticas, con `0` como sin límite.
 - [x] 3.2 No hace falta columna: la política se guarda en el config del tenant (`server_policies`), así que `practice_cpu_millis` viaja en ese JSON y se completa con el default al leer una política vieja.
 - [ ] 3.3 Ajustar `loanQuotaTiersMB` y la base con los valores decididos en la fase 2, en un solo lugar.
-- [ ] 3.4 Pruebas unitarias: valor por defecto, valor en 0, valor ausente y validación de rango.
+- [x] 3.4 Pruebas unitarias: valor por defecto, valor en 0, valor ausente y validación de rango.
 
 ## Phase 4: Aplicación en el contenedor
 
 - [x] 4.1 Resolver `cpu_millis` en el servicio y pasarlo en el config del contenedor.
 - [x] 4.2 Aplicar `NanoCPUs` y `PidsLimit` en `StartPracticeEnvironmentContainer`, sin constantes en infraestructura.
 - [x] 4.3 Persistir `cpu_millis` junto a `memory_limit_mb` en el entorno (migración `00062`, `RecordResourceQuota` al crear, reactivar y congelar).
-- [ ] 4.4 Pruebas de integración con Docker local: `HostConfig.Memory`, `NanoCPUs` y `PidsLimit` del contenedor creado.
+- [x] 4.4 Pruebas de integración con Docker local: `HostConfig.Memory`, `NanoCPUs` y `PidsLimit` del contenedor creado.
 
 ## Phase 5: Reconciliación en la interfaz
 

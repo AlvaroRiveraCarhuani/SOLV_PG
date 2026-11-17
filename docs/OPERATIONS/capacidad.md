@@ -291,9 +291,12 @@ Límites conocidos:
 Pendiente de ejecución en el servidor. Nada de esta sección está aplicado.
 
 Estado medido (2026-11-16, `asus-server`): `/var/lib/docker` es ext4 sobre LVM
-(`ubuntu-vg-ubuntu-lv`), 98 GB totales con 34 GB libres; `pg_data` vive en el
-mismo sistema de archivos que los volúmenes de laboratorio. Un disco de
-entornos lleno deja la plataforma sin poder registrar entregas ni notas.
+(`ubuntu-vg-ubuntu-lv`), 98 GB totales con 32 GB libres (61 GB usados, 66% ocupado);
+`pg_data` vive en el mismo sistema de archivos que los volúmenes de laboratorio.
+Purga inicial de huérfanos ejecutada vía `/api/v1/admin/server/storage/orphans/prune`:
+18 volúmenes `solv_workspace_*` liberados (14 MB recuperados, auditoría registrada
+en `audit_logs`). Quedan 0 volúmenes huérfanos de la plataforma.
+
 
 ### 10.1 Base de notas en su propio volumen lógico
 

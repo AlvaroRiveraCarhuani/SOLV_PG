@@ -7,14 +7,16 @@ declara qué decisión alimenta.
 
 | Dato | Comando | Valor |
 |---|---|---|
-| Núcleos | `nproc` | |
-| RAM total | `free -m` | |
-| Swap | `swapon --show` | |
-| Versión de Docker | `docker version --format '{{.Server.Version}}'` | |
-| Entornos abiertos durante la medición | panel de administración | |
+| Núcleos | `nproc` | 8 |
+| RAM total | `free -m` | 11852 MB (~12 GB) |
+| Swap | `swapon --show` | 4095 MB (/swap.img, 0 MB en uso) |
+| Versión de Docker | `docker version --format '{{.Server.Version}}'` | 29.3.1 |
+| Entornos abiertos durante la medición | panel de administración | 0 |
 
 Se registra también el `MemAvailable` con la plataforma levantada y sin ningún entorno
-abierto: es el piso real que deja el backend, Traefik, PostgreSQL y los satélites.
+abierto: es el piso real que deja el backend, Traefik, PostgreSQL y los satélites:
+**10302 MB** (`10551360 kB`, fecha: 2026-11-16).
+
 
 ## 1. Memoria
 
@@ -31,6 +33,53 @@ abierto: es el piso real que deja el backend, Traefik, PostgreSQL y los satélit
 Regla de decisión de memoria: base = p95 de M2 más 25% de margen, redondeada al perfil
 inmediato superior. El pico de M1 y M3 no puede superar el perfil más alto del préstamo; si
 lo supera, se corrige el perfil o el `max-old-space-size`, no el margen.
+
+### Resultados M1: Curva de arranque del IDE (2026-11-16)
+
+Imagen: `gitpod/openvscode-server:1.96.0` en Asus Server (8 núcleos, 12 GB RAM).
+
+| Métrica | Corrida 1 (frío) | Corrida 2 | Corrida 3 | p50 | p95 |
+|---|---|---|---|---|---|
+| Tiempo hasta HTTP 200 | 5.76 s | 2.27 s | 2.38 s | 2.38 s | 5.43 s |
+| RAM al responder | 69.68 MiB | 26.16 MiB | 26.58 MiB | 26.58 MiB | 65.37 MiB |
+| RAM estabilizada post-arranque | 77.03 MiB | 26.35 MiB | 26.57 MiB | 26.57 MiB | 71.98 MiB |
+
+*Observación*: El primer arranque en frío paga la inicialización del daemon de OpenVSCode Server (~77 MiB y 5.76 s); las corridas siguientes estabilizan en ~2.3 s y 26 MiB. El pico máximo de arranque (77 MiB) queda bien por debajo del piso de 512 MB.
+
+### Resultados M2: Consumo en régimen de 30 min (2026-11-16)
+
+Imagen: `gitpod/openvscode-server:1.96.0` con proyecto en `/home/workspace` y actividad de cómputo/ejecución periódica en Asus Server.  
+Ventana: 30 minutos (1800 s), 298 muestras tomadas cada 5 s (`scratch/m2_samples.csv`).
+
+| Métrica | Valor |
+|---|---|
+| Mínimo | 20.07 MiB |
+| p50 | 20.11 MiB |
+| p90 | 20.14 MiB |
+| p95 | 20.14 MiB |
+| Máximo | 27.13 MiB |
+| Base calculada (p95 + 25% margen) | 25.18 MB (la política actual de 512 MB deja holgura de 20×) |
+
+*Observación*: El entorno de desarrollo en régimen de trabajo es sumamente liviano (~20.1 MiB), manteniéndose completamente plano a lo largo de los 30 minutos con un pico de 27.13 MiB durante la actividad de cómputo.
+
+### Resultados M5: Consumo agregado con 10, 20 y 30 entornos (2026-11-16)
+
+Imagen: `gitpod/openvscode-server:1.96.0` en Asus Server (8 núcleos, 12 GB RAM, Docker 29.3.1).
+Corrida en oleadas acumulativas de 10 contenedores (`--memory=512m`, `--cpus=1.0`), con 12 s de estabilización por escalón.
+
+| Escenario | Contenedores | RAM Usada (`free -m`) | Delta RAM Total | RAM / Contenedor | `MemAvailable` | Load Avg | Swap en uso |
+|---|---|---|---|---|---|---|---|
+| **Línea Base** | 0 | 1649 MB | - | - | 10202 MB (10447984 kB) | 0.95 | 1 MB |
+| **Oleada 1** | 10 | 1893 MB | +244 MB | 24.4 MB | 9959 MB (10198092 kB) | 1.13 | 1 MB |
+| **Oleada 2** | 20 | 2131 MB | +482 MB | 24.1 MB | 9720 MB (9953732 kB) | 1.24 | 1 MB |
+| **Oleada 3** | 30 | 2375 MB | +726 MB | 24.2 MB | 9476 MB (9703844 kB) | 1.27 | 1 MB |
+
+*Observaciones*:
+- **Linealidad perfecta del consumo**: Cada contenedor de OpenVSCode Server añade aproximadamente ~24 MB de memoria física residente al nodo (~19-20.7 MiB por proceso del contenedor reportado por `docker stats`, más la sobrecarga del kernel / cgroup v2).
+- **Margen del nodo intacto**: Con 30 entornos levantados simultáneamente, el nodo aún retiene **9.47 GB de RAM disponible** (`MemAvailable`), habiendo consumido únicamente el 6.1% de la memoria total del sistema.
+- **Swap y estabilidad**: El swap permaneció completamente inactivo (1 MB), sin disparar presión de memoria ni desestabilizar el sistema operativo ni el daemon de Docker.
+- **Carga de CPU**: El load average se mantuvo en 1.27 sobre un host de 8 núcleos (apenas un 15.8% de capacidad de cómputo utilizada).
+- **Conclusión de capacidad**: El Asus Server sostiene con comodidad la meta objetivo de 30 a 40 entornos simultáneos bajo la cuota de 512 MB de RAM y 1.0 núcleo por entorno.
 
 ## 2. CPU
 
