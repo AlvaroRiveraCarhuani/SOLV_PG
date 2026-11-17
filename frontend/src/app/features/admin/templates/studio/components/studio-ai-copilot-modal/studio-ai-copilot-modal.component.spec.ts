@@ -165,9 +165,22 @@ describe('StudioAiCopilotModalComponent', () => {
   });
 
   it('should render the specification sheet when proposalView is present', () => {
+    fixture.componentRef.setInput('targetEnvironment', 'IDE_PERSISTENTE');
     fixture.componentRef.setInput('proposalView', {
       ...mockProposal,
+      web: option('web-react', 'React Vite', 'runtime'),
+      database: {
+        ...option('db-postgres', 'PostgreSQL 16', 'database'),
+        is_available: true,
+        service_engine: 'postgres'
+      },
       runtimeChoices: [option('rt-python-312', 'Python 3.12', 'runtime')],
+      webChoices: [option('web-react', 'React Vite', 'runtime')],
+      databaseChoices: [{
+        ...option('db-postgres', 'PostgreSQL 16', 'database'),
+        is_available: true,
+        service_engine: 'postgres'
+      }],
       addonChoices: [option('ad-fastapi', 'FastAPI', 'addon')]
     });
     fixture.componentRef.setInput('constellation', {
@@ -212,7 +225,11 @@ describe('StudioAiCopilotModalComponent', () => {
     expect(review.textContent).toContain('FastAPI');
     expect(review.textContent).toContain('pytest-custom');
     expect(review.querySelector('.proposal-map-details')).toBeTruthy();
-    expect(review.querySelector('select')).toBeTruthy();
+    const selects = review.querySelectorAll('select') as NodeListOf<HTMLSelectElement>;
+    expect(selects.length).toBe(3);
+    expect(selects[0].value).toBe('rt-python-312');
+    expect(selects[1].value).toBe('web-react');
+    expect(selects[2].value).toBe('db-postgres');
     expect(review.querySelector('input[type="checkbox"]')).toBeTruthy();
   });
 
