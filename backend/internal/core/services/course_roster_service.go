@@ -76,7 +76,10 @@ func (s *CourseRosterService) Enroll(ctx context.Context, tenantID, subjectID, r
 	}
 	students, err := s.repo.ListCourseStudents(ctx, tenantID, subjectID)
 	if err != nil {
-		return nil, err
+		// La matrícula ya quedó escrita. Un fallo de lectura posterior no puede
+		// presentarse como un alta fallida: eso invita a reintentar y duplica
+		// altas de distintos alumnos.
+		return &domain.CourseStudentItem{StudentID: studentID, SourceSystem: source}, nil
 	}
 	for _, item := range students {
 		if item.StudentID == studentID {

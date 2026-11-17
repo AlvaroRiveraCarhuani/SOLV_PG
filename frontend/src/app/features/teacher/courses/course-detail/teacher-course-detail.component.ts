@@ -166,6 +166,7 @@ export class TeacherCourseDetailComponent implements OnInit {
   showExportModal = signal<boolean>(false);
   isExporting = signal<boolean>(false);
   showImportModal = signal<boolean>(false);
+  enrollRequested = signal<boolean>(false);
 
   // Módulos
   showCreateModuleModal = signal<boolean>(false);
@@ -515,6 +516,7 @@ export class TeacherCourseDetailComponent implements OnInit {
    */
   openEnrollModal(): void {
     this.activeTab.set('students');
+    this.enrollRequested.set(true);
   }
 
   onStudentsChanged(total: number): void {

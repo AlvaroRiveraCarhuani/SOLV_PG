@@ -12,7 +12,7 @@ import (
 
 // PostgresCourseRosterRepository resuelve el padrón de una materia sobre
 // `enrollments`, con la identidad desde `users` y el estado del entorno desde
-// `workspaces`.
+// `environments`.
 type PostgresCourseRosterRepository struct {
 	db *sqlx.DB
 }
@@ -30,11 +30,13 @@ func (r *PostgresCourseRosterRepository) ListCourseStudents(
 			e.student_id,
 			TRIM(CONCAT(u.first_name, ' ', u.last_name)) AS full_name,
 			u.email,
-			e.enrolled_at,
+			-- Las matrículas anteriores al alta del padrón pueden tener la fecha
+			-- vacía; un NULL no puede escanearse a time.Time.
+			COALESCE(e.enrolled_at, u.created_at, NOW()) AS enrolled_at,
 			COALESCE(NULLIF(TRIM(e.source_system), ''), 'manual') AS source_system,
 			COALESCE((
 				SELECT w.status
-				FROM workspaces w
+				FROM environments w
 				WHERE w.tenant_id = e.tenant_id
 				  AND w.subject_id = e.subject_id
 				  AND w.student_id = e.student_id

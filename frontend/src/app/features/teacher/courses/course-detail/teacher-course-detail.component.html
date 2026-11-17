@@ -45,10 +45,12 @@
         <span>Importar</span>
       </button>
 
-      <button class="btn-outline btn-enroll-student" (click)="openEnrollModal()" title="Agregar estudiante matriculado a la materia">
-        <svg lucideUserPlus class="btn-icon-sm"></svg>
-        <span>Agregar Estudiante</span>
-      </button>
+      @if (activeTab() !== 'students') {
+        <button class="btn-outline btn-enroll-student" (click)="openEnrollModal()" title="Agregar estudiante matriculado a la materia">
+          <svg lucideUserPlus class="btn-icon-sm"></svg>
+          <span>Agregar Estudiante</span>
+        </button>
+      }
 
       <a [routerLink]="['/teacher/cursos', subjectId(), 'analytics']" class="btn-outline btn-analytics" title="Ver analítica y métricas del curso">
         <svg lucideBarChart3 class="btn-icon-sm"></svg>
@@ -76,10 +78,6 @@
             <button type="button" class="dropdown-item" (click)="openPlagiarismModal(); showMoreActions.set(false)">
               <svg lucideShieldAlert class="btn-icon-xs"></svg>
               <span>Auditoría Anti-Plagio AST</span>
-            </button>
-            <button type="button" class="dropdown-item" (click)="openEnrollModal(); showMoreActions.set(false)">
-              <svg lucideUserPlus class="btn-icon-xs"></svg>
-              <span>Agregar Estudiante</span>
             </button>
             <button type="button" class="dropdown-item" (click)="openPauseConfirmModal(); showMoreActions.set(false)">
               <svg lucidePauseCircle class="btn-icon-xs text-warning"></svg>
@@ -391,6 +389,8 @@
   @if (activeTab() === 'students') {
     <course-students-panel
       [subjectId]="subjectId()"
+      [openEnrollRequest]="enrollRequested()"
+      (enrollRequestHandled)="enrollRequested.set(false)"
       (changed)="onStudentsChanged($event)"
     />
   }

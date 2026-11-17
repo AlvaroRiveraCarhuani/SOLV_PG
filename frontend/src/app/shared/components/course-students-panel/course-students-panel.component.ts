@@ -3,6 +3,7 @@ import {
   Component,
   OnInit,
   computed,
+  effect,
   inject,
   input,
   output,
@@ -73,9 +74,13 @@ export class CourseStudentsPanelComponent implements OnInit {
   readonly subjectId = input.required<string>();
   /** Etiqueta del botón principal; la administración y el docente la comparten. */
   readonly enrollLabel = input<string>('Inscribir estudiante');
+  /** Pide abrir el alta apenas el panel esté visible (accesos de la barra). */
+  readonly openEnrollRequest = input<boolean>(false);
 
   /** Notifica el total de matriculados tras cada alta o baja. */
   readonly changed = output<number>();
+  /** Confirma que la solicitud de alta ya se atendió para no repetirla. */
+  readonly enrollRequestHandled = output<void>();
 
   private readonly rosterUpload = viewChild(RosterUploadComponent);
 
@@ -123,6 +128,16 @@ export class CourseStudentsPanelComponent implements OnInit {
 
   private searchTimeout: ReturnType<typeof setTimeout> | null = null;
   private initialized = false;
+
+  constructor() {
+    effect(() => {
+      if (!this.openEnrollRequest()) {
+        return;
+      }
+      this.openEnrollModal('individual');
+      this.enrollRequestHandled.emit();
+    });
+  }
 
   ngOnInit(): void {
     this.load();
