@@ -177,7 +177,7 @@ graph TD
   * Tabla de alumnos con estado (trabado, sin empezar, salió, entregó, trabajando), hora y veredicto de la entrega, intentos y entorno, con filtros y búsqueda.
   * Avances de esta clase: una fila por emisión con la práctica, la hora, los archivos y cuántos aplicaron, descartaron y quedan pendientes.
   * Historial de esta clase: emisiones, congelaciones, cambios de ventana y decisiones de los alumnos, con nombre, rol, detalle y hora, del más nuevo al más viejo. El alumno no lo ve.
-  * Telemetría acotada a los entornos de la materia de la sesión.
+  * Telemetría acotada a los entornos de la materia de la sesión y solo de alumnos: el entorno propio del docente, el que abre con `[Abrir IDE]`, no se lista como sesión de clase.
 * **Información que muestra (examen cerrado):** un panel con cuántos entornos quedaron en solo lectura, el resultado del cierre (`frozen`, `skipped`, `failed`) y la lista de alumnos con entorno, cada uno con su estado y la acción de reabrir. Si algún volumen no se pudo cerrar, el panel lo dice y permite reintentar.
 * **Información que muestra (sin aula):** formulario de apertura —materia y práctica publicada opcional—, la ventana de disponibilidad del aula cerrada —hasta cuándo se pueden aplicar sus avances, con el campo libre de minutos, la fecha límite y el cierre manual—, el historial de la última clase cerrada mientras la pestaña siga abierta y los entornos abiertos ahora de todas las materias.
 * **Acciones:**

@@ -291,6 +291,10 @@ func (r *PostgresTeacherRepository) GetPlagiarismPairSubmissions(ctx context.Con
 	return list, nil
 }
 
+// ListLivePracticeEnvironmentSessions lista las sesiones que el docente supervisa
+// en el aula: solo entornos de alumnos. El entorno propio del docente ("Abrir
+// IDE") pertenece al docente y no es una sesión de clase, así que no se cuenta
+// como alumno presente ni aparece en la telemetría.
 func (r *PostgresTeacherRepository) ListLivePracticeEnvironmentSessions(ctx context.Context, tenantID, teacherID string) ([]*domain.LivePracticeEnvironmentSession, error) {
 	query := `
 		SELECT 
@@ -310,6 +314,7 @@ func (r *PostgresTeacherRepository) ListLivePracticeEnvironmentSessions(ctx cont
 		JOIN subjects s ON w.subject_id = s.id
 		WHERE w.tenant_id = $1
 		  AND ($2 = '' OR s.teacher_id = $2::uuid)
+		  AND u.role = 'student'
 		  AND w.status IN ('running', 'active', 'pending')
 		ORDER BY w.last_heartbeat_at DESC NULLS LAST
 	`
