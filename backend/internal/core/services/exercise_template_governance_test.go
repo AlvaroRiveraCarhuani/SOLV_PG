@@ -190,9 +190,6 @@ func (m *mockExerciseRepoGov) ListDueByStudent(ctx context.Context, tenantID, st
 func (m *mockExerciseRepoGov) ListBySubject(ctx context.Context, tenantID, subjectID string) ([]*domain.Exercise, error) {
 	return nil, nil
 }
-func (m *mockExerciseRepoGov) GetStudentRecommendations(ctx context.Context, tenantID, subjectID, studentID string) (*domain.StudentRecommendations, error) {
-	return nil, nil
-}
 
 func TestExerciseTemplateGovernance_Success(t *testing.T) {
 	exRepo := &mockExerciseRepoGov{exercises: make(map[string]*domain.Exercise)}

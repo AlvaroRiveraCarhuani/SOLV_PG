@@ -90,10 +90,6 @@ func (r *httpExerciseRepo) ListBySubject(_ context.Context, _, _ string) ([]*dom
 	return nil, nil
 }
 
-func (r *httpExerciseRepo) GetStudentRecommendations(_ context.Context, _, _, _ string) (*domain.StudentRecommendations, error) {
-	return nil, nil
-}
-
 type httpAllowAnalyzer struct{}
 
 func (httpAllowAnalyzer) ValidateCustomRules(_ string, _ string, _ domain.ASTRules) *domain.CustomRuleViolation {

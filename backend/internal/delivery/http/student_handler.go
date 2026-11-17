@@ -260,60 +260,6 @@ func (h *StudentHandler) GetDueAssignments(w http.ResponseWriter, r *http.Reques
 	SendJSON(w, http.StatusOK, assignments, "Entregas pendientes obtenidas exitosamente")
 }
 
-func (h *StudentHandler) GetRecommendations(w http.ResponseWriter, r *http.Request) {
-	tenantID, err := middleware.GetTenantIDFromContext(r.Context())
-	if err != nil || tenantID == "" {
-		tenantID = requestTenantID(r)
-	}
-	if tenantID == "" {
-		if ctxTenantID, ok := r.Context().Value(domain.TenantIDKey).(string); ok && ctxTenantID != "" {
-			tenantID = ctxTenantID
-		}
-	}
-	if tenantID == "" {
-		SendError(w, http.StatusUnauthorized, "Tenant ID missing in context", "Tenant no identificado")
-		return
-	}
-
-	userID := requestUserID(r)
-	if userID == "" {
-		if ctxUserID, ok := r.Context().Value(domain.UserIDKey).(string); ok && ctxUserID != "" {
-			userID = ctxUserID
-		}
-	}
-	if userID == "" {
-		SendError(w, http.StatusUnauthorized, "User ID missing in request", "Usuario no autenticado")
-		return
-	}
-
-	courseID := r.PathValue("id")
-	if courseID == "" {
-		courseID = r.PathValue("courseId")
-	}
-	if courseID == "" {
-		SendError(w, http.StatusBadRequest, "Course ID is required", "ID del curso requerido")
-		return
-	}
-
-	if h.exerciseRepo == nil {
-		SendJSON(w, http.StatusOK, &domain.StudentRecommendations{
-			HasEnoughData:   false,
-			WeakTags:        []domain.WeakTag{},
-			Recommendations: []domain.RecommendationItem{},
-			Message:         "Servicio de recomendaciones no disponible",
-		}, "Recomendaciones obtenidas")
-		return
-	}
-
-	recommendations, err := h.exerciseRepo.GetStudentRecommendations(r.Context(), tenantID, courseID, userID)
-	if err != nil {
-		SendError(w, http.StatusInternalServerError, "Failed to fetch student recommendations", "Error al obtener recomendaciones de refuerzo")
-		return
-	}
-
-	SendJSON(w, http.StatusOK, recommendations, "Recomendaciones obtenidas exitosamente")
-}
-
 // StudentEvaluationItem resume el estado academico de un ejercicio para el
 // estudiante: intentos, mejor nota, ultima entrega y estado canonico.
 type StudentEvaluationItem struct {

@@ -109,7 +109,7 @@ func (m *mockCourseModuleRepoForHTTP) IsModuleLockedForStudent(ctx context.Conte
 
 func TestCourseModuleHandler_CreateAndSetPrerequisites(t *testing.T) {
 	repo := newMockCourseModuleRepoForHTTP()
-	exRepo := &mockExerciseRepoForRecs{}
+	exRepo := &mockExerciseRepoHTTP{}
 	svc := services.NewCourseModuleService(repo, exRepo)
 	handler := httpdelivery.NewCourseModuleHandler(svc)
 
@@ -188,7 +188,7 @@ func TestCourseModuleHandler_CreateAndSetPrerequisites(t *testing.T) {
 
 func TestCourseModuleHandler_StudentCurricularMap(t *testing.T) {
 	repo := newMockCourseModuleRepoForHTTP()
-	exRepo := &mockExerciseRepoForRecs{}
+	exRepo := &mockExerciseRepoHTTP{}
 	repo.curMapData = &domain.CourseCurricularMap{
 		CourseID: "course-1",
 		Modules: []domain.CurricularModuleMap{

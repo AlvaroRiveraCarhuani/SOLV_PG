@@ -281,7 +281,7 @@ graph TD
 ### 5.5. Mis materias y ficha de materia (`/student/courses`, `/student/courses/:subjectId`)
 * **Propósito:** el índice de materias inscritas y, dentro de cada una, el mapa curricular con sus prácticas.
 * **Mis materias:** encabezado con subtítulo, pestañas con conteo (Todas, En curso, Completadas) y búsqueda; una fila por materia con código, próxima entrega, avance y `[Ver prácticas]`. Sin banners ni tarjetas de KPI.
-* **Ficha de materia:** enlace de vuelta, nombre, código y avance real; `[Actualizar]` relee el mapa y las prácticas. Panel **Mapa curricular** sólo si hay módulos; panel **Prácticas de la materia** (sin módulos) o **Ejercicios generales** (con módulos) con mejor puntaje y `[Resolver]`. Columna lateral con la práctica de refuerzo opcional.
+* **Ficha de materia:** enlace de vuelta, nombre, código y avance real; `[Actualizar]` relee el mapa y las prácticas. Panel **Mapa curricular** sólo si hay módulos; panel **Prácticas de la materia** (sin módulos) o **Ejercicios generales** (con módulos) con mejor puntaje y `[Resolver]`.
 * **Detalle completo:** [MATERIAS.md](ESTUDIANTE/MATERIAS.md).
 
 ---

@@ -148,10 +148,6 @@ func (m *mockExerciseRepoForDryRun) ListBySubject(ctx context.Context, tenantID,
 	return nil, nil
 }
 
-func (m *mockExerciseRepoForDryRun) GetStudentRecommendations(ctx context.Context, tenantID, subjectID, studentID string) (*domain.StudentRecommendations, error) {
-	return nil, nil
-}
-
 type mockRunnerForDryRun struct {
 	verdict domain.Verdict
 }

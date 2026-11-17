@@ -10,8 +10,8 @@
 ## 1. Modelo mental
 
 **Mis materias** es el índice: qué cursás, cuánto avanzaste y qué se entrega pronto.
-**La ficha de materia** es el cuaderno: el mapa curricular del docente, las prácticas
-que podés resolver y el refuerzo opcional.
+**La ficha de materia** es el cuaderno: el mapa curricular del docente y las prácticas
+que podés resolver.
 
 La materia agrupa; la práctica es la unidad de trabajo. El entorno pertenece a la
 práctica (ADR-059), así que ninguna de las dos vistas abre contenedores: enlazan a
@@ -110,14 +110,6 @@ candado, sin botón deshabilitado.
 Estados: cargando con esqueleto pulsante; error con `Reintentar`; materia sin
 prácticas publicadas con un estado vacío propio.
 
-### 3.3. Columna lateral: práctica de refuerzo
-
-- Panel colapsable, marcado como **Opcional**; no afecta notas ni desbloqueos.
-- Sin datos suficientes, una línea explica que hace falta completar ejercicios.
-  Con datos, muestra las áreas de enfoque, las prácticas sugeridas con su motivo y
-  el enlace `Practicar`.
-- El estado vacío es una línea con icono, no una tarjeta anidada.
-
 ---
 
 ## 4. Contratos
@@ -127,7 +119,6 @@ prácticas publicadas con un estado vacío propio.
 | `GET /api/v1/student/dashboard` | Materias con totales y avance; nombre y código en la ficha |
 | `GET /api/v1/student/assignments/due` | Próxima entrega por materia en el índice |
 | `GET /api/v1/student/courses/{id}/map` | Módulos, prerrequisitos y prácticas generales |
-| `GET /api/v1/student/courses/{id}/recommendations` | Refuerzo opcional |
 
 Un fallo del mapa no borra la identidad de la materia: el encabezado se dibuja con
 el resumen del dashboard y el panel ofrece reintentar.

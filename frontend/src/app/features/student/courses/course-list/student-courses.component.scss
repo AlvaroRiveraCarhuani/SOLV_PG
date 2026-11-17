@@ -14,11 +14,14 @@
   flex-wrap: wrap;
 }
 
+/* Búsqueda y selector de vista comparten fila mientras entren: el contenedor no
+   se encoge, porque en modo wrap la caja se encogía y el selector caía abajo. */
 .courses-tools {
   display: flex;
   align-items: center;
+  flex: 0 0 auto;
   gap: var(--space-3);
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
 }
 
 .courses-search {
@@ -319,6 +322,7 @@
   .courses-search {
     flex: 1 1 auto;
     width: auto;
+    min-width: 0;
   }
 
   .course-item {

@@ -117,9 +117,6 @@ func (m *mockExerciseRepoForStudent) ListDueByStudent(ctx context.Context, tenan
 func (m *mockExerciseRepoForStudent) ListBySubject(ctx context.Context, tenantID, subjectID string) ([]*domain.Exercise, error) {
 	return m.bySubjectID[subjectID], nil
 }
-func (m *mockExerciseRepoForStudent) GetStudentRecommendations(ctx context.Context, tenantID, subjectID, studentID string) (*domain.StudentRecommendations, error) {
-	return &domain.StudentRecommendations{}, nil
-}
 
 func decodeStudentData(t *testing.T, body []byte, target any) {
 	t.Helper()

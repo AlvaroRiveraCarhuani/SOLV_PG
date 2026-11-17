@@ -11,7 +11,7 @@
 | ID | Subnivel | Caso | Ruta principal | Resultado esperado | Estado |
 | :--- | :--- | :--- | :--- | :--- | :--- |
 | **EST-1.1** | Fácil | Primer ingreso y lectura del inicio | `/student` | El estudiante identifica sus materias y entregas sin datos ajenos | `PENDIENTE` |
-| **EST-1.2** | Medio | Navegar materias y mapa curricular | `/student/courses` | La materia abre sus prácticas y la práctica de refuerzo es comprensible | `PENDIENTE` |
+| **EST-1.2** | Medio | Navegar materias y mapa curricular | `/student/courses` | La materia abre sus prácticas con su avance y mapa curricular | `PENDIENTE` |
 | **EST-1.3** | Difícil | Entrar a un aula activa | `/student` | El aula aparece, la presencia se registra y la práctica se abre | `PENDIENTE` |
 
 ---
@@ -51,9 +51,9 @@
 
 ## EST-1.2 (Medio): Navegar materias y mapa curricular
 
-**Objetivo:** encontrar una materia, abrir su ficha y distinguir las prácticas del curso de la práctica de refuerzo.
+**Objetivo:** encontrar una materia, abrir su ficha y revisar las prácticas del curso.
 
-**Precondiciones:** EST-1.1 aprobado; materia con al menos dos prácticas publicadas y una práctica de refuerzo.
+**Precondiciones:** EST-1.1 aprobado; materia con al menos dos prácticas publicadas.
 
 **Datos de prueba:** materia `DOC-PILOTO-01`; búsqueda por código `DOC-PILOTO`.
 
@@ -64,10 +64,9 @@
 | 1 | Abrir `/student/courses`. | Se muestra `Mis materias` con buscador y filtros. |
 | 2 | Buscar `DOC-PILOTO`. | La lista se reduce a la materia coincidente; el contador es coherente con las filas. |
 | 3 | Hacer clic en `Ver prácticas`. | Se abre `/student/courses/:courseId` con la ficha de la materia. |
-| 4 | Revisar la columna principal. | Figuran las prácticas publicadas con su estado y acceso; las no publicadas no aparecen. |
-| 5 | Revisar la columna lateral de práctica de refuerzo. | La práctica de refuerzo se distingue del curso y no se confunde con una entrega obligatoria. |
-| 6 | Abrir una práctica desde la ficha. | Se navega a `/student/exercises/:exerciseId` con la práctica correcta. |
-| 7 | Volver al listado y limpiar la búsqueda. | Se recuperan todas las materias del estudiante sin recargar la página. |
+| 4 | Revisar el mapa curricular y prácticas. | Figuran las prácticas publicadas con su estado y acceso; las no publicadas no aparecen. |
+| 5 | Abrir una práctica desde la ficha. | Se navega a `/student/exercises/:exerciseId` con la práctica correcta. |
+| 6 | Volver al listado y limpiar la búsqueda. | Se recuperan todas las materias del estudiante sin recargar la página. |
 
 ### Evidencia y cierre
 
@@ -79,7 +78,7 @@
 | **Fecha y hora** | — |
 | **Observaciones** | — |
 
-**Falla si:** la búsqueda muestra materias ajenas, la ficha incluye prácticas no publicadas, o la práctica de refuerzo se presenta como obligatoria.
+**Falla si:** la búsqueda muestra materias ajenas o la ficha incluye prácticas no publicadas.
 
 ---
 

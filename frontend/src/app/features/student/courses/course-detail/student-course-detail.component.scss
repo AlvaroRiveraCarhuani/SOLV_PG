@@ -83,32 +83,10 @@
   height: var(--space-4);
 }
 
-.course-layout-grid {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) 340px;
-  gap: var(--space-5);
-  align-items: start;
-
-  @media (max-width: 1080px) {
-    grid-template-columns: minmax(0, 1fr);
-  }
-}
-
 .course-main-content {
   display: flex;
   flex-direction: column;
   gap: var(--space-4);
+  width: 100%;
   min-width: 0;
-}
-
-.course-sidebar {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-4);
-  position: sticky;
-  top: var(--space-6);
-
-  @media (max-width: 1080px) {
-    position: static;
-  }
 }

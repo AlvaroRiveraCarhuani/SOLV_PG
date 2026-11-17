@@ -10,7 +10,6 @@ describe('StudentCourseDetailComponent', () => {
   let mockStudentService: {
     dashboardData: ReturnType<typeof vi.fn>;
     loadDashboard: ReturnType<typeof vi.fn>;
-    getCourseRecommendations: ReturnType<typeof vi.fn>;
   };
 
   beforeEach(async () => {
@@ -25,13 +24,7 @@ describe('StudentCourseDetailComponent', () => {
         ],
         recent_submissions: []
       }),
-      loadDashboard: vi.fn().mockResolvedValue(undefined),
-      getCourseRecommendations: vi.fn().mockResolvedValue({
-        has_enough_data: true,
-        weak_tags: [],
-        recommendations: [],
-        message: '¡Vas al día! No hay refuerzos sugeridos.'
-      })
+      loadDashboard: vi.fn().mockResolvedValue(undefined)
     };
 
     await TestBed.configureTestingModule({

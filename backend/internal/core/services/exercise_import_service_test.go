@@ -100,10 +100,6 @@ func (m *mockImportExerciseRepo) ListBySubject(ctx context.Context, tenantID, su
 	return res, nil
 }
 
-func (m *mockImportExerciseRepo) GetStudentRecommendations(ctx context.Context, tenantID, subjectID, studentID string) (*domain.StudentRecommendations, error) {
-	return nil, nil
-}
-
 func TestImportExercises_JSONAndYAML(t *testing.T) {
 	ctx := context.Background()
 

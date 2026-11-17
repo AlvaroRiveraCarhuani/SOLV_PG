@@ -1,6 +1,6 @@
 # Manual del Estudiante — Plataforma Académica SOLV
 
-Bienvenido a **SOLV**, la plataforma de laboratorios virtuales y evaluación de programación. Esta guía rápida te ayudará a navegar por tus cursos, resolver ejercicios y consultar tus sugerencias de refuerzo.
+Bienvenido a **SOLV**, la plataforma de laboratorios virtuales y evaluación de programación. Esta guía rápida te ayudará a navegar por tus cursos y resolver ejercicios.
 
 ---
 
@@ -32,16 +32,7 @@ Al abrir un laboratorio o ejercicio de algoritmia:
 
 ---
 
-## 3. Panel de Práctica de Refuerzo (Opcional)
-
-En la barra lateral de la vista del curso encontrarás el panel **"💡 Práctica de refuerzo (opcional)"**:
-
-- **¿Cómo funciona?:** Si tenés intentos en temas donde tu tasa de éxito es menor al 60%, el sistema te sugerirá ejercicios de práctica extracurricular etiquetados con esos temas.
-- **Sin impacto académico:** Estas recomendaciones son **100% opcionales**. No afectan tu nota, tu avance en el mapa curricular ni el desbloqueo de módulos. Podés realizarlas cuando desees para reforzar tus conocimientos.
-
----
-
-## 4. SOLV Companion en el editor
+## 3. SOLV Companion en el editor
 
 En las prácticas con IDE persistente podés instalar **SOLV Companion**, la extensión que muestra los comentarios del docente dentro de OpenVSCode Server.
 

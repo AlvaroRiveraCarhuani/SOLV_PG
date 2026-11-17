@@ -4,14 +4,13 @@ import { RouterLink, ActivatedRoute } from '@angular/router';
 import { LucideArrowLeft, LucideRefreshCw } from '@lucide/angular';
 import { MachineDataDirective } from '@shared/directives/machine-data.directive';
 import { StudentService } from '@core/services/student.service';
-import { RecommendationsPanelComponent } from './recommendations-panel/recommendations-panel.component';
 import { CurricularMapComponent } from './curricular-map/curricular-map.component';
 
 /**
- * Ficha de una materia para el alumno: su mapa curricular, las prácticas que
- * puede resolver y el refuerzo opcional. El encabezado resume el avance de la
- * materia; las prácticas y el mapa se cargan aparte, así que un fallo de esos
- * pedidos no borra la identidad de la materia.
+ * Ficha de una materia para el alumno: su mapa curricular y las prácticas que
+ * puede resolver. El encabezado resume el avance de la materia; las prácticas y
+ * el mapa se cargan aparte, así que un fallo de esos pedidos no borra la
+ * identidad de la materia.
  */
 @Component({
   selector: 'student-course-detail',
@@ -22,7 +21,6 @@ import { CurricularMapComponent } from './curricular-map/curricular-map.componen
     LucideArrowLeft,
     LucideRefreshCw,
     MachineDataDirective,
-    RecommendationsPanelComponent,
     CurricularMapComponent
   ],
   templateUrl: './student-course-detail.component.html',

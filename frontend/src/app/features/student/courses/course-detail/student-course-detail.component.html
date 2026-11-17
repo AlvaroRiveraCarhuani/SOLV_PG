@@ -33,13 +33,7 @@
     </div>
   </header>
 
-  <div class="course-layout-grid">
-    <main class="course-main-content">
-      <curricular-map [courseId]="effectiveCourseId()" [refreshTick]="refreshTick()"></curricular-map>
-    </main>
-
-    <aside class="course-sidebar">
-      <recommendations-panel [courseId]="effectiveCourseId()"></recommendations-panel>
-    </aside>
-  </div>
+  <main class="course-main-content">
+    <curricular-map [courseId]="effectiveCourseId()" [refreshTick]="refreshTick()"></curricular-map>
+  </main>
 </div>
