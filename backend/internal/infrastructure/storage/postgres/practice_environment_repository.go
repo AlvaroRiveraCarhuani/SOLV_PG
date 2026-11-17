@@ -168,7 +168,7 @@ func (r *PostgresPracticeEnvironmentRepository) Create(ctx context.Context, envi
 	}
 	query := `
 		INSERT INTO environments (id, student_id, subject_id, template_id, type, container_id, status, access_url, memory_limit_mb, memory_profile_mb, cpu_millis, environment_profile, exam_attempt, last_heartbeat_at, last_oom_killed_at, oom_strike_count, semgrep_audit, tenant_id, exercise_id, frozen_at, workspace_project_version_id, workspace_seed_mode, workspace_init_status, disk_used_mb, disk_state, created_at, updated_at)
-		VALUES (:id, :student_id, :subject_id, :template_id, :type, :container_id, :status, :access_url, :memory_limit_mb, :memory_profile_mb, :cpu_millis, :environment_profile, :exam_attempt, :last_heartbeat_at, :last_oom_killed_at, :oom_strike_count, :semgrep_audit, :tenant_id, :exercise_id, :frozen_at, :workspace_project_version_id, :workspace_seed_mode, :workspace_init_status, :created_at, :updated_at)
+		VALUES (:id, :student_id, :subject_id, :template_id, :type, :container_id, :status, :access_url, :memory_limit_mb, :memory_profile_mb, :cpu_millis, :environment_profile, :exam_attempt, :last_heartbeat_at, :last_oom_killed_at, :oom_strike_count, :semgrep_audit, :tenant_id, :exercise_id, :frozen_at, :workspace_project_version_id, :workspace_seed_mode, :workspace_init_status, :disk_used_mb, :disk_state, :created_at, :updated_at)
 	`
 	_, err := r.db.NamedExecContext(ctx, query, environment)
 	if err != nil {

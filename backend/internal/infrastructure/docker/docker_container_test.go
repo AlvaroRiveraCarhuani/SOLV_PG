@@ -3,6 +3,8 @@ package docker
 import (
 	"strings"
 	"testing"
+
+	"solv-backend/internal/core/domain"
 )
 
 // TestPureRuntimePracticeEnvironmentCmd_IdempotentSetupSeed valida el contrato del shell
@@ -92,6 +94,8 @@ func TestIsPracticeEnvironmentManagedContainer(t *testing.T) {
 		{name: "environment publicado por traefik", names: []string{"/otro"}, labels: map[string]string{"traefik.enable": "true"}, want: true},
 		{name: "satélite postgres excluido", names: []string{"/solv-sat-postgres"}, labels: map[string]string{"solv.managed": "true", "solv.satellite": "postgres"}, want: false},
 		{name: "satélite con nombre de environment excluido igual", names: []string{"/solv-environment-falso"}, labels: map[string]string{"solv.managed": "true", "solv.satellite": "redis"}, want: false},
+		{name: "servicio compose excluido por proyecto", names: []string{"/solv_backend"}, labels: map[string]string{"traefik.enable": "true", "com.docker.compose.project": "solv_pg"}, want: false},
+		{name: "servicio de plataforma excluido por nombre", names: []string{"/solv_backend"}, labels: map[string]string{"traefik.enable": "true"}, want: false},
 		{name: "contenedor ajeno", names: []string{"/traefik"}, labels: map[string]string{}, want: false},
 	}
 
@@ -143,5 +147,84 @@ func TestResolveCompanionExtensionMount(t *testing.T) {
 	mountInexistente := resolveCompanionExtensionMount()
 	if mountInexistente != "" {
 		t.Fatalf("esperado mount vacío para ruta inexistente, obtenido %s", mountInexistente)
+	}
+}
+
+func TestPracticeEnvironmentContainer_HostConfigResources(t *testing.T) {
+	cases := []struct {
+		name               string
+		config             domain.PracticeEnvironmentContainerConfig
+		wantMemBytes       int64
+		wantMemReservation int64
+		wantCPUNanos       int64
+		wantPidsLimit      int64
+	}{
+		{
+			name: "valores por defecto cuando se omite cuota",
+			config: domain.PracticeEnvironmentContainerConfig{
+				MemoryLimitMB: 0,
+				CPUNanos:      0,
+				PidsLimit:     0,
+			},
+			wantMemBytes:       256 * 1024 * 1024,
+			wantMemReservation: int64(float64(256)*0.75) * 1024 * 1024,
+			wantCPUNanos:       1_000_000_000,
+			wantPidsLimit:      512,
+		},
+		{
+			name: "valores explícitos respetados fielmente",
+			config: domain.PracticeEnvironmentContainerConfig{
+				MemoryLimitMB: 512,
+				CPUNanos:      500_000_000,
+				PidsLimit:     256,
+			},
+			wantMemBytes:       512 * 1024 * 1024,
+			wantMemReservation: int64(float64(512)*0.75) * 1024 * 1024,
+			wantCPUNanos:       500_000_000,
+			wantPidsLimit:      256,
+		},
+		{
+			name: "entorno pesado de 1024 MB con 2 cores y 1024 pids",
+			config: domain.PracticeEnvironmentContainerConfig{
+				MemoryLimitMB: 1024,
+				CPUNanos:      2_000_000_000,
+				PidsLimit:     1024,
+			},
+			wantMemBytes:       1024 * 1024 * 1024,
+			wantMemReservation: int64(float64(1024)*0.75) * 1024 * 1024,
+			wantCPUNanos:       2_000_000_000,
+			wantPidsLimit:      1024,
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			memLimit := tc.config.MemoryLimitMB
+			if memLimit <= 0 {
+				memLimit = domain.DefaultBaseMemoryMB
+			}
+			memReservation := int64(float64(memLimit) * 0.75)
+			cpuNanos := tc.config.CPUNanos
+			if cpuNanos <= 0 {
+				cpuNanos = 1_000_000_000
+			}
+			pidsLimit := tc.config.PidsLimit
+			if pidsLimit <= 0 {
+				pidsLimit = 512
+			}
+
+			if memLimit*1024*1024 != tc.wantMemBytes {
+				t.Errorf("memoria esperada %d, obtenida %d", tc.wantMemBytes, memLimit*1024*1024)
+			}
+			if memReservation*1024*1024 != tc.wantMemReservation {
+				t.Errorf("reserva de memoria esperada %d, obtenida %d", tc.wantMemReservation, memReservation*1024*1024)
+			}
+			if cpuNanos != tc.wantCPUNanos {
+				t.Errorf("NanoCPUs esperado %d, obtenido %d", tc.wantCPUNanos, cpuNanos)
+			}
+			if pidsLimit != tc.wantPidsLimit {
+				t.Errorf("PidsLimit esperado %d, obtenido %d", tc.wantPidsLimit, pidsLimit)
+			}
+		})
 	}
 }

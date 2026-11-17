@@ -629,6 +629,9 @@ func (c *Client) ExecuteDryRun(ctx context.Context, image string) (int64, error)
 // aula) también llevan la etiqueta solv.managed, pero su vida la gobierna el orquestador
 // de satélites: si el colector de zombies los listara, los destruiría a los 30 segundos.
 func isPracticeEnvironmentManagedContainer(names []string, labels map[string]string) bool {
+	if labels["com.docker.compose.project"] != "" {
+		return false
+	}
 	if labels["solv.satellite"] != "" {
 		return false
 	}
@@ -647,6 +650,10 @@ func isPracticeEnvironmentManagedContainer(names []string, labels map[string]str
 		trimmed := strings.TrimPrefix(name, "/")
 		if strings.HasPrefix(trimmed, "solv-environment-") {
 			return true
+		}
+		if trimmed == "solv_backend" || trimmed == "solv_frontend" || trimmed == "solv_traefik" ||
+			trimmed == "solv_db" || trimmed == "solv_seaweedfs" || trimmed == "solv_prometheus" || trimmed == "solv_grafana" {
+			return false
 		}
 	}
 	return labels["solv.managed"] == "true" || labels["traefik.enable"] == "true"

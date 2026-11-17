@@ -2,11 +2,11 @@
 
 ## Phase 1: Recuperar el espacio que ya está ocupado
 
-- [ ] 1.1 Listar volúmenes con `LINK=0` y su tamaño con `docker system df -v`; guardar la lista con fecha en `docs/OPERATIONS/capacidad.md`.
-- [ ] 1.2 Cruzar esa lista contra los entornos registrados en base y marcar los que no corresponden a ningún entorno.
-- [ ] 1.3 Borrar los huérfanos confirmados uno por uno, anotando el espacio recuperado y la auditoría.
-- [ ] 1.4 Revisar imágenes sin contenedor y caché de construcción; recuperar solo lo que no sea imagen fijada por el catálogo.
-- [ ] 1.5 Registrar el espacio libre resultante como línea base de la cuota.
+- [x] 1.1 Listar volúmenes con `LINK=0` y su tamaño con `docker system df -v`; guardar la lista con fecha en `docs/OPERATIONS/capacidad.md`.
+- [x] 1.2 Cruzar esa lista contra los entornos registrados en base y marcar los que no corresponden a ningún entorno.
+- [x] 1.3 Borrar los huérfanos confirmados uno por uno, anotando el espacio recuperado y la auditoría.
+- [x] 1.4 Revisar imágenes sin contenedor y caché de construcción; recuperar solo lo que no sea imagen fijada por el catálogo.
+- [x] 1.5 Registrar el espacio libre resultante como línea base de la cuota.
 - [x] 1.6 Implementar en el panel el inventario de volúmenes con `LINK=0`, el cruce contra los entornos registrados, el borrado por nombre con frase y la auditoría por volumen (`DiskOrphanService`, `GET/POST /api/v1/admin/server/storage/orphans`). La corrida sobre el nodo sigue siendo la tarea 1.1–1.5.
 
 ## Phase 2: Medición
@@ -23,7 +23,7 @@
 - [x] 3.3 Al entrar en `disk_full` no se detiene el contenedor: se marca el estado y se frena la entrega con 409, porque cerrar el editor en medio del trabajo pierde código sin guardar. Se detiene solo por presión del nodo, y el alta nueva se rechaza por debajo del 5% libre (`ErrHostDiskExhausted`, 503).
 - [x] 3.4 Implementar la limpieza de cachés declaradas desde la interfaz y el rearranque del entorno.
 - [x] 3.5 Mostrar en la ficha del entorno el uso, el límite y el aviso, dejando claro que el límite es una cuota blanda.
-- [ ] 3.6 Pruebas de integración con un volumen de prueba: aviso, bloqueo, limpieza y vuelta a `ok`.
+- [x] 3.6 Pruebas de integración con un volumen de prueba: aviso, bloqueo, limpieza y vuelta a `ok`.
 
 ## Phase 4: Separación de la base de notas
 

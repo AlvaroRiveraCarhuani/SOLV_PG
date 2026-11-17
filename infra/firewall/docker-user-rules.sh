@@ -9,6 +9,11 @@ fi
 # Puertos sensibles a bloquear
 PORTS=(5432 9090 3000 8080)
 
+# Identificar interfaz de salida hacia internet
+DEFAULT_OUT_IFACE=$(ip route show default 2>/dev/null | awk '{for(i=1;i<=NF;i++) if($i=="dev") print $(i+1)}' | head -n1)
+OUT_IFACE="${OUT_IFACE:-${DEFAULT_OUT_IFACE:-eth0}}"
+echo "=> Interfaz de salida detectada: $OUT_IFACE"
+
 INTERFACE_DEFAULT="docker0"
 GATEWAY_DEFAULT="172.17.0.1"
 
@@ -42,7 +47,8 @@ apply_rule() {
 echo "=== Configurando reglas de firewall Zero Trust en DOCKER-USER ==="
 
 echo "Configurando bloqueos para la red por defecto ($INTERFACE_DEFAULT)..."
-apply_rule DOCKER-USER -i "$INTERFACE_DEFAULT" -o eth0 -j DROP
+# No se bloquea la salida de docker0 a internet para permitir descargas de paquetes (npm/pip) en builds y pruebas.
+# El aislamiento de exámenes sin salida se aplica por etiqueta mediante solv.exam.no-egress.
 
 for port in "${PORTS[@]}"; do
     apply_rule DOCKER-USER -i "$INTERFACE_DEFAULT" -d "$GATEWAY_DEFAULT" -p tcp --dport "$port" -j DROP
@@ -50,7 +56,8 @@ done
 
 if [ -n "$INTERFACE_SOLV" ] && [ -n "$GATEWAY_SOLV" ]; then
     echo "Configurando bloqueos para la red personalizada ($INTERFACE_SOLV)..."
-    apply_rule DOCKER-USER -i "$INTERFACE_SOLV" -o eth0 -j DROP
+    # Bloquear tráfico entrante directo desde el exterior hacia solv_net (Zero Trust)
+    apply_rule DOCKER-USER -i "$OUT_IFACE" -o "$INTERFACE_SOLV" -j DROP
     for port in "${PORTS[@]}"; do
         apply_rule DOCKER-USER -i "$INTERFACE_SOLV" -d "$GATEWAY_SOLV" -p tcp --dport "$port" -j DROP
     done
@@ -69,9 +76,9 @@ if command -v docker &>/dev/null; then
             continue
         fi
         echo "=> Contenedor de examen $cid ($EXAM_IP) sin salida"
-        apply_rule DOCKER-USER -s "$EXAM_IP" -o eth0 ! -d 10.0.0.0/8 -j DROP
-        apply_rule DOCKER-USER -s "$EXAM_IP" -o eth0 ! -d 172.16.0.0/12 -j DROP
-        apply_rule DOCKER-USER -s "$EXAM_IP" -o eth0 ! -d 192.168.0.0/16 -j DROP
+        apply_rule DOCKER-USER -s "$EXAM_IP" -o "$OUT_IFACE" ! -d 10.0.0.0/8 -j DROP
+        apply_rule DOCKER-USER -s "$EXAM_IP" -o "$OUT_IFACE" ! -d 172.16.0.0/12 -j DROP
+        apply_rule DOCKER-USER -s "$EXAM_IP" -o "$OUT_IFACE" ! -d 192.168.0.0/16 -j DROP
     done
 fi
 

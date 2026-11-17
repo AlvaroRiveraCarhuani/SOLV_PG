@@ -208,3 +208,48 @@ func TestServerPolicies_UpdatePersistsTheDerivedCap(t *testing.T) {
 		t.Fatalf("expected the derived ceiling to persist, got %d", reloaded.MaxContainers)
 	}
 }
+
+func TestServerPolicies_UpdatePracticeCPUMillis_Valid(t *testing.T) {
+	repo := &mockPoliciesTenantRepo{configs: map[string][]byte{"t-1": []byte(`{}`)}}
+	svc := services.NewServerPoliciesService(repo)
+
+	validCases := []int{0, 500, 1000, 1500, 2000}
+	for _, val := range validCases {
+		cpuVal := val
+		updated, err := svc.Update(context.Background(), "t-1", domain.UpdateServerPoliciesDTO{
+			PracticeCPUMillis: &cpuVal,
+		})
+		if err != nil {
+			t.Fatalf("esperaba exito para cpu %d, obtuve error: %v", val, err)
+		}
+		if updated.PracticeCPUMillis != val {
+			t.Fatalf("esperaba PracticeCPUMillis=%d, obtuve %d", val, updated.PracticeCPUMillis)
+		}
+
+		reloaded, _ := svc.Get(context.Background(), "t-1")
+		if reloaded.PracticeCPUMillis != val {
+			t.Fatalf("esperaba valor persistido %d, obtuve %d", val, reloaded.PracticeCPUMillis)
+		}
+	}
+}
+
+func TestServerPolicies_UpdatePracticeCPUMillis_Invalid(t *testing.T) {
+	repo := &mockPoliciesTenantRepo{configs: map[string][]byte{"t-1": []byte(`{}`)}}
+	svc := services.NewServerPoliciesService(repo)
+
+	invalidCases := []int{-1, 333, 750, 3000}
+	for _, val := range invalidCases {
+		cpuVal := val
+		_, err := svc.Update(context.Background(), "t-1", domain.UpdateServerPoliciesDTO{
+			PracticeCPUMillis: &cpuVal,
+		})
+		if err == nil {
+			t.Fatalf("esperaba error para valor invalido %d pero paso", val)
+		}
+		var valErr *services.PoliciesValidationError
+		if !errors.As(err, &valErr) || valErr.Code != "practice_cpu_invalid" {
+			t.Fatalf("esperaba error con codigo practice_cpu_invalid para %d, obtuve: %v", val, err)
+		}
+	}
+}
+
