@@ -67,8 +67,9 @@
   gap: var(--space-3);
   min-height: 44px;
   padding: var(--space-2) var(--space-4);
-  background-color: var(--bg-surface);
+  background-color: var(--tenant-primary-subtle);
   border: 1px solid var(--border-subtle);
+  border-left: 3px solid var(--tenant-primary);
   border-radius: var(--radius-md);
   font-size: var(--text-sm);
   color: var(--text-primary);
@@ -125,9 +126,10 @@
 
 /* Canvas y columna. La columna va antes en el documento por prioridad de lectura
    y se mantiene fija a la derecha (order: 2) en todos los anchos: nunca salta al
-   encabezado cuando el espacio se reduce. El canvas reparte las tarjetas en
-   3 columnas fijas; con minmax(0,1fr) las tarjetas se encogen para que siempre
-   quepan tres, también con la columna derecha ocupando 320px. */
+   encabezado cuando el espacio se reduce. El canvas deja las tarjetas en su ancho
+   de lectura (260 a 320 px) y no las estira para llenar la fila. La superficie va
+   tintada con el color del tenant: agrupa la cabecera y el grid en un solo plano
+   y separa las tarjetas blancas del fondo de la página sin sombras. */
 .hoy-layout {
   display: flex;
   align-items: flex-start;
@@ -145,12 +147,45 @@
 
 .hoy-canvas {
   order: 1;
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: var(--space-4);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
   min-width: 0;
   flex: 1 1 0;
-  align-content: flex-start;
+  padding: var(--space-4);
+  background-color: var(--tenant-primary-subtle);
+  border: 1px solid var(--tenant-primary-border);
+  border-radius: var(--radius-lg);
+}
+
+.canvas-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-2);
+  padding-bottom: var(--space-2);
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.canvas-title {
+  margin: 0;
+  font-size: var(--text-lg);
+  font-weight: 600;
+  line-height: var(--leading-tight);
+  color: var(--text-primary);
+}
+
+.canvas-count {
+  font-size: var(--text-xs);
+  color: var(--text-secondary);
+}
+
+.canvas-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 320px));
+  place-content: flex-start start;
+  gap: var(--space-4);
 }
 
 .hoy-skeleton {

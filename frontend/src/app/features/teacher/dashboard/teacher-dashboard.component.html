@@ -23,7 +23,7 @@
   </header>
 
   @if (session(); as aula) {
-    <a class="hoy-session" [routerLink]="['/teacher/aula']" aria-live="polite">
+    <a class="hoy-session motion-rise" [routerLink]="['/teacher/aula']" aria-live="polite">
       <span class="session-subject">
         <code>{{ aula.subject_code }}</code>
         <span class="session-sep" aria-hidden="true">·</span>
@@ -65,7 +65,7 @@
     <div class="hoy-layout">
       @if (hasPending()) {
         <pending-column
-          class="hoy-aside"
+          class="hoy-aside motion-rise"
           [session]="session()"
           [queue]="queue()"
           [dueSoon]="dueSoon()"
@@ -74,12 +74,23 @@
       }
 
       <section class="hoy-canvas" aria-label="Materias del período">
-        @for (subject of subjects(); track subject.id) {
-          <subject-card
-            [subject]="subject"
-            [openSessionSubjectId]="session()?.subject_id ?? null"
-          />
-        }
+        <header class="canvas-header">
+          <h2 class="canvas-title">Materias</h2>
+          <span class="canvas-count">
+            <span machineData>{{ subjects().length }}</span> en el período
+          </span>
+        </header>
+
+        <div class="canvas-grid">
+          @for (subject of subjects(); track subject.id) {
+            <subject-card
+              class="motion-rise motion-stagger"
+              [style.--motion-index]="$index"
+              [subject]="subject"
+              [openSessionSubjectId]="session()?.subject_id ?? null"
+            />
+          }
+        </div>
       </section>
     </div>
   }

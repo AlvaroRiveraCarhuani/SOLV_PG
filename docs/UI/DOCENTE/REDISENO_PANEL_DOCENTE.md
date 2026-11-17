@@ -129,7 +129,9 @@ Hoy   30 oct 2026              Gestión 2026 · 2026-II (activo) ▾      [Abrir
                                                           └──────────────────────┘
 ```
 
-**Composición.** Canvas a la izquierda con `repeat(auto-fill, minmax(260px, 320px))` y `justify-content: start`: la tarjeta no crece más de 320 px, así que con una o dos materias no se estira hasta ocupar media pantalla. La columna mide 320 px fijos y la separación es de 24 px. Arriba va la franja de sesión, que solo existe con aula abierta; sin franja, el canvas empieza a 88 px del borde superior.
+**Composición.** Canvas a la izquierda con `repeat(auto-fill, minmax(260px, 320px))` y `justify-content: start`: la tarjeta no crece más de 320 px, así que con una o dos materias no se estira hasta ocupar media pantalla. El canvas abre con el título `Materias` y el total del período, separados por un borde inferior; la franja de sesión se tiñe con `var(--tenant-primary-subtle)` y lleva el filete del tenant para leerse como algo en curso. La columna mide 320 px fijos y la separación es de 24 px. Arriba va la franja de sesión, que solo existe con aula abierta; sin franja, el canvas empieza a 88 px del borde superior.
+
+**Superficie y movimiento.** El canvas es una superficie tintada con `var(--tenant-primary-subtle)`, borde `var(--tenant-primary-border)`, `var(--radius-lg)` y `padding: var(--space-4)`: agrupa la cabecera y el grid en un solo plano y separa las tarjetas blancas del fondo de la página sin sombras. La franja de sesión y la columna entran con `.motion-rise`; las tarjetas del canvas con `.motion-rise.motion-stagger` y `[style.--motion-index]="$index"`, con el tope de espera del sistema. Ningún componente declara `@keyframes` propios y `prefers-reduced-motion` resuelve las entradas en 1 ms.
 
 **Tarjeta de materia.** Un solo componente para todas, sin variantes por estado. De arriba hacia abajo: código, nombre, línea de cifras, línea de vencimiento y acciones.
 
@@ -139,7 +141,8 @@ Hoy   30 oct 2026              Gestión 2026 · 2026-II (activo) ▾      [Abrir
 - **Vencimiento**: solo con `next_due_at`, como `Vence 31/10 · Práctica 3`, con `dateText:'daymonth'` dentro de un `<time>`.
 - **Acciones**: como máximo dos. `Calificar` cuando hay entregas en la cola, hacia `/teacher/por-calificar?subject_id=`; `Abrir aula` hacia `/teacher/aula?subject_id=` cuando la materia no tiene aula abierta y tiene cola que mover; `Ir al aula` cuando la sesión abierta es la suya. Sin cola y sin aula la tarjeta no lleva acción: su acción es abrir la materia, y abrir una clase sin trabajo pendiente queda en la cabecera.
 - **Superficie**: el nombre es un enlace estirado sobre la tarjeta (`::after`), de modo que la tarjeta entera abre `/teacher/cursos/:id` con un solo tab stop; las acciones quedan por encima y conservan el suyo.
-- **Sin color propio por materia.** Se descarta el acento cromático por curso: seis acentos sin regla semántica no se distinguen entre sí y compiten con el rojo de "se trabó". El canvas se reconoce por código, nombre y posición. Si más adelante hace falta, entra por tokens de estado, no por estilos de la tarjeta.
+- **Identidad**: filete vertical de 3 px con `var(--tenant-primary)` y un tile de 36 px con el icono de materia sobre `var(--tenant-primary-subtle)`. El estado se lee como pastilla: `Al día` en verde de éxito y `N por calificar` en ámbar de pendiente; `N sin entregar` sigue como cifra neutra.
+- **Sin color propio por materia.** Se descarta el acento cromático por curso: seis acentos sin regla semántica no se distinguen entre sí y compiten con el rojo de "se trabó". El color de la tarjeta es del tenant y del estado, nunca de la materia. El canvas se reconoce por código, nombre y posición. Si más adelante hace falta un acento por curso, entra por tokens de estado, no por estilos de la tarjeta.
 
 **Columna de pendientes.** Tres bloques, en orden fijo.
 
@@ -391,7 +394,7 @@ La planilla de notas sigue accesible durante la transición a través del destin
 | Error de red | Panel con el mensaje y botón de reintento, sin borrar lo ya cargado |
 | Dato con más de un minuto | Marca de frescura en ámbar, según la Ley 5 de [UX-PRINCIPLES](../UX-PRINCIPLES.md) |
 
-Densidad: filas de 44 px en la pantalla de aula, 40 px en tablas de registro, cabecera de tabla en `var(--text-xs)` en mayúsculas, tarjetas de 260 a 320 px de ancho en el canvas. Sin tarjetas anidadas. Una sola columna lateral admitida: la de pendientes de Hoy, que existe solo con trabajo pendiente y cuyo contenido tiene acción y dueño declarados ([ADR-057](../../ARQUITECTURA/ADR/ADR-057-hoy-canvas-de-materias-y-columna-de-pendientes.md)); cualquier otra necesita su propio ADR. El espacio se gana con acciones, no con simetría.
+Densidad: filas de 44 px en la pantalla de aula, 40 px en tablas de registro, cabecera de tabla en `var(--text-xs)` en mayúsculas, tarjetas de 260 a 320 px de ancho en el canvas. Sin tarjetas anidadas: la superficie tintada del canvas es un plano sin sombra que agrupa, no una tarjeta. Una sola columna lateral admitida: la de pendientes de Hoy, que existe solo con trabajo pendiente y cuyo contenido tiene acción y dueño declarados ([ADR-057](../../ARQUITECTURA/ADR/ADR-057-hoy-canvas-de-materias-y-columna-de-pendientes.md)); cualquier otra necesita su propio ADR. El espacio se gana con acciones, no con simetría.
 
 Anchos: por encima de 1280 px el canvas y la columna conviven; entre 1024 y 1279 px la columna sube sobre el canvas con sus bloques en fila; por debajo de 768 px, una tarjeta por fila y la columna primero. El canvas no cambia su composición interna en ningún ancho.
 

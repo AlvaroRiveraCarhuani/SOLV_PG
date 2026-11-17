@@ -1,5 +1,6 @@
 import { ChangeDetectionStrategy, Component, computed, input } from '@angular/core';
 import { RouterLink } from '@angular/router';
+import { LucideBookOpen } from '@lucide/angular';
 
 import { DateTextPipe } from '@shared/pipes/date-text.pipe';
 import { TeacherOverviewSubject } from '../../models/teacher.models';
@@ -12,7 +13,7 @@ import { TeacherOverviewSubject } from '../../models/teacher.models';
 @Component({
   selector: 'subject-card',
   standalone: true,
-  imports: [RouterLink, DateTextPipe],
+  imports: [RouterLink, DateTextPipe, LucideBookOpen],
   templateUrl: './subject-card.component.html',
   styleUrl: './subject-card.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush

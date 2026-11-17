@@ -15,6 +15,16 @@
   border-radius: var(--radius-lg);
   transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
 
+  /* Filete del tenant: da identidad a la tarjeta sin un color por materia. */
+  &::before {
+    content: '';
+    position: absolute;
+    inset: 0 auto 0 0;
+    width: 3px;
+    background-color: var(--tenant-primary);
+    border-radius: var(--radius-lg) 0 0 var(--radius-lg);
+  }
+
   &:hover {
     border-color: var(--border-strong);
   }
@@ -23,6 +33,37 @@
     border-color: var(--tenant-primary);
     box-shadow: var(--shadow-card);
   }
+}
+
+.card-head {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-3);
+}
+
+.card-icon {
+  display: inline-flex;
+  flex: 0 0 36px;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  background-color: var(--tenant-primary-subtle);
+  border: 1px solid var(--tenant-primary-subtle);
+  border-radius: var(--radius-md);
+  color: var(--tenant-primary);
+
+  svg {
+    width: var(--space-4);
+    height: var(--space-4);
+  }
+}
+
+.card-identity {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
 }
 
 .card-code {
@@ -83,11 +124,23 @@
   }
 }
 
-.figure-queue strong {
-  color: var(--color-warning);
+.figure-queue {
+  padding: 1px var(--space-2);
+  background-color: var(--status-pending-bg);
+  border: 1px solid var(--status-pending-border);
+  border-radius: var(--radius-full);
+  color: var(--status-pending-color);
+
+  strong {
+    color: var(--status-pending-color);
+  }
 }
 
 .figure-clear {
+  padding: 1px var(--space-2);
+  background-color: var(--status-running-bg);
+  border: 1px solid var(--status-running-border);
+  border-radius: var(--radius-full);
   font-weight: 600;
   color: var(--color-success-dark);
 }

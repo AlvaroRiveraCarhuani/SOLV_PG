@@ -1,14 +1,22 @@
 <article class="subject-card">
-  <code class="card-code">{{ subject().code }}</code>
+  <header class="card-head">
+    <span class="card-icon" aria-hidden="true">
+      <svg lucideBookOpen></svg>
+    </span>
 
-  <h2 class="card-name">
-    <a
-      class="card-link"
-      [routerLink]="subjectLink()"
-      [attr.title]="subject().name"
-      [attr.aria-label]="linkLabel()"
-    >{{ subject().name }}</a>
-  </h2>
+    <div class="card-identity">
+      <code class="card-code">{{ subject().code }}</code>
+
+      <h2 class="card-name">
+        <a
+          class="card-link"
+          [routerLink]="subjectLink()"
+          [attr.title]="subject().name"
+          [attr.aria-label]="linkLabel()"
+        >{{ subject().name }}</a>
+      </h2>
+    </div>
+  </header>
 
   <p class="card-figures">
     @if (subject().enrolled > 0) {
