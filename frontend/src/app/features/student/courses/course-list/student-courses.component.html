@@ -51,7 +51,7 @@
     </div>
   } @else {
     <ul class="course-list" [class.course-list-cards]="viewMode() === 'cards'">
-      @for (item of filteredSubjects(); track viewMode() + item.subject.id) {
+      @for (item of filteredSubjects(); track item.subject.id) {
         <li
           class="course-item motion-rise motion-stagger"
           [style.--motion-index]="$index"

@@ -50,10 +50,10 @@ a la derecha, en una grilla `auto-fill` que no estira la tarjeta cuando hay una 
 materia. En anchos menores a 430 px la grilla pasa a una tarjeta por fila.
 
 Las entradas entran con `.motion-rise.motion-stagger` y `[style.--motion-index]="$index"`.
-La clave de `track` incluye la vista activa, así que cambiar entre **Tarjetas** y
-**Lista** vuelve a crear las filas y la entrada se repite; el hover tiñe con
-`var(--tenant-primary-subtle)` y `var(--tenant-primary-border)` sin tocar el filete
-de la materia.
+El cambio entre **Tarjetas** y **Lista** solo recompone la grilla: las filas no se
+vuelven a crear, así que no se repite la animación ni se pierde el foco. El hover
+tiñe con `var(--tenant-primary-subtle)` y `var(--tenant-primary-border)` sin tocar
+el filete de la materia.
 
 | Elemento | Contenido |
 | :--- | :--- |
