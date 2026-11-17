@@ -89,6 +89,31 @@ func TestBuildCompanionEnvVars_InjectsExpectedValues(t *testing.T) {
 	}
 }
 
+func TestBuildCompanionEnvVars_DefaultUsesNodeDomain(t *testing.T) {
+	service := &PracticeEnvironmentService{
+		submissionRepo: &mockSubmissionRepoForEnv{},
+	}
+
+	t.Setenv("SOLV_API_URL", "")
+	t.Setenv("BASE_DOMAIN", "solv.dedyn.io")
+
+	envs := service.buildCompanionEnvVars(context.Background(), "tenant-1", "", "ex-1", "student-1")
+
+	var found bool
+	for _, env := range envs {
+		if env == "SOLV_API_URL=https://solv.dedyn.io" {
+			found = true
+		}
+		if strings.HasPrefix(env, "SOLV_API_URL=") && strings.Contains(env, "//api.") {
+			t.Errorf("no se esperaba un subdominio api.<dominio>: %s", env)
+		}
+	}
+
+	if !found {
+		t.Errorf("esperado SOLV_API_URL apuntando al dominio del nodo: %+v", envs)
+	}
+}
+
 func TestBuildCompanionEnvVars_FallbackWithoutSubmission(t *testing.T) {
 	mockRepo := &mockSubmissionRepoForEnv{
 		submissions: []*domain.Submission{},

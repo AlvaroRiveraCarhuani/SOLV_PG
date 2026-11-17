@@ -1001,7 +1001,9 @@ func (s *PracticeEnvironmentService) buildCompanionEnvVars(ctx context.Context, 
 	apiURL := os.Getenv("SOLV_API_URL")
 	if apiURL == "" {
 		if baseDomain := getBaseDomain(); baseDomain != "" {
-			apiURL = fmt.Sprintf("https://api.%s", baseDomain)
+			// Traefik publica el API bajo /api en el dominio del nodo: el host
+			// es el mismo del panel web y no existe un subdominio api.<dominio>.
+			apiURL = fmt.Sprintf("https://%s", baseDomain)
 		} else {
 			apiURL = "http://host.docker.internal:3000"
 		}
