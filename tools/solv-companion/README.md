@@ -21,7 +21,7 @@ En el laboratorio la plataforma inyecta la conexión por entorno:
 
 | Variable | Uso |
 | --- | --- |
-| `SOLV_API_URL` | URL base de la API |
+| `SOLV_API_URL` | URL base de la API: el dominio del nodo, sin sufijo ni `/api` (`https://solv.dedyn.io`) |
 | `SOLV_STUDENT_TOKEN` | Token de la sesión del editor |
 | `SOLV_USER_ROLE` | `student`, `teacher` o `admin` |
 | `SOLV_SUBMISSION_ID` | Entrega en revisión |

@@ -77,6 +77,8 @@ Con lista, el backend respalda y sobrescribe solo esos archivos. Sin lista, apli
 - **Autodescubrimiento del aula**: Si el docente abrió el aula desde la web o se reinició el contenedor, la extensión autodescubre la sesión activa con `GET /api/v1/teacher/sessions/open` y sincroniza métricas y presencia.
 - `SOLV: Emitir avance a la clase`: Pide el título con `showInputBox`, el alcance con QuickPick (`Toda la clase` o `Seleccionados`) y alumnos con `canPickMany`. Llama a `POST /api/v1/teacher/sessions/{id}/advances`.
 - `SOLV: Pausar o reanudar la clase`: Alterna el estado de emisión mediante `PATCH /api/v1/teacher/sessions/{id}/freeze` y `unfreeze`.
+- **Aula recordada en el editor**: al iniciar la clase desde el panel, el identificador del aula queda en la configuración de la sesión del editor; si el aula se abrió desde la web, el autodescubrimiento hace lo mismo. Emitir un avance y congelar la clase leen ese identificador y, si quedó vacío, caen al aula del tablero. Al cerrar la clase el identificador se borra y el panel vuelve a ofrecer iniciar la clase.
+- **Aula sin alumnos**: emitir un avance en un aula sin alumnos matriculados avisa y no emite. Con alcance `Seleccionados` y una lista vacía lo dice en vez de pedir una selección.
 
 ## Rúbrica Oficial Adaptativa en la Consigna
 
@@ -116,12 +118,15 @@ Para el rol `student`, la extensión consulta `GET /api/v1/student/sessions/acti
 
 El token se guarda en `SecretStorage` y nunca se escribe en `settings.json`, en la salida ni en el repositorio.
 
+En los entornos de práctica el backend inyecta `SOLV_API_URL` con el dominio del nodo (`https://solv.dedyn.io` en este despliegue). Traefik publica el API bajo `/api` en ese mismo host, así que la URL base no lleva sufijo: no existe un subdominio `api.<dominio>`. La variable de entorno tiene prioridad sobre `solv.apiBaseUrl`; un despliegue que necesite otra URL define `SOLV_API_URL` en el entorno del backend.
+
 ## Comentarios
 
 - Solo se anclan los comentarios con `file_path` y `local_line_number`.
 - El bloque se extiende con la diferencia entre `end_line_number` y `line_number`; el rango se recorta al tamaño del documento.
 - El hover muestra autor y texto una sola vez: la decoración pinta el margen y el `HoverProvider` aporta el contenido.
 - Los comentarios de rúbrica o de la modalidad juez no tienen ancla por archivo y no se pintan en una línea.
+- Sin entrega configurada no se consulta nada y no se avisa: el IDE de la práctica del docente no tiene entrega y el alumno no tiene ninguna hasta que entrega. El aviso de configuración aparece solo cuando falta la URL de la API.
 - Los colores `solv.comment.background` y `solv.comment.border` se adaptan a tema claro, oscuro y alto contraste.
 
 ## Telemetría
@@ -135,6 +140,8 @@ El token se guarda en `SecretStorage` y nunca se escribe en `settings.json`, en 
 ## Conexión
 
 Los avances y el aula se consultan cada 30 segundos. Un microcorte se reintenta en silencio; la barra de estado muestra `Conectando…` y pasa a sin conexión solo si el fallo persiste más de dos minutos. No hay popups flotantes.
+
+Un `404` sin cuerpo JSON es el que devuelve el proxy, o una ruta que el backend no conoce: se informa como ruta inexistente de la API, con el `path` consultado y el estado, en lugar de atribuirlo a la entrega. Los mensajes de dominio siguen saliendo del cuerpo que responde el backend.
 
 ## Compilar y empaquetar
 
