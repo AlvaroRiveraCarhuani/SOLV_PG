@@ -37,3 +37,21 @@ El script automatiza y valida de forma idempotente las reglas necesarias para ai
    ```
 
 3. El script es seguro para ejecutarse múltiples veces ya que realiza una validación previa (`iptables -C`) antes de insertar cada regla, evitando la duplicación.
+
+### El bloqueo de entrada debe filtrar solo conexiones nuevas
+
+La regla que impide conexiones entrantes desde la interfaz física hacia `solv_net` lleva obligatoriamente `-m conntrack --ctstate NEW`:
+
+```bash
+iptables -I DOCKER-USER -i "$OUT_IFACE" -o "$INTERFACE_SOLV" \
+  -m conntrack --ctstate NEW -j DROP
+```
+
+Sin ese filtro, el `DROP` también descarta las respuestas de las conexiones que los contenedores inician hacia internet. El síntoma es engañoso: el `SYN` sale enmascarado por la interfaz física y el `SYN-ACK` vuelve al host, pero muere en `DOCKER-USER`; el contenedor solo ve un timeout. Todo el egreso de `solv_net` queda cortado —proveedores de IA, Google OAuth, SMTP y cualquier API externa—, mientras el host navega sin problema.
+
+Si un equipo quedó con la versión anterior de la regla, `remove_rule` la elimina en la siguiente ejecución del script.
+
+### Persistencia entre reinicios
+
+Las reglas no se restauran solas: no hay unidad systemd ni `iptables-persistent` en el host, así que después de reiniciar hay que volver a ejecutar el script. Hasta entonces el aislamiento Zero Trust no está aplicado.
+

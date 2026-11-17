@@ -44,6 +44,16 @@ apply_rule() {
     fi
 }
 
+# Elimina todas las copias de una regla obsoleta. Se usa para reparar equipos
+# donde quedó aplicada una versión anterior cuyo criterio ya no es correcto.
+remove_rule() {
+    local rule=("$@")
+    while iptables -C "${rule[@]}" 2>/dev/null; do
+        echo "=> Eliminando regla obsoleta: iptables -D ${rule[*]}"
+        iptables -D "${rule[@]}"
+    done
+}
+
 echo "=== Configurando reglas de firewall Zero Trust en DOCKER-USER ==="
 
 echo "Configurando bloqueos para la red por defecto ($INTERFACE_DEFAULT)..."
@@ -56,8 +66,14 @@ done
 
 if [ -n "$INTERFACE_SOLV" ] && [ -n "$GATEWAY_SOLV" ]; then
     echo "Configurando bloqueos para la red personalizada ($INTERFACE_SOLV)..."
-    # Bloquear tráfico entrante directo desde el exterior hacia solv_net (Zero Trust)
-    apply_rule DOCKER-USER -i "$OUT_IFACE" -o "$INTERFACE_SOLV" -j DROP
+    # Bloquear tráfico entrante directo desde el exterior hacia solv_net (Zero Trust).
+    # El filtro ctstate NEW es obligatorio: sin él, el DROP también se lleva las
+    # respuestas (SYN-ACK) de las conexiones que los contenedores inician hacia
+    # internet, y deja sin red a los proveedores de IA, Google OAuth y SMTP.
+    apply_rule DOCKER-USER -i "$OUT_IFACE" -o "$INTERFACE_SOLV" -m conntrack --ctstate NEW -j DROP
+    # Reparación de instalaciones anteriores: el DROP sin ctstate cortaba el
+    # egreso de todo solv_net, así que se elimina si quedó aplicado.
+    remove_rule DOCKER-USER -i "$OUT_IFACE" -o "$INTERFACE_SOLV" -j DROP
     for port in "${PORTS[@]}"; do
         apply_rule DOCKER-USER -i "$INTERFACE_SOLV" -d "$GATEWAY_SOLV" -p tcp --dport "$port" -j DROP
     done
@@ -80,6 +96,26 @@ if command -v docker &>/dev/null; then
         apply_rule DOCKER-USER -s "$EXAM_IP" -o "$OUT_IFACE" ! -d 172.16.0.0/12 -j DROP
         apply_rule DOCKER-USER -s "$EXAM_IP" -o "$OUT_IFACE" ! -d 192.168.0.0/16 -j DROP
     done
+fi
+
+# Excepción acotada en la red de los entornos. `solv-traefik-net` se crea con
+# enable_icc=false para que un alumno no alcance el editor de otro, pero Traefik
+# vive en esa misma red y sin esta excepción el dominio de cada IDE responde
+# 504: el `DROP` del bridge se aplica antes de que Docker evalúe su cadena y solo
+# un ACCEPT en DOCKER-USER lo deja pasar. La IP del proxy se deriva del propio
+# contenedor: si cambia, se vuelve a ejecutar este script.
+if command -v docker &>/dev/null; then
+    echo "Configurando excepción de Traefik hacia los entornos de práctica..."
+    ENVS_NET_ID=$(docker network inspect solv-traefik-net -f '{{.Id}}' 2>/dev/null | cut -c1-12 || true)
+    TRAEFIK_IP=$(docker inspect solv_traefik -f '{{(index .NetworkSettings.Networks "solv-traefik-net").IPAddress}}' 2>/dev/null || true)
+    if [ -n "$ENVS_NET_ID" ] && [ -n "$TRAEFIK_IP" ]; then
+        INTERFACE_ENVS="br-$ENVS_NET_ID"
+        echo "=> Traefik $TRAEFIK_IP sobre $INTERFACE_ENVS"
+        apply_rule DOCKER-USER -i "$INTERFACE_ENVS" -o "$INTERFACE_ENVS" -s "$TRAEFIK_IP" -j ACCEPT
+        apply_rule DOCKER-USER -i "$INTERFACE_ENVS" -o "$INTERFACE_ENVS" -d "$TRAEFIK_IP" -j ACCEPT
+    else
+        echo "=> solv-traefik-net o solv_traefik no están disponibles: excepción omitida."
+    fi
 fi
 
 echo "=== Reglas de firewall aplicadas exitosamente ==="
