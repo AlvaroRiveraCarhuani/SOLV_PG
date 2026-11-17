@@ -73,6 +73,10 @@ services:
       SEAWEEDFS_ENDPOINT: http://seaweedfs:8333
       MIGRATIONS_DIR: /app/migrations
       BACKUP_DIR: /var/lib/solv/backups
+      # La extensión SOLV Companion se monta desde el host y el bind lo arma el
+      # daemon de Docker, así que la ruta debe ser la del host (no /app). Vacía
+      # desactiva el montaje y el entorno arranca sin la extensión.
+      SOLV_COMPANION_HOST_PATH: ${SOLV_COMPANION_HOST_PATH:-}
     ports:
       - "127.0.0.1:3000:3000"
     volumes:

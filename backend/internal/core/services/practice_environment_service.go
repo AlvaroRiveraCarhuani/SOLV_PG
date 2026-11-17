@@ -262,6 +262,7 @@ func buildPracticeEnvironmentAccessURL(environmentID, hostPort string) string {
 	return ""
 }
 
+
 // hostTotalMB lee la RAM física total del host. El segundo valor dice si la
 // medición salió bien: quien decide admisión no puede inventar una capacidad
 // cuando no se pudo leer, porque una cifra supuesta rechaza entornos en un
@@ -927,7 +928,16 @@ func (s *PracticeEnvironmentService) startPracticeEnvironment(ctx context.Contex
 	labels := map[string]string{}
 	if baseDomain != "" {
 		labels["traefik.enable"] = "true"
+		// El contenedor vive también en la red de satélites. Sin esta etiqueta
+		// Traefik puede elegir la IP de esa red, que no tiene ruta hacia él, y la
+		// petición termina en 504.
+		labels["traefik.docker.network"] = networkName
 		labels[fmt.Sprintf("traefik.http.routers.%s.rule", environmentID)] = fmt.Sprintf("Host(`%s.%s`)", environmentID, baseDomain)
+		// El entrypoint websecure no declara TLS por defecto: sin estas dos
+		// etiquetas el router no se sirve por 443 y el editor responde 404.
+		// El certificado comodín del dominio cubre `<uuid>.<dominio>`.
+		labels[fmt.Sprintf("traefik.http.routers.%s.tls", environmentID)] = "true"
+		labels[fmt.Sprintf("traefik.http.routers.%s.tls.certresolver", environmentID)] = "letsencrypt"
 		labels[fmt.Sprintf("traefik.http.services.%s.loadbalancer.server.port", environmentID)] = "3000"
 	}
 
@@ -978,6 +988,7 @@ func (s *PracticeEnvironmentService) startPracticeEnvironment(ctx context.Contex
 	if err := s.repo.UpdateStatus(ctx, environmentID, domain.PracticeEnvironmentStatusRunning); err != nil {
 		return nil, fmt.Errorf("failed to update environment status: %w", err)
 	}
+
 
 	// 12. El setup_script ya no se lanza como goroutine legacy: el shell de
 	// arranque del contenedor lo ejecuta una sola vez por volumen, sellado con

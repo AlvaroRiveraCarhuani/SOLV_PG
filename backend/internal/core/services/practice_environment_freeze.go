@@ -65,7 +65,14 @@ func (s *PracticeEnvironmentService) SetPracticeEnvironmentMount(ctx context.Con
 	labels := map[string]string{}
 	if baseDomain := getBaseDomain(); baseDomain != "" {
 		labels["traefik.enable"] = "true"
+		// El contenedor también está en la red de satélites: Traefik tiene que
+		// saber en cuál mirar o la petición termina en 504.
+		labels["traefik.docker.network"] = "solv-traefik-net"
 		labels[fmt.Sprintf("traefik.http.routers.%s.rule", instance.ID)] = fmt.Sprintf("Host(`%s.%s`)", instance.ID, baseDomain)
+		// El entorno congelado se sirve igual por 443: websecure no declara TLS
+		// por defecto, así que el router lo pide explícito con el comodín.
+		labels[fmt.Sprintf("traefik.http.routers.%s.tls", instance.ID)] = "true"
+		labels[fmt.Sprintf("traefik.http.routers.%s.tls.certresolver", instance.ID)] = "letsencrypt"
 		labels[fmt.Sprintf("traefik.http.services.%s.loadbalancer.server.port", instance.ID)] = "3000"
 	}
 

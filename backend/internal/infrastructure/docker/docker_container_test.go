@@ -137,16 +137,17 @@ func TestResolveCompanionExtensionMount(t *testing.T) {
 	t.Setenv("SOLV_COMPANION_HOST_PATH", tempDir)
 
 	mount := resolveCompanionExtensionMount()
-	expectedPrefix := tempDir + ":/home/.openvscode-server/extensions/solv.solv-companion-0.1.0:ro"
+	expectedPrefix := tempDir + ":" + practiceEnvironmentBuiltinExtensionsDir + "/solv.solv-companion-0.1.0:ro"
 	if mount != expectedPrefix {
 		t.Fatalf("esperado %s, obtenido %s", expectedPrefix, mount)
 	}
 
-	// Caso ruta inexistente
-	t.Setenv("SOLV_COMPANION_HOST_PATH", "/directorio/inexistente/para/el/test")
-	mountInexistente := resolveCompanionExtensionMount()
-	if mountInexistente != "" {
-		t.Fatalf("esperado mount vacío para ruta inexistente, obtenido %s", mountInexistente)
+	// Una ruta explícita se usa tal cual, aunque este proceso no pueda verla: con el
+	// backend en contenedor la resuelve el daemon de Docker sobre el host.
+	t.Setenv("SOLV_COMPANION_HOST_PATH", "/ruta/del/host/tools/solv-companion")
+	expectedHost := "/ruta/del/host/tools/solv-companion:" + practiceEnvironmentBuiltinExtensionsDir + "/solv.solv-companion-0.1.0:ro"
+	if mountHost := resolveCompanionExtensionMount(); mountHost != expectedHost {
+		t.Fatalf("esperado %s, obtenido %s", expectedHost, mountHost)
 	}
 }
 

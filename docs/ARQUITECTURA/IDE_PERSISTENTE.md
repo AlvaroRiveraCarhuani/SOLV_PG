@@ -53,7 +53,14 @@ guardado; en publicación sí aborta con mensaje explícito.
   ve el error; no queda un entorno a medio inicializar.
 - Sin `BASE_DOMAIN` el entorno publica `3000/tcp` en `127.0.0.1:<puerto dinámico>` y
   `access_url = http://localhost:<puerto>`. No se emiten labels Traefik ni dominios `.local` en ese
-  camino.
+  camino. Esa URL solo abre en un navegador del propio servidor: desde otra máquina `localhost`
+  apunta al equipo del usuario.
+- Con `BASE_DOMAIN` el entorno se publica como `https://<uuid>.<BASE_DOMAIN>` y el contenedor recibe
+  las etiquetas del router con `tls=true` y `certresolver=letsencrypt`, porque el entrypoint
+  `websecure` no declara TLS por defecto. Hace falta el registro comodín `*.<BASE_DOMAIN>` en el DNS
+  del dominio y el certificado comodín que emite deSEC. El puerto local se sigue reservando en
+  `127.0.0.1`, pero el navegador entra por 443. Un entorno creado con la configuración anterior no
+  hereda las etiquetas: hay que recrear su contenedor (el volumen se conserva).
 - El environment es único por `(student_id, subject_id, exercise_id)` (ADR-059): el modelo por materia
   se retiró. Por eso el `db_init_script` se re-verifica en cada arranque en lugar de depender de que
   el contenedor sea nuevo.

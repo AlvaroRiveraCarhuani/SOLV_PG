@@ -83,7 +83,14 @@ func (s *PracticeEnvironmentService) reactivatePracticeEnvironment(ctx context.C
 	}
 	if baseDomain != "" {
 		labels["traefik.enable"] = "true"
+		// Sin esta etiqueta Traefik puede tomar la IP de la red de satélites, que
+		// no tiene ruta hacia el editor, y la petición muere en 504.
+		labels["traefik.docker.network"] = networkName
 		labels[fmt.Sprintf("traefik.http.routers.%s.rule", instance.ID)] = fmt.Sprintf("Host(`%s.%s`)", instance.ID, baseDomain)
+		// websecure no trae TLS por defecto: el router del editor necesita
+		// declararlo para servirse por 443 con el certificado comodín.
+		labels[fmt.Sprintf("traefik.http.routers.%s.tls", instance.ID)] = "true"
+		labels[fmt.Sprintf("traefik.http.routers.%s.tls.certresolver", instance.ID)] = "letsencrypt"
 		labels[fmt.Sprintf("traefik.http.services.%s.loadbalancer.server.port", instance.ID)] = "3000"
 	}
 	instance.AccessURL = buildPracticeEnvironmentAccessURL(instance.ID, hostPort)

@@ -24,6 +24,20 @@ const (
 	// environmentServerPort es el único puerto que un environment expone al host.
 	environmentServerPort = "3000/tcp"
 
+	// practiceEnvironmentExtensionsDir es el directorio de extensiones con el que
+	// arranca OpenVSCode Server en los entornos de práctica (flag --extensions-dir).
+	// Cualquier extensión montada para el editor debe quedar dentro de esta ruta:
+	// el flag reemplaza el directorio de usuario por defecto, y una carpeta puesta
+	// en /home/.openvscode-server/extensions nunca se carga.
+	practiceEnvironmentExtensionsDir = "/home/workspace/.vscode/extensions"
+
+	// practiceEnvironmentBuiltinExtensionsDir es el directorio donde vienen las
+	// extensiones incorporadas de OpenVSCode Server. SOLV Companion se monta ahí y no
+	// en el directorio del alumno: al escanear una extensión instalada el editor reescribe
+	// su package.json, y con un montaje de solo lectura ese intento falla (EROFS) y la
+	// extensión queda marcada como no instalada.
+	practiceEnvironmentBuiltinExtensionsDir = "/home/.openvscode-server/extensions"
+
 	// defaultWorkspaceSettingsScript siembra preferencias visuales y de autoguardado iniciales
 	// en el workspace para la comodidad del alumno si aún no existe settings.json.
 	defaultWorkspaceSettingsScript = `if [ ! -f /home/workspace/.vscode/settings.json ]; then printf '{\n  "workbench.colorTheme": "Default Dark Modern",\n  "editor.fontSize": 14,\n  "editor.tabSize": 4,\n  "editor.formatOnSave": true,\n  "editor.minimap.enabled": false,\n  "workbench.startupEditor": "none",\n  "files.autoSave": "afterDelay",\n  "files.autoSaveDelay": 1000\n}\n' > /home/workspace/.vscode/settings.json; fi`
@@ -32,7 +46,7 @@ const (
 	// environment, asegura el directorio de extensiones de usuario del workspace,
 	// siembra preferencias visuales iniciales, ejecuta el setup_script de la plantilla
 	// una sola vez y arranca OpenVSCode abriendo directamente el directorio del proyecto.
-	pureRuntimePracticeEnvironmentCmd = `mkdir -p /home/workspace/.vscode/extensions && chmod 0777 /home/workspace && if [ ! -f /home/workspace/.vscode/settings.json ]; then printf '{\n  "workbench.colorTheme": "Default Dark Modern",\n  "editor.fontSize": 14,\n  "editor.tabSize": 4,\n  "editor.formatOnSave": true,\n  "editor.minimap.enabled": false,\n  "workbench.startupEditor": "none",\n  "files.autoSave": "afterDelay",\n  "files.autoSaveDelay": 1000\n}\n' > /home/workspace/.vscode/settings.json; fi && if [ -n "$SOLV_SETUP_SCRIPT" ] && [ ! -f /home/workspace/.solv_initialized ]; then sh -c "$SOLV_SETUP_SCRIPT" > /home/workspace/.solv_setup.log 2>&1; touch /home/workspace/.solv_initialized; fi && if [ -x /home/.openvscode-server/bin/openvscode-server ]; then exec /home/.openvscode-server/bin/openvscode-server --without-connection-token --host 0.0.0.0 --port 3000 --default-folder /home/workspace --extensions-dir /home/workspace/.vscode/extensions; else exec sleep infinity; fi`
+	pureRuntimePracticeEnvironmentCmd = `mkdir -p ` + practiceEnvironmentExtensionsDir + ` && chmod 0777 /home/workspace && if [ ! -f /home/workspace/.vscode/settings.json ]; then printf '{\n  "workbench.colorTheme": "Default Dark Modern",\n  "editor.fontSize": 14,\n  "editor.tabSize": 4,\n  "editor.formatOnSave": true,\n  "editor.minimap.enabled": false,\n  "workbench.startupEditor": "none",\n  "files.autoSave": "afterDelay",\n  "files.autoSaveDelay": 1000\n}\n' > /home/workspace/.vscode/settings.json; fi && if [ -n "$SOLV_SETUP_SCRIPT" ] && [ ! -f /home/workspace/.solv_initialized ]; then sh -c "$SOLV_SETUP_SCRIPT" > /home/workspace/.solv_setup.log 2>&1; touch /home/workspace/.solv_initialized; fi && if [ -x /home/.openvscode-server/bin/openvscode-server ]; then exec /home/.openvscode-server/bin/openvscode-server --without-connection-token --host 0.0.0.0 --port 3000 --default-folder /home/workspace --extensions-dir ` + practiceEnvironmentExtensionsDir + `; else exec sleep infinity; fi`
 )
 
 // imageShipsOpenVSCode detecta si la imagen trae el servidor OpenVSCode como
@@ -260,12 +274,12 @@ func (c *Client) StartPracticeEnvironmentContainer(ctx context.Context, config d
 		// extensiones del workspace y las preferencias visuales base antes de delegar
 		// en el servidor para asegurar comodidad visual y evitar fallos del observador.
 		containerConfig.User = "1000:1000"
-		containerConfig.Entrypoint = []string{"/bin/sh", "-c", fmt.Sprintf("mkdir -p /home/workspace/.vscode/extensions && %s && exec /home/.openvscode-server/bin/openvscode-server --host 0.0.0.0 \"$@\"", defaultWorkspaceSettingsScript), "--"}
+		containerConfig.Entrypoint = []string{"/bin/sh", "-c", fmt.Sprintf("mkdir -p %s && %s && exec /home/.openvscode-server/bin/openvscode-server --host 0.0.0.0 \"$@\"", practiceEnvironmentExtensionsDir, defaultWorkspaceSettingsScript), "--"}
 		containerConfig.Cmd = []string{
 			"--without-connection-token",
 			"--port", "3000",
 			"--default-folder", "/home/workspace",
-			"--extensions-dir", "/home/workspace/.vscode/extensions",
+			"--extensions-dir", practiceEnvironmentExtensionsDir,
 		}
 	} else {
 		// Runtime puro (python, node, solv-local/stack): NO se le pasa
@@ -829,23 +843,28 @@ func (c *Client) ExecuteCommandInBackground(ctx context.Context, containerID str
 
 // resolveCompanionExtensionMount resuelve el bind mount de desarrollo para la extensión
 // SOLV Companion (ADR-062). Si la carpeta existe en el host, la monta en solo lectura
-// bajo la ruta que OpenVSCode Server reconoce (/home/.openvscode-server/extensions/solv.solv-companion-0.1.0).
+// junto a las extensiones incorporadas del servidor
+// (practiceEnvironmentBuiltinExtensionsDir/solv.solv-companion-0.1.0), que es donde el
+// editor las lee sin reescribirlas. El bind lo crea el daemon
+// de Docker, así que SOLV_COMPANION_HOST_PATH debe ser una ruta del host: cuando el backend
+// corre en contenedor no comparte el árbol del repositorio y solo esa variable lo resuelve.
 // En producción (donde la imagen base ya incluye la extensión horneada) retorna cadena vacía.
 func resolveCompanionExtensionMount() string {
-	candidate := strings.TrimSpace(os.Getenv("SOLV_COMPANION_HOST_PATH"))
-	if candidate == "" {
-		for _, rel := range []string{"tools/solv-companion", "../tools/solv-companion", "../../tools/solv-companion"} {
-			if abs, err := filepath.Abs(rel); err == nil {
-				if info, err := os.Stat(abs); err == nil && info.IsDir() {
-					candidate = abs
-					break
-				}
-			}
-		}
+	// Una ruta declarada en la variable es del host y el daemon de Docker la resuelve,
+	// no este proceso: con el backend en contenedor la carpeta no existe dentro y
+	// comprobarla con os.Stat descartaría el montaje en silencio.
+	if hostPath := strings.TrimSpace(os.Getenv("SOLV_COMPANION_HOST_PATH")); hostPath != "" {
+		return fmt.Sprintf("%s:%s/solv.solv-companion-0.1.0:ro", hostPath, practiceEnvironmentBuiltinExtensionsDir)
 	}
-	if candidate != "" {
-		if info, err := os.Stat(candidate); err == nil && info.IsDir() {
-			return fmt.Sprintf("%s:/home/.openvscode-server/extensions/solv.solv-companion-0.1.0:ro", candidate)
+	// Sin la variable solo se puede resolver el caso del backend ejecutado sobre el
+	// árbol del repositorio, donde la carpeta sí es visible.
+	for _, rel := range []string{"tools/solv-companion", "../tools/solv-companion", "../../tools/solv-companion"} {
+		abs, err := filepath.Abs(rel)
+		if err != nil {
+			continue
+		}
+		if info, err := os.Stat(abs); err == nil && info.IsDir() {
+			return fmt.Sprintf("%s:%s/solv.solv-companion-0.1.0:ro", abs, practiceEnvironmentBuiltinExtensionsDir)
 		}
 	}
 	return ""
