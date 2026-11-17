@@ -37,10 +37,23 @@ Sólo aparece cuando hay materias inscritas:
 - `status-tabs` con tres pestañas y su conteo: **Todas**, **En curso**, **Completadas**.
   Completada = `progress_percent = 100` con `total_exercises > 0`.
 - `search-bar` por nombre o código, sin distinguir mayúsculas.
+- `view-switcher` con **Tarjetas** y **Lista** a la derecha de la búsqueda. Las dos
+  vistas muestran el mismo contenido y los mismos filtros; cambia la densidad.
+  La vista de tarjetas es la inicial.
 
-### 2.3. Fila de materia
+### 2.3. Fila o tarjeta de materia
 
-Una fila por materia, con borde izquierdo del color asignado a la materia:
+Una entrada por materia, con borde izquierdo del color asignado a la materia. En
+**Lista** es una fila de tres columnas (identidad, avance y acción); en **Tarjetas**
+es una tarjeta de 280 a 360 px con la identidad arriba, el avance al pie y la acción
+a la derecha, en una grilla `auto-fill` que no estira la tarjeta cuando hay una sola
+materia. En anchos menores a 430 px la grilla pasa a una tarjeta por fila.
+
+Las entradas entran con `.motion-rise.motion-stagger` y `[style.--motion-index]="$index"`.
+La clave de `track` incluye la vista activa, así que cambiar entre **Tarjetas** y
+**Lista** vuelve a crear las filas y la entrada se repite; el hover tiñe con
+`var(--tenant-primary-subtle)` y `var(--tenant-primary-border)` sin tocar el filete
+de la materia.
 
 | Elemento | Contenido |
 | :--- | :--- |
@@ -135,8 +148,10 @@ el resumen del dashboard y el panel ofrece reintentar.
 5. **Espaciado.** El cascarón ya aplica `padding: var(--space-6)`; la ficha no
    agrega padding propio.
 6. **Movimiento.** Sin `@keyframes` locales: los esqueletos usan
-   `animate-pulse-subtle` y las transiciones `--transition-fast` /
-   `--transition-normal`.
+   `animate-pulse-subtle`, las transiciones `--transition-fast` /
+   `--transition-normal` y las entradas las primitivas `.motion-rise` /
+   `.motion-stagger` con `--motion-index`, que `prefers-reduced-motion` resuelve en
+   1 ms.
 7. **Encabezados.** Todas las vistas del alumno usan `.page-header`, `.page-title`
    y `.page-subtitle`. Los banners informativos y las tarjetas de KPI se retiraron
    de **Mis materias**, **Evaluaciones y prácticas** e **Historial de entregas**;
@@ -156,7 +171,8 @@ el resumen del dashboard y el panel ofrece reintentar.
 ## 7. Verificación
 
 - `student-courses.component.spec.ts`: filas por materia, ausencia de KPI, filtros
-  por pestaña y búsqueda, enlace a la ficha y fecha semántica de la próxima entrega.
+  por pestaña y búsqueda, cambio entre tarjetas y lista, enlace a la ficha y fecha
+  semántica de la próxima entrega.
 - `student-course-detail.component.spec.ts`: resolución del id y de la materia.
 - `curricular-map.component.spec.ts`: progreso por módulos, bloqueo con motivo y
   insignia de examen.

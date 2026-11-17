@@ -13,13 +13,21 @@
         [activeTab]="filterMode()"
         (tabChange)="setFilterMode($event)"
       />
-      <div class="courses-search">
-        <search-bar
-          [query]="searchQuery()"
-          placeholder="Buscar por nombre o código..."
-          ariaLabel="Buscar materias inscritas"
-          (queryChange)="searchQuery.set($event)"
-          (cleared)="searchQuery.set('')"
+      <div class="courses-tools">
+        <div class="courses-search">
+          <search-bar
+            [query]="searchQuery()"
+            placeholder="Buscar por nombre o código..."
+            ariaLabel="Buscar materias inscritas"
+            (queryChange)="searchQuery.set($event)"
+            (cleared)="searchQuery.set('')"
+          />
+        </div>
+        <view-switcher
+          [(mode)]="viewMode"
+          cardsLabel="Tarjetas"
+          tableLabel="Lista"
+          ariaLabel="Vista de materias"
         />
       </div>
     </div>
@@ -42,10 +50,11 @@
       <button type="button" class="btn-outline" (click)="clearFilters()">Quitar filtros</button>
     </div>
   } @else {
-    <ul class="course-list">
-      @for (item of filteredSubjects(); track item.subject.id) {
+    <ul class="course-list" [class.course-list-cards]="viewMode() === 'cards'">
+      @for (item of filteredSubjects(); track viewMode() + item.subject.id) {
         <li
-          class="course-item"
+          class="course-item motion-rise motion-stagger"
+          [style.--motion-index]="$index"
           [style.--course-accent]="getCourseColor(item.subject.id, item.subject.code)"
           [style.--course-accent-bg]="getCourseThemeStyle(item.subject.id, item.subject.code).accentBg"
           [style.--course-accent-border]="getCourseThemeStyle(item.subject.id, item.subject.code).accentBorder"

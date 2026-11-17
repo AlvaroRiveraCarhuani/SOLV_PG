@@ -6,6 +6,7 @@ import { StudentDashboardData, StudentService, DueAssignment } from '@core/servi
 import { CourseColorService } from '@core/services/course-color.service';
 import { StatusTabsComponent } from '@shared/components/status-tabs/status-tabs.component';
 import { SearchBarComponent } from '@shared/components/search-bar/search-bar.component';
+import { ViewSwitcherComponent } from '@shared/components/view-switcher/view-switcher.component';
 
 const DASHBOARD: StudentDashboardData = {
   student_id: 'u1',
@@ -104,6 +105,23 @@ describe('StudentCoursesComponent', () => {
     expect(text).toContain('Sistemas Operativos');
     expect(text).toContain('Cálculo I');
     expect(component.isLoading()).toBe(false);
+  });
+
+  it('permite ver las materias como tarjetas o como lista', async () => {
+    await setup();
+
+    const list = fixture.nativeElement.querySelector('.course-list') as HTMLElement;
+    expect(list.classList).toContain('course-list-cards');
+
+    const switcher = fixture.debugElement.query(By.directive(ViewSwitcherComponent))
+      .componentInstance as ViewSwitcherComponent;
+    switcher.selectMode('table');
+    fixture.detectChanges();
+    expect(list.classList).not.toContain('course-list-cards');
+
+    switcher.selectMode('cards');
+    fixture.detectChanges();
+    expect(list.classList).toContain('course-list-cards');
   });
 
   it('filtra por las pestañas de estado académico', async () => {

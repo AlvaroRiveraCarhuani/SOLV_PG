@@ -6,6 +6,7 @@ import { CourseColorService, CourseThemeStyle } from '@core/services/course-colo
 import { SearchBarComponent } from '@shared/components/search-bar/search-bar.component';
 import { StatusTabsComponent, StatusTabItem } from '@shared/components/status-tabs/status-tabs.component';
 import { SkeletonLoaderComponent } from '@shared/components/skeleton/skeleton-loader.component';
+import { ViewSwitcherComponent, ViewMode } from '@shared/components/view-switcher/view-switcher.component';
 import { CourseColorPickerComponent } from '@shared/components/course-color-picker/course-color-picker.component';
 import { MachineDataDirective } from '@shared/directives/machine-data.directive';
 import { DismissibleDirective } from '@shared/directives/dismissible.directive';
@@ -38,6 +39,7 @@ type FilterMode = 'all' | 'in_progress' | 'completed';
     SkeletonLoaderComponent,
     CourseColorPickerComponent,
     MachineDataDirective,
+    ViewSwitcherComponent,
     DismissibleDirective,
     DateTextPipe,
     LucideBookOpen,
@@ -54,6 +56,8 @@ export class StudentCoursesComponent implements OnInit {
 
   searchQuery = signal('');
   filterMode = signal<FilterMode>('all');
+  /** La lista y la tarjeta muestran lo mismo: cambia la densidad, no el contenido. */
+  viewMode = signal<ViewMode>('cards');
   activeColorPickerCourseId = signal<string | null>(null);
 
   subjects = computed(() => this.studentService.dashboardData()?.subjects ?? []);

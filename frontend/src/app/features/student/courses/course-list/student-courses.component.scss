@@ -14,6 +14,13 @@
   flex-wrap: wrap;
 }
 
+.courses-tools {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+}
+
 .courses-search {
   width: min(100%, 320px);
 }
@@ -25,6 +32,48 @@
   margin: 0;
   padding: 0;
   list-style: none;
+}
+
+/* Vista de tarjetas: la misma información en columna, con el color de la
+   materia como filete y el avance al pie. */
+.course-list-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 360px));
+  place-content: flex-start start;
+  gap: var(--space-4);
+
+  .course-item {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-areas:
+      'identity'
+      'progress'
+      'action';
+    align-items: stretch;
+    gap: var(--space-4);
+    height: 100%;
+    padding: var(--space-5);
+    border-radius: var(--radius-lg);
+  }
+
+  .course-identity {
+    grid-area: identity;
+  }
+
+  .course-name {
+    font-size: var(--text-lg);
+    line-height: var(--leading-snug);
+  }
+
+  .course-progress {
+    grid-area: progress;
+    margin-top: auto;
+  }
+
+  .course-action {
+    grid-area: action;
+    align-self: end;
+    justify-content: flex-end;
+  }
 }
 
 .course-item {
@@ -40,9 +89,11 @@
   border-radius: var(--radius-md);
   transition: border-color var(--transition-fast), background-color var(--transition-fast);
 
+  /* El hover tinta con el color del tenant y deja intacto el filete de la
+     materia: la fila responde sin perder su identidad. */
   &:hover {
-    background-color: var(--bg-surface-subtle);
-    border-color: var(--border-strong);
+    background-color: var(--tenant-primary-subtle);
+    border-color: var(--tenant-primary-border);
     border-left-color: var(--course-accent, var(--tenant-primary));
   }
 }
@@ -261,8 +312,13 @@
     flex-direction: column;
   }
 
+  .courses-tools {
+    justify-content: space-between;
+  }
+
   .courses-search {
-    width: 100%;
+    flex: 1 1 auto;
+    width: auto;
   }
 
   .course-item {
@@ -274,5 +330,11 @@
   .course-action {
     justify-content: flex-start;
     padding-left: 0;
+  }
+}
+
+@media (max-width: 430px) {
+  .course-list-cards {
+    grid-template-columns: minmax(0, 1fr);
   }
 }
