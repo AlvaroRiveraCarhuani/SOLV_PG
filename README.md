@@ -123,6 +123,29 @@ Abrir **http://localhost:4200** en el navegador. La guía detallada para Fedora,
 login local y resolución de problemas está en
 [`docs/OPERATIONS/GUIA_LOCAL_FEDORA.md`](docs/OPERATIONS/GUIA_LOCAL_FEDORA.md).
 
+### 4. Actualizar el stack tras un `git pull`
+
+Backend y frontend hornean el código dentro de la imagen: un `git pull` no
+cambia lo que está sirviendo hasta reconstruir. `scripts/update.sh` construye
+con los metadatos de build, recrea los contenedores y verifica que el commit
+servido sea el del árbol:
+
+```bash
+./scripts/update.sh              # backend + frontend
+./scripts/update.sh backend      # solo el servicio que cambió
+./scripts/update.sh --dry-run    # ver el plan y el estado actual, sin tocar nada
+```
+
+La comprobación final es `GET /api/v1/version`: si `commit` no coincide con
+`git rev-parse --short HEAD`, la actualización no tomó. El script también
+realinea el tag `dev` después de verificar, porque `compose.yml` resuelve la
+imagen como `solv-<servicio>:${SOLV_VERSION:-dev}` y, si `dev` quedara en la
+imagen anterior, un `docker compose up -d` sin variables devolvería el código
+viejo sin avisar.
+
+Las migraciones las aplica el backend al arrancar (`RunMigrations`); no hace
+falta ejecutarlas a mano ni antes ni después del rebuild.
+
 ---
 
 ## Centro de Documentación Técnica
