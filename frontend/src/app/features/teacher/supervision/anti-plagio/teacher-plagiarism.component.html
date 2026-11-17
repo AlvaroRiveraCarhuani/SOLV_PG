@@ -4,6 +4,46 @@
     <div class="header-titles">
       <h1 class="page-title">Auditoría de Similitud</h1>
       <p class="page-subtitle">Comparación estructural de las entregas de esta práctica, con el código base ya restado.</p>
+      @if (!isLoading()) {
+        <p class="page-summary" aria-label="Resumen de auditoría de similitud">
+          <button
+            type="button"
+            class="summary-filter"
+            [class.is-active]="riskFilter() === 'all'"
+            (click)="riskFilter.set('all')"
+            title="Mostrar todos los pares comparados"
+          >
+            <span machineData>{{ kpiStats().totalPairs }}</span>
+            {{ kpiStats().totalPairs === 1 ? 'par analizado' : 'pares analizados' }}
+          </button>
+          <span class="page-summary-sep">·</span>
+          <button
+            type="button"
+            class="summary-filter"
+            [class.is-active]="riskFilter() === 'critical'"
+            (click)="riskFilter.set('critical')"
+            title="Filtrar coincidencias críticas"
+          >
+            <span machineData>{{ kpiStats().criticalCount }}</span>
+            {{ kpiStats().criticalCount === 1 ? 'crítica' : 'críticas' }}
+          </button>
+          <span class="page-summary-sep">·</span>
+          <button
+            type="button"
+            class="summary-filter"
+            [class.is-active]="riskFilter() === 'warning'"
+            (click)="riskFilter.set('warning')"
+            title="Filtrar coincidencias en advertencia"
+          >
+            <span machineData>{{ kpiStats().warningCount }}</span> en advertencia
+          </button>
+          <span class="page-summary-sep">·</span>
+          <span>
+            <span machineData>{{ kpiStats().uniqueStudents }}</span>
+            {{ kpiStats().uniqueStudents === 1 ? 'alumno involucrado' : 'alumnos involucrados' }}
+          </span>
+        </p>
+      }
     </div>
 
     <div class="header-actions">
@@ -43,25 +83,6 @@
     </div>
   </div>
 
-  <!-- KPIs de Integridad y Riesgo -->
-  <div class="kpi-summary-grid">
-    <div class="kpi-box">
-      <span class="kpi-label">Pares Comparados</span>
-      <span class="kpi-val" machineData>{{ kpiStats().totalPairs }}</span>
-    </div>
-    <div class="kpi-box">
-      <span class="kpi-label">Coincidencias Críticas</span>
-      <span class="kpi-val text-danger" machineData>{{ kpiStats().criticalCount }}</span>
-    </div>
-    <div class="kpi-box">
-      <span class="kpi-label">En Advertencia</span>
-      <span class="kpi-val text-warning" machineData>{{ kpiStats().warningCount }}</span>
-    </div>
-    <div class="kpi-box">
-      <span class="kpi-label">Alumnos Involucrados</span>
-      <span class="kpi-val text-primary" machineData>{{ kpiStats().uniqueStudents }}</span>
-    </div>
-  </div>
 
   @if (isLoading()) {
     <skeleton-loader variant="cards" [count]="4" />

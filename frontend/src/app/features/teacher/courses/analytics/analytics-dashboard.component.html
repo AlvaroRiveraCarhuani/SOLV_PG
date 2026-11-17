@@ -15,6 +15,22 @@
         <p class="page-subtitle">
           Datos agregados sobre rendimiento de ejercicios, etiquetas temáticas y volumen de envíos.
         </p>
+        @if (analytics()) {
+          <p class="page-summary" aria-label="Resumen de analíticas">
+            <span machineData>{{ totalExercisesWithDifficulty() }}</span>
+            {{ totalExercisesWithDifficulty() === 1 ? 'ejercicio clasificado' : 'ejercicios clasificados' }}
+            <span class="page-summary-sep">·</span>
+            <span machineData>{{ totalSubmissionsTimeline() }}</span>
+            {{ totalSubmissionsTimeline() === 1 ? 'envío en 30 días' : 'envíos en 30 días' }}
+            <span class="page-summary-sep">·</span>
+            <span>Promedio resolución:</span>
+            <span>Fácil <span machineData>{{ formatSeconds(analytics()?.avg_resolution_time_by_difficulty?.['easy'] || 0) }}</span></span>
+            <span class="page-summary-sep">,</span>
+            <span>Medio <span machineData>{{ formatSeconds(analytics()?.avg_resolution_time_by_difficulty?.['medium'] || 0) }}</span></span>
+            <span class="page-summary-sep">,</span>
+            <span>Difícil <span machineData>{{ formatSeconds(analytics()?.avg_resolution_time_by_difficulty?.['hard'] || 0) }}</span></span>
+          </p>
+        }
       </div>
     </div>
 
@@ -49,65 +65,6 @@
     </div>
   } @else if (analytics()) {
     <main class="analytics-content">
-      <!-- Fila de Tarjetas KPI -->
-      <section class="kpi-grid">
-        <div class="kpi-card">
-          <div class="kpi-icon-wrap">
-            <svg lucideLayers class="kpi-icon"></svg>
-          </div>
-          <div class="kpi-details">
-            <span class="kpi-label">Ejercicios Clasificados</span>
-            <strong class="kpi-value font-mono" machineData>{{ totalExercisesWithDifficulty() }}</strong>
-          </div>
-        </div>
-
-        <div class="kpi-card">
-          <div class="kpi-icon-wrap">
-            <svg lucideTrendingUp class="kpi-icon"></svg>
-          </div>
-          <div class="kpi-details">
-            <span class="kpi-label">Envíos (30 días)</span>
-            <strong class="kpi-value font-mono" machineData>{{ totalSubmissionsTimeline() }}</strong>
-          </div>
-        </div>
-
-        <div class="kpi-card">
-          <div class="kpi-icon-wrap">
-            <svg lucideClock class="kpi-icon"></svg>
-          </div>
-          <div class="kpi-details">
-            <span class="kpi-label">Resolución Promedio (Fácil)</span>
-            <strong class="kpi-value font-mono" machineData>
-              {{ formatSeconds(analytics()?.avg_resolution_time_by_difficulty?.['easy'] || 0) }}
-            </strong>
-          </div>
-        </div>
-
-        <div class="kpi-card">
-          <div class="kpi-icon-wrap">
-            <svg lucideClock class="kpi-icon"></svg>
-          </div>
-          <div class="kpi-details">
-            <span class="kpi-label">Resolución Promedio (Medio)</span>
-            <strong class="kpi-value font-mono" machineData>
-              {{ formatSeconds(analytics()?.avg_resolution_time_by_difficulty?.['medium'] || 0) }}
-            </strong>
-          </div>
-        </div>
-
-        <div class="kpi-card">
-          <div class="kpi-icon-wrap">
-            <svg lucideClock class="kpi-icon"></svg>
-          </div>
-          <div class="kpi-details">
-            <span class="kpi-label">Resolución Promedio (Difícil)</span>
-            <strong class="kpi-value font-mono" machineData>
-              {{ formatSeconds(analytics()?.avg_resolution_time_by_difficulty?.['hard'] || 0) }}
-            </strong>
-          </div>
-        </div>
-      </section>
-
       <!-- Grilla Principal 2x2 -->
       <div class="cards-grid">
         <!-- 1. Distribución por Dificultad -->

@@ -189,6 +189,15 @@ describe('TeacherPlagiarismComponent', () => {
     expect(stats.criticalCount).toBe(1);
     expect(stats.warningCount).toBe(1);
     expect(stats.uniqueStudents).toBe(4);
+
+    const compiled = fixture.nativeElement as HTMLElement;
+    expect(compiled.querySelector('.kpi-summary-grid')).toBeNull();
+    const pageSummary = compiled.querySelector('.page-summary');
+    expect(pageSummary).toBeTruthy();
+    expect(pageSummary?.textContent).toContain('2 pares analizados');
+    expect(pageSummary?.textContent).toContain('1 crítica');
+    expect(pageSummary?.textContent).toContain('1 en advertencia');
+    expect(pageSummary?.textContent).toContain('4 alumnos involucrados');
   });
 
   it('filtra los pares por nivel de riesgo', () => {

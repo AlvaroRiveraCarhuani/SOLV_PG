@@ -5,11 +5,9 @@ import {
   LucideBarChart3,
   LucideArrowLeft,
   LucideRefreshCw,
-  LucideClock,
   LucideTag,
   LucideAlertTriangle,
-  LucideTrendingUp,
-  LucideLayers
+  LucideTrendingUp
 } from '@lucide/angular';
 import { MachineDataDirective } from '@shared/directives/machine-data.directive';
 import { SortHeaderComponent } from '@shared/components/sort-header/sort-header.component';
@@ -26,11 +24,9 @@ import { CourseAnalyticsDTO } from '../../models/teacher.models';
     LucideBarChart3,
     LucideArrowLeft,
     LucideRefreshCw,
-    LucideClock,
     LucideTag,
     LucideAlertTriangle,
     LucideTrendingUp,
-    LucideLayers,
     MachineDataDirective,
     SortHeaderComponent
   ],
