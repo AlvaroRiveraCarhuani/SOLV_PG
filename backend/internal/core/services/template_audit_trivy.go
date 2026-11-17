@@ -7,6 +7,8 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"os"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -16,26 +18,34 @@ import (
 	"github.com/docker/docker/pkg/stdcopy"
 )
 
+// ensureTrivyImage deja la imagen del escáner disponible antes de crear un
+// contenedor. La descarga de la base CVE también la necesita: sin esto, un
+// arranque en frío no puede primar la caché.
+func (w *TemplateAuditWorker) ensureTrivyImage(ctx context.Context) error {
+	_, _, err := w.dockerCli.ImageInspectWithRaw(ctx, TrivyDockerImage)
+	if err == nil {
+		return nil
+	}
+	if !errdefs.IsNotFound(err) {
+		return err
+	}
+	log.Printf("[TemplateAuditWorker] Descargando imagen de auditoría %s...", TrivyDockerImage)
+	out, pullErr := w.dockerCli.ImagePull(ctx, TrivyDockerImage, image.PullOptions{})
+	if pullErr != nil {
+		return pullErr
+	}
+	defer func() { _ = out.Close() }()
+	if _, copyErr := io.Copy(io.Discard, out); copyErr != nil {
+		return copyErr
+	}
+	return nil
+}
+
 // runTrivyScan ejecuta Trivy escaneando la imagen por CVEs de severidad CRITICAL y HIGH
 func (w *TemplateAuditWorker) runTrivyScan(ctx context.Context, dockerImage string) (string, int, int, []byte) {
-	// Verificar o descargar imagen de Trivy si no existe
-	_, _, err := w.dockerCli.ImageInspectWithRaw(ctx, TrivyDockerImage)
-	if err != nil {
-		if !errdefs.IsNotFound(err) {
-			log.Printf("[TemplateAuditWorker] Error inspeccionando Trivy: %v", err)
-			return auditStatusError, 0, 0, trivyErrorReport("trivy_inspect", err)
-		}
-		log.Printf("[TemplateAuditWorker] Descargando imagen de auditoría %s...", TrivyDockerImage)
-		out, pullErr := w.dockerCli.ImagePull(ctx, TrivyDockerImage, image.PullOptions{})
-		if pullErr != nil {
-			log.Printf("[TemplateAuditWorker] Error descargando Trivy: %v", pullErr)
-			return auditStatusError, 0, 0, trivyErrorReport("trivy_pull", pullErr)
-		}
-		defer func() { _ = out.Close() }()
-		if _, copyErr := io.Copy(io.Discard, out); copyErr != nil {
-			log.Printf("[TemplateAuditWorker] Error leyendo la descarga de Trivy: %v", copyErr)
-			return auditStatusError, 0, 0, trivyErrorReport("trivy_pull", copyErr)
-		}
+	if err := w.ensureTrivyImage(ctx); err != nil {
+		log.Printf("[TemplateAuditWorker] Error preparando Trivy: %v", err)
+		return auditStatusError, 0, 0, trivyErrorReport("trivy_pull", err)
 	}
 
 	scanCtx, cancel := context.WithTimeout(ctx, 3*time.Minute)
@@ -46,6 +56,10 @@ func (w *TemplateAuditWorker) runTrivyScan(ctx context.Context, dockerImage stri
 		Binds: []string{
 			"/var/run/docker.sock:/var/run/docker.sock:ro",
 			fmt.Sprintf("%s:/root/.cache", w.cacheDir),
+		},
+		Resources: container.Resources{
+			NanoCPUs: trivyCPULimit,
+			Memory:   trivyMemoryLimit,
 		},
 		AutoRemove: false,
 	}
@@ -145,14 +159,35 @@ func (w *TemplateAuditWorker) runTrivyScan(ctx context.Context, dockerImage stri
 	return status, criticalCount, highCount, rawJSON
 }
 
-// UpdateTrivyDB actualiza la base de vulnerabilidades de Trivy descargando el paquete a cache
-func (w *TemplateAuditWorker) UpdateTrivyDB(ctx context.Context) error {
-	syncCtx, cancel := context.WithTimeout(ctx, 5*time.Minute)
+// UpdateTrivyDB actualiza la base de vulnerabilidades de Trivy descargando el paquete a cache.
+// La base comprimida ronda los 130 MB y se expande a más de 1 GB: cinco minutos
+// solo alcanzan en redes rápidas. Quince dan margen sin dejar el worker colgado.
+func (w *TemplateAuditWorker) UpdateTrivyDB(ctx context.Context) (err error) {
+	syncCtx, cancel := context.WithTimeout(ctx, 15*time.Minute)
 	defer cancel()
+
+	// Una descarga interrumpida deja trivy.db a medias; se descarta para no
+	// ocupar espacio ni simular una base válida en el siguiente arranque.
+	defer func() {
+		if err == nil || w.hasTrivyDB() || strings.TrimSpace(w.cacheDir) == "" {
+			return
+		}
+		if purgeErr := os.RemoveAll(filepath.Join(w.cacheDir, "trivy")); purgeErr != nil {
+			log.Printf("[TemplateAuditWorker] No se pudo limpiar la base CVE incompleta: %v", purgeErr)
+		}
+	}()
+
+	if err := w.ensureTrivyImage(syncCtx); err != nil {
+		return fmt.Errorf("error preparando la imagen de Trivy: %w", err)
+	}
 
 	hostConfig := &container.HostConfig{
 		Binds: []string{
 			fmt.Sprintf("%s:/root/.cache", w.cacheDir),
+		},
+		Resources: container.Resources{
+			NanoCPUs: trivyCPULimit,
+			Memory:   trivyMemoryLimit,
 		},
 		AutoRemove: false,
 	}
@@ -186,6 +221,18 @@ func (w *TemplateAuditWorker) UpdateTrivyDB(ctx context.Context) error {
 	case <-statusCh:
 	case <-syncCtx.Done():
 		return fmt.Errorf("timeout en descarga de base CVE")
+	}
+
+	// ContainerWait no falla si el proceso sale con error: hay que leer el código.
+	inspect, inspectErr := w.dockerCli.ContainerInspect(context.Background(), resp.ID)
+	if inspectErr != nil {
+		return fmt.Errorf("no se pudo verificar la descarga de base CVE: %w", inspectErr)
+	}
+	if inspect.State != nil && inspect.State.ExitCode != 0 {
+		return fmt.Errorf("la descarga de base CVE terminó con código %d", inspect.State.ExitCode)
+	}
+	if !w.hasTrivyDB() {
+		return fmt.Errorf("la descarga de base CVE no dejó una base completa")
 	}
 
 	log.Println("[TemplateAuditWorker] Base de datos CVE actualizada correctamente en cache")

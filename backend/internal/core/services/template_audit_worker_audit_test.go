@@ -3,6 +3,7 @@ package services
 import (
 	"bytes"
 	"context"
+	"errors"
 	"strings"
 	"testing"
 
@@ -202,7 +203,7 @@ func TestAuditTemplatePersistsAuditOutcome(t *testing.T) {
 				BaseRamMB:   0,
 				Status:      tc.current,
 			}
-			if err := worker.AuditTemplate(context.Background(), item); err != nil {
+			if err := worker.AuditTemplate(context.Background(), item); err != nil && !errors.Is(err, errAuditInfrastructure) {
 				t.Fatalf("AuditTemplate devolvió error: %v", err)
 			}
 			if len(repo.calls) != 1 {
@@ -262,6 +263,8 @@ func TestReconcilePendingSkipsHumanControlledStatuses(t *testing.T) {
 		},
 	}
 	worker := NewTemplateAuditWorker(nil, repo)
+	worker.cacheDir = t.TempDir()
+	writeTrivyDB(t, worker.cacheDir)
 	worker.smokeRunner = func(context.Context, *domain.AdminTemplateReviewItem) (string, string) {
 		return "passed", ""
 	}

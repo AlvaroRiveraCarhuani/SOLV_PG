@@ -3,9 +3,12 @@ package services
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
+	"io/fs"
 	"log"
 	"os"
+	"path/filepath"
 	"strings"
 	"sync"
 	"time"
@@ -19,7 +22,25 @@ import (
 const (
 	TrivyDockerImage     = "aquasec/trivy:0.55.0"
 	DefaultTrivyCacheDir = "/tmp/solv-trivy-cache"
+	// El escaneo no puede quedarse con el host: Trivy es un proceso auxiliar.
+	trivyCPULimit    int64 = 1_000_000_000
+	trivyMemoryLimit int64 = 1 << 30
 )
+
+const (
+	// Espera del worker cuando el escáner no está listo (sin base CVE).
+	trivyDBRetryBase = time.Minute
+	trivyDBRetryMax  = time.Hour
+	// Espera por plantilla cuando el fallo es de una imagen concreta.
+	templateRetryBase = 10 * time.Minute
+	templateRetryMax  = time.Hour
+	trivyDBRefresh    = 24 * time.Hour
+)
+
+// errAuditInfrastructure indica que la auditoría se persistió, pero no pudo
+// completarse por una causa ajena a la plantilla. El reconciliador la espacia
+// en vez de reintentarla en cada ciclo.
+var errAuditInfrastructure = errors.New("auditoría no completada por infraestructura")
 
 const (
 	auditStatusPassed  = "passed"
@@ -59,6 +80,18 @@ type TemplateAuditWorker struct {
 	// escáner reales. El constructor los enlaza a los métodos del worker.
 	smokeRunner func(context.Context, *domain.AdminTemplateReviewItem) (string, string)
 	trivyRunner func(context.Context, string) (string, int, int, []byte)
+
+	// dbSyncer, dbReady y now permiten probar el primado y el backoff sin
+	// Docker ni reloj real.
+	dbSyncer func(context.Context) error
+	dbReady  func() bool
+	now      func() time.Time
+
+	nextDBRetry     time.Time
+	dbBackoff       time.Duration
+	nextDBRefresh   time.Time
+	templateRetry   map[string]time.Time
+	templateBackoff map[string]time.Duration
 }
 
 func NewTemplateAuditWorker(dockerCli *client.Client, govRepo domain.AdminGovernanceRepository) *TemplateAuditWorker {
@@ -78,6 +111,11 @@ func NewTemplateAuditWorker(dockerCli *client.Client, govRepo domain.AdminGovern
 	}
 	worker.smokeRunner = worker.runSmokeTest
 	worker.trivyRunner = worker.runTrivyScan
+	worker.dbSyncer = worker.UpdateTrivyDB
+	worker.dbReady = worker.hasTrivyDB
+	worker.now = time.Now
+	worker.templateRetry = make(map[string]time.Time)
+	worker.templateBackoff = make(map[string]time.Duration)
 	return worker
 }
 
@@ -85,12 +123,14 @@ func NewTemplateAuditWorker(dockerCli *client.Client, govRepo domain.AdminGovern
 func (w *TemplateAuditWorker) Start(ctx context.Context) {
 	log.Printf("[TemplateAuditWorker] Iniciando worker de auditoría (cache: %s)...", w.cacheDir)
 
-	// 1. Reconciliador de plantillas pendientes
+	// 1. Reconciliador de plantillas pendientes. El escáner se asegura antes de
+	// tocar la cola: sin base CVE no hay nada que auditar y las plantillas no
+	// deben pagar el reintento de una falla de infraestructura.
 	go func() {
 		ticker := time.NewTicker(10 * time.Second)
 		defer ticker.Stop()
 
-		// Ejecución inicial inmediata
+		w.ensureScanner(ctx)
 		w.reconcilePending(ctx)
 
 		for {
@@ -100,32 +140,13 @@ func (w *TemplateAuditWorker) Start(ctx context.Context) {
 			case <-w.stopCh:
 				return
 			case <-ticker.C:
+				w.ensureScanner(ctx)
 				w.reconcilePending(ctx)
 			}
 		}
 	}()
 
-	// 2. Cron diario de descarga de base de datos CVE (B-04)
-	go func() {
-		ticker := time.NewTicker(24 * time.Hour)
-		defer ticker.Stop()
-
-		for {
-			select {
-			case <-ctx.Done():
-				return
-			case <-w.stopCh:
-				return
-			case <-ticker.C:
-				log.Println("[TemplateAuditWorker] Ejecutando sincronización diaria de base CVE...")
-				if err := w.UpdateTrivyDB(ctx); err != nil {
-					log.Printf("[TemplateAuditWorker] Error actualizando base CVE: %v", err)
-				}
-			}
-		}
-	}()
-
-	// 3. Tarea programada semanal (7 días) de ciclo de vida EOL (C-01)
+	// 2. Tarea programada semanal (7 días) de ciclo de vida EOL (C-01)
 	go func() {
 		ticker := time.NewTicker(7 * 24 * time.Hour)
 		defer ticker.Stop()
@@ -148,9 +169,99 @@ func (w *TemplateAuditWorker) Stop() {
 	close(w.stopCh)
 }
 
+// ensureScanner mantiene disponible la base CVE. Si falta, la descarga antes
+// de la primera auditoría y reintenta con espera creciente; nunca deja que el
+// reconciliador escanee contra un escáner incompleto.
+func (w *TemplateAuditWorker) ensureScanner(ctx context.Context) {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	w.ensureScannerLocked(ctx)
+}
+
+func (w *TemplateAuditWorker) ensureScannerLocked(ctx context.Context) {
+	now := w.now()
+	ready := w.dbReady()
+	if ready {
+		if w.nextDBRefresh.IsZero() {
+			w.nextDBRefresh = now.Add(trivyDBRefresh)
+			return
+		}
+		if now.Before(w.nextDBRefresh) {
+			return
+		}
+	} else if now.Before(w.nextDBRetry) {
+		return
+	}
+
+	log.Println("[TemplateAuditWorker] Asegurando base CVE de Trivy...")
+	if err := w.dbSyncer(ctx); err != nil {
+		if w.dbBackoff == 0 {
+			w.dbBackoff = trivyDBRetryBase
+		} else if w.dbBackoff < trivyDBRetryMax {
+			w.dbBackoff *= 2
+			if w.dbBackoff > trivyDBRetryMax {
+				w.dbBackoff = trivyDBRetryMax
+			}
+		}
+		w.nextDBRetry = now.Add(w.dbBackoff)
+		w.nextDBRefresh = w.nextDBRetry
+		log.Printf("[TemplateAuditWorker] Escáner no disponible: %v. Próximo intento en %s", err, w.dbBackoff)
+		return
+	}
+
+	w.dbBackoff = 0
+	w.nextDBRetry = time.Time{}
+	w.nextDBRefresh = now.Add(trivyDBRefresh)
+	log.Println("[TemplateAuditWorker] Base CVE lista para auditar")
+}
+
+// hasTrivyDB comprueba que la caché contiene una base real y completa. Trivy
+// escribe trivy.db mientras descarga, así que el archivo por sí solo no prueba
+// nada: metadata.json solo aparece cuando la descarga terminó bien.
+func (w *TemplateAuditWorker) hasTrivyDB() bool {
+	found := false
+	_ = filepath.WalkDir(w.cacheDir, func(path string, entry fs.DirEntry, err error) error {
+		if err != nil {
+			return nil
+		}
+		if entry.IsDir() || entry.Name() != "trivy.db" {
+			return nil
+		}
+		info, statErr := entry.Info()
+		if statErr != nil || info.Size() == 0 {
+			return nil
+		}
+		if isCompleteTrivyDB(filepath.Dir(path)) {
+			found = true
+			return fs.SkipAll
+		}
+		return nil
+	})
+	return found
+}
+
+// isCompleteTrivyDB valida el metadata.json que Trivy escribe al finalizar.
+func isCompleteTrivyDB(dbDir string) bool {
+	raw, err := os.ReadFile(filepath.Join(dbDir, "metadata.json"))
+	if err != nil {
+		return false
+	}
+	var meta struct {
+		Version int `json:"Version"`
+	}
+	if err := json.Unmarshal(raw, &meta); err != nil {
+		return false
+	}
+	return meta.Version > 0
+}
+
 func (w *TemplateAuditWorker) reconcilePending(ctx context.Context) {
 	w.mu.Lock()
 	defer w.mu.Unlock()
+
+	if !w.dbReady() {
+		return
+	}
 
 	templates, err := w.govRepo.ListPendingAuditTemplates(ctx)
 	if err != nil {
@@ -167,6 +278,9 @@ func (w *TemplateAuditWorker) reconcilePending(ctx context.Context) {
 			log.Printf("[TemplateAuditWorker] Plantilla %s en estado %s: auditoría omitida", item.ID, item.Status)
 			continue
 		}
+		if next, ok := w.templateRetry[item.ID]; ok && w.now().Before(next) {
+			continue
+		}
 		select {
 		case <-ctx.Done():
 			return
@@ -174,8 +288,26 @@ func (w *TemplateAuditWorker) reconcilePending(ctx context.Context) {
 			return
 		default:
 			log.Printf("[TemplateAuditWorker] Auditando plantilla %s (imagen: %s)...", item.Name, item.DockerImage)
-			if err := w.AuditTemplate(ctx, item); err != nil {
+			err := w.AuditTemplate(ctx, item)
+			switch {
+			case errors.Is(err, errAuditInfrastructure):
+				delay := w.templateBackoff[item.ID]
+				if delay == 0 {
+					delay = templateRetryBase
+				} else if delay < templateRetryMax {
+					delay *= 2
+					if delay > templateRetryMax {
+						delay = templateRetryMax
+					}
+				}
+				w.templateBackoff[item.ID] = delay
+				w.templateRetry[item.ID] = w.now().Add(delay)
+				log.Printf("[TemplateAuditWorker] Plantilla %s sin auditoría por infraestructura; próximo intento en %s", item.ID, delay)
+			case err != nil:
 				log.Printf("[TemplateAuditWorker] Error auditando plantilla %s: %v", item.ID, err)
+			default:
+				delete(w.templateBackoff, item.ID)
+				delete(w.templateRetry, item.ID)
 			}
 		}
 	}
@@ -273,6 +405,13 @@ func (w *TemplateAuditWorker) AuditTemplate(ctx context.Context, item *domain.Ad
 		log.Printf("[TemplateAuditWorker] Error actualizando estado EOL para plantilla %s: %v", item.ID, err)
 	}
 
+	infrastructureFailure := strings.EqualFold(smokeStatus, auditStatusError) ||
+		(!strings.EqualFold(smokeStatus, auditStatusFailed) &&
+			(strings.EqualFold(secStatus, auditStatusError) ||
+				(strings.EqualFold(secStatus, auditStatusFailed) && cveCritical == 0)))
+	if infrastructureFailure {
+		return errAuditInfrastructure
+	}
 	return nil
 }
 

@@ -162,7 +162,7 @@ stateDiagram-v2
     paused --> APROBADA: review(status='approved')
 ```
 
-**Fallo de infraestructura:** si Docker, la red o Trivy no permiten completar la auditoría, el smoke o el escaneo quedan en `error`, la plantilla conserva su estado actual y la cola la reintenta. No se transiciona a `RECHAZADA` por un fallo de preparación; solo un smoke fallido por herramientas ausentes o CVE críticos retiran la plantilla del catálogo.
+**Fallo de infraestructura:** si Docker, la red o Trivy no permiten completar la auditoría, el smoke o el escaneo quedan en `error`, la plantilla conserva su estado actual y la cola la reintenta con espera creciente. El worker no consulta la cola mientras la base CVE no esté descargada, y solo la considera descargada cuando Trivy dejó su `metadata.json`, no cuando el archivo de base ya tiene bytes. No se transiciona a `RECHAZADA` por un fallo de preparación; solo un smoke fallido por herramientas ausentes o CVE críticos retiran la plantilla del catálogo.
 
 ### 4.3 Comportamiento del Estado `SUSPENDIDA`
 * **Validación de Motivo:** Si `rejection_reason` tiene menos de 10 caracteres, el backend aborta con HTTP 400 (`ErrRejectionReasonRequired`).
