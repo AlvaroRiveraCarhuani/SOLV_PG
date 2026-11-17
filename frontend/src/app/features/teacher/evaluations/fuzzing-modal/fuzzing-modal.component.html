@@ -7,7 +7,7 @@
           <svg lucideSparkles class="modal-icon"></svg>
         </div>
         <div>
-          <h2 class="modal-title">Generador de Fuzzing & Condiciones de Borde</h2>
+          <h2 class="modal-title">Generador de Casos Límite y Condiciones de Borde</h2>
           <p class="modal-subtitle">
             Ejercicio: <strong>{{ exerciseTitle }}</strong> · Lenguaje: <code machineData>{{ selectedLanguage() }}</code>
           </p>
@@ -37,7 +37,7 @@
       </div>
 
       <div class="filter-section">
-        <span class="filter-label">Categorías de Fuzzing:</span>
+        <span class="filter-label">Categorías de casos límite:</span>
         <div class="chips-wrap">
           @for (cat of availableCategories; track cat.id) {
             <button 

@@ -575,6 +575,32 @@ export const CONTEXT_HELP_ENTRIES: Record<string, ContextHelpEntry> = {
       }
     ],
     manualFragment: null
+  },
+
+  'teacher-exercises': {
+    key: 'teacher-exercises',
+    title: 'Catálogo y Banco de Laboratorios',
+    intro:
+      'Administre y reutilice sus prácticas de laboratorio entre materias. Puede editar consignas, duplicar prácticas y generar casos de prueba.',
+    items: [
+      {
+        label: 'Entorno de Evaluación vs. Entorno de Desarrollo',
+        text: '«Entorno de Evaluación» califica automáticamente mediante casos de prueba discretos. «Entorno de Desarrollo» provee un espacio interactivo con terminal para proyectos continuos y APIs.'
+      },
+      {
+        label: 'Reutilizar y Duplicar',
+        text: '«Duplicar» copia la práctica a otra de sus materias como un borrador nuevo, sin arrastrar notas ni entregas de alumnos previos.'
+      },
+      {
+        label: 'Casos Límite Automáticos',
+        text: 'En Entornos de Evaluación, permite sintetizar casos de prueba para condiciones de borde (entradas vacías, desbordes, límites) sin cargarlos manualmente.'
+      },
+      {
+        label: 'Filtros y Resumen',
+        text: 'La cabecera compacta permite filtrar por estado (publicados o borradores) con un solo clic sobre la métrica correspondiente.'
+      }
+    ],
+    manualFragment: null
   }
 };
 
