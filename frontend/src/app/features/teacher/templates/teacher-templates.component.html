@@ -6,7 +6,7 @@
       <p class="page-subtitle">Explorá los entornos preconfigurados y herramientas disponibles para tus cursos.</p>
     </div>
 
-    <div class="header-actions">
+    <div class="header-actions" data-tour="teacher-templates-header-actions">
       <button type="button" class="btn-primary" (click)="openRequestModal()">
         <svg lucidePlus class="btn-icon"></svg>
         <span>Solicitar entorno</span>
@@ -15,7 +15,7 @@
   </header>
 
   <!-- Pestañas: catálogo y solicitudes propias -->
-  <nav class="page-tabs" aria-label="Catálogo y solicitudes">
+  <nav class="page-tabs" data-tour="teacher-templates-tabs" aria-label="Catálogo y solicitudes">
     <button
       type="button"
       class="page-tab"
@@ -28,6 +28,7 @@
     <button
       type="button"
       class="page-tab"
+      data-tour="teacher-templates-requests-tab"
       [class.active]="activeTab() === 'requests'"
       (click)="setTab('requests')"
     >
@@ -41,7 +42,7 @@
 
   @if (activeTab() === 'catalog') {
   <!-- Barra de Filtros -->
-  <div class="filters-toolbar">
+  <div class="filters-toolbar" data-tour="teacher-templates-filters">
     <div class="search-box">
       <svg lucideSearch class="search-icon"></svg>
       <input
@@ -96,7 +97,10 @@
   } @else {
     <div class="templates-grid">
       @for (tpl of filteredTemplates(); track tpl.id; let i = $index) {
-        <article class="template-card motion-rise motion-stagger" [style.--motion-index]="i">
+        <article
+          class="template-card motion-rise motion-stagger"
+          [attr.data-tour]="i === 0 ? 'teacher-templates-card' : null"
+          [style.--motion-index]="i">
           <!-- Card Header -->
           <div class="card-header">
             <div class="category-meta">
@@ -174,6 +178,7 @@
               <button
                 type="button"
                 class="btn-variant"
+                [attr.data-tour]="i === 0 ? 'teacher-templates-variant-btn' : null"
                 (click)="requestVariant(tpl)"
                 title="Pedir un entorno parecido a este, cambiando alguna herramienta"
               >

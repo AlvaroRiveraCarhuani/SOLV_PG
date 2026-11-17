@@ -44,18 +44,20 @@ import { LucideBookOpen, LucideX, LucideExternalLink } from '@lucide/angular';
           <ng-content></ng-content>
         </div>
 
-        <div class="drawer-footer">
-          <a 
-            routerLink="/admin/manual" 
-            [fragment]="manualFragment() || undefined"
-            target="_blank" 
-            rel="noopener noreferrer" 
-            class="manual-link"
-          >
-            <span>{{ manualLinkText() }}</span>
-            <svg lucideExternalLink class="link-icon" aria-hidden="true"></svg>
-          </a>
-        </div>
+        @if (manualLink()) {
+          <div class="drawer-footer">
+            <a 
+              [routerLink]="manualLink()!" 
+              [fragment]="manualFragment() || undefined"
+              target="_blank" 
+              rel="noopener noreferrer" 
+              class="manual-link"
+            >
+              <span>{{ manualLinkText() }}</span>
+              <svg lucideExternalLink class="link-icon" aria-hidden="true"></svg>
+            </a>
+          </div>
+        }
       </aside>
     }
   `,
@@ -65,6 +67,7 @@ export class HelpDrawerComponent {
   isOpen = input<boolean>(false);
   title = input<string>('Ayuda Contextual');
   stepNumber = input<number | null>(null);
+  manualLink = input<string | null>('/admin/manual');
   manualLinkText = input<string>('Ver manual completo de administración');
   manualFragment = input<string | null>(null);
 

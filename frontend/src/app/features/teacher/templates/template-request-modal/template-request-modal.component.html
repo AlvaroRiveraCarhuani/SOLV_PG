@@ -64,7 +64,7 @@
               </div>
             }
 
-            <div class="field">
+            <div class="field" data-tour="template-request-practice">
               <label class="form-label" for="practice-text">
                 ¿Qué van a hacer tus estudiantes?
                 <span class="required-mark">Obligatorio</span>
@@ -94,7 +94,7 @@
               }
               <div class="field-foot">
                 <div class="ai-actions">
-                  <button type="button" class="ai-button" [disabled]="aiLoading()" (click)="interpret()">
+                  <button type="button" class="ai-button" data-tour="template-request-ai-btn" [disabled]="aiLoading()" (click)="interpret()">
                     <svg lucideWand class="btn-icon"></svg>
                     <span>Armar la lista con IA</span>
                   </button>
@@ -183,7 +183,7 @@
               </div>
             </div>
 
-            <div class="use-grid">
+            <div class="use-grid" data-tour="template-request-uses">
               <button
                 type="button"
                 class="use-card"
@@ -319,7 +319,7 @@
         </div>
 
         <!-- Panel de resumen -->
-        <aside class="request-summary">
+        <aside class="request-summary" data-tour="template-request-summary">
           <div class="summary-head">
             <h3>Lo que pedirás</h3>
             <p>Así lo verá la administración.</p>

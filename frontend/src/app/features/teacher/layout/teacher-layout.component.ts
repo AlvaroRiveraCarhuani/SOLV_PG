@@ -6,6 +6,8 @@ import { SidebarComponent } from '@shared/components/sidebar/sidebar.component';
 import { NavSection } from '@shared/components/sidebar/sidebar.model';
 
 import { HotkeysModalComponent } from '@shared/components/hotkeys-modal/hotkeys-modal.component';
+import { HelpCenterComponent } from '@shared/help/help-center.component';
+import { TutorialPanelComponent } from '@shared/help/tutorial-panel.component';
 
 export const TEACHER_NAV_SECTIONS: NavSection[] = [
   {
@@ -39,10 +41,18 @@ export const TEACHER_NAV_SECTIONS: NavSection[] = [
 @Component({
   selector: 'teacher-layout',
   standalone: true,
-  imports: [CommonModule, RouterOutlet, TopbarComponent, SidebarComponent, HotkeysModalComponent],
+  imports: [
+    CommonModule,
+    RouterOutlet,
+    TopbarComponent,
+    SidebarComponent,
+    HotkeysModalComponent,
+    HelpCenterComponent,
+    TutorialPanelComponent
+  ],
   template: `
     <div class="shell-container">
-      <topbar (toggleSidebar)="toggleSidebar()" />
+      <topbar [showHelpButton]="true" (toggleSidebar)="toggleSidebar()" />
       <div class="shell-body">
         <sidebar 
           [collapsed]="isSidebarCollapsed()" 
@@ -52,6 +62,8 @@ export const TEACHER_NAV_SECTIONS: NavSection[] = [
           <router-outlet />
         </main>
       </div>
+      <help-center [manualLink]="null" />
+      <tutorial-panel />
       <hotkeys-modal />
     </div>
   `,

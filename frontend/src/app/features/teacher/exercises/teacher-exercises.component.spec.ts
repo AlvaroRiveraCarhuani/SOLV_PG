@@ -118,6 +118,14 @@ describe('TeacherExercisesComponent', () => {
     expect(stats.published).toBe(2);
     expect(stats.drafts).toBe(1);
     expect(stats).not.toHaveProperty('totalSubmissions');
+
+    const compiled = fixture.nativeElement as HTMLElement;
+    expect(compiled.querySelector('.kpi-summary-grid')).toBeNull();
+    const pageSummary = compiled.querySelector('.page-summary');
+    expect(pageSummary).toBeTruthy();
+    expect(pageSummary?.textContent).toContain('3 laboratorios registrados');
+    expect(pageSummary?.textContent).toContain('2 publicados');
+    expect(pageSummary?.textContent).toContain('1 borrador');
   });
 
   it('should offer only the other subjects when duplicating a lab', () => {

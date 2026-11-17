@@ -523,6 +523,58 @@ export const CONTEXT_HELP_ENTRIES: Record<string, ContextHelpEntry> = {
       }
     ],
     manualFragment: null
+  },
+
+  'teacher-ai-settings': {
+    key: 'teacher-ai-settings',
+    title: 'Mi Inteligencia Artificial',
+    intro:
+      'Configure el copiloto docente para asistir en la redacción de ejercicios y la evaluación. Puede alternar entre el motor institucional y su clave personal.',
+    items: [
+      {
+        label: 'Motor institucional vs. Clave personal',
+        text: 'La institución provee un motor compartido. Si necesita mayor cuota o modelos específicos, puede activar su clave personal.'
+      },
+      {
+        label: 'Prioridad y pausa',
+        text: 'Al activar la clave personal, el motor institucional queda en pausa para su usuario; el consumo se imputa a su propia cuenta.'
+      },
+      {
+        label: 'Proveedores compatibles',
+        text: 'Admite OpenAI, Anthropic, Google Gemini y proveedores compatibles con la API de OpenAI mediante «Agregar proveedor».'
+      },
+      {
+        label: 'Prueba de conexión',
+        text: '«Probar Conexión» valida las credenciales y el modelo con una llamada real antes de guardar la configuración.'
+      }
+    ],
+    manualFragment: null
+  },
+
+  'teacher-templates': {
+    key: 'teacher-templates',
+    title: 'Catálogo de Entornos y Solicitudes',
+    intro:
+      'Explore los entornos disponibles para sus cursos o solicite la incorporación de nuevas herramientas para sus prácticas.',
+    items: [
+      {
+        label: 'Entornos Oficiales vs. Propuestas',
+        text: 'Los oficiales están verificados y mantenidos por la institución. Las propuestas son variantes configuradas por docentes.'
+      },
+      {
+        label: 'Modalidades de Entorno',
+        text: '«Entorno de Desarrollo» provee terminal y editor para trabajo en clase. «Entorno de Evaluación» ejecuta pruebas automatizadas en segundo plano.'
+      },
+      {
+        label: 'Pedir una Variante',
+        text: 'Permite tomar una plantilla existente y sumar o cambiar herramientas específicas sin tener que armar todo el pedido desde cero.'
+      },
+      {
+        label: 'Mis Solicitudes',
+        text: 'Permite dar seguimiento al estado de aprobación del administrador. Una vez aprobada, el entorno se suma al catálogo activo.'
+      }
+    ],
+    manualFragment: null
   }
 };
 

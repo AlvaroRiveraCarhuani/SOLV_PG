@@ -4,6 +4,42 @@
     <div class="header-titles">
       <h1 class="page-title">Catálogo de Laboratorios</h1>
       <p class="page-subtitle">Prácticas reutilizables de tus materias. Edítalas, genera casos de prueba o duplícalas a otra materia.</p>
+      @if (!isLoading()) {
+        <p class="page-summary" aria-label="Resumen de laboratorios">
+          <button
+            type="button"
+            class="summary-filter"
+            [class.is-active]="statusFilter() === 'all'"
+            (click)="statusFilter.set('all')"
+            title="Mostrar todos los laboratorios"
+          >
+            <span machineData>{{ kpiStats().total }}</span>
+            {{ kpiStats().total === 1 ? 'laboratorio registrado' : 'laboratorios registrados' }}
+          </button>
+          <span class="page-summary-sep">·</span>
+          <button
+            type="button"
+            class="summary-filter"
+            [class.is-active]="statusFilter() === 'published'"
+            (click)="statusFilter.set('published')"
+            title="Filtrar laboratorios publicados y activos"
+          >
+            <span machineData>{{ kpiStats().published }}</span>
+            {{ kpiStats().published === 1 ? 'publicado' : 'publicados' }}
+          </button>
+          <span class="page-summary-sep">·</span>
+          <button
+            type="button"
+            class="summary-filter"
+            [class.is-active]="statusFilter() === 'draft'"
+            (click)="statusFilter.set('draft')"
+            title="Filtrar borradores en edición"
+          >
+            <span machineData>{{ kpiStats().drafts }}</span>
+            {{ kpiStats().drafts === 1 ? 'borrador' : 'borradores' }}
+          </button>
+        </p>
+      }
     </div>
 
     <div class="header-actions">
@@ -19,22 +55,6 @@
       </button>
     </div>
   </header>
-
-  <!-- KPIs Resumen -->
-  <div class="kpi-summary-grid">
-    <div class="kpi-box">
-      <span class="kpi-label">Total de Laboratorios</span>
-      <span class="kpi-val" machineData>{{ kpiStats().total }}</span>
-    </div>
-    <div class="kpi-box">
-      <span class="kpi-label">Publicados y Activos</span>
-      <span class="kpi-val text-success" machineData>{{ kpiStats().published }}</span>
-    </div>
-    <div class="kpi-box">
-      <span class="kpi-label">Borradores en Edición</span>
-      <span class="kpi-val text-warning" machineData>{{ kpiStats().drafts }}</span>
-    </div>
-  </div>
 
   <!-- Barra de Filtros -->
   <div class="filters-toolbar">

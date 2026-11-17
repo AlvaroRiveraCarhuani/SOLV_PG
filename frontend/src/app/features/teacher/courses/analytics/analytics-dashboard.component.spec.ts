@@ -69,6 +69,13 @@ describe('AnalyticsDashboardComponent', () => {
     expect(component.analytics()).toEqual(mockAnalytics);
     expect(component.totalExercisesWithDifficulty()).toBe(12);
     expect(component.totalSubmissionsTimeline()).toBe(35);
+
+    const compiled = fixture.nativeElement as HTMLElement;
+    expect(compiled.querySelector('.kpi-grid')).toBeNull();
+    const pageSummary = compiled.querySelector('.page-summary');
+    expect(pageSummary).toBeTruthy();
+    expect(pageSummary?.textContent).toContain('12 ejercicios clasificados');
+    expect(pageSummary?.textContent).toContain('35 envíos en 30 días');
   });
 
   it('debe formatear segundos a texto legible', () => {

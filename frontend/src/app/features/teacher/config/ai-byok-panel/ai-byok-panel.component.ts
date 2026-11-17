@@ -34,6 +34,7 @@ import {
 } from '../../services/teacher-ai-copilot.service';
 import { BYOK_PROVIDERS, DEFAULT_BYOK_PROVIDER } from '../ai-byok.config';
 import type { ByokProviderOption } from '../ai-byok.config';
+import type { TeacherAiTutorialContext } from '../teacher-ai-help.definitions';
 
 /**
  * Configuración de la credencial personal de IA del docente (BYOK).
@@ -88,6 +89,16 @@ export class AiByokPanelComponent implements OnInit {
   readonly testing = signal(false);
   readonly clearing = signal(false);
   readonly loadingModels = signal(false);
+  readonly hasSavedInSession = signal(false);
+
+  readonly tutorialContext = computed<TeacherAiTutorialContext>(() => ({
+    enabled: () => this.enabled(),
+    provider: () => this.provider(),
+    hasKey: () => this.apiKey().trim().length > 0 || this.hasSavedKey(),
+    model: () => this.model(),
+    testPassed: () => this.feedbackOk() === true,
+    hasSaved: () => this.hasSavedInSession()
+  }));
 
   readonly feedbackMessage = signal<string | null>(null);
   readonly feedbackOk = signal<boolean | null>(null);
@@ -656,6 +667,7 @@ export class AiByokPanelComponent implements OnInit {
           this.saving.set(false);
           this.apiKey.set('');
           this.current.set(res);
+          this.hasSavedInSession.set(true);
           this.feedbackOk.set(true);
           this.feedbackMessage.set('Configuración personal guardada.');
           this.changed.emit(res);

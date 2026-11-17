@@ -1,4 +1,4 @@
-import { Component, OnInit, inject, signal, computed } from '@angular/core';
+import { Component, OnInit, OnDestroy, inject, signal, computed, viewChild } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { HttpClient } from '@angular/common/http';
@@ -43,6 +43,13 @@ import {
   EnvironmentRequest,
   EnvironmentRequestStackConfig
 } from './environment-request.models';
+import { ContextHelpService } from '@shared/help/context-help.service';
+import { ProductTourService } from '@shared/help/product-tour.service';
+import { InteractiveTutorialService } from '@shared/help/interactive-tutorial.service';
+import {
+  buildTeacherTemplatesTour,
+  buildTeacherTemplateRequestTutorial
+} from './teacher-templates-help.definitions';
 
 export interface TechChip {
   name: string;
@@ -246,12 +253,17 @@ export function resolveTemplateTechInfo(name: string, dockerImage: string, descr
   templateUrl: './teacher-templates.component.html',
   styleUrl: './teacher-templates.component.scss'
 })
-export class TeacherTemplatesComponent implements OnInit {
+export class TeacherTemplatesComponent implements OnInit, OnDestroy {
   private http = inject(HttpClient);
   private dashboardService = inject(TeacherDashboardService);
   private environmentRequestService = inject(EnvironmentRequestService);
   private templatesCatalogService = inject(AdminTemplatesService);
   private router = inject(Router);
+  private readonly help = inject(ContextHelpService);
+  private readonly tour = inject(ProductTourService);
+  private readonly tutorial = inject(InteractiveTutorialService);
+
+  readonly requestModal = viewChild(TemplateRequestModalComponent);
 
   courses = this.dashboardService.courses;
   templates = signal<PublishedTemplate[]>([]);
@@ -367,6 +379,44 @@ export class TeacherTemplatesComponent implements OnInit {
     this.loadTemplates();
     this.loadTechCatalog();
     this.loadRequests();
+
+    this.help.registerScreen('teacher-templates');
+    this.help.registerGuides('teacher-templates', {
+      tour: {
+        label: 'Recorrido por el Catálogo',
+        hint: 'Explore filtros, tarjetas, variantes y el seguimiento de pedidos',
+        run: () => this.tour.start(buildTeacherTemplatesTour())
+      },
+      tutorial: {
+        label: 'Solicitar un entorno o variante',
+        hint: 'Guía paso a paso para armar y enviar una solicitud con IA',
+        run: () => {
+          this.tutorial.start(
+            buildTeacherTemplateRequestTutorial({
+              isRequestModalOpen: () => this.isRequestModalOpen(),
+              descriptionValid: () => {
+                const modal = this.requestModal();
+                return modal ? modal.description().trim().length >= 10 : false;
+              },
+              hasChips: () => {
+                const modal = this.requestModal();
+                return modal ? modal.chips().length > 0 : false;
+              },
+              hasUses: () => {
+                const modal = this.requestModal();
+                return modal ? modal.uses().length > 0 : false;
+              }
+            })
+          );
+        }
+      }
+    });
+  }
+
+  ngOnDestroy(): void {
+    this.help.unregisterGuides('teacher-templates');
+    this.help.unregisterScreen('teacher-templates');
+    this.tutorial.exit();
   }
 
   /**

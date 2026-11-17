@@ -1,4 +1,13 @@
-import { ChangeDetectionStrategy, Component, OnInit, computed, inject, signal } from '@angular/core';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  OnDestroy,
+  OnInit,
+  computed,
+  inject,
+  signal,
+  viewChild
+} from '@angular/core';
 import {
   LucideCpu,
   LucideKeyRound,
@@ -6,12 +15,19 @@ import {
   LucideShieldCheck
 } from '@lucide/angular';
 import { MachineDataDirective } from '@shared/directives/machine-data.directive';
+import { ContextHelpService } from '@shared/help/context-help.service';
+import { ProductTourService } from '@shared/help/product-tour.service';
+import { InteractiveTutorialService } from '@shared/help/interactive-tutorial.service';
 import {
   AIAvailabilityStatus,
   AIUserOverrideDTO,
   TeacherAiCopilotService
 } from '../services/teacher-ai-copilot.service';
 import { AiByokPanelComponent } from './ai-byok-panel/ai-byok-panel.component';
+import {
+  buildTeacherAiTour,
+  buildTeacherAiTutorial
+} from './teacher-ai-help.definitions';
 
 /**
  * Configuración de Inteligencia Artificial del docente.
@@ -35,8 +51,13 @@ import { AiByokPanelComponent } from './ai-byok-panel/ai-byok-panel.component';
   styleUrl: './teacher-ai-settings.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush
 })
-export class TeacherAiSettingsComponent implements OnInit {
+export class TeacherAiSettingsComponent implements OnInit, OnDestroy {
   private readonly copilotService = inject(TeacherAiCopilotService);
+  private readonly help = inject(ContextHelpService);
+  private readonly tour = inject(ProductTourService);
+  private readonly tutorial = inject(InteractiveTutorialService);
+
+  readonly byokPanel = viewChild(AiByokPanelComponent);
 
   readonly status = signal<AIAvailabilityStatus | null>(null);
   readonly settings = signal<AIUserOverrideDTO | null>(null);
@@ -62,6 +83,30 @@ export class TeacherAiSettingsComponent implements OnInit {
 
   ngOnInit(): void {
     this.refresh();
+    this.help.registerScreen('teacher-ai-settings');
+    this.help.registerGuides('teacher-ai-settings', {
+      tour: {
+        label: 'Recorrido por Mi Inteligencia Artificial',
+        hint: 'Explicación de cada bloque y diferencia de cuotas',
+        run: () => this.tour.start(buildTeacherAiTour())
+      },
+      tutorial: {
+        label: 'Configurar mi clave personal',
+        hint: 'Acompaña la activación de su clave y la prueba de conexión',
+        run: () => {
+          const panel = this.byokPanel();
+          if (panel) {
+            this.tutorial.start(buildTeacherAiTutorial(panel.tutorialContext()));
+          }
+        }
+      }
+    });
+  }
+
+  ngOnDestroy(): void {
+    this.help.unregisterGuides('teacher-ai-settings');
+    this.help.unregisterScreen('teacher-ai-settings');
+    this.tutorial.exit();
   }
 
   refresh(): void {
