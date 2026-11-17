@@ -1290,9 +1290,13 @@ func (s *AISettingsService) UpdateUserOverride(ctx context.Context, tenantID, us
 
 	customProvider, personalProvider := findUserCustomProvider(stored.CustomProviders, personalProviders, provider)
 	if domain.IsCustomAIProvider(provider) && customProvider == nil && personalProvider == nil {
-		// El proveedor pudo eliminarse en este mismo payload: en vez de fallar
-		// por una referencia vieja, se vuelve al motor institucional.
-		provider = stored.Provider
+		// Un custom que no existe ni en el catálogo ni en los proveedores del
+		// docente es una referencia rota: no se sustituye por el motor
+		// institucional, porque el usuario creería que guardó otro proveedor.
+		return nil, &AISettingsValidationError{
+			Code:    "provider_invalid",
+			Message: fmt.Sprintf("proveedor personalizado desconocido: %q", provider),
+		}
 	}
 
 	rawBaseURL := strings.TrimSpace(dto.BaseURL)
