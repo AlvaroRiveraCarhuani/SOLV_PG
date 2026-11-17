@@ -92,7 +92,7 @@ export class SolvClient {
 
       if (!response.ok) {
         throw new SolvApiError(
-          this.errorMessage(payload, response.status),
+          this.errorMessage(payload, response.status, path),
           response.status
         );
       }
@@ -234,7 +234,12 @@ export class SolvClient {
     }
   }
 
-  private errorMessage(payload: ApiEnvelope<unknown> | null, status: number): string {
+  /**
+   * Mensaje del fallo. El texto del backend manda; los 404 sin cuerpo JSON los
+   * responde el proxy o una ruta ausente, así que se informan como ruta
+   * inexistente y nunca como un problema de la entrega.
+   */
+  private errorMessage(payload: ApiEnvelope<unknown> | null, status: number, path: string): string {
     if (payload?.message) {
       return payload.message;
     }
@@ -245,8 +250,8 @@ export class SolvClient {
       return 'El token de SOLV no es válido o expiró.';
     }
     if (status === 404) {
-      return 'La entrega no existe o no pertenece a la sesión.';
+      return `La ruta ${path} no existe en la API de SOLV (HTTP 404): revisá la URL base y la versión del backend.`;
     }
-    return `La API de SOLV respondió con estado ${status}.`;
+    return `La API de SOLV respondió con estado ${status} en ${path}.`;
   }
 }
