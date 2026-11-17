@@ -129,7 +129,8 @@
    encabezado cuando el espacio se reduce. El canvas deja las tarjetas en su ancho
    de lectura (260 a 320 px) y no las estira para llenar la fila. La superficie va
    tintada con el color del tenant: agrupa la cabecera y el grid en un solo plano
-   y separa las tarjetas blancas del fondo de la página sin sombras. */
+   y separa las tarjetas blancas del fondo de la página sin sombras. Se ajusta al
+   contenido, así que con una o dos materias no deja un plano vacío. */
 .hoy-layout {
   display: flex;
   align-items: flex-start;
@@ -140,6 +141,7 @@
   flex: 0 0 320px;
   width: 320px;
   order: 2;
+  margin-left: auto;
   position: sticky;
   top: var(--space-6);
   align-self: flex-start;
@@ -151,7 +153,9 @@
   flex-direction: column;
   gap: var(--space-3);
   min-width: 0;
-  flex: 1 1 0;
+  flex: 0 1 auto;
+  width: fit-content;
+  max-width: 100%;
   padding: var(--space-4);
   background-color: var(--tenant-primary-subtle);
   border: 1px solid var(--tenant-primary-border);

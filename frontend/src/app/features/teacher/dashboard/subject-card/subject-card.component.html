@@ -21,7 +21,8 @@
   <p class="card-figures">
     @if (subject().enrolled > 0) {
       <span class="figure">
-        <strong machineData>{{ subject().enrolled }}</strong> inscritos
+        <strong machineData>{{ subject().enrolled }}</strong>
+        {{ subject().enrolled === 1 ? 'inscrito' : 'inscritos' }}
       </span>
     }
     @if (hasQueue()) {
