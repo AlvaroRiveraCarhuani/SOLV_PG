@@ -108,7 +108,8 @@
             <div class="course-progress-labels">
               <span class="course-progress-count">
                 <span machineData>{{ item.completed_exercises ?? 0 }}</span> de
-                <span machineData>{{ item.total_exercises ?? 0 }}</span> prácticas
+                <span machineData>{{ item.total_exercises ?? 0 }}</span>
+                {{ (item.total_exercises ?? 0) === 1 ? 'práctica' : 'prácticas' }}
               </span>
               <span class="course-progress-percent" machineData>{{ item.progress_percent ?? 0 }}%</span>
             </div>
