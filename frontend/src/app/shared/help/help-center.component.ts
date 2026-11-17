@@ -1,10 +1,10 @@
-import { Component, inject } from '@angular/core';
+import { Component, inject, input } from '@angular/core';
 import { HelpDrawerComponent } from '@shared/components/help-drawer/help-drawer.component';
 import { LucideCompass, LucideListChecks } from '@lucide/angular';
 import { ContextHelpService } from './context-help.service';
 
 /**
- * Centro de ayuda del área administrativa, montado una vez en el layout.
+ * Centro de ayuda del área administrativa y docente, montado una vez en el layout.
  *
  * El botón `?` de la barra superior abre este panel. El contenido sigue a la
  * pantalla registrada: explicación contextual, guías disponibles en esa vista y
@@ -19,7 +19,8 @@ import { ContextHelpService } from './context-help.service';
       <help-drawer
         [isOpen]="true"
         title="Centro de ayuda"
-        manualLinkText="Abrir el manual administrativo"
+        [manualLink]="manualLink()"
+        [manualLinkText]="manualLinkText()"
         [manualFragment]="help.entry()?.manualFragment ?? null"
         (closed)="help.close()"
       >
@@ -74,6 +75,8 @@ import { ContextHelpService } from './context-help.service';
 })
 export class HelpCenterComponent {
   readonly help = inject(ContextHelpService);
+  manualLink = input<string | null>('/admin/manual');
+  manualLinkText = input<string>('Abrir el manual administrativo');
 
   /**
    * Cierra el panel antes de lanzar la guía: el recorrido necesita la pantalla

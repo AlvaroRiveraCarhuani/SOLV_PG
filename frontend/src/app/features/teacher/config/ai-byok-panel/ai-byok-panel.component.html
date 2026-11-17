@@ -16,7 +16,7 @@
       </p>
     </div>
 
-    <label class="switch-toggle" for="byok-enabled">
+    <label class="switch-toggle" for="byok-enabled" data-tour="teacher-ai-byok-toggle">
       <input
         type="checkbox"
         id="byok-enabled"
@@ -44,7 +44,7 @@
   <div class="byok-split-layout">
     <div class="byok-providers-column">
       <span class="column-subtitle">Proveedores disponibles</span>
-      <div class="provider-grid">
+      <div class="provider-grid" data-tour="teacher-ai-providers">
         @for (item of providers(); track item.value) {
           <button
             type="button"
@@ -127,7 +127,7 @@
         }
       </div>
 
-      <div class="credential-row">
+      <div class="credential-row" data-tour="teacher-ai-credentials">
         <form-field label="API Key personal" for="byok-api-key" [hint]="apiKeyHint()">
           <input
             id="byok-api-key"
@@ -266,6 +266,7 @@
       <button
         type="button"
         class="btn-outline btn-test-connection"
+        data-tour="teacher-ai-test"
         [disabled]="testing() || saving() || !canTestConnection()"
         (click)="testConnection()">
         @if (testing()) {
@@ -293,6 +294,7 @@
     <button
       type="button"
       class="btn-primary"
+      data-tour="teacher-ai-save"
       [disabled]="saving() || testing() || !canSave()"
       (click)="save()">
       <svg lucideSave class="btn-icon"></svg>

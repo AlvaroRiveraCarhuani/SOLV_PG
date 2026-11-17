@@ -7,7 +7,7 @@
     </p>
   </header>
 
-  <div class="engine-usage" [class.engine-usage-personal]="usingPersonalKey()">
+  <div class="engine-usage" data-tour="teacher-ai-usage" [class.engine-usage-personal]="usingPersonalKey()">
     @if (usingPersonalKey()) {
       <svg lucideKeyRound class="usage-icon"></svg>
       <span class="usage-text">Estás operando con tu clave personal.</span>
@@ -22,7 +22,7 @@
     }
   </div>
 
-  <section class="settings-card">
+  <section class="settings-card" data-tour="teacher-ai-institutional">
     <header class="card-head">
       <div class="head-text">
         <h2 class="section-title">

@@ -523,6 +523,32 @@ export const CONTEXT_HELP_ENTRIES: Record<string, ContextHelpEntry> = {
       }
     ],
     manualFragment: null
+  },
+
+  'teacher-ai-settings': {
+    key: 'teacher-ai-settings',
+    title: 'Mi Inteligencia Artificial',
+    intro:
+      'Configure el copiloto docente para asistir en la redacción de ejercicios y la evaluación. Puede alternar entre el motor institucional y su clave personal.',
+    items: [
+      {
+        label: 'Motor institucional vs. Clave personal',
+        text: 'La institución provee un motor compartido. Si necesita mayor cuota o modelos específicos, puede activar su clave personal.'
+      },
+      {
+        label: 'Prioridad y pausa',
+        text: 'Al activar la clave personal, el motor institucional queda en pausa para su usuario; el consumo se imputa a su propia cuenta.'
+      },
+      {
+        label: 'Proveedores compatibles',
+        text: 'Admite OpenAI, Anthropic, Google Gemini y proveedores compatibles con la API de OpenAI mediante «Agregar proveedor».'
+      },
+      {
+        label: 'Prueba de conexión',
+        text: '«Probar Conexión» valida las credenciales y el modelo con una llamada real antes de guardar la configuración.'
+      }
+    ],
+    manualFragment: null
   }
 };
 
