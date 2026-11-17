@@ -549,6 +549,32 @@ export const CONTEXT_HELP_ENTRIES: Record<string, ContextHelpEntry> = {
       }
     ],
     manualFragment: null
+  },
+
+  'teacher-templates': {
+    key: 'teacher-templates',
+    title: 'Catálogo de Entornos y Solicitudes',
+    intro:
+      'Explore los entornos disponibles para sus cursos o solicite la incorporación de nuevas herramientas para sus prácticas.',
+    items: [
+      {
+        label: 'Entornos Oficiales vs. Propuestas',
+        text: 'Los oficiales están verificados y mantenidos por la institución. Las propuestas son variantes configuradas por docentes.'
+      },
+      {
+        label: 'Modalidades de Entorno',
+        text: '«Entorno de Desarrollo» provee terminal y editor para trabajo en clase. «Entorno de Evaluación» ejecuta pruebas automatizadas en segundo plano.'
+      },
+      {
+        label: 'Pedir una Variante',
+        text: 'Permite tomar una plantilla existente y sumar o cambiar herramientas específicas sin tener que armar todo el pedido desde cero.'
+      },
+      {
+        label: 'Mis Solicitudes',
+        text: 'Permite dar seguimiento al estado de aprobación del administrador. Una vez aprobada, el entorno se suma al catálogo activo.'
+      }
+    ],
+    manualFragment: null
   }
 };
 
