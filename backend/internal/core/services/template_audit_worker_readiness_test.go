@@ -151,6 +151,57 @@ func TestHasTrivyDBRequiresANonEmptyFile(t *testing.T) {
 	}
 }
 
+func TestResolveTrivyCacheDirStaysOutOfTemporaryStorage(t *testing.T) {
+	// La ruta configurada manda.
+	t.Setenv("TRIVY_CACHE_DIR", "/var/cache/solv-trivy")
+	if got := resolveTrivyCacheDir(); got != "/var/cache/solv-trivy" {
+		t.Fatalf("esperaba la ruta configurada, obtuve %q", got)
+	}
+
+	// Sin variable y con la caché de usuario dentro del temporal (el caso de un
+	// /tmp en RAM), cae al respaldo en disco.
+	t.Setenv("TRIVY_CACHE_DIR", "")
+	t.Setenv("XDG_CACHE_HOME", filepath.Join(os.TempDir(), "solv-cache-test"))
+	if got := resolveTrivyCacheDir(); got != DefaultTrivyCacheDir {
+		t.Fatalf("una caché de usuario dentro del temporal no debe usarse; esperaba %q, obtuve %q", DefaultTrivyCacheDir, got)
+	}
+
+	// Una caché de usuario en disco se usa tal cual.
+	home, err := os.UserHomeDir()
+	if err != nil || isInsideDir(home, os.TempDir()) {
+		t.Skip("el home de la prueba vive en el directorio temporal")
+	}
+	cacheHome := filepath.Join(home, ".cache")
+	t.Setenv("XDG_CACHE_HOME", cacheHome)
+	want := filepath.Join(cacheHome, "solv", "trivy")
+	if got := resolveTrivyCacheDir(); got != want {
+		t.Fatalf("esperaba %q, obtuve %q", want, got)
+	}
+}
+
+func TestNewTemplateAuditWorkerLeavesTheCacheDirPurgeable(t *testing.T) {
+	// El contenedor escribe como root y el worker purga como el usuario del
+	// servicio: si los directorios no quedan escribibles por ambos, la purga de
+	// una base incompleta falla y el espacio sigue ocupado.
+	cacheDir := filepath.Join(t.TempDir(), "trivy-cache")
+	t.Setenv("TRIVY_CACHE_DIR", cacheDir)
+
+	NewTemplateAuditWorker(nil, &recordingAuditRepo{})
+
+	for _, dir := range []string{
+		filepath.Join(cacheDir, "trivy"),
+		filepath.Join(cacheDir, "trivy", "db"),
+	} {
+		info, err := os.Stat(dir)
+		if err != nil {
+			t.Fatalf("el worker debía preparar %s: %v", dir, err)
+		}
+		if info.Mode().Perm() != 0o777 {
+			t.Fatalf("%s debía quedar escribible por el usuario y por root, obtuve %v", dir, info.Mode().Perm())
+		}
+	}
+}
+
 func writeTrivyMetadata(t *testing.T, dbDir string) {
 	t.Helper()
 	if err := os.WriteFile(filepath.Join(dbDir, "metadata.json"), []byte(`{"Version":2,"DownloadedAt":"2026-11-17T00:00:00Z"}`), 0o600); err != nil {

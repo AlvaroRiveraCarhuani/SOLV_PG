@@ -9,7 +9,9 @@ import (
 	"testing"
 	"time"
 
+	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/client"
+	"github.com/docker/docker/errdefs"
 
 	"solv-backend/internal/core/domain"
 )
@@ -125,6 +127,44 @@ func TestTemplateAuditWorkerTrivyFindsCriticalCVE(t *testing.T) {
 	}
 	if !strings.Contains(reason, "vulnerabilidad") {
 		t.Fatalf("el motivo debía nombrar las vulnerabilidades críticas, obtuve %q", reason)
+	}
+}
+
+// TestTemplateAuditWorkerPrunesStaleDBDownloads deja un contenedor de descarga
+// con la etiqueta del worker y comprueba que el barrido de arranque lo
+// elimina. Es el caso que dejaba descargas vivas, sin dueño y con un núcleo
+// ocupado, cuando el backend se reiniciaba a mitad de la descarga.
+func TestTemplateAuditWorkerPrunesStaleDBDownloads(t *testing.T) {
+	worker := auditDockerWorker(t)
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
+	defer cancel()
+
+	if err := worker.ensureTrivyImage(ctx); err != nil {
+		if os.Getenv("SOLV_REQUIRE_DOCKER") == "1" {
+			t.Fatalf("no se pudo preparar el escáner %s: %v", TrivyDockerImage, err)
+		}
+		t.Skipf("no se pudo preparar el escáner %s: %v", TrivyDockerImage, err)
+	}
+
+	stale, err := worker.dockerCli.ContainerCreate(ctx, &container.Config{
+		Image:      TrivyDockerImage,
+		Entrypoint: []string{"sleep", "600"},
+		Labels:     map[string]string{auditContainerLabel: trivyDBContainerRole},
+	}, &container.HostConfig{}, nil, nil, "")
+	if err != nil {
+		t.Fatalf("no se pudo crear el contenedor huérfano de prueba: %v", err)
+	}
+	t.Cleanup(func() {
+		_ = worker.dockerCli.ContainerRemove(context.Background(), stale.ID, container.RemoveOptions{Force: true})
+	})
+	if err := worker.dockerCli.ContainerStart(ctx, stale.ID, container.StartOptions{}); err != nil {
+		t.Fatalf("no se pudo arrancar el contenedor huérfano de prueba: %v", err)
+	}
+
+	worker.pruneStaleDBDownloads(ctx)
+
+	if _, err := worker.dockerCli.ContainerInspect(ctx, stale.ID); err == nil || !errdefs.IsNotFound(err) {
+		t.Fatalf("el contenedor etiquetado debía eliminarse en el barrido; la inspección devolvió %v", err)
 	}
 }
 

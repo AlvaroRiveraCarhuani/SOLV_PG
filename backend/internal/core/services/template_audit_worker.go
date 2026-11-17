@@ -20,21 +20,40 @@ import (
 )
 
 const (
-	TrivyDockerImage     = "aquasec/trivy:0.55.0"
-	DefaultTrivyCacheDir = "/tmp/solv-trivy-cache"
-	// El escaneo no puede quedarse con el host: Trivy es un proceso auxiliar.
-	trivyCPULimit    int64 = 1_000_000_000
+	TrivyDockerImage = "aquasec/trivy:0.55.0"
+	// La base CVE se expande a más de 1 GB. Guardarla en un directorio temporal
+	// la deja en RAM cuando /tmp es tmpfs y empuja al host a swap, así que este
+	// es solo el respaldo para procesos sin directorio de caché de usuario
+	// (servicios sin HOME). El valor normal sale de resolveTrivyCacheDir.
+	DefaultTrivyCacheDir = "/var/lib/solv/trivy-cache"
+	// El escáner y su descarga no pueden quedarse con el host. Medio núcleo
+	// alcanza para el trabajo y calienta la mitad que un núcleo entero, que en
+	// una laptop se nota. El smoke ya usa el mismo techo.
+	trivyCPULimit    int64 = 500_000_000
 	trivyMemoryLimit int64 = 1 << 30
 )
 
 const (
-	// Espera del worker cuando el escáner no está listo (sin base CVE).
-	trivyDBRetryBase = time.Minute
+	// Etiquetas de los contenedores auxiliares del worker. El de la descarga de
+	// la base CVE no usa AutoRemove porque hay que leer su código de salida; si
+	// el proceso muere durante la descarga, la etiqueta permite barrerlo.
+	auditContainerLabel  = "io.solv.template-audit"
+	trivyDBContainerRole = "trivy-db-download"
+)
+
+const (
+	// Espera del worker cuando el escáner no está listo (sin base CVE). Un
+	// reintento cada minuto gasta diez intentos en la primera hora cuando la red
+	// falla; cinco minutos por intento son suficientes para recuperarse.
+	trivyDBRetryBase = 5 * time.Minute
 	trivyDBRetryMax  = time.Hour
 	// Espera por plantilla cuando el fallo es de una imagen concreta.
 	templateRetryBase = 10 * time.Minute
 	templateRetryMax  = time.Hour
 	trivyDBRefresh    = 24 * time.Hour
+	// Cadencia del reconciliador. Una cola de auditoría se atiende en minutos:
+	// revisarla cada 10 s son 8.640 consultas al día sin ganar nada.
+	auditReconcileInterval = 30 * time.Second
 )
 
 // errAuditInfrastructure indica que la auditoría se persistió, pero no pudo
@@ -94,14 +113,59 @@ type TemplateAuditWorker struct {
 	templateBackoff map[string]time.Duration
 }
 
+// resolveTrivyCacheDir decide dónde vive la base CVE. Nunca elige un directorio
+// temporal: ahí la base queda en RAM cuando /tmp es tmpfs. La ruta configurada
+// manda, luego el directorio de caché del usuario y, si no hay ninguno, el
+// respaldo en /var/lib.
+func resolveTrivyCacheDir() string {
+	if configured := strings.TrimSpace(os.Getenv("TRIVY_CACHE_DIR")); configured != "" {
+		return configured
+	}
+	if userCache, err := os.UserCacheDir(); err == nil && userCache != "" && !isInsideDir(userCache, os.TempDir()) {
+		return filepath.Join(userCache, "solv", "trivy")
+	}
+	return DefaultTrivyCacheDir
+}
+
+// isInsideDir informa si path es dir o está dentro de dir.
+func isInsideDir(path, dir string) bool {
+	cleanPath, err := filepath.Abs(path)
+	if err != nil {
+		return false
+	}
+	cleanDir, err := filepath.Abs(dir)
+	if err != nil {
+		return false
+	}
+	if cleanPath == cleanDir {
+		return true
+	}
+	return strings.HasPrefix(cleanPath, cleanDir+string(os.PathSeparator))
+}
+
+// prepareTrivyCacheDir deja los directorios de la base CVE escribibles por el
+// contenedor (que escribe como root) y por el usuario del servicio (que borra
+// una descarga a medias). Sin esto la purga falla con permission denied y el
+// espacio queda ocupado hasta el siguiente arranque. Dentro solo hay datos
+// públicos de CVE.
+func prepareTrivyCacheDir(cacheDir string) {
+	//nolint:gosec
+	_ = os.MkdirAll(filepath.Join(cacheDir, "trivy", "db"), 0777)
+	//nolint:gosec
+	_ = os.Chmod(filepath.Join(cacheDir, "trivy"), 0777)
+	//nolint:gosec
+	_ = os.Chmod(filepath.Join(cacheDir, "trivy", "db"), 0777)
+}
+
 func NewTemplateAuditWorker(dockerCli *client.Client, govRepo domain.AdminGovernanceRepository) *TemplateAuditWorker {
-	cacheDir := os.Getenv("TRIVY_CACHE_DIR")
-	if cacheDir == "" {
-		cacheDir = DefaultTrivyCacheDir
+	cacheDir := resolveTrivyCacheDir()
+	if isInsideDir(cacheDir, os.TempDir()) {
+		log.Printf("[TemplateAuditWorker] Aviso: la caché de Trivy está en %s, dentro del directorio temporal; con /tmp en RAM la base CVE ocupa memoria del host", cacheDir)
 	}
 	// Permisos 0755 requeridos para montaje como /root/.cache en contenedor Trivy (datos publicos de CVE).
 	//nolint:gosec
 	_ = os.MkdirAll(cacheDir, 0755)
+	prepareTrivyCacheDir(cacheDir)
 
 	worker := &TemplateAuditWorker{
 		dockerCli: dockerCli,
@@ -127,9 +191,10 @@ func (w *TemplateAuditWorker) Start(ctx context.Context) {
 	// tocar la cola: sin base CVE no hay nada que auditar y las plantillas no
 	// deben pagar el reintento de una falla de infraestructura.
 	go func() {
-		ticker := time.NewTicker(10 * time.Second)
+		ticker := time.NewTicker(auditReconcileInterval)
 		defer ticker.Stop()
 
+		w.pruneStaleDBDownloads(ctx)
 		w.ensureScanner(ctx)
 		w.reconcilePending(ctx)
 

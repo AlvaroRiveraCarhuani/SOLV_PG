@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/docker/docker/api/types/container"
+	"github.com/docker/docker/api/types/filters"
 	"github.com/docker/docker/api/types/image"
 	"github.com/docker/docker/errdefs"
 	"github.com/docker/docker/pkg/stdcopy"
@@ -41,6 +42,31 @@ func (w *TemplateAuditWorker) ensureTrivyImage(ctx context.Context) error {
 	return nil
 }
 
+// trivyResources fija el techo de CPU y memoria del escáner y de su descarga.
+// Ninguno de los dos puede competir con el host.
+func trivyResources() container.Resources {
+	return container.Resources{
+		NanoCPUs: trivyCPULimit,
+		Memory:   trivyMemoryLimit,
+	}
+}
+
+// trivyScanArgs arma el comando del escaneo. `--skip-db-update` evita que cada
+// auditoría vuelva a descargar la base CVE: Trivy pide refresco cada 6 h y el
+// worker la sincroniza antes de mirar la cola, así que la base ya está fresca.
+// Sin este flag, cada plantilla auditada cuesta 133 MB de red y 1,7 GB de
+// escritura, y el resultado del escaneo es el mismo.
+func trivyScanArgs(dockerImage string) []string {
+	return []string{
+		"image",
+		"--severity", "CRITICAL,HIGH",
+		"--format", "json",
+		"--quiet",
+		"--skip-db-update",
+		dockerImage,
+	}
+}
+
 // runTrivyScan ejecuta Trivy escaneando la imagen por CVEs de severidad CRITICAL y HIGH
 func (w *TemplateAuditWorker) runTrivyScan(ctx context.Context, dockerImage string) (string, int, int, []byte) {
 	if err := w.ensureTrivyImage(ctx); err != nil {
@@ -57,22 +83,13 @@ func (w *TemplateAuditWorker) runTrivyScan(ctx context.Context, dockerImage stri
 			"/var/run/docker.sock:/var/run/docker.sock:ro",
 			fmt.Sprintf("%s:/root/.cache", w.cacheDir),
 		},
-		Resources: container.Resources{
-			NanoCPUs: trivyCPULimit,
-			Memory:   trivyMemoryLimit,
-		},
+		Resources:  trivyResources(),
 		AutoRemove: false,
 	}
 
 	containerConfig := &container.Config{
-		Image: TrivyDockerImage,
-		Cmd: []string{
-			"image",
-			"--severity", "CRITICAL,HIGH",
-			"--format", "json",
-			"--quiet",
-			dockerImage,
-		},
+		Image:        TrivyDockerImage,
+		Cmd:          trivyScanArgs(dockerImage),
 		AttachStdout: true,
 		AttachStderr: true,
 	}
@@ -167,14 +184,17 @@ func (w *TemplateAuditWorker) UpdateTrivyDB(ctx context.Context) (err error) {
 	defer cancel()
 
 	// Una descarga interrumpida deja trivy.db a medias; se descarta para no
-	// ocupar espacio ni simular una base válida en el siguiente arranque.
+	// ocupar espacio ni simular una base válida en el siguiente arranque. Se
+	// borra trivy/db, que el worker dejó escribible, y se vuelve a preparar para
+	// que el siguiente intento también pueda purgarse.
 	defer func() {
 		if err == nil || w.hasTrivyDB() || strings.TrimSpace(w.cacheDir) == "" {
 			return
 		}
-		if purgeErr := os.RemoveAll(filepath.Join(w.cacheDir, "trivy")); purgeErr != nil {
+		if purgeErr := os.RemoveAll(filepath.Join(w.cacheDir, "trivy", "db")); purgeErr != nil {
 			log.Printf("[TemplateAuditWorker] No se pudo limpiar la base CVE incompleta: %v", purgeErr)
 		}
+		prepareTrivyCacheDir(w.cacheDir)
 	}()
 
 	if err := w.ensureTrivyImage(syncCtx); err != nil {
@@ -185,10 +205,7 @@ func (w *TemplateAuditWorker) UpdateTrivyDB(ctx context.Context) (err error) {
 		Binds: []string{
 			fmt.Sprintf("%s:/root/.cache", w.cacheDir),
 		},
-		Resources: container.Resources{
-			NanoCPUs: trivyCPULimit,
-			Memory:   trivyMemoryLimit,
-		},
+		Resources:  trivyResources(),
 		AutoRemove: false,
 	}
 
@@ -198,6 +215,7 @@ func (w *TemplateAuditWorker) UpdateTrivyDB(ctx context.Context) (err error) {
 			"image",
 			"--download-db-only",
 		},
+		Labels: map[string]string{auditContainerLabel: trivyDBContainerRole},
 	}
 
 	resp, err := w.dockerCli.ContainerCreate(syncCtx, containerConfig, hostConfig, nil, nil, "")
@@ -237,6 +255,32 @@ func (w *TemplateAuditWorker) UpdateTrivyDB(ctx context.Context) (err error) {
 
 	log.Println("[TemplateAuditWorker] Base de datos CVE actualizada correctamente en cache")
 	return nil
+}
+
+// pruneStaleDBDownloads elimina los contenedores de descarga de la base CVE que
+// quedaron vivos de un arranque anterior. El worker los crea sin AutoRemove
+// porque necesita leer el código de salida, y hasta ahora solo los borraba un
+// defer del propio proceso: si el backend se reiniciaba durante la ventana de
+// 15 minutos, el contenedor seguía descargando sin dueño, con un núcleo
+// ocupado, compitiendo por la misma caché. Se ejecuta una vez al arrancar,
+// antes de primar la base.
+func (w *TemplateAuditWorker) pruneStaleDBDownloads(ctx context.Context) {
+	if w.dockerCli == nil {
+		return
+	}
+	filter := filters.NewArgs(filters.Arg("label", auditContainerLabel+"="+trivyDBContainerRole))
+	stale, err := w.dockerCli.ContainerList(ctx, container.ListOptions{All: true, Filters: filter})
+	if err != nil {
+		log.Printf("[TemplateAuditWorker] No se pudo revisar descargas de base CVE huérfanas: %v", err)
+		return
+	}
+	for _, c := range stale {
+		if removeErr := w.dockerCli.ContainerRemove(ctx, c.ID, container.RemoveOptions{Force: true}); removeErr != nil {
+			log.Printf("[TemplateAuditWorker] No se pudo eliminar el contenedor de descarga huérfano %.12s: %v", c.ID, removeErr)
+			continue
+		}
+		log.Printf("[TemplateAuditWorker] Contenedor de descarga huérfano %.12s eliminado (estado %s)", c.ID, c.State)
+	}
 }
 
 func trivyErrorReport(kind string, err error) []byte {
