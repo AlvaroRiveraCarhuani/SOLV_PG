@@ -5,7 +5,7 @@
       <h1 class="page-title">Auditoría de Similitud</h1>
       <p class="page-subtitle">Comparación estructural de las entregas de esta práctica, con el código base ya restado.</p>
       @if (!isLoading()) {
-        <p class="page-summary" aria-label="Resumen de auditoría de similitud">
+        <p class="page-summary" aria-label="Resumen de auditoría de similitud" data-tour="plagiarism-summary">
           <button
             type="button"
             class="summary-filter"
@@ -46,7 +46,7 @@
       }
     </div>
 
-    <div class="header-actions">
+    <div class="header-actions" data-tour="plagiarism-actions">
       <button
         type="button"
         class="btn btn-primary"
@@ -96,7 +96,7 @@
     <div class="review-layout">
       <!-- Columna 1: pares y archivos del par -->
       <aside class="pair-column">
-        <section class="surface-panel pairs-panel">
+        <section class="surface-panel pairs-panel" data-tour="plagiarism-pairs-list">
           <div class="panel-header">
             <h2 class="panel-title">Pares con alta similitud ({{ filteredMatches().length }})</h2>
           </div>
@@ -134,7 +134,7 @@
 
         @if (selectedMatch(); as match) {
           @if (isIde()) {
-            <section class="surface-panel file-tree-panel">
+            <section class="surface-panel file-tree-panel" data-tour="plagiarism-files-list">
               <div class="panel-header">
                 <h2 class="panel-title">
                   <svg lucideFiles class="panel-icon"></svg>
@@ -219,7 +219,7 @@
       </aside>
 
       <!-- Columna 2: diff con tramos compartidos -->
-      <main class="diff-column">
+      <main class="diff-column" data-tour="plagiarism-diff-viewer">
         @if (selectedMatch(); as match) {
           <section class="surface-panel diff-panel">
             <div class="detail-header">
@@ -372,7 +372,7 @@
       </main>
 
       <!-- Columna 3: cadencia, contraparte y decisión docente -->
-      <aside class="context-column">
+      <aside class="context-column" data-tour="plagiarism-forensic-metrics">
         @if (selectedMatch(); as match) {
           @if (pair(); as data) {
             @if (isIde()) {

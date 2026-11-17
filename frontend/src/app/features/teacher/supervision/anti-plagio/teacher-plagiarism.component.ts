@@ -1,4 +1,4 @@
-import { Component, OnInit, computed, inject, signal } from '@angular/core';
+import { Component, OnDestroy, OnInit, computed, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
@@ -16,6 +16,9 @@ import {
   LucideKeyboard,
   LucideGauge
 } from '@lucide/angular';
+import { ContextHelpService } from '@shared/help/context-help.service';
+import { ProductTourService } from '@shared/help/product-tour.service';
+import { InteractiveTutorialService } from '@shared/help/interactive-tutorial.service';
 import { TeacherCourseService } from '../../services/teacher-course.service';
 import {
   PlagiarismPair,
@@ -28,6 +31,11 @@ import { MachineDataDirective } from '@shared/directives/machine-data.directive'
 import { SkeletonLoaderComponent } from '@shared/components/skeleton/skeleton-loader.component';
 import { ComboboxComponent, ComboboxOption } from '@shared/components/combobox/combobox.component';
 import { CodeEditorComponent, CodeLineRange } from '@shared/components/code-editor/code-editor.component';
+import {
+  TeacherPlagiarismTutorialContext,
+  buildTeacherPlagiarismTour,
+  buildTeacherPlagiarismTutorial
+} from './teacher-plagiarism-help.definitions';
 
 interface AffectedFile {
   path: string;
@@ -69,10 +77,13 @@ interface AffectedFile {
   templateUrl: './teacher-plagiarism.component.html',
   styleUrl: './teacher-plagiarism.component.scss'
 })
-export class TeacherPlagiarismComponent implements OnInit {
+export class TeacherPlagiarismComponent implements OnInit, OnDestroy {
   private route = inject(ActivatedRoute);
   private router = inject(Router);
   private courseService = inject(TeacherCourseService);
+  private readonly help = inject(ContextHelpService);
+  private readonly tour = inject(ProductTourService);
+  private readonly tutorial = inject(InteractiveTutorialService);
 
   readonly courseId = signal<string>('');
   readonly exerciseId = signal<string>('');
@@ -223,7 +234,30 @@ export class TeacherPlagiarismComponent implements OnInit {
     this.toLineRanges(this.pairRanges().map(range => range.source_b))
   );
 
+  readonly tutorialContext = computed<TeacherPlagiarismTutorialContext>(() => ({
+    hasReport: () => this.report() !== null,
+    matchesCount: () => this.filteredMatches().length,
+    isMatchSelected: () => this.selectedMatch() !== null,
+    hasPairLoaded: () => this.pair() !== null,
+    currentRiskFilter: () => this.riskFilter(),
+    isMultiFile: () => this.isIde()
+  }));
+
   ngOnInit(): void {
+    this.help.registerScreen('teacher-plagiarism');
+    this.help.registerGuides('teacher-plagiarism', {
+      tour: {
+        label: 'Recorrido por la Auditoría de Similitud',
+        hint: 'Explicación de métricas compactas, pares, visor comparativo y telemetría',
+        run: () => this.tour.start(buildTeacherPlagiarismTour())
+      },
+      tutorial: {
+        label: 'Cómo analizar coincidencias de código',
+        hint: 'Paso a paso para filtrar por riesgo, comparar tramos y evaluar evidencias',
+        run: () => this.tutorial.start(buildTeacherPlagiarismTutorial(this.tutorialContext()))
+      }
+    });
+
     const courseId = this.route.snapshot.paramMap.get('courseId') ?? '';
     const exerciseId = this.route.snapshot.paramMap.get('exerciseId') ?? '';
 
@@ -235,6 +269,12 @@ export class TeacherPlagiarismComponent implements OnInit {
     this.courseId.set(courseId);
     this.exerciseId.set(exerciseId);
     this.runScan();
+  }
+
+  ngOnDestroy(): void {
+    this.help.unregisterGuides('teacher-plagiarism');
+    this.help.unregisterScreen('teacher-plagiarism');
+    this.tutorial.exit();
   }
 
   runScan(): void {

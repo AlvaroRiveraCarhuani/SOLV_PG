@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, DestroyRef, OnInit, computed, inject, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, DestroyRef, OnDestroy, OnInit, computed, inject, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { CommonModule } from '@angular/common';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
@@ -11,9 +11,17 @@ import {
 import { DateTextPipe } from '@shared/pipes/date-text.pipe';
 import { MachineDataDirective } from '@shared/directives/machine-data.directive';
 import { SkeletonLoaderComponent } from '@shared/components/skeleton/skeleton-loader.component';
+import { ContextHelpService } from '@shared/help/context-help.service';
+import { ProductTourService } from '@shared/help/product-tour.service';
+import { InteractiveTutorialService } from '@shared/help/interactive-tutorial.service';
 import { TeacherCourseService } from '../services/teacher-course.service';
 import { TeacherDashboardService } from '../services/teacher-dashboard.service';
 import { ReviewQueueGroup, SubmissionQueueItem } from '../models/teacher.models';
+import {
+  TeacherReviewsTutorialContext,
+  buildTeacherReviewsTour,
+  buildTeacherReviewsTutorial
+} from './teacher-reviews-help.definitions';
 
 @Component({
   selector: 'teacher-reviews',
@@ -33,12 +41,15 @@ import { ReviewQueueGroup, SubmissionQueueItem } from '../models/teacher.models'
   styleUrl: './teacher-reviews.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush
 })
-export class TeacherReviewsComponent implements OnInit {
+export class TeacherReviewsComponent implements OnInit, OnDestroy {
   private courseService = inject(TeacherCourseService);
   private dashboardService = inject(TeacherDashboardService);
   private route = inject(ActivatedRoute);
   private router = inject(Router);
   private destroyRef = inject(DestroyRef);
+  private readonly help = inject(ContextHelpService);
+  private readonly tour = inject(ProductTourService);
+  private readonly tutorial = inject(InteractiveTutorialService);
 
   /** Materia preseleccionada desde el panel: filtra la cola en el servidor. */
   readonly subjectFilter = signal<string | null>(null);
@@ -66,7 +77,28 @@ export class TeacherReviewsComponent implements OnInit {
     );
   });
 
+  readonly tutorialContext = computed<TeacherReviewsTutorialContext>(() => ({
+    hasGroups: () => this.groups().length > 0,
+    hasSelectedGroup: () => this.selectedGroup() !== null,
+    submissionsCount: () => this.submissions().length,
+    isFilterActive: () => this.subjectFilter() !== null
+  }));
+
   ngOnInit(): void {
+    this.help.registerScreen('teacher-reviews');
+    this.help.registerGuides('teacher-reviews', {
+      tour: {
+        label: 'Recorrido por la Cola de Entregas',
+        hint: 'Explicación del agrupamiento, tiempos de espera y acceso a calificar',
+        run: () => this.tour.start(buildTeacherReviewsTour())
+      },
+      tutorial: {
+        label: 'Cómo despachar entregas en espera',
+        hint: 'Paso a paso para priorizar por antigüedad y calificar con SpeedGrader',
+        run: () => this.tutorial.start(buildTeacherReviewsTutorial(this.tutorialContext()))
+      }
+    });
+
     this.route.queryParamMap.pipe(takeUntilDestroyed(this.destroyRef)).subscribe(params => {
       const subjectId = params.get('subject_id');
       this.subjectFilter.set(subjectId);
@@ -76,6 +108,12 @@ export class TeacherReviewsComponent implements OnInit {
       }
       this.load();
     });
+  }
+
+  ngOnDestroy(): void {
+    this.help.unregisterGuides('teacher-reviews');
+    this.help.unregisterScreen('teacher-reviews');
+    this.tutorial.exit();
   }
 
   /** Quitar el filtro vuelve a la cola completa del período. */

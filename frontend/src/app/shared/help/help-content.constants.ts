@@ -601,6 +601,58 @@ export const CONTEXT_HELP_ENTRIES: Record<string, ContextHelpEntry> = {
       }
     ],
     manualFragment: null
+  },
+
+  'teacher-reviews': {
+    key: 'teacher-reviews',
+    title: 'Cola de Entregas por Calificar',
+    intro:
+      'Centralice y despache las correcciones pendientes de sus materias en un solo lugar, organizadas por práctica y orden de llegada.',
+    items: [
+      {
+        label: 'Criterio por Orden de Llegada',
+        text: 'Las entregas se ordenan de la más antigua a la más reciente. La columna «Espera» muestra el tiempo transcurrido desde el envío para evitar demoras.'
+      },
+      {
+        label: 'Corrección por Lotes',
+        text: 'Agrupar por práctica permite calificar a todos los alumnos con los mismos criterios pedagógicos frescos en la memoria.'
+      },
+      {
+        label: 'Entregas «En revisión»',
+        text: 'Indica que otro docente o ayudante ya abrió la entrega en SpeedGrader, evitando correcciones superpuestas entre integrantes de la cátedra.'
+      },
+      {
+        label: 'Filtro por Materia',
+        text: 'Puede alternar entre la vista completa de todas sus comisiones o acotar el listado a una materia específica con un solo clic.'
+      }
+    ],
+    manualFragment: null
+  },
+
+  'teacher-plagiarism': {
+    key: 'teacher-plagiarism',
+    title: 'Auditoría de Similitud y Evidencia Forense',
+    intro:
+      'Analice coincidencias estructurales entre entregas con sustracción previa de plantillas base y telemetría de autoría para respaldo docente.',
+    items: [
+      {
+        label: 'Sustracción de Código Base',
+        text: 'El motor resta las estructuras iniciales dadas por la cátedra antes de comparar, evitando falsas alarmas por esqueletos comunes de código.'
+      },
+      {
+        label: 'Niveles Semánticos de Riesgo',
+        text: 'Crítico (>= 85%) indica lógica idéntica con variables renombradas. Advertencia (70-84%) señala estructuras afines o fuentes compartidas. Informativo (< 70%) representa patrones habituales del lenguaje.'
+      },
+      {
+        label: 'Telemetría y Cadencia de Tipeo',
+        text: 'Contraste el porcentaje de similitud con las palabras por minuto (WPM), tiempo en el editor y eventos de pegado masivo para evaluar el proceso real.'
+      },
+      {
+        label: 'Soberanía Docente',
+        text: 'El sistema aporta datos cuantitativos y comparaciones de código. La valoración final y la decisión pedagógica son siempre del profesor.'
+      }
+    ],
+    manualFragment: null
   }
 };
 

@@ -2,6 +2,7 @@ import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { ActivatedRoute, convertToParamMap, provideRouter } from '@angular/router';
 import { signal } from '@angular/core';
 import { of } from 'rxjs';
+import { ContextHelpService } from '@shared/help/context-help.service';
 import { TeacherReviewsComponent } from './teacher-reviews.component';
 import { TeacherCourseService } from '../services/teacher-course.service';
 import { TeacherDashboardService } from '../services/teacher-dashboard.service';
@@ -153,5 +154,36 @@ describe('TeacherReviewsComponent', () => {
     const text = (fixture.nativeElement as HTMLElement).textContent ?? '';
     expect(text).toContain('No hay entregas por calificar');
     expect(component.groups().length).toBe(0);
+  });
+
+  it('registra la pantalla teacher-reviews y las guías de ayuda al montarse', async () => {
+    await setup(groups);
+    const help = TestBed.inject(ContextHelpService);
+
+    expect(help.screenKey()).toBe('teacher-reviews');
+    const guides = help.guides();
+    expect(guides.tour).toBeDefined();
+    expect(guides.tour?.label).toContain('Recorrido por la Cola de Entregas');
+    expect(guides.tutorial).toBeDefined();
+    expect(guides.tutorial?.label).toContain('Cómo despachar entregas en espera');
+  });
+
+  it('evalúa correctamente el contexto del tutorial interactivo', async () => {
+    await setup(groups);
+
+    const ctx = component.tutorialContext();
+    expect(ctx.hasGroups()).toBe(true);
+    expect(ctx.hasSelectedGroup()).toBe(true);
+    expect(ctx.submissionsCount()).toBe(2);
+    expect(ctx.isFilterActive()).toBe(false);
+  });
+
+  it('desregistra la pantalla y limpia las guías al destruirse', async () => {
+    await setup(groups);
+    const help = TestBed.inject(ContextHelpService);
+
+    expect(help.screenKey()).toBe('teacher-reviews');
+    fixture.destroy();
+    expect(help.screenKey()).toBeNull();
   });
 });

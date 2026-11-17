@@ -1,6 +1,7 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { ActivatedRoute, convertToParamMap, provideRouter } from '@angular/router';
 import { of } from 'rxjs';
+import { ContextHelpService } from '@shared/help/context-help.service';
 
 import { TeacherPlagiarismComponent } from './teacher-plagiarism.component';
 import { TeacherCourseService } from '../../services/teacher-course.service';
@@ -252,5 +253,34 @@ describe('TeacherPlagiarismComponent', () => {
     expect(component.verdictText('AC')).toBe('Todos los tests pasan');
     expect(component.verdictText('AST_BLOCKED')).toBe('Bloqueado por análisis');
     expect(component.verdictClass('WA')).toBe('verdict-error');
+  });
+
+  it('registra la pantalla teacher-plagiarism y las guías de ayuda al montarse', () => {
+    const help = TestBed.inject(ContextHelpService);
+
+    expect(help.screenKey()).toBe('teacher-plagiarism');
+    const guides = help.guides();
+    expect(guides.tour).toBeDefined();
+    expect(guides.tour?.label).toContain('Recorrido por la Auditoría de Similitud');
+    expect(guides.tutorial).toBeDefined();
+    expect(guides.tutorial?.label).toContain('Cómo analizar coincidencias de código');
+  });
+
+  it('evalúa correctamente el contexto del tutorial interactivo', () => {
+    const ctx = component.tutorialContext();
+    expect(ctx.hasReport()).toBe(true);
+    expect(ctx.matchesCount()).toBe(2);
+    expect(ctx.isMatchSelected()).toBe(true);
+    expect(ctx.hasPairLoaded()).toBe(true);
+    expect(ctx.currentRiskFilter()).toBe('all');
+    expect(ctx.isMultiFile()).toBe(true);
+  });
+
+  it('desregistra la pantalla y limpia las guías al destruirse', () => {
+    const help = TestBed.inject(ContextHelpService);
+
+    expect(help.screenKey()).toBe('teacher-plagiarism');
+    fixture.destroy();
+    expect(help.screenKey()).toBeNull();
   });
 });
