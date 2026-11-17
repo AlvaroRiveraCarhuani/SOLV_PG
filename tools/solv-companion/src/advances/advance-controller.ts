@@ -186,7 +186,7 @@ export class AdvanceController implements vscode.Disposable {
 
   /** Congela o descongela la emisión del aula. */
   async toggleFreeze(): Promise<boolean> {
-    const sessionId = this.settings.sessionId;
+    const sessionId = this.settings.sessionId || this.board?.session.id;
     if (!sessionId) {
       throw new Error('Falta el aula abierta para pausar la clase.');
     }
@@ -199,6 +199,9 @@ export class AdvanceController implements vscode.Disposable {
 
   async openSession(subjectId: string, durationMinutes = 90): Promise<{ id: string }> {
     const res = await this.client.openSession(subjectId, durationMinutes);
+    // El aula recién abierta se recuerda en la sesión del editor: emitir y
+    // congelar leen el identificador de ahí.
+    this.settings.setSessionId(res.id);
     this.board = await this.loadBoard();
     this.emitter.fire();
     return res;
@@ -207,6 +210,9 @@ export class AdvanceController implements vscode.Disposable {
   async closeSession(sessionId: string): Promise<unknown> {
     const res = await this.client.closeSession(sessionId);
     this.board = undefined;
+    // El aula cerrada ya no aplica: el panel vuelve a ofrecer iniciar clase y
+    // emitir o congelar dejan de tener un identificador vigente.
+    this.settings.clearSessionId();
     this.emitter.fire();
     return res;
   }
@@ -218,6 +224,9 @@ export class AdvanceController implements vscode.Disposable {
       const open = await this.client.currentOpenSession();
       if (open?.id) {
         sessionId = open.id;
+        // El aula abierta desde la web no llega por entorno: se guarda igual que
+        // la que abre el panel, para que las dos acciones del aula la usen.
+        this.settings.setSessionId(sessionId);
       }
     }
     if (!sessionId) {

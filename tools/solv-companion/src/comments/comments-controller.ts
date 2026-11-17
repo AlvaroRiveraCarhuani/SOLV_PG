@@ -41,14 +41,23 @@ export class CommentsController implements vscode.Disposable {
   }
 
   async refresh(showErrors = false): Promise<void> {
-    if (!this.settings.isConfigured) {
+    if (!this.settings.apiBaseUrl) {
       this.comments = [];
       this.decorator.clearAll();
       if (showErrors) {
         void vscode.window.showWarningMessage(
-          'SOLV Companion: configurá la URL y la entrega con el comando "SOLV: Configurar conexión".'
+          'SOLV Companion: falta la URL de la API. Configurala con el comando "SOLV: Configurar conexión".'
         );
       }
+      return;
+    }
+
+    // Sin entrega no hay comentarios que pintar: el IDE de la práctica del
+    // docente no tiene una, y el alumno no tiene ninguna hasta que entrega.
+    // No es un fallo de configuración, así que no se avisa.
+    if (!this.settings.submissionId) {
+      this.comments = [];
+      this.decorator.clearAll();
       return;
     }
 

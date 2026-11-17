@@ -48,6 +48,7 @@ export class SolvSettings {
   private readonly _envToken: string | undefined;
   private readonly _envRole: string | undefined;
   private _envSessionId: string | undefined;
+  private _sessionCleared = false;
   private readonly _envExerciseId: string | undefined;
   private readonly _envSubjectId: string | undefined;
   private readonly _envWorkspaceId: string | undefined;
@@ -86,11 +87,21 @@ export class SolvSettings {
   }
 
   get sessionId(): string {
+    if (this._sessionCleared) {
+      return '';
+    }
     return this._envSessionId || this.readString('sessionId');
   }
 
   setSessionId(sessionId: string): void {
     this._envSessionId = sessionId;
+    this._sessionCleared = false;
+  }
+
+  /** Borra el aula recordada: al cerrar la clase el panel vuelve a "sin aula". */
+  clearSessionId(): void {
+    this._envSessionId = '';
+    this._sessionCleared = true;
   }
 
   get exerciseId(): string {
@@ -184,10 +195,6 @@ export class SolvSettings {
       .getConfiguration('solv')
       .get<number>('telemetry.pasteThreshold', 50);
     return Math.max(2, Number.isFinite(threshold) ? threshold : 50);
-  }
-
-  get isConfigured(): boolean {
-    return this.apiBaseUrl !== '' && (this.submissionId !== '' || this.sessionId !== '');
   }
 
   async getToken(): Promise<string> {

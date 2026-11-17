@@ -357,14 +357,27 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
   }
 
   async function broadcastAdvance(): Promise<void> {
-    const sessionId = settings.sessionId;
+    const sessionId = settings.sessionId || advances.snapshot().board?.session.id;
     if (!sessionId) {
-      warn('No hay un aula abierta. Abrí la clase desde la plataforma antes de emitir.');
+      warn('No hay un aula abierta. Iniciá la clase antes de emitir el avance.');
       return;
     }
     const exerciseId = settings.exerciseId;
     if (!exerciseId) {
       warn('Falta el ejercicio de la práctica para emitir el avance.');
+      return;
+    }
+
+    let board = advances.snapshot().board;
+    if (!board) {
+      try {
+        board = (await advanceClient.board(sessionId)) ?? undefined;
+      } catch {
+        board = undefined;
+      }
+    }
+    if (board && board.summary.enrolled === 0) {
+      warn('El aula no tiene alumnos matriculados: el avance no llegaría a nadie.');
       return;
     }
 
@@ -392,9 +405,13 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
 
     let studentIds: string[] = [];
     if (scope.value === 'selected') {
-      const board = advances.snapshot().board ?? (await advanceClient.board(sessionId));
+      const students = board?.students ?? [];
+      if (students.length === 0) {
+        warn('El aula no tiene alumnos para seleccionar.');
+        return;
+      }
       const picked = await vscode.window.showQuickPick(
-        (board?.students ?? []).map(student => ({
+        students.map(student => ({
           label: student.name || student.student_id,
           description: student.present ? 'Presente' : 'Ausente',
           studentId: student.student_id
