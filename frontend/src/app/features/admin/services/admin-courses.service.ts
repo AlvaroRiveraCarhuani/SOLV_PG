@@ -66,7 +66,6 @@ export interface AdminCourseItem {
   active_students: number;
   hibernated_students: number;
   ram_used_mb: number;
-  template_name?: string;
   created_at?: string;
 }
 
@@ -114,7 +113,6 @@ export class AdminCoursesService {
   activePeriod = signal<AcademicPeriod | null>(null);
   courses = signal<AdminCourseItem[]>([]);
   teachers = signal<TeacherItem[]>([]);
-  templates = signal<DockerTemplateItem[]>([]);
 
   isLoading = signal<boolean>(false);
   error = signal<string | null>(null);
@@ -130,10 +128,9 @@ export class AdminCoursesService {
       periods: this.fetchPeriods(),
       subjects: this.fetchSubjects(),
       loadMetrics: this.fetchCoursesLoadMetrics(),
-      teachers: this.fetchTeachers(),
-      templates: this.fetchTemplates()
+      teachers: this.fetchTeachers()
     }).subscribe({
-      next: ({ periods, subjects, loadMetrics, teachers, templates }) => {
+      next: ({ periods, subjects, loadMetrics, teachers }) => {
         const validPeriods = Array.isArray(periods) ? periods : [];
         const validSubjects = Array.isArray(subjects) ? subjects : [];
         const validMetrics = Array.isArray(loadMetrics) ? loadMetrics : [];
@@ -152,18 +149,10 @@ export class AdminCoursesService {
           }
         }
 
-        // Mapa rápido de plantillas para resolver nombres reales en la vista
-        const templateList = Array.isArray(templates) ? templates : [];
-        const templateMap = new Map<string, string>();
-        for (const tmpl of templateList) {
-          if (tmpl && tmpl.id && tmpl.name) {
-            templateMap.set(tmpl.id, tmpl.name);
-          }
-        }
-
+        // Un curso es un contenedor académico: la plantilla de infraestructura
+        // se elige en el ejercicio o el laboratorio, no acá.
         const enrichedCourses: AdminCourseItem[] = validSubjects.map(s => {
           const metric = loadMap.get(s.id);
-          const resolvedTemplateName = s.template_id ? (templateMap.get(s.template_id) || 'Personalizada') : 'Sin plantilla';
           return {
             id: s.id,
             name: s.name,
@@ -175,14 +164,12 @@ export class AdminCoursesService {
             active_students: metric ? metric.active_students : 0,
             hibernated_students: metric ? metric.hibernated_students : 0,
             ram_used_mb: metric ? metric.ram_used_mb : 0,
-            template_name: resolvedTemplateName,
             created_at: s.created_at
           };
         });
 
         this.courses.set(enrichedCourses);
         this.teachers.set(Array.isArray(teachers) ? teachers : []);
-        this.templates.set(Array.isArray(templates) ? templates : []);
         this.isLoading.set(false);
       },
       error: () => {
@@ -304,7 +291,6 @@ export class AdminCoursesService {
           active_students: 0,
           hibernated_students: 0,
           ram_used_mb: 0,
-          template_name: 'Linux / Docker Base',
           created_at: raw.created_at || new Date().toISOString()
         };
         this.courses.update(prev => [newCourse, ...prev]);

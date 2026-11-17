@@ -375,20 +375,17 @@ export function createPlan({ policy, changes, backendGraph, frontendGraph, optio
     for (const filePath of [change.path, change.oldPath].filter(Boolean)) {
       if (change.neutral) continue;
       if (filePath.startsWith('frontend/e2e/')) {
-        if (!filePath.endsWith('.spec.mjs')) scopeFull.frontend = true;
         structural.push(filePath);
         continue;
       }
       if (!isCodePath(filePath)) continue;
-      if (filePath.startsWith('backend/')) scopeFull.backend = true;
-      if (filePath.startsWith('frontend/')) scopeFull.frontend = true;
+      // Eliminar o renombrar no arrastra todo el lado: el build, el grafo de
+      // dependencias y las áreas del propio archivo ya seleccionan la
+      // validación proporcional. El cambio estructural se reporta y eleva el
+      // nivel como máximo a L2.
       structural.push(filePath);
     }
   }
-
-  // El alcance completo por eliminación o renombrado conserva el catálogo E2E;
-  // una regla global con alcance acotado solo hereda lo que ella misma declara.
-  const structuralScope = scopeFull.backend || scopeFull.frontend;
 
   const scopedGlobalBackend = annotated.some((change) =>
     change.globals.some((entry) => entry.scope === 'backend')
@@ -444,9 +441,13 @@ export function createPlan({ policy, changes, backendGraph, frontendGraph, optio
       levelReasons.push({ source: 'global', id: entry.id, level: entry.level || 'L3', reason: entry.reason });
     }
   }
-  if (scopeFull.backend || scopeFull.frontend) {
-    level = 'L3';
-    levelReasons.push({ source: 'scope', level: 'L3', reason: 'eliminación, renombrado o configuración global' });
+  if (structural.length > 0) {
+    level = maxLevel(level, 'L2');
+    levelReasons.push({
+      source: 'structural',
+      level: 'L2',
+      reason: 'eliminación o renombrado: build, grafo y flujos del área afectada'
+    });
   }
   if (levelReasons.length === 0) {
     levelReasons.push({ source: 'localized', level: 'L0', reason: 'sin dependencia demostrada' });
@@ -717,9 +718,9 @@ export function createPlan({ policy, changes, backendGraph, frontendGraph, optio
       mode: 'full',
       reason: `${basePlan.reason}; alcance completo de ${
         scope === 'all' ? 'backend y frontend' : scope
-      } por eliminación, renombrado o configuración global`,
+      } por configuración global`,
       suites: fullSuites(policy, scope, backendGraph, frontendGraph, 'alcance completo', {
-        e2e: structuralScope ? 'all' : globalE2e
+        e2e: globalE2e
       })
     });
   }

@@ -65,7 +65,14 @@
                 }
                 <span class="provider-label">{{ item.label }}</span>
               </div>
-              <span class="provider-badge">{{ item.badge }}</span>
+              @if (isInstitutionalActiveProvider(item.value)) {
+                <span class="institutional-flag">
+                  <svg lucideCheckCircle2 class="flag-icon"></svg>
+                  Motor activo de la institución
+                </span>
+              } @else {
+                <span class="provider-badge">{{ item.badge }}</span>
+              }
             </div>
 
             <div class="provider-card-footer">
@@ -80,19 +87,45 @@
                     </span>
                   }
                 </div>
+              } @else if (isInstitutionalActiveProvider(item.value)) {
+                <span class="model-caption institutional-caption">
+                  Ya operás con este motor sin clave personal. Tu clave solo hace falta para
+                  superar la cuota compartida.
+                </span>
               } @else {
                 <span class="model-caption sin-configurar">Sin configurar</span>
               }
             </div>
           </button>
         }
+
+        <button type="button" class="provider-card provider-card-add" (click)="openAddProvider()">
+          <span class="provider-title-row">
+            <svg lucidePlus class="provider-icon"></svg>
+            <span class="provider-label">Agregar proveedor</span>
+          </span>
+          <span class="provider-badge">Groq, Mistral, Together, Cerebras u otro compatible con OpenAI</span>
+        </button>
       </div>
     </div>
 
     <div class="byok-config-column">
-      <span class="column-subtitle">
-        Configuración: <strong>{{ selectedProvider()?.label || 'Proveedor' }}</strong>
-      </span>
+      <div class="config-column-head">
+        <span class="column-subtitle">
+          Configuración: <strong>{{ selectedProvider()?.label || 'Proveedor' }}</strong>
+        </span>
+        @if (selectedPersonalProvider()) {
+          <button
+            type="button"
+            class="btn-danger-link btn-remove-provider"
+            [disabled]="deletingProvider()"
+            (click)="requestDeleteProvider()"
+          >
+            <svg lucideTrash2 class="btn-icon"></svg>
+            <span>Eliminar proveedor</span>
+          </button>
+        }
+      </div>
 
       <div class="credential-row">
         <form-field label="API Key personal" for="byok-api-key" [hint]="apiKeyHint()">
@@ -266,7 +299,7 @@
       <span>{{ saving() ? 'Guardando...' : 'Guardar configuración' }}</span>
     </button>
 
-    @if (hasSavedKey()) {
+    @if (hasSavedKey() && sameProviderAsSaved()) {
       <button type="button" class="btn-danger-link" [disabled]="clearing()" (click)="clearKey()">
         <svg lucideTrash2 class="btn-icon"></svg>
         <span>{{ clearing() ? 'Quitando...' : 'Quitar mi clave' }}</span>
@@ -284,4 +317,157 @@
       </p>
     </div>
   </div>
+}
+
+@if (showAddProvider()) {
+  <modal-shell
+    animate.leave="motion-modal-out"
+    title="Agregar proveedor"
+    subtitle="Sumá una cuenta propia compatible con la API de OpenAI sin esperar a que la institución la registre."
+    maxWidth="620px"
+    (close)="closeAddProvider()"
+  >
+    <svg modal-icon lucidePlus class="modal-icon"></svg>
+
+    <form-field label="Nombre visible" for="byok-new-label" [required]="true" hint="Ej: Groq Cloud, Mistral AI, Together AI">
+      <input
+        id="byok-new-label"
+        type="text"
+        class="form-input"
+        autocomplete="off"
+        placeholder="Ej: Groq Cloud"
+        [ngModel]="newProviderLabel()"
+        (ngModelChange)="newProviderLabel.set($event)"
+      />
+    </form-field>
+
+    <form-field
+      label="URL base del endpoint"
+      for="byok-new-base-url"
+      [required]="true"
+      hint="Solo https:// público, por ejemplo https://api.groq.com/openai/v1"
+    >
+      <input
+        id="byok-new-base-url"
+        type="url"
+        class="form-input font-mono"
+        autocomplete="off"
+        placeholder="https://api.groq.com/openai/v1"
+        [ngModel]="newProviderBaseURL()"
+        (ngModelChange)="newProviderBaseURL.set($event)"
+      />
+    </form-field>
+
+    <form-field label="API Key personal" for="byok-new-api-key" hint="Se guarda cifrada y nunca se vuelve a mostrar completa">
+      <input
+        id="byok-new-api-key"
+        type="password"
+        class="form-input"
+        autocomplete="off"
+        placeholder="sk-..."
+        [ngModel]="newProviderApiKey()"
+        (ngModelChange)="newProviderApiKey.set($event)"
+      />
+    </form-field>
+
+    <form-field label="Modelo" for="byok-new-model" hint="Elegí uno del catálogo o escribí el identificador exacto">
+      <input
+        id="byok-new-model"
+        type="text"
+        class="form-input font-mono"
+        autocomplete="off"
+        placeholder="Ej: llama-3.3-70b-versatile"
+        [ngModel]="newProviderModel()"
+        (ngModelChange)="newProviderModel.set($event)"
+      />
+    </form-field>
+
+    <div class="provider-form-actions">
+      <button
+        type="button"
+        class="btn-catalog"
+        [disabled]="newProviderLoadingModels() || !canQueryNewProvider()"
+        (click)="fetchNewProviderModels()"
+      >
+        <svg lucideRefreshCw class="btn-icon" [class.motion-spin]="newProviderLoadingModels()"></svg>
+        <span>{{ newProviderLoadingModels() ? 'Consultando...' : 'Listar modelos' }}</span>
+      </button>
+      <button
+        type="button"
+        class="btn-outline btn-test-connection"
+        [disabled]="newProviderTesting() || !canQueryNewProvider()"
+        (click)="testNewProvider()"
+      >
+        @if (newProviderTesting()) {
+          <svg lucideLoader2 class="btn-icon motion-spin"></svg>
+        } @else {
+          <svg lucideWifi class="btn-icon"></svg>
+        }
+        <span>{{ newProviderTesting() ? 'Probando...' : 'Probar conexión' }}</span>
+      </button>
+    </div>
+
+    @if (newProviderModels().length > 0) {
+      <div class="new-provider-catalog">
+        @for (model of newProviderModels(); track model.id) {
+          <button
+            type="button"
+            class="catalog-item"
+            [class.selected]="newProviderModel() === model.id"
+            (click)="newProviderModel.set(model.id)"
+          >
+            <span class="catalog-item-main">
+              <span class="catalog-item-name">{{ modelName(model) }}</span>
+              @if (model.name && model.name !== model.id) {
+                <code class="font-mono">{{ model.id }}</code>
+              }
+            </span>
+          </button>
+        }
+      </div>
+    }
+
+    @if (newProviderFeedback(); as message) {
+      <div
+        class="feedback"
+        [class.feedback-ok]="newProviderFeedbackOk() === true"
+        [class.feedback-error]="newProviderFeedbackOk() === false"
+      >
+        @if (newProviderFeedbackOk() === true) {
+          <svg lucideCheckCircle2 class="feedback-icon"></svg>
+        } @else {
+          <svg lucideAlertCircle class="feedback-icon"></svg>
+        }
+        <span>{{ message }}</span>
+      </div>
+    }
+
+    <ng-container modal-footer>
+      <button type="button" class="btn-outline" (click)="closeAddProvider()" [disabled]="newProviderSaving()">
+        Cancelar
+      </button>
+      <button
+        type="button"
+        class="btn-primary"
+        [disabled]="newProviderSaving() || !canQueryNewProvider()"
+        (click)="saveNewProvider()"
+      >
+        <svg lucideSave class="btn-icon"></svg>
+        <span>{{ newProviderSaving() ? 'Guardando...' : 'Agregar proveedor' }}</span>
+      </button>
+    </ng-container>
+  </modal-shell>
+}
+
+@if (providerToDelete(); as provider) {
+  <confirm-modal
+    title="¿Eliminar proveedor?"
+    [message]="'El proveedor ' + provider.label + ' y su clave personal se eliminan de tu catálogo. La institución no se ve afectada.'"
+    confirmText="Eliminar"
+    cancelText="Cancelar"
+    type="danger"
+    (confirm)="executeDeleteProvider(provider)"
+    (cancel)="cancelDeleteProvider()"
+  >
+  </confirm-modal>
 }

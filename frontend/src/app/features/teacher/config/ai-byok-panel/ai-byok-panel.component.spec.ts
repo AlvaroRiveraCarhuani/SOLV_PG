@@ -18,6 +18,7 @@ const institutionalOnly: AIUserOverrideDTO = {
   api_key_masked: '',
   updated_at: '',
   institutional_enabled: true,
+  institutional_provider: 'gemini',
   institutional_provider_label: 'Google Gemini',
   institutional_model: 'gemini-2.5-flash'
 };
@@ -32,7 +33,8 @@ const withCustomProvider: AIUserOverrideDTO = {
       label: 'Inception Mercury',
       icon_url: '',
       base_url: 'https://api.inceptionlabs.ai/v1',
-      model: 'mercury-3'
+      model: 'mercury-3',
+      origin: 'institutional'
     }
   ]
 };
@@ -47,6 +49,7 @@ const withPersonalKey: AIUserOverrideDTO = {
   api_key_masked: 'sk-or-•••••••1234',
   updated_at: '2026-10-25T12:00:00Z',
   institutional_enabled: true,
+  institutional_provider: 'gemini',
   institutional_provider_label: 'Google Gemini',
   institutional_model: 'gemini-2.5-flash'
 };

@@ -98,7 +98,6 @@
                 DOCENTE TITULAR
               </sort-header>
             </th>
-            <th class="col-template">PLANTILLA BASE</th>
             <th class="col-students">
               <sort-header
                 column="students"
@@ -144,19 +143,17 @@
                 }
               </td>
 
-              <!-- Plantilla Base -->
-              <td class="col-template">
-                <span class="template-badge">
-                  <svg lucideLayers class="template-icon"></svg>
-                  <span>{{ course.template_name || 'Linux Base' }}</span>
-                </span>
-              </td>
-
-              <!-- Estudiantes Matriculados -->
+              <!-- Estudiantes Matriculados: acceso directo al padrón de la materia -->
               <td class="col-students">
-                <div class="students-count-cell">
+                <button
+                  type="button"
+                  class="students-count-btn"
+                  (click)="openStudentsModal(course)"
+                  [attr.aria-label]="'Gestionar estudiantes de ' + course.name"
+                >
                   <span class="students-total">{{ course.active_students + course.hibernated_students }}</span>
-                </div>
+                  <span class="students-action">Gestionar</span>
+                </button>
               </td>
 
               <!-- Estado -->
@@ -202,7 +199,7 @@
             </tr>
           } @empty {
             <tr>
-              <td colspan="6" class="empty-cell">
+              <td colspan="5" class="empty-cell">
                 <div class="empty-state">
                   <svg lucideBookOpen class="empty-icon"></svg>
                   <h3>No se encontraron cursos</h3>
@@ -237,6 +234,23 @@
       (closed)="closeCreateCourseModal()"
       (courseCreated)="onCourseCreated()">
     </course-create-modal>
+  }
+
+  <!-- Padrón de la materia: listado, altas individuales, nómina y bajas -->
+  @if (studentsCourse(); as course) {
+    <modal-shell
+      animate.leave="motion-modal-out"
+      [title]="'Estudiantes · ' + course.code"
+      [subtitle]="course.name"
+      maxWidth="1080px"
+      (close)="closeStudentsModal()"
+    >
+      <svg modal-icon lucideBookOpen class="icon"></svg>
+      <course-students-panel
+        [subjectId]="course.id"
+        (changed)="onStudentsChanged($event)"
+      />
+    </modal-shell>
   }
 
   @if (selectedCourseForReassign(); as course) {

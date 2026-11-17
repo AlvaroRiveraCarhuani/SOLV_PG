@@ -51,7 +51,7 @@ export function buildCoursesTour(): TourDefinition {
         selector: '[data-tour="courses-table"]',
         title: 'Qué dice cada fila',
         description:
-          'Código y nombre, docente titular, plantilla base, estudiantes matriculados y estado. Una fila atenuada está archivada.',
+          'Código y nombre, docente titular, estudiantes matriculados y estado. El contador de matriculados abre el padrón de la materia. Una fila atenuada está archivada.',
         side: 'top'
       },
       {

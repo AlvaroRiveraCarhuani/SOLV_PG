@@ -688,3 +688,77 @@
   font-size: var(--text-xs);
   color: var(--text-muted);
 }
+
+/* Distintivo del motor que la institución ya paga y tiene activo */
+.institutional-flag {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  width: fit-content;
+  padding: 2px var(--space-2);
+  border: 1px solid var(--status-running-border);
+  border-radius: var(--radius-sm);
+  background: var(--status-running-bg);
+  font-size: var(--text-2xs);
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  color: var(--status-running-color);
+
+  .flag-icon {
+    width: 12px;
+    height: 12px;
+    flex-shrink: 0;
+  }
+}
+
+.institutional-caption {
+  color: var(--text-secondary);
+}
+
+/* Tarjeta de alta de un proveedor propio */
+.provider-card-add {
+  border-style: dashed;
+  background: none;
+
+  .provider-title-row {
+    align-items: center;
+  }
+}
+
+.config-column-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+
+  .column-subtitle {
+    margin-bottom: var(--space-3);
+  }
+}
+
+.btn-remove-provider {
+  margin-left: 0;
+  margin-bottom: var(--space-2);
+}
+
+.provider-form-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin: var(--space-2) 0 var(--space-3);
+}
+
+.new-provider-catalog {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  max-height: 180px;
+  overflow-y: auto;
+  margin-bottom: var(--space-3);
+  padding: var(--space-2);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  background: var(--bg-surface-subtle);
+}

@@ -778,6 +778,231 @@ func (s *AISettingsService) CompleteJSON(ctx context.Context, tenantID, userID, 
 // resolveUserOverride devuelve la cascada BYOK personal activa y válida de un
 // usuario. Un override ausente, deshabilitado o incompleto se trata como
 // inexistente: la operación cae en la base institucional.
+// applyUserCustomProviders aplica las altas, ediciones y bajas del catálogo
+// propio del usuario. El catálogo institucional es inmutable desde acá: un ID
+// institucional no se puede sobrescribir ni eliminar.
+func (s *AISettingsService) applyUserCustomProviders(
+	current, institutional []domain.AICustomProviderStored,
+	dto domain.UpdateAIUserOverrideDTO,
+) ([]domain.AICustomProviderStored, error) {
+	updated := append([]domain.AICustomProviderStored{}, current...)
+
+	if len(dto.RemoveCustomProviders) > 0 {
+		remove := make(map[string]bool, len(dto.RemoveCustomProviders))
+		for _, id := range dto.RemoveCustomProviders {
+			remove[strings.TrimSpace(id)] = true
+		}
+		kept := updated[:0]
+		for _, cp := range updated {
+			if !remove[cp.ID] {
+				kept = append(kept, cp)
+			}
+		}
+		updated = kept
+	}
+
+	if len(dto.CustomProviders) > 0 {
+		institutionalIDs := make(map[string]bool, len(institutional))
+		for _, cp := range institutional {
+			institutionalIDs[cp.ID] = true
+		}
+
+		for _, input := range dto.CustomProviders {
+			label := strings.TrimSpace(input.Label)
+			if !domain.ValidateCustomProviderLabel(label) {
+				return nil, &AISettingsValidationError{
+					Code:    "provider_label_invalid",
+					Message: "el nombre del proveedor debe tener entre 1 y 60 caracteres",
+				}
+			}
+
+			id := strings.TrimSpace(input.ID)
+			if id == "" {
+				id = generateCustomProviderID(label)
+			}
+			if !domain.IsCustomAIProvider(id) {
+				return nil, &AISettingsValidationError{
+					Code:    "provider_invalid",
+					Message: fmt.Sprintf("identificador de proveedor propio inválido: %q", id),
+				}
+			}
+			if institutionalIDs[id] {
+				return nil, &AISettingsValidationError{
+					Code:    "provider_invalid",
+					Message: fmt.Sprintf("el proveedor %q pertenece al catálogo institucional y no se puede reemplazar", id),
+				}
+			}
+
+			baseURL, err := validateUserPublicBaseURL(input.BaseURL)
+			if err != nil {
+				return nil, err
+			}
+			if !domain.ValidateCustomProviderIconURL(input.IconURL) {
+				return nil, &AISettingsValidationError{
+					Code:    "provider_icon_invalid",
+					Message: "el icono del proveedor debe ser una URL http o https",
+				}
+			}
+
+			index := -1
+			for i := range updated {
+				if updated[i].ID == id {
+					index = i
+					break
+				}
+			}
+
+			provider := domain.AICustomProviderStored{
+				ID:      id,
+				Label:   label,
+				IconURL: strings.TrimSpace(input.IconURL),
+				BaseURL: baseURL,
+				Model:   strings.TrimSpace(input.Model),
+			}
+			if index >= 0 {
+				provider.EncryptedAPIKey = updated[index].EncryptedAPIKey
+				provider.APIKeyMasked = updated[index].APIKeyMasked
+			}
+			switch {
+			case input.ClearAPIKey:
+				provider.EncryptedAPIKey, provider.APIKeyMasked = "", ""
+			case strings.TrimSpace(input.APIKey) != "":
+				cipherText, errCipher := s.encryptAPIKey(strings.TrimSpace(input.APIKey))
+				if errCipher != nil {
+					return nil, fmt.Errorf("no se pudo cifrar la API Key del proveedor propio: %w", errCipher)
+				}
+				provider.EncryptedAPIKey = cipherText
+				provider.APIKeyMasked = maskAPIKey(strings.TrimSpace(input.APIKey))
+			}
+
+			if index >= 0 {
+				updated[index] = provider
+			} else {
+				if len(updated)+len(institutional) >= domain.MaxCustomProviders {
+					return nil, &AISettingsValidationError{
+						Code:    "provider_limit_reached",
+						Message: fmt.Sprintf("se alcanzó el máximo de %d proveedores personalizados por docente", domain.MaxCustomProviders),
+					}
+				}
+				updated = append(updated, provider)
+			}
+		}
+	}
+
+	return updated, nil
+}
+
+// findUserCustomProvider busca el proveedor en el catálogo institucional y en
+// el propio del usuario. Devuelve ambos punteros porque el origen cambia quién
+// manda el endpoint y qué se puede tocar desde la credencial personal.
+func findUserCustomProvider(
+	institutional, personal []domain.AICustomProviderStored,
+	provider string,
+) (*domain.AICustomProviderStored, *domain.AICustomProviderStored) {
+	for i := range institutional {
+		if institutional[i].ID == provider {
+			return &institutional[i], nil
+		}
+	}
+	for i := range personal {
+		if personal[i].ID == provider {
+			return nil, &personal[i]
+		}
+	}
+	return nil, nil
+}
+
+// validateUserPublicBaseURL acepta únicamente endpoints https que resuelven a
+// direcciones públicas de internet. El docente no configura la red del
+// servidor: si pudiera apuntar a la LAN o al loopback, una petición de
+// inferencia se convertiría en un SSRF contra la infraestructura universitaria.
+func validateUserPublicBaseURL(raw string) (string, error) {
+	trimmed := strings.TrimSpace(raw)
+	if trimmed == "" {
+		return "", &AISettingsValidationError{
+			Code:    "base_url_required",
+			Message: "la URL base del proveedor es obligatoria (ej: https://api.groq.com/openai/v1)",
+		}
+	}
+	u, err := url.Parse(trimmed)
+	if err != nil || u.Host == "" || u.User != nil {
+		return "", &AISettingsValidationError{
+			Code:    "base_url_invalid",
+			Message: fmt.Sprintf("URL base inválida: %q", trimmed),
+		}
+	}
+	if strings.ToLower(u.Scheme) != "https" {
+		return "", &AISettingsValidationError{
+			Code:    "base_url_invalid",
+			Message: "tu proveedor personal debe usar https://: los endpoints http:// solo se permiten en la configuración institucional",
+		}
+	}
+
+	host := strings.ToLower(u.Hostname())
+	if host == "" {
+		return "", &AISettingsValidationError{
+			Code:    "base_url_invalid",
+			Message: fmt.Sprintf("URL base sin host: %q", trimmed),
+		}
+	}
+
+	blocked := func(reason string) error {
+		return &AISettingsValidationError{
+			Code:    "base_url_blocked",
+			Message: fmt.Sprintf("URL base no permitida (%s): %s. Usá un dominio público con https://", host, reason),
+		}
+	}
+	if host == "localhost" {
+		return "", blocked("loopback")
+	}
+
+	addresses := []net.IP{}
+	if ip := net.ParseIP(host); ip != nil {
+		addresses = append(addresses, ip)
+	} else {
+		resolved, errLookup := net.LookupIP(host)
+		if errLookup != nil || len(resolved) == 0 {
+			return "", &AISettingsValidationError{
+				Code:    "base_url_invalid",
+				Message: fmt.Sprintf("no se pudo resolver el host del proveedor: %q", host),
+			}
+		}
+		addresses = resolved
+	}
+
+	for _, ip := range addresses {
+		if !isPublicInternetIP(ip) {
+			return "", blocked("la dirección resuelta no es pública")
+		}
+	}
+
+	return strings.TrimRight(trimmed, "/"), nil
+}
+
+// isPublicInternetIP rechaza loopback, rangos privados (RFC 1918 y ULA IPv6),
+// link-local/metadata, multicast y direcciones no especificadas.
+func isPublicInternetIP(ip net.IP) bool {
+	if ip == nil {
+		return false
+	}
+	if ip.IsLoopback() || ip.IsPrivate() || ip.IsUnspecified() {
+		return false
+	}
+	if ip.IsLinkLocalUnicast() || ip.IsLinkLocalMulticast() || ip.IsInterfaceLocalMulticast() || ip.IsMulticast() {
+		return false
+	}
+	// 100.64.0.0/10 (CGNAT) y 0.0.0.0/8 no son destinos legítimos de una API.
+	if v4 := ip.To4(); v4 != nil {
+		if v4[0] == 0 {
+			return false
+		}
+		if v4[0] == 100 && v4[1] >= 64 && v4[1] <= 127 {
+			return false
+		}
+	}
+	return true
+}
+
 func resolveUserOverride(settings *domain.AISettingsStored, userID string) (domain.AIUserOverrideStored, bool) {
 	var zero domain.AIUserOverrideStored
 	if settings == nil || strings.TrimSpace(userID) == "" {
@@ -811,6 +1036,11 @@ func userOverrideBaseURL(settings *domain.AISettingsStored, override domain.AIUs
 		return strings.TrimRight(base, "/")
 	}
 	for _, cp := range settings.CustomProviders {
+		if cp.ID == override.Provider {
+			return cp.BaseURL
+		}
+	}
+	for _, cp := range override.CustomProviders {
 		if cp.ID == override.Provider {
 			return cp.BaseURL
 		}
@@ -1041,6 +1271,12 @@ func (s *AISettingsService) UpdateUserOverride(ctx context.Context, tenantID, us
 		return nil, err
 	}
 
+	previous := stored.UserOverrides[userID]
+	personalProviders, err := s.applyUserCustomProviders(previous.CustomProviders, stored.CustomProviders, dto)
+	if err != nil {
+		return nil, err
+	}
+
 	provider := strings.TrimSpace(dto.Provider)
 	if provider == "" {
 		provider = stored.Provider
@@ -1052,26 +1288,17 @@ func (s *AISettingsService) UpdateUserOverride(ctx context.Context, tenantID, us
 		}
 	}
 
-	var customProvider *domain.AICustomProviderStored
-	if domain.IsCustomAIProvider(provider) {
-		for i := range stored.CustomProviders {
-			if stored.CustomProviders[i].ID == provider {
-				customProvider = &stored.CustomProviders[i]
-				break
-			}
-		}
-		if customProvider == nil {
-			return nil, &AISettingsValidationError{
-				Code:    "provider_invalid",
-				Message: fmt.Sprintf("proveedor personalizado no registrado por la institución: %q", provider),
-			}
-		}
+	customProvider, personalProvider := findUserCustomProvider(stored.CustomProviders, personalProviders, provider)
+	if domain.IsCustomAIProvider(provider) && customProvider == nil && personalProvider == nil {
+		// El proveedor pudo eliminarse en este mismo payload: en vez de fallar
+		// por una referencia vieja, se vuelve al motor institucional.
+		provider = stored.Provider
 	}
 
-	previous := stored.UserOverrides[userID]
-
 	rawBaseURL := strings.TrimSpace(dto.BaseURL)
-	if rawBaseURL == "" {
+	if rawBaseURL == "" && provider == previous.Provider {
+		// El endpoint guardado pertenece al proveedor anterior: reutilizarlo al
+		// cambiar de motor apuntaría a la cuenta equivocada.
 		rawBaseURL = strings.TrimSpace(previous.BaseURL)
 	}
 	if rawBaseURL == "" && provider == stored.Provider {
@@ -1081,13 +1308,17 @@ func (s *AISettingsService) UpdateUserOverride(ctx context.Context, tenantID, us
 		// El endpoint lo define la institución; el docente solo aporta su clave.
 		rawBaseURL = customProvider.BaseURL
 	}
+	if personalProvider != nil {
+		// El endpoint propio ya se validó al darlo de alta.
+		rawBaseURL = personalProvider.BaseURL
+	}
 	baseURL, err := resolveAIBaseURL(provider, rawBaseURL)
 	if err != nil {
 		return nil, err
 	}
 
 	model := strings.TrimSpace(dto.Model)
-	if model == "" {
+	if model == "" && provider == previous.Provider {
 		model = strings.TrimSpace(previous.Model)
 	}
 	if model == "" && provider == stored.Provider {
@@ -1095,6 +1326,9 @@ func (s *AISettingsService) UpdateUserOverride(ctx context.Context, tenantID, us
 	}
 	if model == "" && customProvider != nil {
 		model = strings.TrimSpace(customProvider.Model)
+	}
+	if model == "" && personalProvider != nil {
+		model = strings.TrimSpace(personalProvider.Model)
 	}
 
 	encryptedKey := previous.EncryptedAPIKey
@@ -1109,6 +1343,10 @@ func (s *AISettingsService) UpdateUserOverride(ctx context.Context, tenantID, us
 		}
 		encryptedKey = cipherText
 		maskedKey = maskAPIKey(strings.TrimSpace(dto.APIKey))
+	case personalProvider != nil:
+		// Cada proveedor propio conserva su propia credencial cifrada.
+		encryptedKey = personalProvider.EncryptedAPIKey
+		maskedKey = personalProvider.APIKeyMasked
 	case provider != previous.Provider:
 		// Una clave no se reutiliza entre proveedores distintos.
 		encryptedKey, maskedKey = "", ""
@@ -1127,7 +1365,7 @@ func (s *AISettingsService) UpdateUserOverride(ctx context.Context, tenantID, us
 				Message: domain.ErrAIMissingAPIKey.Error(),
 			}
 		}
-		if customProvider != nil && strings.TrimSpace(encryptedKey) == "" {
+		if (customProvider != nil || personalProvider != nil) && strings.TrimSpace(encryptedKey) == "" {
 			return nil, &AISettingsValidationError{
 				Code:    "api_key_required",
 				Message: domain.ErrAIMissingAPIKey.Error(),
@@ -1143,6 +1381,7 @@ func (s *AISettingsService) UpdateUserOverride(ctx context.Context, tenantID, us
 		EncryptedAPIKey: encryptedKey,
 		APIKeyMasked:    maskedKey,
 		UpdatedAt:       s.nowFn().UTC().Format(time.RFC3339),
+		CustomProviders: personalProviders,
 	}
 	stored.UserOverrides[userID] = override
 
@@ -1167,7 +1406,8 @@ func (s *AISettingsService) GetEffectiveStatus(ctx context.Context, tenantID, us
 		profile := domain.ClassifyAIEngine(override.Provider, override.Model)
 		resp.Enabled = true
 		resp.Provider = override.Provider
-		resp.ProviderLabel = domain.AIProviderLabel(override.Provider, stored.CustomProviders)
+		catalog := append(append([]domain.AICustomProviderStored{}, stored.CustomProviders...), override.CustomProviders...)
+		resp.ProviderLabel = domain.AIProviderLabel(override.Provider, catalog)
 		resp.Model = override.Model
 		resp.EngineProfile = profile
 		resp.AutoTimeoutRangeLabel = domain.AIEngineAutoTimeoutRangeLabel(profile)
@@ -1183,7 +1423,30 @@ func (s *AISettingsService) TestUserConnection(ctx context.Context, tenantID, us
 	if err := requireUserCredential(req.Provider, req.BaseURL, req.APIKey); err != nil {
 		return nil, err
 	}
+	if err := s.guardUserEndpoint(ctx, tenantID, req.Provider, req.BaseURL); err != nil {
+		return nil, err
+	}
 	return s.TestConnection(ctx, tenantID, req)
+}
+
+// guardUserEndpoint impide que la prueba de conexión personal se convierta en
+// un sondeo de la red interna. Los proveedores custom institucionales pueden
+// apuntar a la LAN por diseño; uno que agregó el docente, no.
+func (s *AISettingsService) guardUserEndpoint(ctx context.Context, tenantID, provider, baseURL string) error {
+	if !domain.IsCustomAIProvider(provider) || strings.TrimSpace(baseURL) == "" {
+		return nil
+	}
+	stored, err := s.Get(ctx, tenantID)
+	if err != nil {
+		return err
+	}
+	for _, cp := range stored.CustomProviders {
+		if cp.ID == provider {
+			return nil
+		}
+	}
+	_, err = validateUserPublicBaseURL(baseURL)
+	return err
 }
 
 // ListUserModels lista los modelos disponibles con las credenciales personales
@@ -1191,6 +1454,9 @@ func (s *AISettingsService) TestUserConnection(ctx context.Context, tenantID, us
 func (s *AISettingsService) ListUserModels(ctx context.Context, tenantID, userID string, req domain.ListAIModelsRequestDTO) (*domain.ListAIModelsResponseDTO, error) {
 	filled := s.fillUserCredentials(ctx, tenantID, userID, req.Provider, "", req.BaseURL, req.APIKey)
 	if err := requireUserCredential(filled.Provider, filled.BaseURL, filled.APIKey); err != nil {
+		return nil, err
+	}
+	if err := s.guardUserEndpoint(ctx, tenantID, filled.Provider, filled.BaseURL); err != nil {
 		return nil, err
 	}
 	req.Provider = filled.Provider

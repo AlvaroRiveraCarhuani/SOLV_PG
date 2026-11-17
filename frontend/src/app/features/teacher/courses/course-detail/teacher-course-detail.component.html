@@ -11,9 +11,14 @@
         @if (courseInfo()?.code) {
           <span class="course-code-badge" machineData>{{ courseInfo()?.code }}</span>
         }
-        <span class="meta-item">
-          <span machineData>{{ courseInfo()?.students_count || 0 }}</span> Estudiantes
-        </span>
+        <button
+          type="button"
+          class="meta-item meta-item-action"
+          (click)="activeTab.set('students')"
+          title="Ver y gestionar los estudiantes matriculados"
+        >
+          <span machineData>{{ studentsCount() }}</span> Estudiantes
+        </button>
         @if (courseInfo()?.active_now) {
           <span class="meta-sep">·</span>
           <span class="meta-item text-success">
@@ -97,13 +102,6 @@
     </div>
   }
 
-  @if (enrollSuccessMessage()) {
-    <div class="success-banner animate-fade">
-      <svg lucideCheck class="success-icon"></svg>
-      <span>{{ enrollSuccessMessage() }}</span>
-    </div>
-  }
-
   @if (publishSuccessMessage()) {
     <div class="success-banner animate-fade">
       <svg lucideCheck class="success-icon"></svg>
@@ -135,6 +133,14 @@
     >
       <svg lucideLayers class="btn-icon-sm"></svg>
       <span>Módulos y Currícula ({{ modules().length }})</span>
+    </button>
+    <button
+      class="tab-btn"
+      [class.active]="activeTab() === 'students'"
+      (click)="activeTab.set('students')"
+    >
+      <svg lucideUserPlus class="btn-icon-sm"></svg>
+      <span>Estudiantes ({{ studentsCount() }})</span>
     </button>
     <button
       class="tab-btn"
@@ -381,7 +387,14 @@
     </div>
   }
 
-  <!-- Contenido: Pestaña Módulos y Currícula -->
+  <!-- Contenido: Pestaña Estudiantes -->
+  @if (activeTab() === 'students') {
+    <course-students-panel
+      [subjectId]="subjectId()"
+      (changed)="onStudentsChanged($event)"
+    />
+  }
+
   <!-- Contenido: Pestaña Libreta -->
   @if (activeTab() === 'gradebook') {
     <course-gradebook [subjectId]="subjectId()" (enrollRequested)="openEnrollModal()" />
@@ -617,14 +630,6 @@
     (closed)="closeImportModal()"
     (imported)="onExercisesImported($event)"
   ></import-exercises-modal>
-}
-
-@if (showEnrollModal()) {
-  <enroll-student-modal animate.leave="motion-modal-out"
-    [subjectId]="subjectId()"
-    (closed)="closeEnrollModal()"
-    (enrolled)="onStudentEnrolled($event)"
-  ></enroll-student-modal>
 }
 
 

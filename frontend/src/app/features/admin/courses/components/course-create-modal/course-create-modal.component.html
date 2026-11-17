@@ -63,6 +63,17 @@
     ></combobox>
   </form-field>
 
+  @if (isSelectedPeriodClosed()) {
+    <div class="period-warning" role="alert">
+      <svg lucideAlertCircle class="warning-icon"></svg>
+      <span>
+        Este período ya cerró. La materia se creará con el estado archivado y quedará en solo
+        lectura para docentes y estudiantes. Elegí un período vigente o actualizá las fechas en
+        Configuración · Períodos Académicos.
+      </span>
+    </div>
+  }
+
   <form-field label="Docente Titular Asignado" data-tour="course-create-teacher">
     <combobox
       [value]="selectedTeacherLabel()"

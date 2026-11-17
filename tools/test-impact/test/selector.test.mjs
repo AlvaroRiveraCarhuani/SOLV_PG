@@ -362,16 +362,20 @@ test('las dependencias del backend ejecutan todo el backend y todos los E2E', ()
   assert.equal(plan.suites['frontend-e2e'].specs.length, 24);
 });
 
-test('eliminar un archivo de código activa alcance completo de su lado', () => {
+test('eliminar un archivo de código no arrastra todo el frontend', () => {
   const plan = planFor([
     { status: 'D', path: 'frontend/src/app/shared/components/obsoleto/obsoleto.component.ts' }
   ]);
-  assert.equal(plan.mode, 'full');
-  assert.equal(plan.suites['frontend-unit'].full, true);
+  assert.equal(plan.mode, 'targeted');
+  assert.equal(plan.level, 'L2');
+  assert.equal(plan.suites['frontend-unit'].full, false);
   assert.equal(plan.suites['backend-unit'].selected, false);
+  assert.deepEqual(plan.structural, [
+    'frontend/src/app/shared/components/obsoleto/obsoleto.component.ts'
+  ]);
 });
 
-test('renombrar un archivo de código activa alcance completo de su lado', () => {
+test('renombrar un archivo de código valida su paquete y dependientes', () => {
   const plan = planFor([
     {
       status: 'R100',
@@ -379,9 +383,12 @@ test('renombrar un archivo de código activa alcance completo de su lado', () =>
       path: 'backend/internal/core/services/nuevo.go'
     }
   ]);
-  assert.equal(plan.mode, 'full');
-  assert.equal(plan.suites['backend-unit'].full, true);
+  assert.equal(plan.mode, 'targeted');
+  assert.equal(plan.level, 'L2');
+  assert.equal(plan.suites['backend-unit'].selected, true);
+  assert.equal(plan.suites['backend-unit'].full, false);
   assert.equal(plan.suites['backend-integration'].selected, true);
+  assert.equal(plan.suites['build'].backend, true);
 });
 
 test('eliminar un icono no activa pruebas', () => {

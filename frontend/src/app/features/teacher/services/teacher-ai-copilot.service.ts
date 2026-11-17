@@ -29,6 +29,19 @@ export interface AIUserCustomProviderDTO {
   icon_url?: string;
   base_url: string;
   model: string;
+  /** `institutional` lo registró la institución; `personal` lo agregó el docente. */
+  origin: 'institutional' | 'personal';
+}
+
+/** Alta o edición de un proveedor propio del docente dentro de su catálogo BYOK. */
+export interface AIUserCustomProviderInput {
+  id?: string;
+  label: string;
+  icon_url?: string;
+  base_url: string;
+  model?: string;
+  api_key?: string;
+  clear_api_key?: boolean;
 }
 
 export interface AIUserOverrideDTO {
@@ -41,6 +54,8 @@ export interface AIUserOverrideDTO {
   api_key_masked: string;
   updated_at: string;
   institutional_enabled: boolean;
+  /** Identificador del motor activo de la institución (para marcarlo en el catálogo). */
+  institutional_provider: string;
   institutional_provider_label: string;
   institutional_model: string;
   custom_providers?: AIUserCustomProviderDTO[];
@@ -53,6 +68,8 @@ export interface UpdateAIUserOverridePayload {
   base_url?: string;
   api_key?: string;
   clear_api_key?: boolean;
+  custom_providers?: AIUserCustomProviderInput[];
+  remove_custom_providers?: string[];
 }
 
 export interface AIGeneratedTestCaseDTO {

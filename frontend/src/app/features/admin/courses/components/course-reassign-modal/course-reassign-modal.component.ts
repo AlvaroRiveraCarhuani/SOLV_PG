@@ -46,14 +46,14 @@ export class CourseReassignModalComponent implements OnInit {
   formError = signal<string | null>(null);
 
   teacherComboboxOptions = computed<ComboboxOption[]>(() => {
-    return this.teachers.map(t => ({
-      id: t.id,
-      label: t.full_name,
-      value: t.id,
-      meta: t.email,
-      badge: t.id === this.course.teacher_id ? 'Actual' : undefined,
-      badgeVariant: t.id === this.course.teacher_id ? ('official' as const) : undefined
-    }));
+    return this.teachers
+      .filter(t => t.id !== this.course?.teacher_id)
+      .map(t => ({
+        id: t.id,
+        label: t.full_name,
+        value: t.id,
+        meta: t.email
+      }));
   });
 
   selectedTeacherLabel = computed<string>(() => {
@@ -64,20 +64,27 @@ export class CourseReassignModalComponent implements OnInit {
   });
 
   onTeacherSelected(opt: ComboboxOption): void {
-    this.selectedTeacherId.set(opt.value || '');
+    this.selectedTeacherId.set(opt.value || opt.id || '');
+    this.formError.set(null);
+  }
+
+  onTeacherCleared(): void {
+    this.selectedTeacherId.set('');
   }
 
   ngOnInit(): void {
-    // Filtrar para que por defecto no seleccione al docente actual si ya está asignado
-    const available = this.teachers.filter(t => t.id !== this.course.teacher_id);
-    if (available.length > 0) {
-      this.selectedTeacherId.set(available[0].id);
-    }
+    // Inicia vacío para exigir una selección consciente del administrador
+    this.selectedTeacherId.set('');
   }
 
   submitReassign(): void {
     if (!this.selectedTeacherId()) {
       this.formError.set('Debe seleccionar un docente para la materia.');
+      return;
+    }
+
+    if (this.selectedTeacherId() === this.course.teacher_id) {
+      this.formError.set('Debe seleccionar un docente diferente al titular actual.');
       return;
     }
 

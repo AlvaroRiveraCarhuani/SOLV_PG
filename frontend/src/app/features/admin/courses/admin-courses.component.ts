@@ -16,6 +16,7 @@ import { ProductTourService } from '@shared/help/product-tour.service';
 import { InteractiveTutorialService } from '@shared/help/interactive-tutorial.service';
 import { buildCoursesTour, buildCoursesTutorial } from './courses-help.definitions';
 import { ModalShellComponent } from '@shared/components/modal-shell/modal-shell.component';
+import { CourseStudentsPanelComponent } from '@shared/components/course-students-panel/course-students-panel.component';
 import { FormFieldComponent } from '@shared/components/form-field/form-field.component';
 import { MachineDataDirective } from '@shared/directives/machine-data.directive';
 import { ComboboxComponent, ComboboxOption } from '@shared/components/combobox/combobox.component';
@@ -29,7 +30,6 @@ import {
   LucidePlus, 
   LucideCheckCircle, 
   LucideAlertCircle, 
-  LucideLayers, 
   LucideArrowRightLeft, 
   LucideArchive, 
   LucideArchiveRestore,
@@ -57,12 +57,12 @@ interface ToastState {
     CourseReassignModalComponent,
     ConfirmModalComponent,
     ModalShellComponent,
+    CourseStudentsPanelComponent,
     FormFieldComponent,
     LucideBookOpen,
     LucidePlus,
     LucideCheckCircle,
     LucideAlertCircle,
-    LucideLayers,
     LucideArrowRightLeft,
     LucideArchive,
     LucideArchiveRestore,
@@ -114,6 +114,7 @@ export class AdminCoursesComponent implements OnInit, OnDestroy {
   // Control de modales
   showCreateCourseModal = signal<boolean>(false);
   selectedCourseForReassign = signal<AdminCourseItem | null>(null);
+  studentsCourse = signal<AdminCourseItem | null>(null);
 
   // Toast flotante
   toastMessage = signal<ToastState | null>(null);
@@ -348,6 +349,32 @@ export class AdminCoursesComponent implements OnInit, OnDestroy {
     this.coursesService.loadAll();
   }
 
+  openStudentsModal(course: AdminCourseItem): void {
+    this.studentsCourse.set(course);
+  }
+
+  closeStudentsModal(): void {
+    this.studentsCourse.set(null);
+  }
+
+  /**
+   * El padrón real lo confirma el panel; el contador de la fila se refresca con
+   * ese total para que la tabla no muestre un número viejo tras una baja.
+   */
+  onStudentsChanged(total: number): void {
+    const course = this.studentsCourse();
+    if (!course) {
+      return;
+    }
+    this.coursesService.courses.update((list) =>
+      list.map((item) =>
+        item.id === course.id
+          ? { ...item, active_students: total, hibernated_students: 0 }
+          : item
+      )
+    );
+  }
+
   openReassignModal(course: AdminCourseItem): void {
     this.selectedCourseForReassign.set(course);
   }
@@ -394,7 +421,9 @@ export class AdminCoursesComponent implements OnInit, OnDestroy {
 
   @HostListener('document:keydown.escape')
   handleEscape(): void {
-    if (this.courseToToggleArchive()) {
+    if (this.studentsCourse()) {
+      this.closeStudentsModal();
+    } else if (this.courseToToggleArchive()) {
       this.cancelToggleArchive();
     } else if (this.selectedCourseForReassign()) {
       this.closeReassignModal();

@@ -1,0 +1,275 @@
+<section class="roster-panel">
+  <header class="roster-head">
+    <div class="roster-head-text">
+      <h2 class="roster-title">
+        <svg lucideUsers class="head-icon"></svg>
+        Estudiantes de la materia
+      </h2>
+      <p class="roster-summary">
+        <span machineData>{{ students().length }}</span> matriculados
+        <span class="summary-sep">·</span>
+        <span machineData>{{ officialCount() }}</span> por nómina oficial
+        <span class="summary-sep">·</span>
+        <span machineData>{{ courseCount() }}</span> altas de cátedra
+      </p>
+    </div>
+
+    <button type="button" class="btn-primary" (click)="openEnrollModal('individual')">
+      <svg lucideUserPlus class="btn-icon"></svg>
+      <span>{{ enrollLabel() }}</span>
+    </button>
+  </header>
+
+  <div class="roster-toolbar">
+    <search-bar
+      [query]="query()"
+      placeholder="Buscar por nombre o correo institucional..."
+      (queryChange)="onQueryChange($event)"
+    />
+  </div>
+
+  @if (feedbackMessage(); as message) {
+    <div
+      class="roster-feedback"
+      [class.feedback-ok]="feedbackOk() === true"
+      [class.feedback-error]="feedbackOk() === false"
+    >
+      <svg lucideAlertCircle class="feedback-icon"></svg>
+      <span>{{ message }}</span>
+    </div>
+  }
+
+  @if (error(); as message) {
+    <div class="roster-state" role="alert">
+      <p class="state-copy">{{ message }}</p>
+      <button type="button" class="btn-outline" (click)="load()">Reintentar</button>
+    </div>
+  } @else if (isLoading()) {
+    <div class="roster-state">
+      <svg lucideLoader2 class="state-icon motion-spin"></svg>
+      <p class="state-copy">Cargando el padrón de la materia...</p>
+    </div>
+  } @else if (students().length === 0) {
+    <div class="roster-state">
+      <svg lucideUsers class="state-icon"></svg>
+      <h3 class="state-title">Todavía no hay estudiantes matriculados</h3>
+      <p class="state-copy">
+        Inscribí un alumno del padrón institucional o cargá la planilla de la cátedra en un solo paso.
+      </p>
+      <button type="button" class="btn-primary" (click)="openEnrollModal('roster')">
+        <svg lucideUserPlus class="btn-icon"></svg>
+        <span>Cargar nómina</span>
+      </button>
+    </div>
+  } @else {
+    <div class="roster-table-scroll">
+      <table class="roster-table">
+        <thead>
+          <tr>
+            <th scope="col">Estudiante</th>
+            <th scope="col">Fecha de ingreso</th>
+            <th scope="col">Origen de matrícula</th>
+            <th scope="col">Entorno de práctica</th>
+            <th scope="col" class="col-action">Acción</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (student of filteredStudents(); track student.student_id) {
+            <tr>
+              <th scope="row" class="col-student">
+                <span class="student-avatar" aria-hidden="true">{{ initials(student.full_name) }}</span>
+                <span class="student-identity">
+                  <span class="student-name">{{ student.full_name }}</span>
+                  <span class="student-email font-mono" machineData>{{ student.email }}</span>
+                </span>
+              </th>
+              <td>
+                <time class="enrolled-at">{{ student.enrolled_at | dateText:'daymonthyear' }}</time>
+              </td>
+              <td>
+                <span class="source-badge" [class.source-official]="sourceVariant(student.source_system) === 'official'">
+                  {{ sourceLabel(student.source_system) }}
+                </span>
+              </td>
+              <td>
+                <span class="workspace-badge" [attr.data-state]="workspaceVariant(student.workspace_status)">
+                  {{ workspaceLabel(student.workspace_status) }}
+                </span>
+              </td>
+              <td class="col-action">
+                <button
+                  type="button"
+                  class="btn-remove"
+                  [disabled]="removingStudentId() === student.student_id"
+                  (click)="requestRemove(student)"
+                >
+                  <svg lucideTrash2 class="btn-icon"></svg>
+                  <span>Dar de baja</span>
+                </button>
+              </td>
+            </tr>
+          } @empty {
+            <tr>
+              <td colspan="5" class="empty-cell">
+                No hay estudiantes que coincidan con la búsqueda.
+              </td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+  }
+</section>
+
+@if (showEnrollModal()) {
+  <modal-shell
+    animate.leave="motion-modal-out"
+    title="Inscribir estudiantes"
+    subtitle="Alta individual del padrón institucional o carga de la planilla de la cátedra."
+    maxWidth="640px"
+    (close)="closeEnrollModal()"
+  >
+    <svg modal-icon lucideUserPlus class="modal-icon"></svg>
+
+    <div class="enroll-tabs" role="tablist">
+      <button
+        type="button"
+        class="enroll-tab"
+        role="tab"
+        [class.active]="enrollTab() === 'individual'"
+        [attr.aria-selected]="enrollTab() === 'individual'"
+        (click)="setEnrollTab('individual')"
+      >
+        Registro individual
+      </button>
+      <button
+        type="button"
+        class="enroll-tab"
+        role="tab"
+        [class.active]="enrollTab() === 'roster'"
+        [attr.aria-selected]="enrollTab() === 'roster'"
+        (click)="setEnrollTab('roster')"
+      >
+        Importar planilla
+      </button>
+    </div>
+
+    @if (enrollTab() === 'individual') {
+      <div class="search-section">
+        <label for="roster-student-search" class="search-label">Buscar en el padrón institucional</label>
+        <div class="search-input-wrapper">
+          <svg lucideSearch class="search-icon"></svg>
+          <input
+            id="roster-student-search"
+            type="text"
+            class="search-input"
+            placeholder="Nombre, apellido o correo institucional"
+            autocomplete="off"
+            [ngModel]="availableQuery()"
+            (ngModelChange)="onAvailableSearchChange($event)"
+            [disabled]="isEnrolling()"
+          />
+          @if (isSearching()) {
+            <svg lucideLoader2 class="search-state motion-spin"></svg>
+          } @else if (availableQuery().length > 0) {
+            <button type="button" class="btn-clear" (click)="onAvailableSearchChange('')" aria-label="Limpiar búsqueda">
+              <svg lucideX class="search-state"></svg>
+            </button>
+          }
+        </div>
+        <span class="search-hint">Escribí al menos 2 caracteres. Solo aparecen alumnos aún no matriculados.</span>
+      </div>
+
+      <div class="available-results">
+        @if (isSearching()) {
+          <div class="results-state">
+            <svg lucideLoader2 class="state-icon motion-spin"></svg>
+            <p class="state-copy">Buscando estudiantes disponibles...</p>
+          </div>
+        } @else if (hasSearched() && availableStudents().length === 0) {
+          <div class="results-state">
+            <svg lucideUsers class="state-icon"></svg>
+            <p class="state-copy">No hay estudiantes disponibles con ese criterio.</p>
+          </div>
+        } @else {
+          @for (student of availableStudents(); track student.id) {
+            <button
+              type="button"
+              class="available-row"
+              [class.selected]="selectedStudent()?.id === student.id"
+              (click)="selectStudent(student)"
+              [disabled]="isEnrolling()"
+            >
+              <span class="student-avatar" aria-hidden="true">{{ initials(student.first_name + ' ' + student.last_name) }}</span>
+              <span class="student-identity">
+                <span class="student-name">{{ student.first_name }} {{ student.last_name }}</span>
+                <span class="student-email font-mono" machineData>{{ student.email }}</span>
+              </span>
+              @if (selectedStudent()?.id === student.id) {
+                <svg lucideCheck class="selected-icon"></svg>
+              }
+            </button>
+          }
+        }
+      </div>
+    } @else {
+      <roster-upload
+        parseEndpoint="/api/v1/courses/roster/parse"
+        recordLabel="estudiantes"
+        (parsed)="onRosterParsed($event)"
+      />
+      <p class="roster-hint">
+        La planilla suma matrículas a esta materia. Las altas del docente quedan marcadas como
+        <span class="source-badge">Alta de cátedra</span> y la nómina oficial conserva su origen.
+      </p>
+    }
+
+    <ng-container modal-footer>
+      <button type="button" class="btn-outline" (click)="closeEnrollModal()" [disabled]="isEnrolling() || isSubmittingRoster()">
+        Cerrar
+      </button>
+      @if (enrollTab() === 'individual') {
+        <button
+          type="button"
+          class="btn-primary"
+          [disabled]="!selectedStudent() || isEnrolling()"
+          (click)="confirmEnroll()"
+        >
+          @if (isEnrolling()) {
+            <svg lucideLoader2 class="btn-icon motion-spin"></svg>
+            <span>Matriculando...</span>
+          } @else {
+            <span>Agregar a la materia</span>
+          }
+        </button>
+      } @else {
+        <button
+          type="button"
+          class="btn-primary"
+          [disabled]="rosterEmails().length === 0 || isSubmittingRoster()"
+          (click)="submitRoster()"
+        >
+          @if (isSubmittingRoster()) {
+            <svg lucideLoader2 class="btn-icon motion-spin"></svg>
+            <span>Procesando...</span>
+          } @else {
+            <span>Matricular {{ rosterEmails().length }} estudiantes</span>
+          }
+        </button>
+      }
+    </ng-container>
+  </modal-shell>
+}
+
+@if (studentToRemove(); as student) {
+  <confirm-modal
+    title="¿Dar de baja al estudiante?"
+    [message]="student.full_name + ' dejará de pertenecer a esta materia. Sus entregas y notas se conservan, pero pierde acceso al curso.'"
+    confirmText="Dar de baja"
+    cancelText="Cancelar"
+    type="danger"
+    (confirm)="executeRemove(student)"
+    (cancel)="cancelRemove()"
+  >
+  </confirm-modal>
+}

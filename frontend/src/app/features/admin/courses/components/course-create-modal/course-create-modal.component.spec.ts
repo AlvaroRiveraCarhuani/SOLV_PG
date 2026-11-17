@@ -52,14 +52,32 @@ describe('CourseCreateModalComponent', () => {
     expect(component.selectedPeriodId()).toBe('p2');
   });
 
-  it('defaultPeriodId tiene precedencia sobre el periodo activo', async () => {
+  it('defaultPeriodId tiene precedencia cuando el periodo sigue vigente', async () => {
     const fixture = TestBed.createComponent(CourseCreateModalComponent);
     const c = fixture.componentInstance;
     c.periods = mockPeriods;
     c.teachers = mockTeachers;
+    c.defaultPeriodId = 'p2';
+    c.ngOnInit();
+    expect(c.selectedPeriodId()).toBe('p2');
+  });
+
+  it('no preselecciona un periodo vencido aunque llegue como default', async () => {
+    const fixture = TestBed.createComponent(CourseCreateModalComponent);
+    const c = fixture.componentInstance;
+    c.periods = mockPeriods;
+    c.teachers = mockTeachers;
+    // p1 terminó el 2026-06-30: crear ahí nacería archivado.
     c.defaultPeriodId = 'p1';
     c.ngOnInit();
-    expect(c.selectedPeriodId()).toBe('p1');
+    expect(c.selectedPeriodId()).toBe('p2');
+  });
+
+  it('advierte cuando el periodo elegido ya cerró', async () => {
+    component.selectedPeriodId.set('p1');
+    expect(component.isSelectedPeriodClosed()).toBe(true);
+    component.selectedPeriodId.set('p2');
+    expect(component.isSelectedPeriodClosed()).toBe(false);
   });
 
   it('submitCourse con nombre vacío establece formError y no llama al servicio', () => {

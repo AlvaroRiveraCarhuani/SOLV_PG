@@ -69,6 +69,17 @@ export class CourseCreateModalComponent implements OnInit {
     return section ? `${code}-${section}` : code;
   });
 
+  /**
+   * Un período cerrado archiva en cascada todo lo que se cree dentro, así que
+   * la advertencia tiene que estar antes de guardar, no después.
+   */
+  private readonly today = new Date().toISOString().slice(0, 10);
+
+  isPeriodClosed(period: AcademicPeriod): boolean {
+    const end = (period.end_date || '').slice(0, 10);
+    return end !== '' && end < this.today;
+  }
+
   periodComboboxOptions = computed<ComboboxOption[]>(() => {
     return [
       { id: '', label: 'Sin periodo asignado', value: '' },
@@ -76,10 +87,20 @@ export class CourseCreateModalComponent implements OnInit {
         id: p.id,
         label: `${p.name} (${p.code})`,
         value: p.id,
-        badge: p.is_active ? 'Activo' : undefined,
-        badgeVariant: p.is_active ? ('official' as const) : undefined
+        badge: this.isPeriodClosed(p) ? 'Vencido' : p.is_active ? 'Activo' : undefined,
+        badgeVariant: this.isPeriodClosed(p) ? ('default' as const) : p.is_active ? ('official' as const) : undefined
       }))
     ];
+  });
+
+  readonly selectedPeriod = computed<AcademicPeriod | null>(() => {
+    const id = this.selectedPeriodId();
+    return id ? this.periods.find(p => p.id === id) ?? null : null;
+  });
+
+  readonly isSelectedPeriodClosed = computed<boolean>(() => {
+    const period = this.selectedPeriod();
+    return period ? this.isPeriodClosed(period) : false;
   });
 
   selectedPeriodLabel = computed<string>(() => {
@@ -117,11 +138,17 @@ export class CourseCreateModalComponent implements OnInit {
   }
 
   ngOnInit(): void {
-    if (this.defaultPeriodId) {
-      this.selectedPeriodId.set(this.defaultPeriodId);
-    } else if (this.periods.length > 0) {
-      const active = this.periods.find(p => p.is_active) || this.periods[0];
-      this.selectedPeriodId.set(active.id);
+    // Nunca se preselecciona un período vencido si hay uno vigente: el alta
+    // nacería archivada sin que el administrador lo haya pedido.
+    const openPeriods = this.periods.filter(p => !this.isPeriodClosed(p));
+    const preferred = this.defaultPeriodId
+      ? openPeriods.find(p => p.id === this.defaultPeriodId)
+      : undefined;
+    const activeOpen = openPeriods.find(p => p.is_active) || openPeriods[0];
+    const fallback = this.periods.find(p => p.is_active) || this.periods[0];
+    const chosen = preferred || activeOpen || fallback;
+    if (chosen) {
+      this.selectedPeriodId.set(chosen.id);
     }
   }
 

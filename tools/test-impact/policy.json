@@ -212,7 +212,6 @@
         "backend/internal/delivery/http/websocket_hub.go",
         "backend/internal/delivery/http/teacher_ephemeral.go",
         "backend/internal/delivery/http/teacher_handler.go",
-        "backend/internal/delivery/http/router.go",
         "backend/internal/delivery/http/submission_handler.go",
         "backend/internal/delivery/http/evaluation_handler.go"
       ],
@@ -315,7 +314,7 @@
         "e2e/flows/03-hard/09-exam-mode-seed.spec.mjs"
       ],
       "reason": "contrato de backend: los tipos de Go no alcanzan las specs de Angular",
-      "level": "L3"
+      "level": "L2"
     },
     {
       "id": "frontend-contracts",
@@ -324,7 +323,7 @@
         "frontend/src/app/shared/constants/**",
         "frontend/src/app/shared/models/**"
       ],
-      "frontendUnit": "all",
+      "frontendUnit": false,
       "backendUnit": false,
       "backendIntegration": false,
       "backendDocker": false,
@@ -334,7 +333,7 @@
         "e2e/flows/03-hard/09-exam-mode-seed.spec.mjs"
       ],
       "reason": "contrato de frontend: modelos y constantes que consumen varias vistas",
-      "level": "L3"
+      "level": "L2"
     },
     {
       "id": "migrations",

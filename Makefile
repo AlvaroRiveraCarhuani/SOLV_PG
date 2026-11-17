@@ -44,19 +44,34 @@ upgrade:
 token:
 	@./scripts/gen-token.sh
 
+CHECK_SUITES ?= gates asset-validation build backend-unit frontend-unit
+
+# Bucle rápido: plan contra HEAD y solo las suites de desarrollo que el plan
+# seleccione. No incluye integración, Docker, migraciones ni E2E.
+.PHONY: check
+check:
+	@mkdir -p tools/test-impact/.cache
+	@node tools/test-impact/cli.mjs plan --working-tree \
+		--output tools/test-impact/.cache/check-plan.json --format text
+	@for suite in $(CHECK_SUITES); do \
+		node tools/test-impact/run.mjs --partial --suite $$suite --if-selected \
+			--plan tools/test-impact/.cache/check-plan.json \
+			--report tools/test-impact/.cache/check-$$suite.json || exit $$?; \
+	done
+
 .PHONY: test-impact-plan
 test-impact-plan:
-	@node tools/test-impact/cli.mjs plan --base $${BASE:-origin/main} --working-tree --format text
+	@node tools/test-impact/cli.mjs plan --base $${BASE:-HEAD} --working-tree --format text
 
 .PHONY: test-impact
 test-impact:
-	@node tools/test-impact/run.mjs --all --base $${BASE:-origin/main} --working-tree --report impact-report.json
+	@node tools/test-impact/run.mjs --all --base $${BASE:-HEAD} --working-tree --report impact-report.json
 	@node tools/test-impact/cli.mjs report --file impact-report.json
 
 .PHONY: test-impact-suite
 test-impact-suite:
 	@node tools/test-impact/run.mjs --partial --suite $${SUITE:-build} --if-selected \
-		--base $${BASE:-origin/main} --working-tree --report impact-report-$${SUITE:-build}.json
+		--base $${BASE:-HEAD} --working-tree --report impact-report-$${SUITE:-build}.json
 
 .PHONY: test-selector
 test-selector:

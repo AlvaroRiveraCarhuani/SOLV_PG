@@ -14,6 +14,7 @@ import {
   LucideCloud,
   LucideKeyRound,
   LucideLoader2,
+  LucidePlus,
   LucideRefreshCw,
   LucideSave,
   LucideSearch,
@@ -21,10 +22,13 @@ import {
   LucideWifi
 } from '@lucide/angular';
 import { FormFieldComponent } from '@shared/components/form-field/form-field.component';
+import { ModalShellComponent } from '@shared/components/modal-shell/modal-shell.component';
+import { ConfirmModalComponent } from '@shared/components/confirm-modal/confirm-modal.component';
 import { MachineDataDirective } from '@shared/directives/machine-data.directive';
 import { DateTextPipe } from '@shared/pipes/date-text.pipe';
 import {
   AIByokModel,
+  AIUserCustomProviderDTO,
   AIUserOverrideDTO,
   TeacherAiCopilotService
 } from '../../services/teacher-ai-copilot.service';
@@ -48,6 +52,8 @@ import type { ByokProviderOption } from '../ai-byok.config';
   imports: [
     FormsModule,
     FormFieldComponent,
+    ModalShellComponent,
+    ConfirmModalComponent,
     MachineDataDirective,
     DateTextPipe,
     LucideKeyRound,
@@ -58,8 +64,9 @@ import type { ByokProviderOption } from '../ai-byok.config';
     LucideTrash2,
     LucideCheckCircle2,
     LucideAlertCircle,
-    LucideWifi,
-    LucideSave
+      LucideWifi,
+  LucideSave,
+  LucidePlus
   ],
   templateUrl: './ai-byok-panel.component.html',
   styleUrl: './ai-byok-panel.component.scss',
@@ -94,6 +101,38 @@ export class AiByokPanelComponent implements OnInit {
 
   readonly current = signal<AIUserOverrideDTO | null>(null);
 
+  // Alta de un proveedor propio compatible con OpenAI. La URL queda acotada a
+  // https público por el backend: el docente no configura la red del servidor.
+  readonly showAddProvider = signal(false);
+  readonly newProviderLabel = signal('');
+  readonly newProviderBaseURL = signal('');
+  readonly newProviderApiKey = signal('');
+  readonly newProviderModel = signal('');
+  readonly newProviderModels = signal<AIByokModel[]>([]);
+  readonly newProviderTesting = signal(false);
+  readonly newProviderLoadingModels = signal(false);
+  readonly newProviderSaving = signal(false);
+  readonly newProviderFeedback = signal<string | null>(null);
+  readonly newProviderFeedbackOk = signal<boolean | null>(null);
+  readonly providerToDelete = signal<AIUserCustomProviderDTO | null>(null);
+  readonly deletingProvider = signal(false);
+
+  readonly newProviderId = computed(() => {
+    const slug = this.newProviderLabel()
+      .trim()
+      .toLowerCase()
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .replace(/[^a-z0-9]+/g, '_')
+      .replace(/^_+|_+$/g, '')
+      .slice(0, 50);
+    return slug ? `custom_${slug}` : '';
+  });
+
+  readonly canQueryNewProvider = computed(
+    () => this.newProviderId() !== '' && this.newProviderBaseURL().trim().startsWith('https://')
+  );
+
   /**
    * Catálogo visible para el docente: los cuatro proveedores base más los
    * proveedores personalizados que registró la institución. En estos últimos
@@ -103,13 +142,28 @@ export class AiByokPanelComponent implements OnInit {
     const customs = (this.current()?.custom_providers ?? []).map<ByokProviderOption>((cp) => ({
       value: cp.id,
       label: cp.label,
-      badge: 'Personalizado · Institución',
+      badge: cp.origin === 'personal' ? 'Personalizado · Propio' : 'Personalizado · Institución',
       iconUrl: cp.icon_url ?? '',
       isCloud: true,
       placeholderKey: 'sk-...'
     }));
     return [...BYOK_PROVIDERS, ...customs];
   });
+
+  /** Motor que la institución tiene activo ahora mismo. */
+  readonly institutionalProviderId = computed(() => this.current()?.institutional_provider ?? '');
+
+  /**
+   * Un proveedor del catálogo que coincide con el motor institucional activo ya
+   * funciona sin clave personal: el docente opera con la cuota compartida.
+   */
+  isInstitutionalActiveProvider(providerId: string): boolean {
+    return this.institutionalAvailable() && this.institutionalProviderId() === providerId;
+  }
+
+  readonly selectedPersonalProvider = computed(
+    () => this.selectedCustomProvider() !== undefined && this.selectedCustomProvider()?.origin === 'personal'
+  );
 
   readonly hasSavedKey = computed(() => this.current()?.has_api_key === true);
   readonly savedKeyMasked = computed(() => this.current()?.api_key_masked ?? '');
@@ -312,6 +366,183 @@ export class AiByokPanelComponent implements OnInit {
     this.feedbackOk.set(null);
   }
 
+  openAddProvider(): void {
+    this.newProviderLabel.set('');
+    this.newProviderBaseURL.set('');
+    this.newProviderApiKey.set('');
+    this.newProviderModel.set('');
+    this.newProviderModels.set([]);
+    this.newProviderFeedback.set(null);
+    this.newProviderFeedbackOk.set(null);
+    this.showAddProvider.set(true);
+  }
+
+  closeAddProvider(): void {
+    this.showAddProvider.set(false);
+  }
+
+  /** Descubre el catálogo real del proveedor antes de guardarlo. */
+  fetchNewProviderModels(): void {
+    if (!this.canQueryNewProvider() || this.newProviderLoadingModels()) {
+      this.newProviderFeedbackOk.set(false);
+      this.newProviderFeedback.set('Completá el nombre y una URL https:// para listar los modelos.');
+      return;
+    }
+    if (this.newProviderApiKey().trim() === '') {
+      this.newProviderFeedbackOk.set(false);
+      this.newProviderFeedback.set('Pegá tu API key para consultar el catálogo del proveedor.');
+      return;
+    }
+    this.newProviderLoadingModels.set(true);
+    this.newProviderFeedback.set(null);
+    this.copilotService
+      .listMyModels({
+        provider: this.newProviderId(),
+        api_key: this.newProviderApiKey().trim(),
+        base_url: this.newProviderBaseURL().trim()
+      })
+      .subscribe({
+        next: (models) => {
+          this.newProviderLoadingModels.set(false);
+          this.newProviderModels.set(models);
+          if (models.length > 0 && !this.newProviderModel()) {
+            this.newProviderModel.set(models[0].id);
+          }
+          if (models.length === 0) {
+            this.newProviderFeedbackOk.set(false);
+            this.newProviderFeedback.set('El proveedor no devolvió modelos. Podés escribir el ID a mano.');
+          }
+        },
+        error: (err: unknown) => {
+          this.newProviderLoadingModels.set(false);
+          this.newProviderFeedbackOk.set(false);
+          this.newProviderFeedback.set(this.copilotService.resolveError(err));
+        }
+      });
+  }
+
+  testNewProvider(): void {
+    if (this.newProviderTesting()) {
+      return;
+    }
+    if (!this.canQueryNewProvider() || this.newProviderApiKey().trim() === '' || this.newProviderModel().trim() === '') {
+      this.newProviderFeedbackOk.set(false);
+      this.newProviderFeedback.set('Completá nombre, URL https://, API key y modelo para probar la conexión.');
+      return;
+    }
+    this.newProviderTesting.set(true);
+    this.newProviderFeedback.set(null);
+    this.copilotService
+      .testMyConnection({
+        provider: this.newProviderId(),
+        model: this.newProviderModel().trim(),
+        api_key: this.newProviderApiKey().trim(),
+        base_url: this.newProviderBaseURL().trim()
+      })
+      .subscribe({
+        next: (res) => {
+          this.newProviderTesting.set(false);
+          this.newProviderFeedbackOk.set(res.ok);
+          this.newProviderFeedback.set(res.message);
+        },
+        error: (err: unknown) => {
+          this.newProviderTesting.set(false);
+          this.newProviderFeedbackOk.set(false);
+          this.newProviderFeedback.set(this.copilotService.resolveError(err));
+        }
+      });
+  }
+
+  saveNewProvider(): void {
+    if (this.newProviderSaving()) {
+      return;
+    }
+    if (!this.canQueryNewProvider()) {
+      this.newProviderFeedbackOk.set(false);
+      this.newProviderFeedback.set('El nombre es obligatorio y la URL base debe usar https://.');
+      return;
+    }
+    this.newProviderSaving.set(true);
+    this.newProviderFeedback.set(null);
+
+    this.copilotService
+      .updateMySettings({
+        enabled: this.current()?.enabled ?? false,
+        provider: this.provider(),
+        model: this.model(),
+        custom_providers: [
+          {
+            id: this.newProviderId(),
+            label: this.newProviderLabel().trim(),
+            base_url: this.newProviderBaseURL().trim(),
+            model: this.newProviderModel().trim(),
+            api_key: this.newProviderApiKey().trim() || undefined
+          }
+        ]
+      })
+      .subscribe({
+        next: (res) => {
+          this.newProviderSaving.set(false);
+          this.current.set(res);
+          this.provider.set(this.newProviderId());
+          this.model.set(this.newProviderModel().trim());
+          this.apiKey.set('');
+          this.showAddProvider.set(false);
+          this.feedbackOk.set(true);
+          this.feedbackMessage.set(
+            'Proveedor agregado a tu catálogo. Activá tu clave personal para usarlo en lugar del motor institucional.'
+          );
+          this.changed.emit(res);
+        },
+        error: (err: unknown) => {
+          this.newProviderSaving.set(false);
+          this.newProviderFeedbackOk.set(false);
+          this.newProviderFeedback.set(this.copilotService.resolveError(err));
+        }
+      });
+  }
+
+  requestDeleteProvider(): void {
+    const selected = this.selectedCustomProvider();
+    if (selected && selected.origin === 'personal') {
+      this.providerToDelete.set(selected);
+    }
+  }
+
+  cancelDeleteProvider(): void {
+    this.providerToDelete.set(null);
+  }
+
+  executeDeleteProvider(provider: AIUserCustomProviderDTO): void {
+    this.deletingProvider.set(true);
+    this.copilotService
+      .updateMySettings({
+        enabled: false,
+        provider: '',
+        model: '',
+        remove_custom_providers: [provider.id]
+      })
+      .subscribe({
+        next: (res) => {
+          this.deletingProvider.set(false);
+          this.providerToDelete.set(null);
+          this.current.set(res);
+          this.provider.set(res.provider || DEFAULT_BYOK_PROVIDER);
+          this.model.set(res.model ?? '');
+          this.apiKey.set('');
+          this.feedbackOk.set(true);
+          this.feedbackMessage.set('Proveedor eliminado de tu catálogo personal.');
+          this.changed.emit(res);
+        },
+        error: (err: unknown) => {
+          this.deletingProvider.set(false);
+          this.providerToDelete.set(null);
+          this.feedbackOk.set(false);
+          this.feedbackMessage.set(this.copilotService.resolveError(err));
+        }
+      });
+  }
+
   onIconError(providerId: string): void {
     this.iconErrors.update((current) => ({ ...current, [providerId]: true }));
   }
@@ -448,7 +679,9 @@ export class AiByokPanelComponent implements OnInit {
     this.copilotService
       .updateMySettings({
         enabled: false,
-        provider: this.provider(),
+        // La clave que se borra es la del proveedor que la tiene guardada, no la
+        // tarjeta que el docente esté mirando en ese momento.
+        provider: this.savedKeyProvider() || this.provider(),
         model: this.model().trim(),
         clear_api_key: true
       })

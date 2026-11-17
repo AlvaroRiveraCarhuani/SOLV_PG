@@ -28,7 +28,7 @@ import {
   LucideChevronDown,
   LucideUserPlus
 } from '@lucide/angular';
-import { TeacherCourseService, AvailableStudent } from '../../services/teacher-course.service';
+import { TeacherCourseService } from '../../services/teacher-course.service';
 import { TeacherDashboardService } from '../../services/teacher-dashboard.service';
 import { TeacherLabStats, TeacherCourseSummary, TeacherCourseModule } from '../../models/teacher.models';
 import { ConfirmModalComponent } from '@shared/components/confirm-modal/confirm-modal.component';
@@ -37,7 +37,7 @@ import { PlagiarismModalComponent } from '../../evaluations/plagiarism-modal/pla
 import { GradebookExportModalComponent } from './gradebook-export-modal/gradebook-export-modal.component';
 import { CourseGradebookComponent } from './course-gradebook/course-gradebook.component';
 import { ImportExercisesModalComponent } from './import-exercises-modal/import-exercises-modal.component';
-import { EnrollStudentModalComponent } from './enroll-student-modal/enroll-student-modal.component';
+import { CourseStudentsPanelComponent } from '@shared/components/course-students-panel/course-students-panel.component';
 import { DateTextPipe } from '@shared/pipes/date-text.pipe';
 import { ModalShellComponent } from '@shared/components/modal-shell/modal-shell.component';
 import { MachineDataDirective } from '@shared/directives/machine-data.directive';
@@ -111,7 +111,7 @@ export function matchesReviewStatusFilter(
     GradebookExportModalComponent,
     CourseGradebookComponent,
     ImportExercisesModalComponent,
-    EnrollStudentModalComponent,
+    CourseStudentsPanelComponent,
     ComboboxComponent,
     VerdictBadgeComponent,
     SortHeaderComponent
@@ -138,7 +138,9 @@ export class TeacherCourseDetailComponent implements OnInit {
   showMoreActions = signal<boolean>(false);
   subjectId = signal<string>('');
   courseInfo = signal<TeacherCourseSummary | null>(null);
-  activeTab = signal<'labs' | 'submissions' | 'modules' | 'gradebook'>('labs');
+  activeTab = signal<'labs' | 'submissions' | 'modules' | 'gradebook' | 'students'>('labs');
+  /** Total de matriculados confirmado por el padrón de la materia. */
+  studentsCount = signal<number>(0);
   
   labs = this.courseService.labs;
   submissions = this.courseService.submissions;
@@ -164,8 +166,6 @@ export class TeacherCourseDetailComponent implements OnInit {
   showExportModal = signal<boolean>(false);
   isExporting = signal<boolean>(false);
   showImportModal = signal<boolean>(false);
-  showEnrollModal = signal<boolean>(false);
-  enrollSuccessMessage = signal<string | null>(null);
 
   // Módulos
   showCreateModuleModal = signal<boolean>(false);
@@ -245,7 +245,7 @@ export class TeacherCourseDetailComponent implements OnInit {
       this.loadData();
     }
     const tabParam = this.route.snapshot.queryParamMap?.get('tab');
-    if (tabParam === 'submissions' || tabParam === 'modules' || tabParam === 'labs' || tabParam === 'gradebook') {
+    if (tabParam === 'submissions' || tabParam === 'modules' || tabParam === 'labs' || tabParam === 'gradebook' || tabParam === 'students') {
       this.activeTab.set(tabParam);
     }
     const labParam = this.route.snapshot.queryParamMap?.get('labId');
@@ -270,7 +270,7 @@ export class TeacherCourseDetailComponent implements OnInit {
     if (this.route.queryParamMap) {
       this.route.queryParamMap.subscribe(queryParams => {
         const nextTab = queryParams.get('tab');
-        if (nextTab === 'submissions' || nextTab === 'modules' || nextTab === 'labs' || nextTab === 'gradebook') {
+        if (nextTab === 'submissions' || nextTab === 'modules' || nextTab === 'labs' || nextTab === 'gradebook' || nextTab === 'students') {
           this.activeTab.set(nextTab);
         }
         const nextLab = queryParams.get('labId');
@@ -302,6 +302,7 @@ export class TeacherCourseDetailComponent implements OnInit {
         const found = data.courses.find(c => c.id === id);
         if (found) {
           this.courseInfo.set(found);
+          this.studentsCount.set(found.students_count || 0);
         }
       }
     });
@@ -508,19 +509,16 @@ export class TeacherCourseDetailComponent implements OnInit {
     this.loadData();
   }
 
+  /**
+   * El alta y la baja viven en la pestaña Estudiantes: el mismo panel dual que
+   * usa la administración, sin obligar a crear un CSV de una sola línea.
+   */
   openEnrollModal(): void {
-    this.showEnrollModal.set(true);
+    this.activeTab.set('students');
   }
 
-  closeEnrollModal(): void {
-    this.showEnrollModal.set(false);
-  }
-
-  onStudentEnrolled(student: AvailableStudent): void {
-    this.showEnrollModal.set(false);
-    this.enrollSuccessMessage.set(`Estudiante ${student.first_name} ${student.last_name} matriculado exitosamente.`);
-    this.loadData();
-    setTimeout(() => this.enrollSuccessMessage.set(null), 5000);
+  onStudentsChanged(total: number): void {
+    this.studentsCount.set(total);
   }
 }
 

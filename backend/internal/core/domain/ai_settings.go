@@ -414,14 +414,17 @@ type AISettingsStored struct {
 
 // AIUserOverrideStored es la credencial personal (BYOK) de un usuario sobre
 // la base institucional. El ciphertext sigue la misma convención AES-256-GCM.
+// CustomProviders son los proveedores que dio de alta el propio usuario: viven
+// en su override y nunca se mezclan con el catálogo institucional del tenant.
 type AIUserOverrideStored struct {
-	Enabled         bool   `json:"enabled"`
-	Provider        string `json:"provider"`
-	Model           string `json:"model"`
-	BaseURL         string `json:"base_url,omitempty"`
-	EncryptedAPIKey string `json:"encrypted_api_key,omitempty"`
-	APIKeyMasked    string `json:"api_key_masked,omitempty"`
-	UpdatedAt       string `json:"updated_at,omitempty"`
+	Enabled         bool                     `json:"enabled"`
+	Provider        string                   `json:"provider"`
+	Model           string                   `json:"model"`
+	BaseURL         string                   `json:"base_url,omitempty"`
+	EncryptedAPIKey string                   `json:"encrypted_api_key,omitempty"`
+	APIKeyMasked    string                   `json:"api_key_masked,omitempty"`
+	UpdatedAt       string                   `json:"updated_at,omitempty"`
+	CustomProviders []AICustomProviderStored `json:"custom_providers,omitempty"`
 }
 
 // DefaultAISettings valores vigentes cuando el tenant nunca configuró la IA.
@@ -500,15 +503,37 @@ type AIStatusDTO struct {
 	InstitutionalEnabled  bool   `json:"institutional_enabled"`
 }
 
+// Orígenes del catálogo visible en la credencial personal: el proveedor lo
+// registró la institución o lo agregó el propio usuario.
+const (
+	AIProviderOriginInstitutional = "institutional"
+	AIProviderOriginPersonal      = "personal"
+)
+
 // AIUserCustomProviderDTO es la vista pública de un proveedor personalizado
-// de la institución que el docente puede elegir en su credencial personal.
-// No expone la clave institucional: el docente siempre aporta la suya.
+// que el docente puede elegir en su credencial personal. No expone ninguna
+// clave: el docente siempre aporta la suya. Origin distingue el catálogo
+// institucional del que el propio docente agregó.
 type AIUserCustomProviderDTO struct {
 	ID      string `json:"id"`
 	Label   string `json:"label"`
 	IconURL string `json:"icon_url,omitempty"`
 	BaseURL string `json:"base_url"`
 	Model   string `json:"model"`
+	Origin  string `json:"origin"`
+}
+
+// AIUserCustomProviderInputDTO es el alta o edición de un proveedor propio del
+// usuario dentro de PUT /api/v1/ai/my-settings. Sin ID el servidor lo deriva
+// del label; el ID nunca puede reutilizar el de un proveedor institucional.
+type AIUserCustomProviderInputDTO struct {
+	ID          string `json:"id,omitempty"`
+	Label       string `json:"label"`
+	IconURL     string `json:"icon_url,omitempty"`
+	BaseURL     string `json:"base_url"`
+	Model       string `json:"model,omitempty"`
+	APIKey      string `json:"api_key,omitempty"`
+	ClearAPIKey bool   `json:"clear_api_key,omitempty"`
 }
 
 // AIUserOverrideResponseDTO es la vista pública de la API Key personal (BYOK)
@@ -524,19 +549,25 @@ type AIUserOverrideResponseDTO struct {
 	APIKeyMasked               string                    `json:"api_key_masked"`
 	UpdatedAt                  string                    `json:"updated_at"`
 	InstitutionalEnabled       bool                      `json:"institutional_enabled"`
+	InstitutionalProvider      string                    `json:"institutional_provider"`
 	InstitutionalProviderLabel string                    `json:"institutional_provider_label"`
 	InstitutionalModel         string                    `json:"institutional_model"`
 	CustomProviders            []AIUserCustomProviderDTO `json:"custom_providers"`
 }
 
 // UpdateAIUserOverrideDTO es el payload de PUT /api/v1/ai/my-settings.
+// CustomProviders da de alta o edita los proveedores propios del usuario y
+// RemoveCustomProviders los elimina; ambos se aplican antes de resolver el
+// proveedor elegido.
 type UpdateAIUserOverrideDTO struct {
-	Enabled     bool   `json:"enabled"`
-	Provider    string `json:"provider"`
-	Model       string `json:"model"`
-	BaseURL     string `json:"base_url"`
-	APIKey      string `json:"api_key"`
-	ClearAPIKey bool   `json:"clear_api_key"`
+	Enabled               bool                           `json:"enabled"`
+	Provider              string                         `json:"provider"`
+	Model                 string                         `json:"model"`
+	BaseURL               string                         `json:"base_url"`
+	APIKey                string                         `json:"api_key"`
+	ClearAPIKey           bool                           `json:"clear_api_key"`
+	CustomProviders       []AIUserCustomProviderInputDTO `json:"custom_providers,omitempty"`
+	RemoveCustomProviders []string                       `json:"remove_custom_providers,omitempty"`
 }
 
 // UpdateAISettingsDTO es el payload de PUT /api/v1/admin/ai/settings.
@@ -669,7 +700,8 @@ func NewAIStatusDTO(stored AISettingsStored) AIStatusDTO {
 // NewAIUserOverrideResponseDTO construye la vista pública de la cascada BYOK
 // personal del usuario junto a la base institucional vigente.
 func NewAIUserOverrideResponseDTO(override AIUserOverrideStored, institutional AISettingsStored) AIUserOverrideResponseDTO {
-	customProviders := make([]AIUserCustomProviderDTO, 0, len(institutional.CustomProviders))
+	catalog := append(append([]AICustomProviderStored{}, institutional.CustomProviders...), override.CustomProviders...)
+	customProviders := make([]AIUserCustomProviderDTO, 0, len(catalog))
 	for _, cp := range institutional.CustomProviders {
 		if strings.TrimSpace(cp.ID) == "" {
 			continue
@@ -680,18 +712,33 @@ func NewAIUserOverrideResponseDTO(override AIUserOverrideStored, institutional A
 			IconURL: cp.IconURL,
 			BaseURL: cp.BaseURL,
 			Model:   cp.Model,
+			Origin:  AIProviderOriginInstitutional,
+		})
+	}
+	for _, cp := range override.CustomProviders {
+		if strings.TrimSpace(cp.ID) == "" {
+			continue
+		}
+		customProviders = append(customProviders, AIUserCustomProviderDTO{
+			ID:      cp.ID,
+			Label:   cp.Label,
+			IconURL: cp.IconURL,
+			BaseURL: cp.BaseURL,
+			Model:   cp.Model,
+			Origin:  AIProviderOriginPersonal,
 		})
 	}
 	return AIUserOverrideResponseDTO{
 		Enabled:                    override.Enabled,
 		Provider:                   override.Provider,
-		ProviderLabel:              AIProviderLabel(override.Provider, institutional.CustomProviders),
+		ProviderLabel:              AIProviderLabel(override.Provider, catalog),
 		Model:                      override.Model,
 		BaseURL:                    override.BaseURL,
 		HasAPIKey:                  strings.TrimSpace(override.EncryptedAPIKey) != "",
 		APIKeyMasked:               override.APIKeyMasked,
 		UpdatedAt:                  override.UpdatedAt,
 		InstitutionalEnabled:       institutional.Enabled,
+		InstitutionalProvider:      institutional.Provider,
 		InstitutionalProviderLabel: AIProviderLabel(institutional.Provider, institutional.CustomProviders),
 		InstitutionalModel:         institutional.Model,
 		CustomProviders:            customProviders,

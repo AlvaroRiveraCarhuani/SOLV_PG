@@ -27,7 +27,6 @@ const BACKEND_FILES = [
   'backend/internal/delivery/http/websocket_handler.go',
   'backend/internal/delivery/http/websocket_hub.go',
   'backend/internal/delivery/http/teacher_ephemeral.go',
-  'backend/internal/delivery/http/router.go',
   'backend/internal/delivery/http/submission_handler.go',
   'backend/internal/delivery/http/evaluation_handler.go'
 ];
@@ -46,6 +45,15 @@ test('los handlers WebSocket del backend activan la regla crítica y seguridad',
     assert.ok(specs.some((spec) => spec.includes('08-concurrency')), filePath);
     assert.ok(plan.coverageGaps.length >= 4, `${filePath}: faltan brechas declaradas`);
   }
+});
+
+test('router.go valida rutas e integración sin tratarse como WebSocket crítico', () => {
+  const plan = planFor('backend/internal/delivery/http/router.go');
+  assert.equal(plan.criticalAreas.includes('websocket-backend'), false);
+  assert.equal(plan.level, 'L2');
+  assert.equal(plan.suites['backend-integration'].selected, true);
+  assert.equal(plan.suites['backend-unit'].full, false);
+  assert.equal(plan.suites['frontend-unit'].selected, false);
 });
 
 test('las brechas restantes del WebSocket backend quedan declaradas', () => {

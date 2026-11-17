@@ -6,8 +6,7 @@ import { AdminCoursesComponent } from './admin-courses.component';
 import { 
   AdminCoursesService, 
   AdminCourseItem, 
-  AcademicPeriod, 
-  DockerTemplateItem 
+  AcademicPeriod 
 } from '../services/admin-courses.service';
 import { TeacherItem } from '@core/models/admin.model';
 
@@ -16,7 +15,6 @@ interface MockAdminCoursesService {
   activePeriod: ReturnType<typeof signal<AcademicPeriod | null>>;
   courses: ReturnType<typeof signal<AdminCourseItem[]>>;
   teachers: ReturnType<typeof signal<TeacherItem[]>>;
-  templates: ReturnType<typeof signal<DockerTemplateItem[]>>;
   isLoading: ReturnType<typeof signal<boolean>>;
   error: ReturnType<typeof signal<string | null>>;
   loadAll: ReturnType<typeof vi.fn>;
@@ -49,8 +47,7 @@ describe('AdminCoursesComponent Unit Tests', () => {
       is_archived: false,
       active_students: 18,
       hibernated_students: 2,
-      ram_used_mb: 2048,
-      template_name: 'Debian Python'
+      ram_used_mb: 2048
     },
     {
       id: 'c2',
@@ -62,8 +59,7 @@ describe('AdminCoursesComponent Unit Tests', () => {
       is_archived: false,
       active_students: 0,
       hibernated_students: 0,
-      ram_used_mb: 0,
-      template_name: 'Ubuntu Go'
+      ram_used_mb: 0
     },
     {
       id: 'c3',
@@ -75,8 +71,7 @@ describe('AdminCoursesComponent Unit Tests', () => {
       is_archived: true,
       active_students: 0,
       hibernated_students: 0,
-      ram_used_mb: 0,
-      template_name: 'Alpine Network'
+      ram_used_mb: 0
     }
   ];
 
@@ -85,7 +80,6 @@ describe('AdminCoursesComponent Unit Tests', () => {
     const activePeriodSignal = signal<AcademicPeriod | null>(mockPeriods[0]);
     const coursesSignal = signal<AdminCourseItem[]>(mockCourses);
     const teachersSignal = signal<TeacherItem[]>([]);
-    const templatesSignal = signal<DockerTemplateItem[]>([]);
     const isLoadingSignal = signal<boolean>(false);
     const errorSignal = signal<string | null>(null);
 
@@ -94,7 +88,6 @@ describe('AdminCoursesComponent Unit Tests', () => {
       activePeriod: activePeriodSignal,
       courses: coursesSignal,
       teachers: teachersSignal,
-      templates: templatesSignal,
       isLoading: isLoadingSignal,
       error: errorSignal,
       loadAll: vi.fn(),

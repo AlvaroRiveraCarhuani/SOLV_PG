@@ -392,6 +392,13 @@ func main() {
 	govService := services.NewAdminGovernanceService(subjectRepo, govRepo)
 	govService.SetAuditRepo(auditLogRepo)
 
+	// Padrón de la materia: lectura, alta individual y nómina sobre la misma
+	// tabla `enrollments`, con el origen marcado según el rol que matricula.
+	courseRosterRepo := postgres.NewPostgresCourseRosterRepository(db.GetDB())
+	courseRosterHandler := httpdelivery.NewCourseRosterHandler(
+		services.NewCourseRosterService(courseRosterRepo, govService),
+	)
+
 	// Pedido de entorno del docente: intención + receta armada, sin imágenes ni
 	// cuotas técnicas en la vista del docente.
 	environmentRequestRepo := postgres.NewPostgresEnvironmentRequestRepository(db.GetDB())
@@ -570,6 +577,7 @@ func main() {
 			return db.GetDB().PingContext(ctx)
 		}),
 		SubjectHandler:                httpdelivery.NewSubjectHandler(subjectService),
+		CourseRosterHandler:           courseRosterHandler,
 		SubmissionHandler:             subHandler,
 		TeacherInvitationHandler:      teacherInvitationHandler,
 		ClassroomHandler:              httpdelivery.NewClassroomHandler(),

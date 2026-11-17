@@ -28,7 +28,9 @@
       [value]="selectedTeacherLabel()"
       [options]="teacherComboboxOptions()"
       placeholder="Seleccione o busque nuevo docente..."
+      [allowClear]="true"
       (optionSelected)="onTeacherSelected($event)"
+      (cleared)="onTeacherCleared()"
     ></combobox>
   </form-field>
 

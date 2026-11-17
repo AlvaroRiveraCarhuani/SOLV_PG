@@ -27,21 +27,20 @@
         Agregar primer estudiante
       </button>
     </div>
-  } @else if (exercises().length === 0) {
-    <div class="state-panel">
-      <h3 class="state-title">No hay prácticas en la materia</h3>
-      <p class="state-copy">La libreta se arma con las prácticas de la materia.</p>
-    </div>
   } @else {
     <div class="gradebook-scroll">
       <table class="gradebook-table">
         <thead>
           <tr>
             <th scope="col" class="col-student">Estudiante</th>
-            @for (exercise of exercises(); track exercise.id) {
-              <th scope="col" class="col-grade" [title]="exercise.title">{{ exercise.title }}</th>
+            @if (exercises().length === 0) {
+              <th scope="col" class="col-empty-exercises">Sin prácticas publicadas en la materia</th>
+            } @else {
+              @for (exercise of exercises(); track exercise.id) {
+                <th scope="col" class="col-grade" [title]="exercise.title">{{ exercise.title }}</th>
+              }
+              <th scope="col" class="col-average">Nota de Laboratorio</th>
             }
-            <th scope="col" class="col-average">Nota de Laboratorio</th>
           </tr>
         </thead>
         <tbody>
@@ -51,23 +50,29 @@
                 <span class="student-name">{{ student.student_name }}</span>
                 <span class="student-email">{{ student.student_email }}</span>
               </th>
-              @for (exercise of exercises(); track exercise.id) {
-                @let grade = gradeOf(student, exercise.id);
-                <td class="col-grade">
-                  @if (grade !== null) {
-                    <span class="grade-value" machineData>{{ grade }}</span>
+              @if (exercises().length === 0) {
+                <td class="col-empty-exercises">
+                  Cuando publiques la primera práctica, acá aparecen sus notas.
+                </td>
+              } @else {
+                @for (exercise of exercises(); track exercise.id) {
+                  @let grade = gradeOf(student, exercise.id);
+                  <td class="col-grade">
+                    @if (grade !== null) {
+                      <span class="grade-value" machineData>{{ grade }}</span>
+                    } @else {
+                      <span class="grade-missing" aria-label="Sin corregir">—</span>
+                    }
+                  </td>
+                }
+                <td class="col-average">
+                  @if (student.graded_count > 0) {
+                    <span class="grade-value grade-average" machineData>{{ student.average }}</span>
                   } @else {
                     <span class="grade-missing" aria-label="Sin corregir">—</span>
                   }
                 </td>
               }
-              <td class="col-average">
-                @if (student.graded_count > 0) {
-                  <span class="grade-value grade-average" machineData>{{ student.average }}</span>
-                } @else {
-                  <span class="grade-missing" aria-label="Sin corregir">—</span>
-                }
-              </td>
             </tr>
           }
         </tbody>

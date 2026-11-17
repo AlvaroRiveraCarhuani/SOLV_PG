@@ -1814,7 +1814,9 @@ Códigos: `200 OK`; `400 Bad Request` (`invalid_payload`, `base_image_latest`, `
 
 Cascada de credenciales por usuario: la base institucional sigue siendo el motor por defecto y cada docente/administrador puede activar su propia API Key. Las credenciales personales se almacenan en `ai_settings.user_overrides[userID]` con el mismo cifrado AES-256-GCM y las mismas validaciones que la configuración institucional.
 
-La respuesta incluye `custom_providers` con los proveedores personalizados registrados por la institución (`id`, `label`, `icon_url`, `base_url`, `model`), de modo que el docente puede elegirlos sin conocer el endpoint. El docente aporta siempre su propia API Key; la clave institucional nunca se reutiliza en la cascada BYOK.
+La respuesta incluye `custom_providers` con los proveedores personalizados que el docente ve en su catálogo: los registrados por la institución y los que él mismo agregó (`id`, `label`, `icon_url`, `base_url`, `model`, `origin`). `origin: "institutional"` indica que el endpoint lo define la institución; `origin: "personal"` que el proveedor y su clave viven en el override del usuario y solo él los puede editar o eliminar. El docente aporta siempre su propia API Key; la clave institucional nunca se reutiliza en la cascada BYOK.
+
+`institutional_provider` identifica el motor que la institución tiene activo en ese momento. El panel lo usa para marcar la tarjeta que ya funciona sin clave personal: elegir ese proveedor es opcional y solo sirve para superar la cuota compartida.
 
 | Método y ruta | Uso |
 |---------------|-----|
@@ -1835,10 +1837,23 @@ La respuesta incluye `custom_providers` con los proveedores personalizados regis
   "model": "gpt-4o-mini",
   "base_url": "",
   "api_key": "sk-personal-00000001",
-  "clear_api_key": false
+  "clear_api_key": false,
+  "custom_providers": [
+    {
+      "label": "Groq Cloud",
+      "base_url": "https://api.groq.com/openai/v1",
+      "model": "llama-3.3-70b-versatile",
+      "api_key": "gsk-personal-0001"
+    }
+  ],
+  "remove_custom_providers": ["custom_proveedor_viejo"]
 }
 ```
-> `provider` vacío reutiliza el de la base institucional; en proveedores cloud la URL oficial se fuerza y `base_url` se ignora. Para `custom_<slug>`, el proveedor debe existir en el catálogo institucional y la URL base se resuelve desde ese catálogo. Al cambiar de proveedor la clave anterior no se reutiliza y se exige la nueva. `clear_api_key: true` elimina la clave guardada.
+> `provider` vacío reutiliza el de la base institucional; en proveedores cloud la URL oficial se fuerza y `base_url` se ignora. Para `custom_<slug>` institucional, el proveedor debe existir en el catálogo de la institución y la URL base se resuelve desde ese catálogo. Al cambiar de proveedor la clave anterior no se reutiliza y se exige la nueva. `clear_api_key: true` elimina la clave guardada.
+
+> **Proveedores propios del docente.** `custom_providers` da de alta o edita proveedores compatibles con OpenAI dentro del override del usuario; sin `id` el servidor lo deriva del `label` (`custom_<slug>`). `remove_custom_providers` los elimina. Un ID del catálogo institucional no se puede reemplazar ni borrar desde acá. La clave de cada proveedor propio se cifra y se conserva si el payload no envía una nueva.
+>
+> **Escudo anti-SSRF del docente.** A diferencia del administrador, el docente solo puede registrar y probar endpoints `https://` cuyo host resuelva a direcciones públicas de internet. Se bloquean `localhost`, loopback (`127.0.0.0/8`, `::1`), RFC 1918 (`10/8`, `172.16/12`, `192.168/16`), ULA IPv6, link-local/metadata (`169.254.0.0/16`), multicast y CGNAT (`100.64/10`). Las IPs privadas de LAN siguen permitidas únicamente para proveedores registrados por la institución.
 
 #### Ejemplo de Respuesta (`200 OK`)
 ```json
@@ -1853,14 +1868,23 @@ La respuesta incluye `custom_providers` con los proveedores personalizados regis
     "api_key_masked": "sk-p...0001",
     "updated_at": "2026-10-25T14:03:11Z",
     "institutional_enabled": true,
-    "institutional_provider_label": "Google Gemini",
-    "institutional_model": "gemini-2.5-flash",
+    "institutional_provider": "custom_inception",
+    "institutional_provider_label": "Inception Mercury",
+    "institutional_model": "mercury-3",
     "custom_providers": [
       {
         "id": "custom_inception",
         "label": "Inception Mercury",
         "base_url": "https://api.inceptionlabs.ai/v1",
-        "model": "mercury-3"
+        "model": "mercury-3",
+        "origin": "institutional"
+      },
+      {
+        "id": "custom_groq_cloud",
+        "label": "Groq Cloud",
+        "base_url": "https://api.groq.com/openai/v1",
+        "model": "llama-3.3-70b-versatile",
+        "origin": "personal"
       }
     ]
   },
@@ -1871,7 +1895,55 @@ La respuesta incluye `custom_providers` con los proveedores personalizados regis
 
 Efecto sobre las invocaciones generativas (`suggest-component`, `generate-exercise`, `repair-template`): si el `userID` tiene un override activo y válido, el motor usa proveedor, modelo, `base_url` y API Key personales **sin descontar cuota institucional** y **aunque `enabled` institucional sea `false`**.
 
-Códigos: `200 OK`; `400 Bad Request` (`invalid_payload`, `provider_invalid`, `base_url_required`, `base_url_blocked`, `model_required`, `api_key_required`, `user_required`); `403 Forbidden` (rol distinto de `teacher`/`admin`); `500 Internal Server Error`.
+Códigos: `200 OK`; `400 Bad Request` (`invalid_payload`, `provider_invalid`, `provider_label_invalid`, `provider_icon_invalid`, `provider_limit_reached`, `base_url_required`, `base_url_invalid`, `base_url_blocked`, `model_required`, `api_key_required`, `user_required`); `403 Forbidden` (rol distinto de `teacher`/`admin`); `500 Internal Server Error`.
+
+---
+
+### 11. Padrón de una Materia — `/api/v1/courses/{id}`
+
+Gestión del padrón de estudiantes de una materia. Es la misma superficie para administración y docencia: el backend resuelve el permiso sobre la materia a partir del rol de la sesión (el administrador opera sobre cualquier materia del tenant; el docente solo sobre las que dicta) y deriva el origen de la matrícula del rol que la ejecuta (`institutional_roster` para admin, `teacher_manual` para docente).
+
+| Método y ruta | Uso |
+|---------------|-----|
+| `GET /api/v1/courses/{id}/students` | Lista el padrón con nombre, correo, fecha de ingreso, origen y estado del entorno |
+| `GET /api/v1/courses/{id}/available-students?q=` | Estudiantes activos del tenant que todavía no pertenecen a la materia |
+| `POST /api/v1/courses/{id}/students` | Alta individual (`{"student_id": "..."}`) |
+| `DELETE /api/v1/courses/{id}/students/{studentId}` | Baja de la materia |
+| `POST /api/v1/courses/roster/parse` | Lee una planilla `.xlsx`/`.csv` y devuelve los correos normalizados sin tocar la base |
+| `POST /api/v1/courses/{id}/roster` | Aplica la planilla completa: crea cuentas faltantes y matricula |
+
+- **Headers Requeridos:** `X-User-Id`, `X-User-Role: teacher` o `admin`, `X-Tenant-Id`.
+- `403 Forbidden` (`forbidden`) cuando el docente no dicta la materia; `404 Not Found` (`not_found`) si la materia o el estudiante no existen en el tenant.
+- El docente **nunca reconcilia**: en su sesión el backend fuerza `source_system = 'teacher_manual'` y `reconcile = false`. Su planilla agrega altas de cátedra y no borra matrículas de la nómina oficial. La reconciliación sigue siendo una operación del administrador (ADR-079).
+
+#### Ejemplo de respuesta de `GET /api/v1/courses/{id}/students`
+```json
+{
+  "data": {
+    "subject_id": "sub-1",
+    "students": [
+      {
+        "student_id": "stu-1",
+        "full_name": "Valeria Flores",
+        "email": "valeria@institucion.edu",
+        "enrolled_at": "2026-08-12T13:20:00Z",
+        "source_system": "institutional_roster",
+        "workspace_status": "hibernated"
+      },
+      {
+        "student_id": "stu-2",
+        "full_name": "Mateo Silva",
+        "email": "mateo@institucion.edu",
+        "enrolled_at": "2026-08-20T09:05:00Z",
+        "source_system": "teacher_manual",
+        "workspace_status": ""
+      }
+    ]
+  }
+}
+```
+
+`workspace_status` es el estado del entorno de práctica más reciente del alumno en esa materia (`running`, `hibernated`, `pending`, `failed`, `oom_killed`) o `""` cuando todavía no tiene entorno.
 
 ---
 

@@ -190,9 +190,10 @@ pueden ser L0.
 | L2 | Validación de integración | Unitarias del lado, integración PostgreSQL, E2E del área y build del lado | Docker y migraciones si no corresponden |
 | L3 | Validación integral | Suites completas del lado, integración, seguridad, Docker o migraciones según la regla, E2E del catálogo | Nada que la regla crítica exija |
 
-Las suites completas de un lado solo se activan por una regla crítica, un
-cambio de contrato compartido, una configuración global, un cambio estructural
-o una ruta que el selector no puede clasificar. Un cambio visual localizado no
+Las suites completas de un lado solo se activan por una regla crítica, el
+contrato de backend (unitarios de Go), una configuración global o una ruta que
+el selector no puede clasificar. Un modelo compartido de Angular ejecuta solo
+las specs que lo importan y el build. Un cambio visual localizado no
 hereda el nivel de la aplicación entera.
 
 ### Volumen del cambio
@@ -280,8 +281,7 @@ El selector escala a ejecución completa cuando:
 
 - no hay diff verificable o el diff está vacío;
 - una ruta no tiene área, regla crítica ni trigger global;
-- cambia una configuración global, un contrato compartido o una interfaz;
-- se elimina o renombra código;
+- cambia una configuración global o una interfaz;
 - el plan supera el límite de archivos;
 - no puede justificar una selección reducida con la evidencia disponible.
 
@@ -332,9 +332,10 @@ crítica ni el componente raíz.
 4. Para Angular, resuelve imports relativos y alias del `tsconfig`, enlaces de
    `templateUrl`/`styleUrl` y dependencias SCSS. Cambiar un componente, pipe o
    servicio ejecuta las specs que lo importan de forma directa o transitiva.
-5. Calcula el nivel máximo de las áreas, reglas críticas, triggers y cambios
-   estructurales. Un cambio exclusivamente visual de un componente baja a L0;
-   un estilo global, una ruta o un contrato no baja.
+5. Calcula el nivel máximo de las áreas, reglas críticas y triggers globales.
+   Una eliminación o un renombrado suma como máximo L2. Un cambio
+   exclusivamente visual de un componente baja a L0; un estilo global, una ruta
+   o un contrato no baja.
 6. Añade los flujos E2E del área solo desde L2. Las specs E2E modificadas
    directamente y las reglas críticas conservan sus flujos en cualquier nivel.
 7. Resuelve la plantilla: lógica sin spec exige build y cobertura faltante; HTML
@@ -343,8 +344,10 @@ crítica ni el componente raíz.
 8. Reporta los archivos de código que quedaron sin tests o specs. El reporte no
    los oculta ni inventa cobertura.
 
-Una eliminación o un renombrado de código activa el alcance completo del lado
-afectado. Un icono o un asset público valida el recurso y no ejecuta Go,
+Una eliminación o un renombrado de código no activa el alcance completo del
+lado afectado: el build, el grafo de dependencias y las áreas del propio archivo
+seleccionan la validación proporcional y el cambio queda reportado en
+`structural`. Un icono o un asset público valida el recurso y no ejecuta Go,
 PostgreSQL, Docker ni Playwright. Un cambio visual de una pantalla conserva su
 spec de componente, pero no paga E2E ni build sin necesidad.
 
@@ -360,6 +363,12 @@ rama y escala a L3 cambios que no son globales.
 | Iteración local | `HEAD`, por defecto | Lo que no está commiteado |
 | Cierre antes del PR | `--base origin/main` | La rama completa |
 | CI | La que pasa el workflow | El PR o el push |
+
+Para el bucle de desarrollo existe `make check`: genera el plan contra `HEAD` y
+ejecuta solo `gates`, `asset-validation`, `build`, `backend-unit` y
+`frontend-unit` cuando el plan las selecciona. No ejecuta integración, Docker,
+migraciones ni E2E. El cierre previo al PR sigue siendo
+`make test-impact BASE=origin/main`.
 
 Correr la suite que el plan seleccionó no valida el cambio: para eso hace falta
 un `--all` sobre un plan no sintético. Tiempos de referencia medidos en el

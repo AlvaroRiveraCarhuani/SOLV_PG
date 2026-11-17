@@ -121,6 +121,15 @@
   white-space: nowrap;
 }
 
+// Sin prácticas la nómina no se oculta: la columna de notas queda colapsada y
+// explica por qué todavía no hay celdas.
+.col-empty-exercises {
+  font-size: var(--text-xs);
+  font-weight: 500;
+  color: var(--text-muted);
+  text-align: left;
+}
+
 .grade-value {
   font-variant-numeric: tabular-nums;
   color: var(--text-primary);

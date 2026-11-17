@@ -11,7 +11,8 @@ import {
   MaintenanceStatus,
   BackupConfigItem,
   BackupExecutionItem,
-  VerifyBackupResult
+  VerifyBackupResult,
+  OrphanVolumePlan
 } from '../admin-config-servidor.service';
 
 const makePolicies = (overrides: Partial<ServerPolicies> = {}): ServerPolicies => ({
@@ -65,9 +66,14 @@ interface MockAdminConfigServidorService {
   maintenance: ReturnType<typeof signal<MaintenanceStatus | null>>;
   backupConfig: ReturnType<typeof signal<BackupConfigItem | null>>;
   backups: ReturnType<typeof signal<BackupExecutionItem[]>>;
+  orphanPlan: ReturnType<typeof signal<OrphanVolumePlan | null>>;
+  orphansLoading: ReturnType<typeof signal<boolean>>;
+  orphansError: ReturnType<typeof signal<string | null>>;
   isLoading: ReturnType<typeof signal<boolean>>;
   error: ReturnType<typeof signal<string | null>>;
   loadAll: ReturnType<typeof vi.fn>;
+  loadOrphanVolumes: ReturnType<typeof vi.fn>;
+  pruneOrphanVolumes: ReturnType<typeof vi.fn>;
   updatePolicies: ReturnType<typeof vi.fn>;
   enableMaintenance: ReturnType<typeof vi.fn>;
   disableMaintenance: ReturnType<typeof vi.fn>;
@@ -97,9 +103,14 @@ describe('AdminConfigServidorComponent', () => {
       maintenance: maintenanceSignal,
       backupConfig: signal<BackupConfigItem | null>(makeBackupConfig({ local_frequency_hours: 6, local_retention_days: 7 })),
       backups: backupsSignal,
+      orphanPlan: signal<OrphanVolumePlan | null>(null),
+      orphansLoading: signal(false),
+      orphansError: signal<string | null>(null),
       isLoading: signal(false),
       error: signal<string | null>(null),
       loadAll: vi.fn(),
+      loadOrphanVolumes: vi.fn(),
+      pruneOrphanVolumes: vi.fn().mockReturnValue(of({ data: { removed: 0, freed_mb: 0 } })),
       updatePolicies: vi.fn().mockImplementation((dto: Partial<ServerPolicies>) => {
         policiesSignal.set(makePolicies(dto));
         return of(makePolicies(dto));

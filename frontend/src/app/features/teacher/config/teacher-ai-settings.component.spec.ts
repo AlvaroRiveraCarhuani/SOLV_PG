@@ -19,6 +19,7 @@ const personalSettings: AIUserOverrideDTO = {
   api_key_masked: 'sk-or-•••••••1234',
   updated_at: '2026-10-25T12:00:00Z',
   institutional_enabled: true,
+  institutional_provider: 'gemini',
   institutional_provider_label: 'Google Gemini',
   institutional_model: 'gemini-2.5-flash'
 };

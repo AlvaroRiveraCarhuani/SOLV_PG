@@ -23,6 +23,7 @@ type Handlers struct {
 	VersionHandler                *VersionHandler
 	HealthHandler                 *HealthHandler
 	SubjectHandler                *SubjectHandler
+	CourseRosterHandler           *CourseRosterHandler
 	SubmissionHandler             *SubmissionHandler
 	TeacherInvitationHandler      *TeacherInvitationHandler
 	ClassroomHandler              *ClassroomHandler
@@ -179,6 +180,18 @@ func registerAcademicRoutes(mux *http.ServeMux, deps *Handlers) {
 		mux.Handle("PUT /api/v1/subjects/{id}/archive", am(tm(http.HandlerFunc(deps.SubjectHandler.ArchiveSubject))))
 		mux.Handle("POST /api/v1/subjects/{id}/enroll", am(tm(http.HandlerFunc(deps.SubjectHandler.EnrollStudent))))
 		mux.Handle("GET /api/v1/subjects/{id}/students", tm(http.HandlerFunc(deps.SubjectHandler.ListStudents)))
+	}
+
+	// Padrón de la materia: la misma superficie para administración y docencia.
+	// El origen de la matrícula y el permiso sobre la materia los resuelve el
+	// servicio a partir del rol, no del payload.
+	if deps.CourseRosterHandler != nil {
+		mux.Handle("GET /api/v1/courses/{id}/students", tm(http.HandlerFunc(deps.CourseRosterHandler.List)))
+		mux.Handle("GET /api/v1/courses/{id}/available-students", tm(http.HandlerFunc(deps.CourseRosterHandler.Available)))
+		mux.Handle("POST /api/v1/courses/{id}/students", am(tm(http.HandlerFunc(deps.CourseRosterHandler.Enroll))))
+		mux.Handle("DELETE /api/v1/courses/{id}/students/{studentId}", am(tm(http.HandlerFunc(deps.CourseRosterHandler.Remove))))
+		mux.Handle("POST /api/v1/courses/roster/parse", am(tm(http.HandlerFunc(deps.CourseRosterHandler.ParseRoster))))
+		mux.Handle("POST /api/v1/courses/{id}/roster", am(tm(http.HandlerFunc(deps.CourseRosterHandler.Roster))))
 	}
 
 	if deps.SubmissionHandler != nil {

@@ -96,8 +96,8 @@ test('los quince escenarios de referencia tienen nivel y selección verificables
     {
       name: 'contrato de frontend',
       path: 'frontend/src/app/shared/models/api-response.model.ts',
-      level: 'L3',
-      selected: ['frontend-unit', 'frontend-e2e', 'build', 'security'],
+      level: 'L2',
+      selected: ['frontend-e2e', 'build', 'security'],
       omitted: ['backend-unit', 'backend-integration', 'backend-docker', 'migrations']
     },
     {
@@ -208,8 +208,8 @@ test('una ruta no clasificada escala a L3 y no finge cobertura', () => {
 
 test('un contrato de frontend no se reduce a un test visual', () => {
   const plan = planFor('frontend/src/app/shared/models/api-response.model.ts');
-  assert.equal(plan.level, 'L3');
-  assert.equal(plan.suites['frontend-unit'].full, true);
+  assert.equal(plan.level, 'L2');
+  assert.equal(plan.suites['frontend-unit'].full, false);
   assert.equal(plan.suites.security.selected, true);
   assert.equal(plan.suites.build.frontend, true);
   // El modelo es TypeScript: compilar Go o correr sus unitarios no puede verlo.

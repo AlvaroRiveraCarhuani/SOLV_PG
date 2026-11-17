@@ -92,3 +92,4 @@ Este documento consolida todas las Decisiones de Arquitectura (ADRs) tomadas dur
 | 083 | [Perfil y Estado del Entorno según el Propósito del Ejercicio](ADR-083-perfil-de-entorno-por-proposito.md) | Aceptado | Docencia |
 | 084 | [Cuotas de CPU, Procesos y Disco por Entorno](ADR-084-cuotas-de-cpu-procesos-y-disco.md) | Aceptado | Capacidad |
 | 085 | [Aislamiento de Salida a Internet en Ejercicios de Examen](ADR-085-aislamiento-de-salida-en-examenes.md) | Aceptado | Seguridad |
+| 086 | [Autonomía Operativa del Docente: Proveedores BYOK Propios y Padrón de Cátedra](ADR-086-autonomia-docente-byok-propio-y-padron-de-catedra.md) | Aceptado | Docencia |
