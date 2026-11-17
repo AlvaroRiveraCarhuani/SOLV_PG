@@ -14,12 +14,13 @@
   flex-wrap: wrap;
 }
 
-/* Búsqueda y selector de vista comparten fila mientras entren: el contenedor no
-   se encoge, porque en modo wrap la caja se encogía y el selector caía abajo. */
+/* Búsqueda a la izquierda y selector de vista a la derecha, en una sola fila.
+   Con `wrap` la caja se encogía a 406 px y el selector caía a una fila propia. */
 .courses-tools {
   display: flex;
   align-items: center;
-  flex: 0 0 auto;
+  flex: 1 1 100%;
+  justify-content: space-between;
   gap: var(--space-3);
   flex-wrap: nowrap;
 }
