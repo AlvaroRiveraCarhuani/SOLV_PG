@@ -64,6 +64,7 @@ El servicio `seaweedfs` del archivo `compose.yml`:
 
 * Arranca `weed server -s3` con datos en el volumen `seaweed_data`.
 * Corre con `-volume.max=0`. Cada bucket S3 se guarda en una colección propia y el servidor trae un tope de 8 volúmenes: con el valor por defecto, crear un bucket nuevo falla en cuanto el servidor ya tiene 8. Sin tope, el alta del bucket y los snapshots no dependen de cuántos volúmenes previos existan.
+* Fija el tamaño de volumen en 1 GB (`-master.volumeSizeLimitMB=1024`). Con el tope en cero, el servidor calcula cuántos volúmenes puede tener como disco libre dividido por el tamaño de volumen. Con el valor por defecto de 30 GB y un disco con menos de eso libre, el servidor no crea volúmenes nuevos y cada `PutObject` sobre una colección sin volumen propio responde 500 (`failed to find writable volumes`): los avances no se guardan y el alumno no recibe nada. Con 1 GB el servidor crea volúmenes mientras quede alrededor de 1 GB libre.
 * Publica el puerto S3 solo en `127.0.0.1:8333`. No es accesible desde la red.
 * Está en `solv_net`; el backend lo alcanza como `http://seaweedfs:8333`.
 * Genera el archivo de identidades `/etc/seaweedfs/s3.json` al arrancar, a partir de las variables de entorno. El gateway S3 de SeaweedFS exige ese archivo (`-s3.config`). Las variables `AWS_*` no bastan: el servidor no las lee para autenticar.
