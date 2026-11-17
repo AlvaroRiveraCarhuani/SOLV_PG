@@ -58,6 +58,13 @@ interface ApiEnvelope<T> {
 
 const REQUEST_TIMEOUT_MS = 10000;
 
+/**
+ * Tope para las operaciones que arman un contenedor efímero sobre el volumen del
+ * alumno (aplicar, deshacer, emitir): tardan varios segundos y con el tope corto
+ * el cliente abortaba mientras el backend todavía estaba escribiendo.
+ */
+export const LONG_REQUEST_TIMEOUT_MS = 120000;
+
 /** Único punto de salida HTTP de la extensión. El token viaja como Bearer y nunca se registra ni se muestra. */
 export class SolvClient {
   constructor(private readonly settings: SolvSettings) {}
@@ -67,7 +74,11 @@ export class SolvClient {
    * dependen de una entrega, así que solo se exige URL y token; cada ruta
    * valida lo suyo antes de llamar.
    */
-  async request<T>(path: string, init: RequestInit): Promise<T> {
+  async request<T>(
+    path: string,
+    init: RequestInit,
+    timeoutMs: number = REQUEST_TIMEOUT_MS
+  ): Promise<T> {
     const baseUrl = this.settings.apiBaseUrl;
     // Preferir token de entorno (inyectado por OpenVSCode Server), fallback a SecretStorage.
     const token = await this.settings.getTokenEnv();
@@ -76,7 +87,7 @@ export class SolvClient {
     }
 
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+    const timeout = setTimeout(() => controller.abort(), timeoutMs);
     try {
       const response = await fetch(`${baseUrl}${path}`, {
         ...init,

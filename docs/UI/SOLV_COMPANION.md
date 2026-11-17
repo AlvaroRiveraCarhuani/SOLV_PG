@@ -24,12 +24,34 @@ Los comandos de entrega y de emisión se declaran con `when` sobre esas claves, 
 ## Interfaz
 
 - **Barra de actividades:** contenedor `SOLV` con el isotipo vectorial y la vista `Aula` (webview).
-- **Panel lateral:** cabecera de materia y docente, estado de la entrega, consigna con criterios, avances, comentarios y aula del docente.
-- **Checklist de avances:** `Nuevo` (verde, marcado por defecto), `Modificado` (ámbar, marcado, con `Ver diferencias`) y `Sin cambios` (neutro, desmarcado).
-- **Pestaña completa:** `SOLV: Abrir consigna en pestaña` crea un `WebviewPanel` en la columna contigua, para leer consignas largas o trabajar en pantalla dividida.
+- **Panel lateral:** cabecera de materia y docente, estado de la entrega, avances del aula, observaciones y la consigna como extracto. Es el modo de acción.
+- **Checklist de avances:** `Nuevo` (verde, marcado por defecto, con `Ver contenido`), `Modificado` (ámbar, marcado, con `Ver diferencias`) y `Sin cambios` (neutro, desmarcado). Un archivo nuevo no tiene versión anterior, así que no se ofrece un diff.
+- **Pestaña completa:** `SOLV: Abrir práctica en pestaña` crea un `WebviewPanel` en la columna contigua con el documento de la práctica y su índice, para leer consignas largas o trabajar en pantalla dividida. El docente conserva ahí la tarjeta `Aula` con emitir, congelar y cerrar.
 - **Barra de estado:** `$(mortar-board) SOLV: SIS-420` y `$(cloud-upload) Entregar Práctica` para el alumno; `$(mortar-board) SOLV: SIS-420 · Docente`, `$(broadcast) Emitir Avance` y `$(organization) N alumnos` para el docente.
 
 El HTML y el CSS son nativos y usan solo variables `--vscode-*`: se adaptan a tema claro, oscuro y alto contraste sin librerías externas. Los iconos de la webview son SVG en línea con `currentColor`; la barra de estado usa codicons nativos de VS Code. No hay emojis en la interfaz.
+
+## Dos modos: lateral accionable y documento
+
+El mismo HTML se renderiza en dos modos según `renderPanelHtml(..., { isTab })`. No son dos pantallas distintas: es el mismo estado con otra jerarquía.
+
+**Panel lateral (acción).** El orden responde a lo que exige una decisión:
+
+1. Cabecera de materia, práctica y estado de la entrega.
+2. Avance del docente con su checklist, o el aula del docente.
+3. Observaciones del docente.
+4. Consigna como extracto de seis líneas, con `Leer consigna completa en una pestaña` arriba del texto: el enlace es la entrada a la consigna completa y por eso va primero.
+5. `Evaluación` al final, solo para el docente, con `Abrir evaluación en la plataforma` (SpeedGrader). El aula se opera arriba; la evaluación es la salida de la clase.
+
+El extracto sale de `excerptText` (`panel-state.ts`): saca las marcas de markdown, colapsa espacios y corta en un espacio para no partir una palabra. La rúbrica no se muestra en el lateral: vive en la pestaña, donde hay ancho para la matriz de niveles.
+
+**Pestaña (documento).** El documento es la consigna completa, la rúbrica y las observaciones. A partir de 900 px de ancho aparece un índice de anclas fijo (`Consigna`, `Rúbrica`, `Observaciones`): cada entrada salta con scroll suave y un `IntersectionObserver` resalta la sección visible. Por debajo de 900 px el índice se oculta y el contenido sigue siendo una sola columna. Las anclas no reemplazan contenido, así que la consigna se lee completa de arriba abajo.
+
+Para el docente el documento abre con el `Aula` (métricas, presencia, `Emitir avance a la clase`, congelar y cerrar) y el índice suma `Aula` como primera entrada. Esa tarjeta no compite con el lateral: son los mismos controles sobre el mismo estado, y sin ella la pestaña dejaba al docente sin poder operar el aula mientras leía la consigna.
+
+La rúbrica arranca plegada (`<details>` sin `open`) y deja el total en el resumen; su apertura se conserva entre refrescos con `host.setState`. Si hay un avance pendiente, la pestaña muestra una franja con `Revisar en el panel lateral` (`focus-panel`): el checklist y sus botones existen en un solo lugar, para no aplicar dos veces lo mismo.
+
+**Aviso de avance nuevo.** Como el checklist vive en el lateral, un avance podía pasar inadvertido con el panel cerrado. Al detectar un avance pendiente distinto del último avisado, la extensión muestra una notificación de VS Code (`showInformationMessage`) con `Revisar archivos`, que enfoca el lateral. El identificador avisado queda en `workspaceState` (`solv.notifiedAdvance`) y se limpia cuando el avance deja de estar pendiente, así que cada avance avisa una sola vez y no en cada ciclo de un minuto. La notificación no bloquea el refresco: se dispara sin `await`.
 
 ## Diff en memoria
 
@@ -45,6 +67,8 @@ await vscode.commands.executeCommand('vscode.diff', localUri, virtualUri, `${rel
 ```
 
 El contenido llega desde `GET /api/v1/class-advances/{id}/files`, en el mapa `files`. No se escriben archivos temporales en el volumen del alumno. Antes de abrir el diff o aplicar se ejecuta `environment.saveAll(false)`.
+
+Un archivo que el alumno todavía no tiene no se compara contra un `file:` inexistente: VS Code responde `The editor could not be opened because the file was not found` y la pestaña queda vacía. En ese caso el lado izquierdo es un documento virtual vacío (`solv-advance:` con prefijo `/vacio/`), el avance se lee completo como líneas agregadas y el título dice `— Archivo nuevo del avance`.
 
 ## Contexto de la materia y estado de la entrega
 
@@ -62,9 +86,13 @@ Al arrancar, la extensión escribe `files.exclude` en `.vscode/settings.json` pa
 
 Con lista, el backend respalda y sobrescribe solo esos archivos. Sin lista, aplica el avance completo, que es el contrato anterior. Una ruta que no pertenece al snapshot invalida la selección completa con `422`: la extensión nunca deja el proyecto a medio aplicar en silencio.
 
-## Deshacer avance
+La copia arma un contenedor efímero sobre el volumen del alumno y tarda alrededor de 10 s, así que `apply`, `rollback` y la emisión usan `LONG_REQUEST_TIMEOUT_MS` (120 s) en vez del tope corto de las consultas. El botón `Aplicar archivos seleccionados` muestra un progreso en la notificación mientras el backend escribe: antes, el cliente abortaba a los 10 s y la petición se cancelaba a mitad de la escritura.
 
-`POST /api/v1/class-advances/{id}/rollback` restaura los archivos desde `.solv_backups/<avance_id>/`, deja el destinatario en `pending` y registra `CLASS_ADVANCE_ROLLBACK` en la auditoría. Exige que el avance esté aplicado (`409` si no) y que exista respaldo (`409` si el avance solo agregó archivos nuevos). El respaldo se borra después de reabrir el aviso; si la reapertura falla, se conserva y el alumno puede reintentar.
+## Deshacer avance, por archivo
+
+`GET /api/v1/class-advances/{id}/rollback` lista los archivos que el respaldo (`.solv_backups/<avance_id>/`) todavía puede volver a su versión anterior. Alimenta el checklist del avance aplicado y se consulta en cada refresco. Si la consulta falla, el panel mantiene el botón `Deshacer avance`, que restaura todo, en lugar de mostrar un checklist vacío.
+
+`POST /api/v1/class-advances/{id}/rollback` acepta `paths: []string` opcional. Con la lista restaura solo esos archivos, deja el destinatario en `applied` y conserva el respaldo del resto; sin lista restaura todo y deja el destinatario en `pending`. La respuesta informa `restored`, `remaining` y `fully_restored`, y la extensión usa `remaining` para volver a pintar el checklist. Una ruta sin respaldo invalida la selección completa (`422`): restaurar la mitad de lo pedido y responder éxito dejaría el avance a medias. Cada archivo restaurado sale del respaldo; el aviso vuelve a `pending` y el respaldo se borra recién cuando no queda nada por restaurar. Si esa reapertura falla, el respaldo se conserva y el alumno puede reintentar. Cada movimiento queda como `CLASS_ADVANCE_ROLLBACK` en la auditoría, con los archivos restaurados y cuántos quedan.
 
 ## Entrega con pre-flight
 
@@ -72,27 +100,37 @@ Con lista, el backend respalda y sobrescribe solo esos archivos. Sin lista, apli
 
 ## Emisión y Gestión del Aula por el Docente
 
-- `SOLV: Iniciar clase`: Despliega un QuickPick nativo con duraciones estándar (60, 90, 120, 180 min) y opción `Personalizado...` (15 a 480 min). Ejecuta `POST /api/v1/teacher/sessions`.
+- `SOLV: Iniciar clase`: Despliega un QuickPick nativo con duraciones estándar (60, 90, 120, 180 min) y opción `Personalizado...` (15 a 480 min). Ejecuta `POST /api/v1/teacher/sessions` con la duración elegida y la práctica del entorno (`SOLV_EXERCISE_ID`): un aula sin práctica no admite avances.
 - `SOLV: Cerrar clase`: Disponible cuando el aula está abierta; pide confirmación y ejecuta `PATCH /api/v1/teacher/sessions/{id}/close`.
 - **Autodescubrimiento del aula**: Si el docente abrió el aula desde la web o se reinició el contenedor, la extensión autodescubre la sesión activa con `GET /api/v1/teacher/sessions/open` y sincroniza métricas y presencia.
-- `SOLV: Emitir avance a la clase`: Pide el título con `showInputBox`, el alcance con QuickPick (`Toda la clase` o `Seleccionados`) y alumnos con `canPickMany`. Llama a `POST /api/v1/teacher/sessions/{id}/advances`.
+- `SOLV: Emitir avance a la clase`: Pide el título con `showInputBox`, el alcance con QuickPick (`Toda la clase` o `Seleccionados`), los alumnos con `canPickMany` cuando el alcance es por alumno y, al final, qué compartir: `Todo el proyecto` o `Elegir archivos…`, que abre un QuickPick múltiple con las rutas del entorno y viaja como `selected_files`. Así se comparte una parte del trabajo y el resto queda como actividad. Llama a `POST /api/v1/teacher/sessions/{id}/advances`.
 - `SOLV: Pausar o reanudar la clase`: Alterna el estado de emisión mediante `PATCH /api/v1/teacher/sessions/{id}/freeze` y `unfreeze`.
 - **Aula recordada en el editor**: al iniciar la clase desde el panel, el identificador del aula queda en la configuración de la sesión del editor; si el aula se abrió desde la web, el autodescubrimiento hace lo mismo. Emitir un avance y congelar la clase leen ese identificador y, si quedó vacío, caen al aula del tablero. Al cerrar la clase el identificador se borra y el panel vuelve a ofrecer iniciar la clase.
 - **Aula sin alumnos**: emitir un avance en un aula sin alumnos matriculados avisa y no emite. Con alcance `Seleccionados` y una lista vacía lo dice en vez de pedir una selección.
+
+## Consigna Renderizada
+
+La consigna se escribe en Markdown desde la plataforma y el panel la renderiza en el editor: títulos, listas, citas, separadores, bloques de código, énfasis y enlaces `http`/`https`. Antes se mostraba el texto crudo, con la sintaxis a la vista.
+
+La conversión vive en `src/views/markdown.ts` y no usa librerías: el paquete de la extensión excluye `node_modules`, así que una dependencia de ejecución no viajaría ni en el `.vsix` ni en la imagen del laboratorio. El texto se escapa antes de interpretar el marcado, de modo que la consigna no puede inyectar etiquetas ni atributos en la webview.
+
+Un bloque de código cuya forma es un árbol de carpetas (raíz única y conectores `├──`, `└──`, `│`) se renderiza como árbol: iconos de carpeta y archivo, sangría con guías y nombres en monoespaciado, sin los caracteres de dibujo. Cualquier otro bloque sigue siendo código con desplazamiento horizontal.
 
 ## Rúbrica Oficial Adaptativa en la Consigna
 
 La extensión consulta `GET /api/v1/exercises/{id}/rubric` usando el ejercicio de la entrega o de la configuración institucional. El formato se adapta responsivamente según el contenedor:
 
-1. **Modo Compacto (Panel lateral, < 600px):**
+1. **Modo compacto (pestaña angosta, < 600 px):**
    - Presenta un totalizador superior (`Total: N pts`).
    - Cada criterio se muestra en una tarjeta tipo acordeón (`<details>`) con su puntaje visible y descripción concisa.
    - Al desplegar la tarjeta, se revelan las pastillas de niveles de desempeño con su puntaje ponderado calculado (`score% · pts`).
 
-2. **Modo Matriz Panorámica (Pestaña del editor, >= 600px):**
-   - Al hacer clic en `[ Abrir en pestaña ]` (`solv.openTab`), la consigna se expande al ancho completo del editor.
+2. **Modo matriz (pestaña del editor, ≥ 600 px):**
+   - La pestaña se abre con `Leer consigna completa en una pestaña` (`solv.openTab`) en el extracto del lateral, o desde la paleta con `SOLV: Abrir práctica en pestaña`.
    - Los criterios se transforman mediante media queries CSS en una matriz de evaluación analítica con columnas de ponderación y tarjetas de niveles en cuadrícula horizontal.
    - Si el ejercicio no cuenta con rúbrica registrada, se utiliza la lista definida en `solv.assignmentCriteria`.
+
+La apertura de la rúbrica y de cada criterio se guarda en el estado de la webview, así que sobrevive a los refrescos del panel: la persona pliega lo que no necesita y no se le vuelve a abrir en la siguiente actualización.
 
 ## Latido de Presencia Automático (Heartbeat)
 
@@ -162,12 +200,16 @@ Para probar en el editor: abrir `tools/solv-companion/` en VS Code, presionar `F
 - El token se renueva cuando la persona vuelve a iniciar su sesión en la plataforma.
 - Aplicar y deshacer requieren el laboratorio en ejecución.
 - La emisión del docente necesita un aula abierta y un entorno de clase con código; sin ellos la API responde `409`.
-- En producción, el despliegue final hornea la carpeta compilada dentro de la imagen base de OpenVSCode Server en `/home/.openvscode-server/extensions/solv.solv-companion-0.1.0`.
+- En producción, el despliegue final hornea la carpeta compilada dentro de la imagen base de OpenVSCode Server en `/home/.openvscode-server/extensions/solv.solv-companion-0.1.0`, junto a las extensiones incorporadas de la imagen.
 
 ## Montaje en Entornos de Laboratorio
 
 El backend de Go inyecta la extensión y su configuración sin intervención del estudiante:
 
 1. **Variables de entorno inyectadas al contenedor**: `SOLV_API_URL`, `SOLV_STUDENT_TOKEN`, `SOLV_SUBMISSION_ID` y el resto de las claves de la tabla de configuración cuando la plataforma las conoce.
-2. **Carga en OpenVSCode Server**: en desarrollo, `docker_container.go` detecta `tools/solv-companion` (o `SOLV_COMPANION_HOST_PATH`) y monta la carpeta como bind mount de solo lectura en `/home/.openvscode-server/extensions/solv.solv-companion-0.1.0:ro`. El flag `--extensions-dir` asegura que el editor cargue la extensión al iniciar.
+2. **Carga en OpenVSCode Server**: en desarrollo, `docker_container.go` detecta `tools/solv-companion` (o `SOLV_COMPANION_HOST_PATH`) y monta la carpeta como bind mount de solo lectura en `/home/.openvscode-server/extensions/solv.solv-companion-0.1.0:ro`, junto a las extensiones incorporadas que trae la imagen y a las que el Constructor instala al armar la plantilla.
+   El montaje no va al directorio del alumno (`--extensions-dir`): al escanear una extensión instalada, el editor reescribe su `package.json`, y sobre un montaje de solo lectura ese intento falla con `EROFS` y la extensión queda marcada como no instalada —el editor la ofrece para instalar en vez de cargarla—.
+   Con el backend corriendo en contenedor (`compose.yml`) el proceso no ve el árbol del repositorio, y como el bind lo resuelve el daemon de Docker sobre el host, la ruta debe venir en `SOLV_COMPANION_HOST_PATH`. Sin esa variable el entorno arranca sin la extensión, sin error.
+   El montaje lo aplica el backend al crear el contenedor, no la imagen: toda práctica o proyecto nuevo la recibe sin hornearla en cada plantilla.
 3. **Red**: `ExtraHosts: ["host.docker.internal:host-gateway"]` permite que el contenedor hable con el backend local.
+4. **Modo restringido**: el espacio de trabajo del laboratorio no está marcado como confiable y el editor arranca en modo restringido, que desactiva las extensiones sin declaración explícita. Por eso `package.json` declara `capabilities.untrustedWorkspaces.supported: true`: la extensión lee el proyecto y consulta la API, no ejecuta código del espacio de trabajo. Sin esa declaración desaparecen el contenedor SOLV de la barra de actividad, la barra de estado y el panel.

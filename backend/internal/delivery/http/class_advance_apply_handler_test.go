@@ -258,3 +258,109 @@ func TestClassAdvanceHandler_RollbackRequiresIdentity(t *testing.T) {
 		t.Fatalf("esperado 401, hubo %d: %s", recorder.Code, recorder.Body.String())
 	}
 }
+
+// rollbackRequest arma la petición de deshacer con la selección de archivos.
+func rollbackRequest(method, body string) *http.Request {
+	var reader io.Reader
+	if body != "" {
+		reader = strings.NewReader(body)
+	}
+	ctx := context.WithValue(context.Background(), domain.TenantIDKey, advanceHTTPTenantID)
+	request := httptest.NewRequestWithContext(ctx, method,
+		"/api/v1/class-advances/"+advanceHTTPAdvanceID+"/rollback", reader)
+	request.SetPathValue("id", advanceHTTPAdvanceID)
+	return withTestIdentity(request, advanceHTTPTeacherID, advanceHTTPTenantID, "student")
+}
+
+func TestClassAdvanceHandler_RollbackSelectionKeepsRemainingBackup(t *testing.T) {
+	delivery := pendingDeliveryForHTTP()
+	delivery.Status = domain.AdvanceRecipientApplied
+	handler, store, volumes := newAdvanceApplierHandler(
+		delivery,
+		nil,
+		[]domain.PracticeEnvironmentVolumeFile{
+			{Path: "main.py", Content: []byte("avance\n")},
+			{Path: "utils.py", Content: []byte("avance helper\n")},
+			{Path: ".solv_backups/" + advanceHTTPAdvanceID + "/main.py", Content: []byte("version previa\n")},
+			{Path: ".solv_backups/" + advanceHTTPAdvanceID + "/utils.py", Content: []byte("helper previo\n")},
+		},
+	)
+
+	recorder := httptest.NewRecorder()
+	handler.RollbackAdvance(recorder, rollbackRequest(http.MethodPost, `{"paths":["main.py"]}`))
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("esperado 200, hubo %d: %s", recorder.Code, recorder.Body.String())
+	}
+
+	var payload struct {
+		Data services.AdvanceRollbackResult `json:"data"`
+	}
+	if err := json.NewDecoder(recorder.Body).Decode(&payload); err != nil {
+		t.Fatalf("no se pudo decodificar la respuesta: %v", err)
+	}
+	if payload.Data.FullyRestored {
+		t.Error("un deshacer parcial no puede quedar completo")
+	}
+	if len(payload.Data.Remaining) != 1 || payload.Data.Remaining[0] != "utils.py" {
+		t.Fatalf("el resto debe seguir respaldado, obtenido: %+v", payload.Data)
+	}
+	if len(volumes.writes) != 1 || volumes.writes[0]["main.py"] != "version previa\n" {
+		t.Fatalf("solo se restaura el archivo elegido, obtenido: %v", volumes.writes)
+	}
+	if _, ok := volumes.writes[0]["utils.py"]; ok {
+		t.Error("un archivo fuera de la selección no se restaura")
+	}
+	if len(store.reopened) != 0 {
+		t.Error("el avance sigue aplicado mientras quede respaldo")
+	}
+}
+
+func TestClassAdvanceHandler_RollbackRejectsFilesWithoutBackup(t *testing.T) {
+	delivery := pendingDeliveryForHTTP()
+	delivery.Status = domain.AdvanceRecipientApplied
+	handler, _, volumes := newAdvanceApplierHandler(
+		delivery,
+		nil,
+		[]domain.PracticeEnvironmentVolumeFile{
+			{Path: ".solv_backups/" + advanceHTTPAdvanceID + "/main.py", Content: []byte("version previa\n")},
+		},
+	)
+
+	recorder := httptest.NewRecorder()
+	handler.RollbackAdvance(recorder, rollbackRequest(http.MethodPost, `{"paths":["otro.py"]}`))
+	if recorder.Code != http.StatusUnprocessableEntity {
+		t.Fatalf("esperado 422, hubo %d: %s", recorder.Code, recorder.Body.String())
+	}
+	if len(volumes.writes) != 0 {
+		t.Error("una ruta sin respaldo no debe escribir el volumen")
+	}
+}
+
+func TestClassAdvanceHandler_RollbackInventoryListsFiles(t *testing.T) {
+	delivery := pendingDeliveryForHTTP()
+	delivery.Status = domain.AdvanceRecipientApplied
+	handler, _, _ := newAdvanceApplierHandler(
+		delivery,
+		nil,
+		[]domain.PracticeEnvironmentVolumeFile{
+			{Path: ".solv_backups/" + advanceHTTPAdvanceID + "/utils.py", Content: []byte("helper\n")},
+			{Path: ".solv_backups/" + advanceHTTPAdvanceID + "/main.py", Content: []byte("main\n")},
+		},
+	)
+
+	recorder := httptest.NewRecorder()
+	handler.RollbackInventory(recorder, rollbackRequest(http.MethodGet, ""))
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("esperado 200, hubo %d: %s", recorder.Code, recorder.Body.String())
+	}
+
+	var payload struct {
+		Data services.AdvanceRollbackInventory `json:"data"`
+	}
+	if err := json.NewDecoder(recorder.Body).Decode(&payload); err != nil {
+		t.Fatalf("no se pudo decodificar la respuesta: %v", err)
+	}
+	if len(payload.Data.Files) != 2 || payload.Data.Files[0] != "main.py" || payload.Data.Files[1] != "utils.py" {
+		t.Fatalf("inventario inesperado: %v", payload.Data.Files)
+	}
+}

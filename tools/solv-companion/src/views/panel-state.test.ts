@@ -2,9 +2,12 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { AdvancePreview } from '../domain/advance';
 import {
+  advanceFileActionText,
   applySelection,
   buildChecklist,
   deriveDeliveryState,
+  diffTitleText,
+  excerptText,
   rubricBadgeText,
   rubricTitleText,
   selectedPaths,
@@ -61,6 +64,34 @@ test('la selección del alumno se refleja en las rutas a aplicar', () => {
   );
   const updated = applySelection(checklist, ['b.ts']);
   assert.deepEqual(selectedPaths(updated), ['b.ts']);
+});
+
+test('el extracto de la consigna saca las marcas de markdown', () => {
+  assert.equal(
+    excerptText('## Contexto\n\n- **Objetivo**: construir la API.\n- Usar `Express`.'),
+    'Contexto Objetivo: construir la API. Usar Express.'
+  );
+});
+
+test('el extracto corta en un espacio y avisa con puntos suspensivos', () => {
+  const excerpt = excerptText('palabra '.repeat(120), 100);
+  assert.ok(excerpt.length <= 101);
+  assert.ok(excerpt.endsWith('…'));
+  assert.ok(!excerpt.includes('palabr…'));
+});
+
+test('un archivo nuevo ofrece ver contenido y no diferencias', () => {
+  assert.equal(advanceFileActionText('new'), 'Ver contenido');
+  assert.equal(advanceFileActionText('modified'), 'Ver diferencias');
+  assert.equal(advanceFileActionText('unchanged'), '');
+});
+
+test('el diff de un archivo nuevo se anuncia como archivo nuevo', () => {
+  assert.equal(diffTitleText('hola.js', true), 'hola.js — Archivo nuevo del avance');
+  assert.equal(
+    diffTitleText('src/app.ts', false),
+    'src/app.ts — Tu versión y el avance del docente'
+  );
 });
 
 test('el checklist sale ordenado por ruta', () => {

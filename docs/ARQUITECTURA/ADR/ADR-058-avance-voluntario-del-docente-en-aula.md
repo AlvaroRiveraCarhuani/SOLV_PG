@@ -2,6 +2,7 @@
 
 > **Estado:** Implementado
 > **Fecha:** 2026-10-30
+> **Actualizado:** 2026-11-17 — deshacer por archivo: inventario del respaldo y restauración parcial que conserva `applied` para el resto
 > **Actualizado:** 2026-11-02 — contratos del editor: contenido del snapshot para diff en memoria, aplicación selectiva por checklist y deshacer con auditoría
 > **Actualizado:** 2026-10-31 — ventana de disponibilidad, modo tarea acotado, retención de snapshots y respaldos, y límite de aplicaciones simultáneas
 > **Ámbito:** Docencia, Core, Workspaces, Aula
@@ -88,6 +89,8 @@ La lista de exclusión vive en configuración del backend, no en código fijo. L
 
 ### 6. Snapshot al emitir
 
+**Qué viaja.** El cuerpo de la emisión acepta `selected_files`: cuando llega, el snapshot se arma solo con esas rutas del entorno del docente, para compartir una parte y dejar el resto como trabajo del alumno. Una ruta que no existe en el volumen responde `422` y no se empaqueta nada. Sin la lista se emite el entorno completo, que es el contrato anterior y el que sigue usando el modal del aula en la web.
+
 Al emitir, el backend empaqueta el código del ejercicio del docente (tar.gz) y lo guarda como objeto en **SeaweedFS** mediante su API S3 compatible. La clave del objeto lleva el identificador del avance, y la base guarda también el hash SHA-256 y el tamaño. El alumno recibe siempre la versión emitida, aunque el docente siga editando después.
 
 El almacén de snapshots va detrás de la interfaz `AdvanceSnapshotStore` en el dominio. La implementación inicial es el adaptador S3 de SeaweedFS (`infrastructure/storage/seaweedfs`); el servicio, su configuración y su aprovisionamiento en Compose se describen en [STORAGE_STRATEGY.md](../STORAGE_STRATEGY.md#almacenamiento-de-objetos-seaweedfs). El snapshot no se guarda en la base (un `bytea` inflaría el `pg_dump` y cada respaldo remoto) ni en el disco del backend (la fila y el archivo podían desincronizarse). Al leer, el backend verifica el hash antes de copiar al alumno.
@@ -169,7 +172,7 @@ Clave primaria compuesta `(advance_id, student_id)`. Las migraciones viven en `b
 
 | Método | Ruta | Rol | Efecto |
 | --- | --- | --- | --- |
-| `POST` | `/api/v1/teacher/sessions/{id}/advances` | docente | Emite un avance (`exercise_id`, `scope`, `student_ids` si es `selected`) |
+| `POST` | `/api/v1/teacher/sessions/{id}/advances` | docente | Emite un avance (`scope`, `student_ids` si es `selected` y `selected_files` para compartir una parte; la práctica sale del aula) |
 | `GET` | `/api/v1/teacher/sessions/{id}/advances` | docente | Emisiones del aula con el estado de cada destinatario |
 | `GET` | `/api/v1/teacher/sessions/{id}/history` | docente | Historial de la clase: emisiones, congelaciones, ventana y decisiones de los alumnos |
 | `PATCH` | `/api/v1/teacher/sessions/{id}/freeze` | docente | Congela la sesión; responde con la sesión y su `frozen_at` |
@@ -216,7 +219,7 @@ Emitir, congelar, descongelar, sumar minutos, fijar la fecha límite, cerrar la 
 | `CLASS_ADVANCE_GRACE_CLOSED` | Ventana anterior y hora de cierre |
 | `CLASS_ADVANCE_APPLIED` | Alumno, avance y archivos escritos |
 | `CLASS_ADVANCE_DISMISSED` | Alumno y avance |
-| `CLASS_ADVANCE_ROLLBACK` | Alumno, avance, archivos restaurados y ruta del respaldo |
+| `CLASS_ADVANCE_ROLLBACK` | Alumno, avance, archivos restaurados, cuántos quedan respaldados y ruta del respaldo |
 
 El docente lee el historial de su clase con `GET /api/v1/teacher/sessions/{id}/history`. La respuesta resuelve nombre, correo y rol del actor, y viene del más nuevo al más viejo, con un máximo de 200 movimientos. En `/teacher/aula` el bloque **Historial de esta clase** aparece con el aula abierta y con la última cerrada. El alumno recibe `403`; un aula ajena, `404`; el administrador puede leer cualquier aula de su institución y ve el registro completo en la pantalla de auditoría.
 
@@ -230,13 +233,14 @@ El laboratorio abre el código en OpenVSCode Server y la extensión SOLV Compani
 | --- | --- | --- |
 | `GET` | `/api/v1/class-advances/{id}/files` | Agrega `files: map[string]string` con el contenido de texto de cada archivo, además de `added` y `overwritten` |
 | `POST` | `/api/v1/class-advances/{id}/apply` | Acepta `selected_files: []string` opcional; sin lista aplica el avance completo |
-| `POST` | `/api/v1/class-advances/{id}/rollback` | Restaura desde `.solv_backups/<avance_id>/` y deja el destinatario en `pending` |
+| `GET` | `/api/v1/class-advances/{id}/rollback` | Enumera los archivos de `.solv_backups/<avance_id>/` que todavía se pueden restaurar |
+| `POST` | `/api/v1/class-advances/{id}/rollback` | Acepta `paths: []string` opcional: sin lista restaura todo y vuelve a `pending`; con lista restaura solo esos archivos y conserva `applied` para el resto |
 
 La extensión registra un `TextDocumentContentProvider` con el esquema virtual `solv-advance:` y llama a `vscode.diff` con el archivo local y el virtual. El motor de diferencias de VS Code trabaja en memoria: no quedan archivos temporales en el volumen del alumno.
 
 Una ruta de `selected_files` que no pertenece al snapshot invalida la selección completa (`422`). Aplicar la mitad de un checklist es peor que rechazarlo: el alumno ve el error y vuelve a marcar.
 
-Deshacer exige que el destinatario esté en `applied` y que exista respaldo. Si el avance solo agregó archivos nuevos no hay versión anterior que restaurar y la API responde `409` con ese motivo. El respaldo se borra después de reabrir el destinatario; si la reapertura falla, el respaldo se conserva y el alumno puede reintentar.
+Deshacer exige que el destinatario esté en `applied` y que exista respaldo. Si el avance solo agregó archivos nuevos no hay versión anterior que restaurar: el inventario devuelve una lista vacía y un deshacer sin `paths` responde `409` con ese motivo. Con `paths` el servicio restaura solo esa selección, conserva el respaldo y el estado `applied` del resto y responde `remaining` con lo que sigue pendiente y `fully_restored` con el resultado. Cada archivo restaurado sale del respaldo, para que el inventario no vuelva a ofrecer algo que ya volvió atrás. Cuando no queda nada por restaurar el destinatario vuelve a `pending` y el respaldo se borra; si la reapertura falla, el respaldo se conserva y el alumno puede reintentar. Una ruta sin respaldo invalida la selección completa (`422`): restaurar la mitad y responder éxito dejaría el avance a medias.
 
 ---
 

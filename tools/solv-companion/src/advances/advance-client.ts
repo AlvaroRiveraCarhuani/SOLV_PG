@@ -1,8 +1,9 @@
-import { SolvClient } from '../client/solv-client';
+import { LONG_REQUEST_TIMEOUT_MS, SolvClient } from '../client/solv-client';
 import {
   AdvanceApplyResult,
   AdvanceDelivery,
   AdvancePreview,
+  AdvanceRollbackInventory,
   AdvanceRollbackResult,
   AdvanceScope,
   EmittedAdvance
@@ -35,6 +36,8 @@ export interface EmitAdvanceInput {
   exerciseId: string;
   scope: AdvanceScope;
   studentIds?: string[];
+  /** Presente = solo esas rutas del entorno. Vacío u omitido = todo el entorno. */
+  selectedFiles?: string[];
 }
 
 /**
@@ -60,7 +63,8 @@ export class AdvanceClient {
   apply(advanceId: string, selectedFiles: string[]): Promise<AdvanceApplyResult> {
     return this.client.request<AdvanceApplyResult>(
       `/api/v1/class-advances/${encodeURIComponent(advanceId)}/apply`,
-      { method: 'POST', body: JSON.stringify({ selected_files: selectedFiles }) }
+      { method: 'POST', body: JSON.stringify({ selected_files: selectedFiles }) },
+      LONG_REQUEST_TIMEOUT_MS
     );
   }
 
@@ -71,10 +75,19 @@ export class AdvanceClient {
     );
   }
 
-  rollback(advanceId: string): Promise<AdvanceRollbackResult> {
+  rollback(advanceId: string, paths: string[] = []): Promise<AdvanceRollbackResult> {
     return this.client.request<AdvanceRollbackResult>(
       `/api/v1/class-advances/${encodeURIComponent(advanceId)}/rollback`,
-      { method: 'POST', body: JSON.stringify({}) }
+      { method: 'POST', body: JSON.stringify({ paths }) },
+      LONG_REQUEST_TIMEOUT_MS
+    );
+  }
+
+  /** Archivos del respaldo que el alumno todavía puede deshacer. */
+  rollbackFiles(advanceId: string): Promise<AdvanceRollbackInventory> {
+    return this.client.request<AdvanceRollbackInventory>(
+      `/api/v1/class-advances/${encodeURIComponent(advanceId)}/rollback`,
+      { method: 'GET' }
     );
   }
 
@@ -93,9 +106,11 @@ export class AdvanceClient {
         body: JSON.stringify({
           exercise_id: input.exerciseId,
           scope: input.scope,
-          student_ids: input.studentIds ?? []
+          student_ids: input.studentIds ?? [],
+          selected_files: input.selectedFiles ?? []
         })
-      }
+      },
+      LONG_REQUEST_TIMEOUT_MS
     );
   }
 
@@ -111,13 +126,21 @@ export class AdvanceClient {
     return this.client.currentTeacherSession();
   }
 
-  openSession(subjectId: string, durationMinutes = 90): Promise<{ id: string }> {
+  /**
+   * Abre el aula. Con `exerciseId` el aula queda atada a esa práctica, que es lo
+   * que habilita emitir avances: una sesión sin práctica responde 409.
+   */
+  openSession(subjectId: string, durationMinutes = 90, exerciseId?: string): Promise<{ id: string }> {
+    const payload: { subject_id: string; duration_minutes: number; exercise_id?: string } = {
+      subject_id: subjectId,
+      duration_minutes: durationMinutes
+    };
+    if (exerciseId) {
+      payload.exercise_id = exerciseId;
+    }
     return this.client.request<{ id: string }>('/api/v1/teacher/sessions', {
       method: 'POST',
-      body: JSON.stringify({
-        subject_id: subjectId,
-        duration_minutes: durationMinutes
-      })
+      body: JSON.stringify(payload)
     });
   }
 

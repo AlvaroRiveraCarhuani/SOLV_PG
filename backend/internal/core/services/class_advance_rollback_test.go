@@ -166,7 +166,7 @@ func TestRollbackAdvance_RestoresBackupAndReopensRecipient(t *testing.T) {
 		WithApplier(&fakeAdvanceSnapshotsFiles{}, newRunningPracticeEnvironment(t), volumes)
 	svc.SetAuditRepository(audit)
 
-	result, err := svc.Rollback(context.Background(), advanceTenantID, advanceStudentID, advanceID)
+	result, err := svc.Rollback(context.Background(), advanceTenantID, advanceStudentID, advanceID, nil)
 	if err != nil {
 		t.Fatalf("error inesperado al deshacer: %v", err)
 	}
@@ -190,7 +190,7 @@ func TestRollbackAdvance_RestoresBackupAndReopensRecipient(t *testing.T) {
 	// Ya aplicado de nuevo el aviso queda pendiente: deshacer otra vez no
 	// encuentra nada que restaurar y no toca el volumen.
 	before := len(volumes.writes)
-	if _, err := svc.Rollback(context.Background(), advanceTenantID, advanceStudentID, advanceID); !errors.Is(err, domain.ErrAdvanceRollbackNotApplied) {
+	if _, err := svc.Rollback(context.Background(), advanceTenantID, advanceStudentID, advanceID, nil); !errors.Is(err, domain.ErrAdvanceRollbackNotApplied) {
 		t.Fatalf("esperado error de avance no aplicado, obtenido: %v", err)
 	}
 	if len(volumes.writes) != before {
@@ -204,7 +204,7 @@ func TestRollbackAdvance_RequiresAppliedRecipient(t *testing.T) {
 	svc := services.NewClassAdvanceService(store, nil).
 		WithApplier(&fakeAdvanceSnapshotsFiles{}, newRunningPracticeEnvironment(t), volumes)
 
-	_, err := svc.Rollback(context.Background(), advanceTenantID, advanceStudentID, advanceID)
+	_, err := svc.Rollback(context.Background(), advanceTenantID, advanceStudentID, advanceID, nil)
 	if !errors.Is(err, domain.ErrAdvanceRollbackNotApplied) {
 		t.Fatalf("esperado error de avance no aplicado, obtenido: %v", err)
 	}
@@ -221,11 +221,96 @@ func TestRollbackAdvance_WithoutBackupReportsMissing(t *testing.T) {
 	svc := services.NewClassAdvanceService(store, nil).
 		WithApplier(&fakeAdvanceSnapshotsFiles{}, newRunningPracticeEnvironment(t), volumes)
 
-	_, err := svc.Rollback(context.Background(), advanceTenantID, advanceStudentID, advanceID)
+	_, err := svc.Rollback(context.Background(), advanceTenantID, advanceStudentID, advanceID, nil)
 	if !errors.Is(err, domain.ErrAdvanceBackupMissing) {
 		t.Fatalf("esperado error de respaldo faltante, obtenido: %v", err)
 	}
 	if len(volumes.writes) != 0 || len(store.reopened) != 0 {
 		t.Error("sin respaldo no se escribe ni se reabre el aviso")
+	}
+}
+
+func TestRollbackAdvance_RestoresOnlySelectedFilesAndKeepsBackup(t *testing.T) {
+	store := &fakeAdvanceStore{delivery: newAdvanceDelivery(domain.AdvanceRecipientApplied, "practice", domain.ClassSessionStatusOpen, nil)}
+	volumes := &pruningVolumes{fakeAdvanceVolumes: fakeAdvanceVolumes{existing: []domain.PracticeEnvironmentVolumeFile{
+		{Path: "main.py", Content: []byte("avance\n")},
+		{Path: "utils.py", Content: []byte("avance helper\n")},
+		{Path: ".solv_backups/" + advanceID + "/main.py", Content: []byte("version previa\n")},
+		{Path: ".solv_backups/" + advanceID + "/utils.py", Content: []byte("helper previo\n")},
+	}}}
+	svc := services.NewClassAdvanceService(store, nil).
+		WithApplier(&fakeAdvanceSnapshotsFiles{}, newRunningPracticeEnvironment(t), volumes)
+
+	result, err := svc.Rollback(context.Background(), advanceTenantID, advanceStudentID, advanceID, []string{"main.py"})
+	if err != nil {
+		t.Fatalf("error inesperado al deshacer un archivo: %v", err)
+	}
+
+	if len(volumes.writes) != 1 || volumes.writes[0]["main.py"] != "version previa\n" {
+		t.Fatalf("solo se restaura el archivo elegido, obtenido: %v", volumes.writes)
+	}
+	if _, ok := volumes.writes[0]["utils.py"]; ok {
+		t.Error("un archivo fuera de la selección no se restaura")
+	}
+	if result.FullyRestored || len(result.Remaining) != 1 || result.Remaining[0] != "utils.py" {
+		t.Fatalf("el resto debe quedar respaldado, obtenido: %+v", result)
+	}
+	if len(store.reopened) != 0 {
+		t.Error("un deshacer parcial no reabre el aviso: el avance sigue aplicado")
+	}
+	if len(volumes.deleted) != 1 || len(volumes.deleted[0]) != 1 || volumes.deleted[0][0] != ".solv_backups/"+advanceID+"/main.py" {
+		t.Fatalf("el archivo restaurado sale del respaldo y el resto se conserva, obtenido: %v", volumes.deleted)
+	}
+}
+
+func TestRollbackAdvance_RejectsFilesWithoutBackup(t *testing.T) {
+	store := &fakeAdvanceStore{delivery: newAdvanceDelivery(domain.AdvanceRecipientApplied, "practice", domain.ClassSessionStatusOpen, nil)}
+	volumes := &fakeAdvanceVolumes{existing: []domain.PracticeEnvironmentVolumeFile{
+		{Path: ".solv_backups/" + advanceID + "/main.py", Content: []byte("version previa\n")},
+	}}
+	svc := services.NewClassAdvanceService(store, nil).
+		WithApplier(&fakeAdvanceSnapshotsFiles{}, newRunningPracticeEnvironment(t), volumes)
+
+	_, err := svc.Rollback(context.Background(), advanceTenantID, advanceStudentID, advanceID, []string{"main.py", "otro.py"})
+	if !errors.Is(err, domain.ErrAdvanceRollbackFilesUnknown) {
+		t.Fatalf("esperado error de archivo sin respaldo, obtenido: %v", err)
+	}
+	if len(volumes.writes) != 0 || len(store.reopened) != 0 {
+		t.Error("una selección inválida no debe tocar el volumen ni reabrir el aviso")
+	}
+}
+
+func TestRollbackInventory_ListsBackupFilesSorted(t *testing.T) {
+	store := &fakeAdvanceStore{delivery: newAdvanceDelivery(domain.AdvanceRecipientApplied, "practice", domain.ClassSessionStatusOpen, nil)}
+	volumes := &fakeAdvanceVolumes{existing: []domain.PracticeEnvironmentVolumeFile{
+		{Path: ".solv_backups/" + advanceID + "/utils.py", Content: []byte("helper\n")},
+		{Path: ".solv_backups/" + advanceID + "/main.py", Content: []byte("main\n")},
+	}}
+	svc := services.NewClassAdvanceService(store, nil).
+		WithApplier(&fakeAdvanceSnapshotsFiles{}, newRunningPracticeEnvironment(t), volumes)
+
+	inventory, err := svc.RollbackInventory(context.Background(), advanceTenantID, advanceStudentID, advanceID)
+	if err != nil {
+		t.Fatalf("error inesperado al listar el respaldo: %v", err)
+	}
+	if len(inventory.Files) != 2 || inventory.Files[0] != "main.py" || inventory.Files[1] != "utils.py" {
+		t.Fatalf("inventario inesperado: %v", inventory.Files)
+	}
+}
+
+func TestRollbackInventory_WithoutBackupReturnsEmpty(t *testing.T) {
+	store := &fakeAdvanceStore{delivery: newAdvanceDelivery(domain.AdvanceRecipientApplied, "practice", domain.ClassSessionStatusOpen, nil)}
+	volumes := &fakeAdvanceVolumes{existing: []domain.PracticeEnvironmentVolumeFile{
+		{Path: "main.py", Content: []byte("avance\n")},
+	}}
+	svc := services.NewClassAdvanceService(store, nil).
+		WithApplier(&fakeAdvanceSnapshotsFiles{}, newRunningPracticeEnvironment(t), volumes)
+
+	inventory, err := svc.RollbackInventory(context.Background(), advanceTenantID, advanceStudentID, advanceID)
+	if err != nil {
+		t.Fatalf("error inesperado sin respaldo: %v", err)
+	}
+	if len(inventory.Files) != 0 {
+		t.Fatalf("sin respaldo no hay archivos para deshacer, obtenido: %v", inventory.Files)
 	}
 }

@@ -236,6 +236,81 @@ func TestEmitAdvance_DeletesSnapshotWhenRecipientsAreRejected(t *testing.T) {
 	}
 }
 
+// newTeacherPracticeEnvironment registra el entorno del docente en la práctica
+// del aula: el avance se lee de ahí, no del entorno del alumno.
+func newTeacherPracticeEnvironment(t *testing.T) *mockPracticeEnvironmentRepo {
+	t.Helper()
+	repo := newMockPracticeEnvironmentRepo()
+	practice := advanceExerciseID
+	if err := repo.Create(context.Background(), &domain.PracticeEnvironment{
+		ID:         "99999999-9999-9999-9999-999999999997",
+		StudentID:  advanceTeacherID,
+		SubjectID:  advanceSubjectID,
+		ExerciseID: &practice,
+		Status:     domain.PracticeEnvironmentStatusRunning,
+	}); err != nil {
+		t.Fatalf("no se pudo preparar el entorno del docente: %v", err)
+	}
+	return repo
+}
+
+// Compartir una parte del trabajo es parte del contrato: solo viaja lo elegido.
+func TestEmitAdvance_PackagesOnlyTheSelectedFiles(t *testing.T) {
+	store := &fakeAdvanceStore{participants: []string{advanceStudentID}, purpose: "class"}
+	volumes := &fakeAdvanceVolumes{existing: []domain.PracticeEnvironmentVolumeFile{
+		{Path: "solucion.py", Content: []byte("print(1)\n")},
+		{Path: "helpers.py", Content: []byte("x = 1\n")},
+	}}
+	snapshots := &fakeAdvanceSnapshotsFiles{}
+	svc := services.NewClassAdvanceService(store, &fakeAdvanceSessions{session: newOpenSession()}).
+		WithApplier(snapshots, newTeacherPracticeEnvironment(t), volumes)
+
+	_, _, err := svc.Emit(context.Background(), services.EmitAdvanceInput{
+		TenantID:      advanceTenantID,
+		TeacherID:     advanceTeacherID,
+		Role:          "teacher",
+		SessionID:     newOpenSession().ID,
+		Scope:         domain.AdvanceScopeClass,
+		SelectedFiles: []string{"./solucion.py"},
+	})
+	if err != nil {
+		t.Fatalf("error inesperado al emitir: %v", err)
+	}
+	if _, ok := snapshots.putFiles["solucion.py"]; !ok {
+		t.Errorf("el archivo elegido debía viajar: %v", snapshots.putFiles)
+	}
+	if len(snapshots.putFiles) != 1 {
+		t.Errorf("solo debía viajar lo elegido, viajó: %v", snapshots.putFiles)
+	}
+}
+
+// Una ruta que no está en el entorno no puede entrar al snapshot: el avance
+// llegaría sin el archivo que la persona creyó compartir.
+func TestEmitAdvance_RejectsFilesOutsideTheEnvironment(t *testing.T) {
+	store := &fakeAdvanceStore{participants: []string{advanceStudentID}, purpose: "class"}
+	volumes := &fakeAdvanceVolumes{existing: []domain.PracticeEnvironmentVolumeFile{
+		{Path: "solucion.py", Content: []byte("print(1)\n")},
+	}}
+	snapshots := &fakeAdvanceSnapshotsFiles{}
+	svc := services.NewClassAdvanceService(store, &fakeAdvanceSessions{session: newOpenSession()}).
+		WithApplier(snapshots, newTeacherPracticeEnvironment(t), volumes)
+
+	_, _, err := svc.Emit(context.Background(), services.EmitAdvanceInput{
+		TenantID:      advanceTenantID,
+		TeacherID:     advanceTeacherID,
+		Role:          "teacher",
+		SessionID:     newOpenSession().ID,
+		Scope:         domain.AdvanceScopeClass,
+		SelectedFiles: []string{"solucion.py", "no-existe.py"},
+	})
+	if !errors.Is(err, domain.ErrAdvanceFilesUnknown) {
+		t.Fatalf("esperado archivo desconocido, obtenido: %v", err)
+	}
+	if snapshots.putKey != "" {
+		t.Error("una selección inválida no debía empaquetar nada")
+	}
+}
+
 // La sesión con práctica se lee del entorno de esa práctica: desde ADR-059 el
 // IDE del docente se acota al ejercicio y el entorno por materia ya no se crea.
 func TestEmitAdvance_ReadsThePracticeEnvironment(t *testing.T) {

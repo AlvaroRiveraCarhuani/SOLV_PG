@@ -22,6 +22,12 @@ import { KeystrokeCapturer } from './telemetry/keystroke-capturer';
 /** Sin respuesta durante este lapso, la barra de estado deja de decir "conectando". */
 const OFFLINE_AFTER_MS = 120000;
 
+/** Tope de archivos que el panel lista al elegir qué compartir. */
+const MAX_ADVANCE_FILES = 2000;
+
+/** Último avance que ya se avisó al alumno, para no repetirlo en cada ciclo. */
+const ADVANCE_NOTICE_KEY = 'solv.notifiedAdvance';
+
 export async function activate(context: vscode.ExtensionContext): Promise<void> {
   const settings = new SolvSettings(context);
   const client = new SolvClient(settings);
@@ -162,7 +168,8 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
         createdAt: snapshot.applied.createdAt,
         files: [],
         applied: true,
-        canRollback: true
+        canRollback: true,
+        appliedFiles: snapshot.appliedFiles
       };
     }
 
@@ -220,7 +227,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
         await dismissAdvance();
         return;
       case 'rollback':
-        await rollbackAdvance();
+        await rollbackAdvance(message.paths);
         return;
       case 'broadcast':
         await broadcastAdvance();
@@ -236,6 +243,11 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
         return;
       case 'open-tab':
         await tab.open();
+        return;
+      case 'focus-panel':
+        // La pestaña no repite el checklist: lleva al lateral, que es el único
+        // lugar donde se aplica o se descarta un avance.
+        await vscode.commands.executeCommand('solv.panel.focus');
         return;
       case 'open-aula':
         await startClassSession();
@@ -258,7 +270,16 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     }
     try {
       advances.select(paths);
-      const result = await advances.applySelection(paths);
+      // La copia arma un contenedor efímero sobre el volumen del alumno y tarda
+      // varios segundos: sin este aviso la acción parecía no hacer nada.
+      const result = await vscode.window.withProgress(
+        {
+          location: vscode.ProgressLocation.Notification,
+          title: 'Aplicando el avance…',
+          cancellable: false
+        },
+        () => advances.applySelection(paths)
+      );
       info(`Se aplicaron ${result.filesWritten} archivos del avance.`);
       await refreshAll(false);
     } catch (error) {
@@ -284,18 +305,38 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     }
   }
 
-  async function rollbackAdvance(): Promise<void> {
-    const confirm = await vscode.window.showWarningMessage(
-      'Se restaurarán los archivos que reemplazó el último avance. Los cambios posteriores sobre esos archivos se pierden.',
-      { modal: true },
-      'Deshacer avance'
-    );
-    if (confirm !== 'Deshacer avance') {
+  /**
+   * Deshacer por archivo: con `paths` restaura solo esa selección y conserva el
+   * resto respaldado. Sin `paths` restaura todo el avance, que es el camino de
+   * una vista sin inventario.
+   */
+  async function rollbackAdvance(paths?: string[]): Promise<void> {
+    const selected = paths ?? [];
+    if (paths !== undefined && selected.length === 0) {
+      warn('Marcá al menos un archivo para deshacer.');
+      return;
+    }
+
+    const filesText = selected.length === 1 ? '1 archivo' : `${selected.length} archivos`;
+    const detail =
+      paths !== undefined
+        ? `Se restaurarán ${filesText} a la versión anterior y el resto del avance queda aplicado. Los cambios posteriores sobre esos archivos se pierden.`
+        : 'Se restaurarán los archivos que reemplazó el último avance. Los cambios posteriores sobre esos archivos se pierden.';
+    const confirm = await vscode.window.showWarningMessage(detail, { modal: true }, 'Deshacer');
+    if (confirm !== 'Deshacer') {
       return;
     }
     try {
-      const result = await advances.rollback();
-      info(`Se restauraron ${result.filesRestored} archivos a la versión anterior.`);
+      const result = await advances.rollback(selected);
+      if (result.fullyRestored) {
+        info(
+          `Se restauraron ${result.filesRestored} archivos y el avance volvió a quedar pendiente.`
+        );
+      } else {
+        info(
+          `Se restauraron ${result.filesRestored} archivos. Quedan ${result.remaining} en el respaldo.`
+        );
+      }
       await refreshAll(false);
     } catch (error) {
       warn(describeAdvanceError(error));
@@ -354,6 +395,38 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
       return;
     }
     await vscode.env.openExternal(vscode.Uri.parse(target));
+  }
+
+  /** Archivos del entorno de la práctica que el docente puede elegir compartir. */
+  async function pickAdvanceFiles(): Promise<string[] | undefined> {
+    if (!vscode.workspace.workspaceFolders?.[0]) {
+      warn('No hay una carpeta de práctica abierta para listar archivos.');
+      return undefined;
+    }
+    const excludes =
+      '{**/node_modules/**,**/.git/**,**/.cache/**,**/.openvscode-server/**,**/.solv_*/**,**/.vscode/**}';
+    const found = await vscode.workspace.findFiles('**/*', excludes, MAX_ADVANCE_FILES);
+    const paths = found
+      .map(uri => vscode.workspace.asRelativePath(uri, false))
+      .filter(file => file !== '')
+      .sort((left, right) => left.localeCompare(right));
+    if (paths.length === 0) {
+      warn('La práctica no tiene archivos para compartir.');
+      return undefined;
+    }
+    const picked = await vscode.window.showQuickPick(
+      paths.map(file => ({ label: file, picked: true })),
+      {
+        title: `Archivos a compartir (${paths.length}${paths.length >= MAX_ADVANCE_FILES ? '+' : ''})`,
+        placeHolder: 'Desmarcá lo que no querés enviar',
+        canPickMany: true
+      }
+    );
+    if (!picked || picked.length === 0) {
+      warn('Elegí al menos un archivo para emitir el avance.');
+      return undefined;
+    }
+    return picked.map(item => item.label);
   }
 
   async function broadcastAdvance(): Promise<void> {
@@ -425,12 +498,36 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
       studentIds = picked.map(item => item.studentId);
     }
 
+    const whatToShare = await vscode.window.showQuickPick(
+      [
+        { label: 'Todo el proyecto', description: 'Todo el entorno de la práctica', value: 'all' as const },
+        {
+          label: 'Elegir archivos…',
+          description: 'Dejá el resto como trabajo para los alumnos',
+          value: 'pick' as const
+        }
+      ],
+      { title: 'Qué compartir', placeHolder: 'Después el alumno elige qué aplicar de lo que reciba' }
+    );
+    if (!whatToShare) {
+      return;
+    }
+    let selectedFiles: string[] = [];
+    if (whatToShare.value === 'pick') {
+      const pickedFiles = await pickAdvanceFiles();
+      if (!pickedFiles) {
+        return;
+      }
+      selectedFiles = pickedFiles;
+    }
+
     try {
       const emitted = await advanceClient.emit({
         sessionId,
         exerciseId,
         scope: scope.value,
-        studentIds
+        studentIds,
+        selectedFiles
       });
       info(`Avance «${title.trim()}» emitido a ${emitted.recipients.length} alumnos.`);
       await refreshAll(false);
@@ -634,7 +731,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     }
 
     try {
-      await advances.openSession(subjectId, minutes);
+      await advances.openSession(subjectId, minutes, settings.exerciseId);
       info('Clase iniciada. La presencia de los alumnos se actualizará en vivo.');
       await refreshAll(true);
     } catch (error) {
@@ -709,12 +806,51 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     }
   }
 
+  /**
+   * Aviso nativo cuando el docente comparte un avance. El panel lateral puede
+   * estar cerrado: sin este aviso el alumno tendría que vigilar la extensión
+   * para enterarse. El avance avisado queda en el estado del workspace para no
+   * repetir la notificación en cada ciclo de un minuto.
+   */
+  function notifyPendingAdvance(): void {
+    if (settings.isTeacher) {
+      return;
+    }
+    const pending = advances.snapshot().advance;
+    if (!pending) {
+      if (context.workspaceState.get<string>(ADVANCE_NOTICE_KEY)) {
+        void context.workspaceState.update(ADVANCE_NOTICE_KEY, undefined);
+      }
+      return;
+    }
+    if (context.workspaceState.get<string>(ADVANCE_NOTICE_KEY) === pending.delivery.id) {
+      return;
+    }
+    void context.workspaceState.update(ADVANCE_NOTICE_KEY, pending.delivery.id);
+
+    const title = settings.assignmentTitle || progress?.title || 'la práctica';
+    const files = pending.delivery.file_count;
+    const filesText = files === 1 ? '1 archivo' : `${files} archivos`;
+    void vscode.window
+      .showInformationMessage(
+        `SOLV Companion: el docente compartió un avance de «${title}» (${filesText}).`,
+        'Revisar archivos'
+      )
+      .then(choice => {
+        if (choice === 'Revisar archivos') {
+          void vscode.commands.executeCommand('solv.panel.focus');
+        }
+      });
+  }
+
   async function refreshAll(showErrors: boolean): Promise<void> {
+    let refreshed = false;
     try {
       await advances.refresh();
       connection = 'connected';
       lastOkAt = Date.now();
       notice = undefined;
+      refreshed = true;
     } catch (error) {
       const persisted = Date.now() - lastOkAt > OFFLINE_AFTER_MS;
       connection = persisted ? 'offline' : 'connecting';
@@ -725,6 +861,9 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     }
     await loadSubmissionContext();
     await loadRubricCriteria();
+    if (refreshed) {
+      notifyPendingAdvance();
+    }
     await sendStudentPresenceHeartbeat();
     await comments.refresh(showErrors);
     await renderAll();

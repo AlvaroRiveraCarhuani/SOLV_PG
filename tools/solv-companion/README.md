@@ -7,6 +7,7 @@ Un solo paquete sirve a los dos roles: las context keys `solv:isStudent` y `solv
 ## Requisitos
 
 - VS Code u OpenVSCode Server 1.96 o superior.
+- Funciona en espacios de trabajo no confiables (modo restringido), que es como arrancan los entornos del laboratorio. El manifiesto lo declara en `capabilities.untrustedWorkspaces`; sin esa declaración el editor desactiva la extensión y no muestra su panel.
 - Una entrega de SOLV, un aula y un token de sesión válido.
 - Acceso a la API de SOLV desde el editor (misma red o dominio público).
 
@@ -41,7 +42,7 @@ Intervalos: `solv.comments.refreshSeconds` (60) y `solv.advances.refreshSeconds`
 
 | Comando | Rol | Uso |
 | --- | --- | --- |
-| `SOLV: Abrir consigna en pestaña` | Ambos | Abre el panel como pestaña completa para pantalla dividida |
+| `SOLV: Abrir práctica en pestaña` | Ambos | Abre el documento de la práctica con índice de anclas, para pantalla dividida |
 | `SOLV: Actualizar panel` | Ambos | Vuelve a leer avances, aula y comentarios |
 | `SOLV: Entregar práctica` | Estudiante | Revisa diagnósticos, confirma y entrega el proyecto |
 | `SOLV: Compartir avance con la clase` | Docente | Pide título y alcance, y emite el snapshot |
@@ -54,11 +55,16 @@ Intervalos: `solv.comments.refreshSeconds` (60) y `solv.advances.refreshSeconds`
 
 ## Experiencia del estudiante
 
-- El panel lateral muestra materia, docente, estado de la entrega, consigna y criterios.
-- Cuando hay un avance, el checklist clasifica cada archivo: `Nuevo` (verde, marcado), `Modificado` (ámbar, marcado, con `Ver diferencias`) y `Sin cambios` (neutro, desmarcado).
-- `Ver diferencias` abre `vscode.diff` entre el archivo local y un documento virtual `solv-advance:`: el contenido del avance se sirve desde memoria, sin archivos temporales.
+- El panel lateral prioriza la acción: avance del docente, observaciones y la consigna como extracto de seis líneas. El extracto abre con `Leer consigna completa en una pestaña`, que muestra el documento completo en una pestaña del editor. La rúbrica no aparece en el lateral.
+- `SOLV: Abrir práctica en pestaña` abre el documento completo (consigna y rúbrica) con un índice fijo de `Consigna`, `Rúbrica` y `Observaciones` desde 900 px de ancho; el índice salta con scroll suave y resalta la sección visible. La rúbrica arranca plegada con su total en el resumen y recuerda si la abriste.
+- El índice se arma con las secciones que existen: sin rúbrica no hay entrada `Rúbrica`, y el docente suma `Aula` como primera entrada.
+- Con un avance pendiente, la pestaña muestra una franja `Revisar en el panel lateral`: el checklist y sus botones viven solo en el lateral.
+- Cuando hay un avance, el checklist clasifica cada archivo: `Nuevo` (verde, marcado, con `Ver contenido`), `Modificado` (ámbar, marcado, con `Ver diferencias`) y `Sin cambios` (neutro, desmarcado).
+- `Ver contenido` y `Ver diferencias` abren `vscode.diff` entre el archivo local y un documento virtual `solv-advance:`: el contenido del avance se sirve desde memoria, sin archivos temporales. Si el archivo todavía no existe en el proyecto, el lado izquierdo es un documento virtual vacío y el avance se lee completo como agregado (`— Archivo nuevo del avance`), en lugar del error `file was not found`; por eso un archivo nuevo no ofrece diferencias.
+- Al llegar un avance nuevo, la extensión muestra una notificación de VS Code con `Revisar archivos`, que lleva al panel lateral: el lateral puede estar cerrado y el alumno no tiene que vigilar la extensión. Se avisa una vez por avance (queda en el estado del workspace).
 - Antes de comparar o aplicar se ejecuta `workspace.saveAll(false)`, para que el disco y las pestañas en memoria coincidan.
-- `Comparar y aplicar selección` aplica solo las rutas marcadas. `Descartar avance` cierra el aviso sin tocar el proyecto. `Deshacer último avance` restaura la versión anterior desde el respaldo del backend.
+- `Aplicar archivos seleccionados` aplica solo las rutas marcadas y muestra un progreso mientras el backend escribe: la copia tarda alrededor de 10 s y `apply`, `rollback` y la emisión usan un tope de 120 s en vez del de 10 s de las consultas. `Descartar avance` cierra el aviso sin tocar el proyecto. Con el avance aplicado, el panel lista los archivos que el respaldo todavía puede restaurar y `Deshacer seleccionados` devuelve solo los marcados: el resto sigue aplicado y respaldado, y recién al restaurar el último el aviso queda pendiente otra vez. Los archivos que el avance agregó no se borran; los cambios posteriores del alumno sobre los reemplazados se pierden.
+- El inventario de deshacer sale de `GET /api/v1/class-advances/{id}/rollback`. Si esa consulta falla, el panel ofrece `Deshacer avance` completo en lugar de un checklist vacío.
 - Los comentarios se agrupan por archivo; al hacer click se abre el archivo con el cursor en la línea comentada.
 - La barra de estado adapta su acción según el propósito: `$(cloud-upload) Entregar Examen` para evaluaciones o `$(cloud-upload) Entregar Práctica` para clases formativas, además del estado de la conexión.
 - La rúbrica oficial se adapta al propósito pedagógico: muestra el badge y título `Rúbrica de evaluación` (ámbar) para exámenes o `Rúbrica de práctica` (azul) para clases formativas.
@@ -68,6 +74,8 @@ Intervalos: `solv.comments.refreshSeconds` (60) y `solv.advances.refreshSeconds`
 ## Experiencia del docente
 
 - El panel muestra la cátedra, la presencia (`presentes / matriculados`), las entregas y el estado de emisión.
+- El lateral del docente cierra con la consigna y, al final, `Evaluación` con `Abrir evaluación en la plataforma`: el aula se opera arriba y el SpeedGrader queda como salida de la clase.
+- La pestaña abre con esa misma tarjeta `Aula` (métricas, presencia, `Emitir avance a la clase`, congelar y cerrar) antes de la consigna: el docente opera el aula mientras lee, sin volver al lateral.
 - `Emitir avance` pide el título en un `showInputBox`, el alcance (`Toda la clase` o `Seleccionados`) y, con selección, los alumnos en un QuickPick.
 - La barra de estado muestra `$(mortar-board) SOLV: SIS-420 · Docente`, `$(broadcast) Emitir Avance` y `$(organization) N alumnos`.
 
@@ -78,7 +86,8 @@ Intervalos: `solv.comments.refreshSeconds` (60) y `solv.advances.refreshSeconds`
 | `GET` | `/api/v1/class-advances/pending` | Avisos pendientes del alumno |
 | `GET` | `/api/v1/class-advances/{id}/files` | `added`, `overwritten` y `files` con el contenido |
 | `POST` | `/api/v1/class-advances/{id}/apply` | `selected_files: []string` opcional |
-| `POST` | `/api/v1/class-advances/{id}/rollback` | Restaura el respaldo y reabre el aviso |
+| `GET` | `/api/v1/class-advances/{id}/rollback` | Archivos del respaldo todavía restaurables |
+| `POST` | `/api/v1/class-advances/{id}/rollback` | `paths: []string` opcional: restaura la selección o todo el respaldo |
 | `POST` | `/api/v1/class-advances/{id}/dismiss` | Descarta el aviso |
 | `GET` | `/api/v1/teacher/sessions/{id}/board` | Presencia y entregas del aula |
 | `POST` | `/api/v1/teacher/sessions/{id}/advances` | Emisión del docente |
@@ -100,6 +109,7 @@ Intervalos: `solv.comments.refreshSeconds` (60) y `solv.advances.refreshSeconds`
 | `src/advances/advance-controller.ts` | Estado del avance, selección, diff, aplicación y rollback |
 | `src/views/panel-state.ts` | Modelo del panel y clasificación del checklist |
 | `src/views/panel-html.ts` | HTML y CSS nativo sobre variables `--vscode-*` |
+| `src/views/markdown.ts` | Renderizado de la consigna Markdown, con escapado previo |
 | `src/views/solv-panel-view.ts` | Webview de la barra lateral |
 | `src/views/assignment-tab.ts` | Pestaña completa de la consigna |
 | `src/status/status-bar-controller.ts` | Barra de estado por rol |

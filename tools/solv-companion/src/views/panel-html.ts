@@ -1,5 +1,13 @@
 import * as vscode from 'vscode';
-import { PanelState, rubricBadgeText, rubricTitleText } from './panel-state';
+import { escapeHtml, renderMarkdown } from './markdown';
+import {
+  AdvanceView,
+  PanelState,
+  advanceFileActionText,
+  excerptText,
+  rubricBadgeText,
+  rubricTitleText
+} from './panel-state';
 
 const TIMESTAMP_FORMAT = new Intl.DateTimeFormat('es', {
   day: '2-digit',
@@ -54,15 +62,6 @@ function icon(name: IconName): string {
   return `<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICON_PATHS[name]}</svg>`;
 }
 
-function escapeHtml(value: string): string {
-  return value
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#39;');
-}
-
 function nonce(): string {
   const alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
   let value = '';
@@ -103,6 +102,52 @@ function connectionLabel(state: PanelState): string {
   return 'Sin conexión';
 }
 
+/**
+ * Aviso del avance aplicado. Con inventario el alumno elige qué archivos
+ * vuelven atrás; sin inventario (consulta fallida o avance aplicado antes de
+ * este cambio) se mantiene el deshacer completo.
+ */
+function appliedAdvanceNotice(advance: AdvanceView): string {
+  if (advance.appliedFiles === undefined) {
+    return `<p class="notice notice-info">${icon('check')}Avance aplicado a tu entorno. Puedes deshacerlo para volver a la versión anterior.</p>`;
+  }
+  if (advance.appliedFiles.length === 0) {
+    return `<p class="notice notice-info">${icon('check')}Avance aplicado. El avance agregó archivos nuevos: no hay versión anterior para restaurar.</p>`;
+  }
+  return `<p class="notice notice-info">${icon('check')}Avance aplicado a tu entorno. Elegí qué archivos volver a su versión anterior; el resto queda como está.</p>`;
+}
+
+/** Checklist del avance aplicado: lo que el respaldo todavía puede restaurar. */
+function appliedAdvanceList(advance: AdvanceView): string {
+  const files = advance.appliedFiles ?? [];
+  if (files.length === 0) {
+    return '';
+  }
+  const rows = files
+    .map(
+      path => `
+        <li class="file-row">
+          <label class="file-check">
+            <input type="checkbox" data-path="${escapeHtml(path)}" checked>
+            <span class="file-icon">${icon('file')}</span>
+            <code class="file-path">${escapeHtml(path)}</code>
+          </label>
+        </li>`
+    )
+    .join('');
+  return `<ul class="file-list">${rows}</ul>`;
+}
+
+function appliedAdvanceActions(advance: AdvanceView): string {
+  if (advance.appliedFiles === undefined) {
+    return `<button class="btn btn-secondary" data-action="rollback">${icon('undo')}Deshacer avance</button>`;
+  }
+  if (advance.appliedFiles.length === 0) {
+    return '';
+  }
+  return `<button class="btn btn-secondary" data-action="rollback">${icon('undo')}Deshacer seleccionados</button>`;
+}
+
 function renderAdvance(state: PanelState): string {
   const advance = state.advance;
   if (!advance) {
@@ -123,7 +168,7 @@ function renderAdvance(state: PanelState): string {
             ${
               file.status === 'unchanged'
                 ? ''
-                : `<button class="link-button" data-action="diff" data-path="${escapeHtml(file.path)}">${icon('diff')}Ver diferencias</button>`
+                : `<button class="link-button" data-action="diff" data-path="${escapeHtml(file.path)}">${icon('diff')}${advanceFileActionText(file.status)}</button>`
             }
           </span>
         </li>`
@@ -139,17 +184,17 @@ function renderAdvance(state: PanelState): string {
 
       ${
         advance.applied
-          ? `<p class="notice notice-info">${icon('check')}Avance aplicado a tu entorno. Puedes deshacerlo para volver a la versión anterior.</p>`
+          ? appliedAdvanceNotice(advance)
           : `<p class="notice">El docente compartió una actualización. Revisa el checklist y elige qué archivos incorporar.</p>`
       }
 
-      <ul class="file-list">${rows}</ul>
+      ${advance.applied ? appliedAdvanceList(advance) : `<ul class="file-list">${rows}</ul>`}
 
       <div class="actions">
         ${
           advance.applied
-            ? `<button class="btn btn-secondary" data-action="rollback">${icon('undo')}Deshacer último avance</button>`
-            : `<button class="btn btn-primary" data-action="apply">${icon('upload')}Comparar y aplicar selección</button>
+            ? appliedAdvanceActions(advance)
+            : `<button class="btn btn-primary" data-action="apply">${icon('upload')}Aplicar archivos seleccionados</button>
                <button class="btn btn-ghost" data-action="dismiss">Descartar avance</button>`
         }
       </div>
@@ -162,7 +207,7 @@ function renderComments(state: PanelState): string {
   }
   if (state.comments.length === 0) {
     return `
-      <section class="section" aria-labelledby="comments-title">
+      <section class="section doc-section" id="comments" data-doc-section="comments" aria-labelledby="comments-title">
         <h2 id="comments-title">Observaciones del docente</h2>
         <p class="muted">Todavía no hay observaciones sobre esta entrega.</p>
       </section>`;
@@ -202,7 +247,7 @@ function renderComments(state: PanelState): string {
     .join('');
 
   return `
-    <section class="section" aria-labelledby="comments-title">
+    <section class="section doc-section" id="comments" data-doc-section="comments" aria-labelledby="comments-title">
       <h2 id="comments-title">Observaciones del docente</h2>
       ${groups}
     </section>`;
@@ -288,13 +333,28 @@ function renderTeacher(state: PanelState): string {
             : `<button class="btn btn-primary" data-action="open-aula" style="width: 100%; justify-content: center;">${icon('users')}Iniciar clase</button>`
         }
       </div>
-      <button class="link-button" data-action="speedgrader">${icon('external')}Abrir evaluación en la plataforma</button>
 
       ${
         teacher.lastAdvance
           ? `<p class="muted">Último avance emitido: <time datetime="${escapeHtml(teacher.lastAdvance.createdAt)}">${escapeHtml(formatTimestamp(teacher.lastAdvance.createdAt))}</time> a ${teacher.lastAdvance.recipients} alumnos.</p>`
           : ''
       }
+    </section>`;
+}
+
+/**
+ * Acceso al SpeedGrader. Vive al final del panel y del documento: el aula se
+ * opera arriba y la evaluación es la salida al terminar la clase.
+ */
+function renderEvaluation(state: PanelState): string {
+  if (state.role === 'student') {
+    return '';
+  }
+  return `
+    <section class="section" aria-labelledby="evaluation-title">
+      <h2 id="evaluation-title">Evaluación</h2>
+      <p class="muted">Revisa las entregas del aula y califícalas con la rúbrica.</p>
+      <button class="link-button" data-action="speedgrader">${icon('external')}Abrir evaluación en la plataforma</button>
     </section>`;
 }
 
@@ -339,7 +399,7 @@ function renderRubric(assignment: PanelState['assignment']): string {
             </div>`
           : '';
 
-      return `<details class="rubric-accordion-item"${index === 0 ? ' open' : ''}>
+      return `<details class="rubric-accordion-item" data-detail-key="rubric-criterion-${index}"${index === 0 ? ' open' : ''}>
         <summary class="rubric-summary">
           <div class="summary-left">
             <span class="rubric-weight-badge">${pts} pts</span>
@@ -406,7 +466,7 @@ function renderRubric(assignment: PanelState['assignment']): string {
 
   const rubricHeader = rubricTitleText(assignment.purpose);
 
-  return `<details class="rubric-details" open>
+  return `<details class="rubric-details" data-detail-key="rubric">
     <summary class="rubric-summary-header">
       <div class="rubric-header-left">
         <span class="rubric-chevron" aria-hidden="true">${icon('chevron-down')}</span>
@@ -427,6 +487,144 @@ function renderRubric(assignment: PanelState['assignment']): string {
       </div>
     </div>
   </details>`;
+}
+
+function hasRubric(assignment: PanelState['assignment']): boolean {
+  return Boolean(assignment.rubricCriteria?.length || assignment.criteria?.length);
+}
+
+function consignaBadge(state: PanelState): string {
+  if (!state.assignment.rubricCriteria || state.assignment.rubricCriteria.length === 0) {
+    return '';
+  }
+  return `<span class="badge ${state.assignment.purpose === 'exam' ? 'badge-exam' : 'badge-submitted'}">${escapeHtml(rubricBadgeText(state.assignment.purpose))}</span>`;
+}
+
+function consignaSummary(state: PanelState): string {
+  return (
+    state.assignment.summary ||
+    (state.assignment.purpose === 'exam'
+      ? 'La consigna del examen se publica desde la plataforma.'
+      : 'La consigna de la práctica se publica desde la plataforma.')
+  );
+}
+
+/**
+ * Lateral: primero lo que exige una decisión (avance del aula u observaciones)
+ * y la consigna al final como referencia, recortada a un extracto.
+ */
+function renderSidebar(state: PanelState): string {
+  const action = state.role === 'student' ? renderAdvance(state) : renderTeacher(state);
+  const comments = state.role === 'student' ? renderComments(state) : '';
+  return `${action}${comments}${renderConsignaExcerpt(state)}${renderEvaluation(state)}`;
+}
+
+function renderConsignaExcerpt(state: PanelState): string {
+  // Sin resumen configurado se muestra el aviso de la plataforma: la sección
+  // nunca desaparece, porque es la única entrada al documento de la pestaña.
+  const excerpt = excerptText(consignaSummary(state));
+  return `
+    <section class="section" aria-labelledby="assignment-title">
+      <div class="section-head">
+        <h2 id="assignment-title">Consigna</h2>
+        ${consignaBadge(state)}
+      </div>
+      <button class="link-button" data-action="open-tab">${icon('external')}Leer consigna completa en una pestaña</button>
+      <p class="excerpt">${escapeHtml(excerpt)}</p>
+    </section>`;
+}
+
+/**
+ * Aviso de avance en la pestaña: el checklist y sus botones viven en el panel
+ * lateral, así no hay dos lugares donde aplicar lo mismo.
+ */
+function renderAdvanceBanner(state: PanelState): string {
+  const advance = state.advance;
+  if (state.role !== 'student' || !advance || advance.applied) {
+    return '';
+  }
+  return `
+    <section class="section doc-banner">
+      <p class="notice">${icon('broadcast')}El docente compartió un avance y está pendiente.</p>
+      <button class="btn btn-primary" data-action="focus-panel">${icon('upload')}Revisar en el panel lateral</button>
+    </section>`;
+}
+
+function renderDocNav(state: PanelState): string {
+  const entries: Array<{ id: string; label: string }> = [];
+  // El docente trabaja desde la pestaña: el aula va primero en el índice.
+  if (state.role === 'teacher') {
+    entries.push({ id: 'aula', label: 'Aula' });
+  }
+  entries.push({ id: 'assignment', label: 'Consigna' });
+  if (hasRubric(state.assignment)) {
+    entries.push({ id: 'rubric', label: 'Rúbrica' });
+  }
+  if (state.role === 'student') {
+    entries.push({ id: 'comments', label: 'Observaciones' });
+  } else {
+    entries.push({ id: 'evaluation', label: 'Evaluación' });
+  }
+  return `<nav class="doc-nav" aria-label="Secciones de la práctica">${entries
+    .map(
+      entry =>
+        `<a class="doc-nav-link" href="#${entry.id}" data-nav-target="${entry.id}">${escapeHtml(entry.label)}</a>`
+    )
+    .join('')}</nav>`;
+}
+
+/**
+ * Documento de la pestaña: consigna completa, rúbrica plegada y observaciones,
+ * con un índice de anclas que aparece cuando hay ancho para dos columnas.
+ */
+function renderDocument(state: PanelState, rubricContent: string): string {
+  const sections: string[] = [];
+
+  // La pestaña es la pantalla de trabajo del docente: sin esta tarjeta, abrir
+  // el documento lo dejaba sin emitir, congelar ni cerrar el aula.
+  if (state.role === 'teacher') {
+    sections.push(`
+    <div class="doc-section" id="aula" data-doc-section="aula">
+      ${renderTeacher(state)}
+    </div>`);
+  }
+
+  sections.push(`
+    <section class="section doc-section" id="assignment" data-doc-section="assignment">
+      <div class="section-head">
+        <h2>Consigna</h2>
+        ${consignaBadge(state)}
+      </div>
+      <div class="summary markdown">${renderMarkdown(consignaSummary(state))}</div>
+    </section>`);
+
+  if (hasRubric(state.assignment) && rubricContent) {
+    // La rúbrica con criterios trae su propio encabezado en el resumen del
+    // acordeón; la lista simple de criterios necesita el título explícito.
+    const heading = state.assignment.rubricCriteria?.length ? '' : '<h2>Rúbrica</h2>';
+    sections.push(`
+      <section class="section doc-section" id="rubric" data-doc-section="rubric">
+        ${heading}${rubricContent}
+      </section>`);
+  }
+
+  if (state.role === 'student') {
+    sections.push(renderComments(state));
+  } else {
+    sections.push(`
+      <div class="doc-section" id="evaluation" data-doc-section="evaluation">
+        ${renderEvaluation(state)}
+      </div>`);
+  }
+
+  return `
+    <div class="doc-layout">
+      ${renderDocNav(state)}
+      <article class="doc-body">
+        ${renderAdvanceBanner(state)}
+        ${sections.join('')}
+      </article>
+    </div>`;
 }
 
 /**
@@ -529,6 +727,92 @@ export function renderPanelHtml(
   .badge-submitted { color: var(--vscode-charts-blue); border-color: var(--vscode-charts-blue); }
   .badge-graded { color: var(--vscode-charts-green); border-color: var(--vscode-charts-green); }
   .badge-exam { color: var(--vscode-charts-orange, #f59e0b); border-color: var(--vscode-charts-orange, #f59e0b); }
+  .summary { margin: 0; }
+  .markdown > :first-child { margin-top: 0; }
+  .markdown > :last-child { margin-bottom: 0; }
+  .markdown p { margin: 0 0 8px; }
+  .markdown h3,
+  .markdown h4,
+  .markdown h5,
+  .markdown h6 {
+    margin: 12px 0 6px;
+    font-size: 0.95em;
+    font-weight: 600;
+    line-height: 1.3;
+    color: var(--vscode-foreground);
+  }
+  .markdown ul,
+  .markdown ol { margin: 0 0 8px; padding-left: 18px; }
+  .markdown li { margin-bottom: 3px; }
+  .markdown code {
+    padding: 1px 4px;
+    border-radius: 3px;
+    font-family: var(--vscode-editor-font-family);
+    font-size: 0.92em;
+    background: var(--vscode-textCodeBlock-background);
+  }
+  .markdown pre {
+    margin: 2px 0 10px;
+    padding: 10px 12px;
+    max-width: 100%;
+    overflow-x: auto;
+    overscroll-behavior-x: contain;
+    border: 1px solid var(--vscode-panel-border, transparent);
+    border-radius: var(--panel-radius);
+    background: var(--vscode-textCodeBlock-background);
+    font-size: 0.86em;
+    line-height: 1.5;
+    tab-size: 2;
+    white-space: pre;
+  }
+  .markdown pre code { padding: 0; background: transparent; font-size: inherit; }
+  .markdown pre::-webkit-scrollbar { height: 8px; }
+  .markdown pre::-webkit-scrollbar-thumb {
+    border-radius: 8px;
+    background: var(--vscode-scrollbarSlider-background);
+  }
+  .markdown pre::-webkit-scrollbar-thumb:hover {
+    background: var(--vscode-scrollbarSlider-hoverBackground);
+  }
+  .markdown pre::-webkit-scrollbar-track { background: transparent; }
+  .markdown .tree {
+    margin: 2px 0 10px;
+    padding: 8px 12px;
+    border: 1px solid var(--vscode-panel-border, transparent);
+    border-radius: var(--panel-radius);
+    background: var(--vscode-textCodeBlock-background);
+  }
+  .markdown .tree-list {
+    margin: 0;
+    padding-left: 12px;
+    list-style: none;
+    border-left: 1px solid var(--vscode-panel-border, transparent);
+  }
+  .markdown .tree > .tree-list { padding-left: 0; border-left: none; }
+  .markdown .tree-item { margin: 0; }
+  .markdown .tree-row { display: flex; align-items: center; gap: 6px; padding: 1px 0; }
+  .markdown .tree-icon { width: 13px; height: 13px; flex: 0 0 auto; }
+  .markdown .tree-dir > .tree-row .tree-icon { color: var(--vscode-charts-blue); }
+  .markdown .tree-file > .tree-row .tree-icon { color: var(--vscode-descriptionForeground); }
+  .markdown .tree-name {
+    font-family: var(--vscode-editor-font-family);
+    font-size: 0.9em;
+    line-height: 1.6;
+  }
+  .markdown .tree-dir > .tree-row .tree-name { font-weight: 600; }
+  .markdown hr {
+    margin: 12px 0;
+    border: none;
+    border-top: 1px solid var(--vscode-panel-border, transparent);
+  }
+  .markdown blockquote {
+    margin: 0 0 8px;
+    padding-left: 10px;
+    border-left: 2px solid var(--vscode-panel-border, transparent);
+    color: var(--vscode-descriptionForeground);
+  }
+  .markdown blockquote p { margin: 0; }
+  .markdown a { color: var(--vscode-textLink-foreground); }
   .section { padding: 12px var(--panel-gap) 4px; }
   .section + .section { border-top: 1px solid var(--vscode-panel-border, transparent); }
   .section-head { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
@@ -926,6 +1210,62 @@ export function renderPanelHtml(
     color: var(--vscode-descriptionForeground);
     font-size: 0.82em;
   }
+
+  /* Extracto de consigna del panel lateral: seis líneas y el resto en la pestaña. */
+  .excerpt {
+    margin: 0 0 8px;
+    color: var(--vscode-descriptionForeground);
+    display: -webkit-box;
+    -webkit-line-clamp: 6;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+
+  /* Documento de la pestaña: índice de anclas solo cuando hay ancho. */
+  html { scroll-behavior: smooth; }
+  @media (prefers-reduced-motion: reduce) {
+    html { scroll-behavior: auto; }
+  }
+  .doc-layout { display: block; }
+  .doc-nav { display: none; }
+  .doc-section { scroll-margin-top: 8px; }
+  .doc-body > .doc-section + .doc-section {
+    border-top: 1px solid var(--vscode-panel-border, transparent);
+  }
+  .doc-banner { padding-bottom: 10px; }
+  @media (min-width: 900px) {
+    .doc-layout {
+      display: grid;
+      grid-template-columns: 176px minmax(0, 1fr);
+      align-items: start;
+    }
+    .doc-nav {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+      position: sticky;
+      top: 0;
+      padding: 14px 6px 14px 10px;
+    }
+    .doc-nav-link {
+      padding: 5px 8px;
+      border-left: 2px solid transparent;
+      border-radius: 0 var(--panel-radius) var(--panel-radius) 0;
+      color: var(--vscode-descriptionForeground);
+      text-decoration: none;
+      font-size: 0.9em;
+    }
+    .doc-nav-link:hover {
+      color: var(--vscode-foreground);
+      background: var(--vscode-list-hoverBackground);
+    }
+    .doc-nav-link.is-active {
+      color: var(--vscode-foreground);
+      border-left-color: var(--vscode-focusBorder);
+      background: var(--vscode-list-inactiveSelectionBackground);
+      font-weight: 600;
+    }
+  }
 </style>
 </head>
 <body>
@@ -941,11 +1281,6 @@ export function renderPanelHtml(
                <h1>${escapeHtml(state.course.title || 'Laboratorio SOLV')}</h1>`
         }
         ${state.course.teacher ? `<p class="teacher">${escapeHtml(state.course.teacher)}</p>` : ''}
-        ${
-          options?.isTab
-            ? ''
-            : `<button type="button" class="link-button" data-action="open-tab" style="margin-top: 4px;">${icon('external')} Abrir en pestaña</button>`
-        }
       </div>
     </div>
     ${
@@ -957,21 +1292,7 @@ export function renderPanelHtml(
 
   ${message}
 
-  <section class="section" aria-labelledby="assignment-title">
-    <div class="section-head">
-      <h2 id="assignment-title">Consigna</h2>
-      ${
-        state.assignment.rubricCriteria && state.assignment.rubricCriteria.length > 0
-          ? `<span class="badge ${state.assignment.purpose === 'exam' ? 'badge-exam' : 'badge-submitted'}">${escapeHtml(rubricBadgeText(state.assignment.purpose))}</span>`
-          : ''
-      }
-    </div>
-    <p class="summary">${escapeHtml(state.assignment.summary || (state.assignment.purpose === 'exam' ? 'La consigna del examen se publica desde la plataforma.' : 'La consigna de la práctica se publica desde la plataforma.'))}</p>
-    ${rubricContent}
-  </section>
-
-  ${state.role === 'student' ? renderAdvance(state) : renderTeacher(state)}
-  ${state.role === 'student' ? renderComments(state) : ''}
+  ${options?.isTab ? renderDocument(state, rubricContent) : renderSidebar(state)}
 
   <footer>
     ${icon(state.connection === 'connected' ? 'check' : 'warning')}
@@ -982,6 +1303,67 @@ export function renderPanelHtml(
 
   <script nonce="${scriptNonce}">
     const host = acquireVsCodeApi();
+
+    // El panel se reescribe en cada refresco, así que la apertura de la rúbrica
+    // y de cada criterio vive en el estado de la webview: sin esto, cualquier
+    // acción volvía a abrir un acordeón que la persona acababa de plegar.
+    const savedDetails = (host.getState() || {}).details || {};
+    document.querySelectorAll('details[data-detail-key]').forEach(details => {
+      const key = details.getAttribute('data-detail-key');
+      if (Object.prototype.hasOwnProperty.call(savedDetails, key)) {
+        details.open = savedDetails[key];
+      }
+      details.addEventListener('toggle', () => {
+        const next = {};
+        document.querySelectorAll('details[data-detail-key]').forEach(item => {
+          next[item.getAttribute('data-detail-key')] = item.open;
+        });
+        const state = host.getState() || {};
+        state.details = next;
+        host.setState(state);
+      });
+    });
+
+    // Índice del documento: salto suave y sección activa según lo que se ve.
+    // No reemplaza contenido, así que la consigna sigue completa al bajar.
+    const navLinks = Array.from(document.querySelectorAll('[data-nav-target]'));
+    if (navLinks.length > 0) {
+      const markActive = id => {
+        navLinks.forEach(link => {
+          link.classList.toggle('is-active', link.getAttribute('data-nav-target') === id);
+        });
+      };
+      navLinks.forEach(link => {
+        link.addEventListener('click', event => {
+          event.preventDefault();
+          const target = document.getElementById(link.getAttribute('data-nav-target'));
+          if (!target) {
+            return;
+          }
+          target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+          markActive(target.id);
+        });
+      });
+      const sections = navLinks
+        .map(link => document.getElementById(link.getAttribute('data-nav-target')))
+        .filter(Boolean);
+      if (sections.length > 0) {
+        const observer = new IntersectionObserver(
+          entries => {
+            const visible = entries
+              .filter(entry => entry.isIntersecting)
+              .sort((left, right) => left.boundingClientRect.top - right.boundingClientRect.top);
+            if (visible.length > 0) {
+              markActive(visible[0].target.id);
+            }
+          },
+          { rootMargin: '0px 0px -60% 0px', threshold: 0 }
+        );
+        sections.forEach(section => observer.observe(section));
+        markActive(sections[0].id);
+      }
+    }
+
     document.addEventListener('click', event => {
       const target = event.target.closest('[data-action]');
       if (!target) {
@@ -997,6 +1379,19 @@ export function renderPanelHtml(
       }
       if (action === 'diff') {
         host.postMessage({ type: 'diff', path });
+        return;
+      }
+      if (action === 'rollback') {
+        // Con checklist se manda la selección; la vista sin inventario no tiene
+        // casillas y pide el deshacer completo del avance.
+        if (document.querySelectorAll('input[data-path]').length === 0) {
+          host.postMessage({ type: 'rollback' });
+          return;
+        }
+        const paths = Array.from(document.querySelectorAll('input[data-path]:checked')).map(input =>
+          input.getAttribute('data-path')
+        );
+        host.postMessage({ type: 'rollback', paths });
         return;
       }
       if (action === 'open-comment') {

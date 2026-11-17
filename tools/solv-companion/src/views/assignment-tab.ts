@@ -26,7 +26,7 @@ export class AssignmentTab implements vscode.Disposable {
 
     this.panel = vscode.window.createWebviewPanel(
       'solv.assignment',
-      'SOLV — Consigna',
+      'SOLV — Práctica',
       { viewColumn: targetColumn, preserveFocus: false },
       { enableScripts: true, retainContextWhenHidden: true }
     );

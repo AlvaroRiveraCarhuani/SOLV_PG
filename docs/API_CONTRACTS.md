@@ -380,6 +380,7 @@ Abre el entorno del docente acotado a una práctica y devuelve la URL para abrir
 
 `access_url` sale del dominio configurado (`BASE_DOMAIN`) cuando hay Traefik, y del puerto publicado en `127.0.0.1` cuando se trabaja en local.
 
+
 ---
 
 ### 8. Cola de Entregas del Curso (`GET /api/v1/teacher/courses/{id}/submissions`)
@@ -2259,6 +2260,8 @@ Ajusta la ventana de disponibilidad de un aula cerrada. El cuerpo lleva exactame
 
 `POST /api/v1/teacher/sessions/{id}/advances` emite el avance, y `/api/v1/class-advances/pending`, `/{id}/files`, `/{id}/apply` y `/{id}/dismiss` son el lado del alumno. Su contrato está en [ADR-058](ARQUITECTURA/ADR/ADR-058-avance-voluntario-del-docente-en-aula.md) §10.
 
+El cuerpo de la emisión acepta `scope`, `student_ids` (solo con alcance `selected`) y `selected_files` (rutas relativas del entorno del docente). Con `selected_files` el snapshot se arma solo con esos archivos; una ruta ajena al entorno responde `422` y sin la lista se emite el entorno completo.
+
 ### `GET /api/v1/teacher/sessions/{id}/advances`
 
 Emisiones del aula con el estado de cada destinatario: quién aplicó, quién descartó y quién sigue pendiente.
@@ -2296,6 +2299,33 @@ Lectura previa del aviso: qué archivos se agregan y cuáles se reemplazan en el
 - `404` si el avance no existe o no está dirigido al alumno autenticado; un avance ajeno no se revela.
 - `409` si ya fue aplicado o descartado, si el ejercicio es de examen o si la ventana de rezago venció (el destinatario pasa a `expired`).
 - `503` si el backend arrancó sin el almacén de snapshots: el aviso sigue visible, pero no se puede leer su contenido.
+
+### `GET /api/v1/class-advances/{id}/rollback`
+
+Archivos del respaldo que el avance aplicado todavía puede restaurar. Alimenta el checklist de deshacer por archivo.
+
+```json
+{ "data": { "advance_id": "uuid", "files": ["main.py", "utils.py"] }, "error": "", "message": "Archivos para deshacer obtenidos" }
+```
+
+- `409` si el avance no está aplicado por el alumno autenticado, o si el laboratorio de la práctica no está disponible.
+- Un avance que solo agregó archivos nuevos devuelve `files: []`, no un error.
+
+### `POST /api/v1/class-advances/{id}/rollback`
+
+Restaura el respaldo del avance. El cuerpo acepta `paths` opcional.
+
+```json
+{ "paths": ["main.py"] }
+```
+
+```json
+{ "data": { "advance_id": "uuid", "files_restored": 1, "restored": ["main.py"], "remaining": ["utils.py"], "backup_path": ".solv_backups/uuid", "fully_restored": false }, "error": "", "message": "Avance deshecho" }
+```
+
+- Sin cuerpo o con `paths: []` restaura todo el respaldo y deja el aviso otra vez `pending`.
+- Con `paths` restaura solo esos archivos y el avance sigue `applied`: `remaining` trae lo que queda respaldado y `fully_restored` dice si ya no queda nada.
+- `422` si alguna ruta no tiene respaldo. `409` si el avance no está aplicado o el laboratorio no está en ejecución.
 
 `GET /api/v1/class-advances/pending` solo devuelve avisos que todavía se pueden aplicar: los vencidos se cierran como `expired` en esa misma consulta y dejan de mostrarse.
 

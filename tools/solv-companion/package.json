@@ -18,6 +18,12 @@
   "activationEvents": [
     "onStartupFinished"
   ],
+  "capabilities": {
+    "untrustedWorkspaces": {
+      "supported": true,
+      "description": "La extensión lee el proyecto y consulta la API de SOLV; no ejecuta código del espacio de trabajo."
+    }
+  },
   "contributes": {
     "viewsContainers": {
       "activitybar": [
@@ -40,7 +46,7 @@
     "commands": [
       {
         "command": "solv.openTab",
-        "title": "SOLV: Abrir consigna en pestaña",
+        "title": "SOLV: Abrir práctica en pestaña",
         "icon": "$(split-horizontal)"
       },
       {

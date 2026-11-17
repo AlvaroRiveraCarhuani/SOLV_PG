@@ -5,18 +5,19 @@ import { renderPanelHtml } from './panel-html';
 /** Mensajes que la webview envía a la extensión. */
 export type PanelMessage =
   | { type: 'apply'; paths: string[] }
+  | { type: 'rollback'; paths?: string[] }
   | { type: 'diff'; path: string }
   | { type: 'open-comment'; file: string; line: number; commentId: string }
   | {
       type:
         | 'dismiss'
-        | 'rollback'
         | 'refresh'
         | 'broadcast'
         | 'freeze'
         | 'submit'
         | 'speedgrader'
         | 'open-tab'
+        | 'focus-panel'
         | 'open-aula'
         | 'close-aula';
     };

@@ -313,19 +313,81 @@ func (s *ClassAdvanceService) ApplySelection(ctx context.Context, tenantID, stud
 	}, nil
 }
 
-// AdvanceRollbackResult resume qué se restauró al deshacer un avance.
+// AdvanceRollbackResult resume qué se restauró al deshacer un avance. Mientras
+// Remaining tenga archivos, el avance sigue aplicado y el alumno puede deshacer
+// el resto.
 type AdvanceRollbackResult struct {
 	AdvanceID     string   `json:"advance_id"`
 	FilesRestored int      `json:"files_restored"`
 	Restored      []string `json:"restored"`
+	Remaining     []string `json:"remaining"`
 	BackupPath    string   `json:"backup_path"`
+	FullyRestored bool     `json:"fully_restored"`
 }
 
-// Rollback deshace el último avance aplicado: devuelve al volumen del alumno el
-// contenido que quedó en .solv_backups/<avance_id>/ y deja el destinatario en
-// pendiente para que pueda volver a aplicarlo. El respaldo se borra recién
-// cuando el estado ya quedó actualizado.
-func (s *ClassAdvanceService) Rollback(ctx context.Context, tenantID, studentID, advanceID string) (*AdvanceRollbackResult, error) {
+// AdvanceRollbackInventory enumera los archivos que el respaldo todavía puede
+// restaurar. Es lo que el editor muestra como checklist para deshacer por
+// archivo; sin respaldo devuelve una lista vacía en lugar de un error.
+type AdvanceRollbackInventory struct {
+	AdvanceID string   `json:"advance_id"`
+	Files     []string `json:"files"`
+}
+
+// RollbackInventory lista los archivos que el respaldo del avance puede volver
+// a poner en su versión anterior. No escribe nada: alimenta el checklist de
+// deshacer por archivo del editor.
+func (s *ClassAdvanceService) RollbackInventory(ctx context.Context, tenantID, studentID, advanceID string) (*AdvanceRollbackInventory, error) {
+	if err := requireStudentIdentity(tenantID, studentID); err != nil {
+		return nil, err
+	}
+	if s.environments == nil || s.volumes == nil {
+		return nil, ErrAdvanceStorageUnavailable
+	}
+	if _, err := uuid.Parse(strings.TrimSpace(advanceID)); err != nil {
+		return nil, domain.ErrAdvanceNotFound
+	}
+
+	delivery, err := s.store.AdvanceForStudent(ctx, tenantID, studentID, advanceID)
+	if err != nil {
+		return nil, err
+	}
+	if delivery.Status != domain.AdvanceRecipientApplied {
+		return nil, domain.ErrAdvanceRollbackNotApplied
+	}
+
+	environment, err := s.studentPracticeEnvironment(ctx, studentID, delivery)
+	if err != nil || environment == nil {
+		return nil, domain.ErrAdvancePracticeEnvironmentStopped
+	}
+
+	current, err := s.volumeFiles(ctx, environmentVolumeName(environment))
+	if err != nil {
+		return nil, fmt.Errorf("failed to read student volume before listing rollback files: %w", err)
+	}
+
+	available, err := advanceBackupFiles(current, advanceBackupRoot+"/"+delivery.ID)
+	if err != nil {
+		// Un avance que solo agregó archivos no tiene nada que restaurar: el
+		// editor muestra el aviso en vez de un error de la consulta.
+		if errors.Is(err, domain.ErrAdvanceBackupMissing) {
+			return &AdvanceRollbackInventory{AdvanceID: delivery.ID, Files: []string{}}, nil
+		}
+		return nil, err
+	}
+
+	paths := make([]string, 0, len(available))
+	for path := range available {
+		paths = append(paths, path)
+	}
+	sort.Strings(paths)
+	return &AdvanceRollbackInventory{AdvanceID: delivery.ID, Files: paths}, nil
+}
+
+// Rollback deshace un avance aplicado. Con selectedFiles vacía restaura todos
+// los archivos respaldados, que es el contrato anterior; con una lista restaura
+// solo esos y conserva respaldo y estado applied para el resto. Solo cuando no
+// queda nada por restaurar el aviso vuelve a pendiente y se borra el respaldo.
+func (s *ClassAdvanceService) Rollback(ctx context.Context, tenantID, studentID, advanceID string, selectedFiles []string) (*AdvanceRollbackResult, error) {
 	if err := requireStudentIdentity(tenantID, studentID); err != nil {
 		return nil, err
 	}
@@ -366,7 +428,14 @@ func (s *ClassAdvanceService) Rollback(ctx context.Context, tenantID, studentID,
 		return nil, fmt.Errorf("failed to read student volume before rolling back advance: %w", err)
 	}
 
-	restored, err := advanceBackupFiles(current, backupRoot)
+	available, err := advanceBackupFiles(current, backupRoot)
+	if err != nil {
+		return nil, err
+	}
+
+	// El checklist del editor elige qué archivos vuelven atrás. Con la lista
+	// vacía se restauran todos, que es el contrato anterior.
+	restored, err := selectRollbackFiles(available, selectedFiles)
 	if err != nil {
 		return nil, err
 	}
@@ -375,33 +444,93 @@ func (s *ClassAdvanceService) Rollback(ctx context.Context, tenantID, studentID,
 		return nil, fmt.Errorf("failed to restore advance backup into student volume: %w", err)
 	}
 
-	// Reabrir el destinatario es lo que permite volver a aplicar. Si falla, el
-	// respaldo se conserva y el alumno puede reintentar deshacer.
-	if err := s.store.ReopenRecipient(ctx, tenantID, studentID, delivery.ID); err != nil {
-		return nil, err
-	}
-
-	s.dropAdvanceBackup(ctx, volumeName, backupRoot)
-
 	paths := make([]string, 0, len(restored))
 	for path := range restored {
 		paths = append(paths, path)
 	}
 	sort.Strings(paths)
 
+	// Lo que no se restauró sigue respaldado y el avance sigue aplicado: el
+	// alumno puede deshacer el resto cuando quiera.
+	remaining := make([]string, 0, len(available)-len(restored))
+	for path := range available {
+		if _, ok := restored[path]; !ok {
+			remaining = append(remaining, path)
+		}
+	}
+	sort.Strings(remaining)
+
+	if len(remaining) == 0 {
+		// Reabrir el destinatario es lo que permite volver a aplicar. Si falla,
+		// el respaldo se conserva y el alumno puede reintentar deshacer.
+		if err := s.store.ReopenRecipient(ctx, tenantID, studentID, delivery.ID); err != nil {
+			return nil, err
+		}
+		s.dropAdvanceBackup(ctx, volumeName, backupRoot)
+	} else {
+		// Cada archivo restaurado sale del respaldo: si quedara, el inventario
+		// del editor volvería a ofrecer algo que ya volvió atrás.
+		s.dropAdvanceBackupEntries(ctx, volumeName, backupRoot, paths)
+	}
+
 	s.recordAudit(ctx, tenantID, studentID, domain.AuditClassAdvanceRollback, delivery.SessionID, map[string]any{
-		"advance_id":     delivery.ID,
-		"exercise_id":    delivery.ExerciseID,
-		"files_restored": len(paths),
-		"backup_path":    backupRoot,
+		"advance_id":      delivery.ID,
+		"exercise_id":     delivery.ExerciseID,
+		"files_restored":  len(paths),
+		"files_remaining": len(remaining),
+		"backup_path":     backupRoot,
 	})
 
 	return &AdvanceRollbackResult{
 		AdvanceID:     delivery.ID,
 		FilesRestored: len(paths),
 		Restored:      paths,
+		Remaining:     remaining,
 		BackupPath:    backupRoot,
+		FullyRestored: len(remaining) == 0,
 	}, nil
+}
+
+// selectRollbackFiles separa del respaldo lo que el alumno eligió deshacer. Una
+// ruta sin respaldo invalida la selección completa: restaurar la mitad de lo
+// pedido y responder éxito es peor que rechazar la lista.
+func selectRollbackFiles(available map[string]string, selected []string) (map[string]string, error) {
+	if len(selected) == 0 {
+		return available, nil
+	}
+	chosen := make(map[string]string, len(selected))
+	for _, raw := range selected {
+		path, err := normalizeAdvancePath(raw)
+		if err != nil {
+			return nil, domain.ErrAdvanceRollbackFilesUnknown
+		}
+		content, ok := available[path]
+		if !ok {
+			return nil, domain.ErrAdvanceRollbackFilesUnknown
+		}
+		chosen[path] = content
+	}
+	if len(chosen) == 0 {
+		return nil, domain.ErrAdvanceRollbackFilesUnknown
+	}
+	return chosen, nil
+}
+
+// dropAdvanceBackupEntries borra del respaldo los archivos ya restaurados. Es
+// best-effort: sin la capacidad de poda el respaldo queda, y restaurar de nuevo
+// el mismo archivo solo reescribe su versión anterior.
+func (s *ClassAdvanceService) dropAdvanceBackupEntries(ctx context.Context, volumeName, backupRoot string, paths []string) {
+	pruner, ok := s.volumes.(domain.PracticeEnvironmentBackupPruner)
+	if !ok {
+		return
+	}
+	entries := make([]string, 0, len(paths))
+	for _, path := range paths {
+		entries = append(entries, backupRoot+"/"+path)
+	}
+	if err := pruner.DeletePracticeEnvironmentVolumePaths(ctx, volumeName, entries); err != nil {
+		log.Printf("[Advance Rollback] no se pudo borrar el respaldo restaurado de %s: %v", volumeName, err)
+	}
 }
 
 // advanceBackupFiles extrae del volumen los archivos del respaldo y los

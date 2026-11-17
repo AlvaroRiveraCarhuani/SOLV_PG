@@ -3,6 +3,7 @@ package services
 import (
 	"context"
 	"fmt"
+	"path"
 	"strings"
 
 	"github.com/google/uuid"
@@ -25,6 +26,9 @@ type EmitAdvanceInput struct {
 	SessionID  string
 	Scope      string
 	StudentIDs []string
+	// SelectedFiles acota el snapshot a esas rutas del entorno del docente. Vacío
+	// significa el entorno completo, que es el contrato anterior.
+	SelectedFiles []string
 }
 
 // Emit guarda el código actual del entorno de clase del docente como snapshot y
@@ -124,7 +128,46 @@ func (s *ClassAdvanceService) teacherEnvironment(ctx context.Context, in EmitAdv
 	for _, file := range files {
 		source[file.Path] = string(file.Content)
 	}
-	return source, nil
+
+	// El docente puede dejar trabajo sin compartir: solo viaja lo que elige. Una
+	// ruta que no existe en su entorno se rechaza en vez de emitir un avance al
+	// que le falta lo que la persona creyó enviar.
+	if len(in.SelectedFiles) == 0 {
+		return source, nil
+	}
+	selected := normalizeSelectedAdvanceFiles(in.SelectedFiles)
+	if len(selected) == 0 {
+		return nil, fmt.Errorf("%w: no quedó ninguna ruta válida", domain.ErrAdvanceFilesUnknown)
+	}
+	filtered := make(map[string]string, len(selected))
+	for _, filePath := range selected {
+		content, ok := source[filePath]
+		if !ok {
+			return nil, fmt.Errorf("%w: %s", domain.ErrAdvanceFilesUnknown, filePath)
+		}
+		filtered[filePath] = content
+	}
+	return filtered, nil
+}
+
+// normalizeSelectedAdvanceFiles deja las rutas como las publica el snapshot:
+// relativas y con barras normales. Descarta vacías, duplicadas y las que salen
+// del volumen.
+func normalizeSelectedAdvanceFiles(paths []string) []string {
+	seen := make(map[string]struct{}, len(paths))
+	clean := make([]string, 0, len(paths))
+	for _, raw := range paths {
+		candidate := path.Clean(strings.TrimSpace(raw))
+		if candidate == "." || candidate == ".." || strings.HasPrefix(candidate, "../") {
+			continue
+		}
+		if _, ok := seen[candidate]; ok {
+			continue
+		}
+		seen[candidate] = struct{}{}
+		clean = append(clean, candidate)
+	}
+	return clean
 }
 
 // teacherPracticeEnvironment devuelve el entorno de clase del docente en la práctica de la

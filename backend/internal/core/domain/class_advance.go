@@ -81,6 +81,9 @@ var (
 	ErrAdvanceNoRecipients = errors.New("el avance no tiene destinatarios")
 	// ErrAdvanceScopeInvalid: alcance desconocido o selección vacía.
 	ErrAdvanceScopeInvalid = errors.New("alcance de avance inválido")
+	// ErrAdvanceFilesUnknown: la selección de archivos incluye rutas que no están
+	// en el entorno del docente; emitirla dejaría un avance incompleto en silencio.
+	ErrAdvanceFilesUnknown = errors.New("la selección incluye archivos que no están en la práctica")
 	// ErrAdvanceSnapshotTooLarge: el snapshot supera el tope de bytes o de archivos.
 	ErrAdvanceSnapshotTooLarge = errors.New("el snapshot supera el tamaño permitido")
 	// ErrAdvanceGraceInvalid: la extensión de ventana está fuera de rango.
@@ -99,6 +102,9 @@ var (
 	ErrAdvanceRollbackNotApplied = errors.New("el avance no está aplicado, no hay nada que deshacer")
 	// ErrAdvanceBackupMissing: no quedó respaldo de los archivos que el avance reemplazó.
 	ErrAdvanceBackupMissing = errors.New("el avance no tiene respaldo para deshacer")
+	// ErrAdvanceRollbackFilesUnknown: la selección de archivos a deshacer incluye
+	// rutas sin respaldo; restaurar la mitad en silencio dejaría el avance a medias.
+	ErrAdvanceRollbackFilesUnknown = errors.New("la selección incluye archivos sin respaldo para deshacer")
 	// ErrAdvancePracticeEnvironmentStopped: aplicar exige el laboratorio del alumno en ejecución.
 	ErrAdvancePracticeEnvironmentStopped = errors.New("el laboratorio debe estar en ejecución para aplicar el avance")
 	// ErrAdvanceSnapshotInvalid: el snapshot no se pudo leer o no coincide con su hash.

@@ -1,4 +1,4 @@
-import { AdvanceFileEntry, AdvancePreview } from '../domain/advance';
+import { AdvanceFileEntry, AdvanceFileStatus, AdvancePreview } from '../domain/advance';
 
 export type Role = 'student' | 'teacher';
 export type ConnectionState = 'connected' | 'connecting' | 'offline';
@@ -43,6 +43,13 @@ export interface AdvanceView {
   files: AdvanceFileEntry[];
   applied: boolean;
   canRollback: boolean;
+  /**
+   * Archivos que el respaldo todavía puede restaurar. `undefined` es un
+   * inventario desconocido (consulta fallida o avance aplicado antes de este
+   * cambio): la vista ofrece el deshacer completo. Una lista vacía significa
+   * que el avance solo agregó archivos y no hay versión anterior.
+   */
+  appliedFiles?: string[];
 }
 
 export interface CommentView {
@@ -117,6 +124,56 @@ export function selectedPaths(files: AdvanceFileEntry[]): string[] {
 export function applySelection(files: AdvanceFileEntry[], selected: string[]): AdvanceFileEntry[] {
   const chosen = new Set(selected);
   return files.map(file => ({ ...file, selected: chosen.has(file.path) }));
+}
+
+/**
+ * Extracto en texto plano de la consigna para el panel lateral: saca las
+ * marcas de markdown y corta en un espacio, sin dejar una palabra partida.
+ */
+export function excerptText(markdown: string, maxChars = 480): string {
+  const plain = markdown
+    .replace(/```[\s\S]*?```/g, ' ')
+    .replace(/`([^`]+)`/g, '$1')
+    .replace(/!\[[^\]]*\]\([^)]*\)/g, ' ')
+    .replace(/\[([^\]]+)\]\([^)]*\)/g, '$1')
+    .replace(/^\s{0,3}#{1,6}\s+/gm, '')
+    .replace(/^\s{0,3}[-*+]\s+/gm, '')
+    .replace(/^\s{0,3}>\s?/gm, '')
+    .replace(/\*\*|__|\*|_/g, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+  if (plain.length <= maxChars) {
+    return plain;
+  }
+  const cut = plain.slice(0, maxChars);
+  const lastSpace = cut.lastIndexOf(' ');
+  const head = lastSpace > maxChars * 0.6 ? cut.slice(0, lastSpace) : cut;
+  return `${head.trimEnd()}…`;
+}
+
+/**
+ * Acción del checklist según el estado del archivo. Un archivo nuevo no tiene
+ * versión anterior: se ofrece ver su contenido, no un diff contra la nada.
+ */
+export function advanceFileActionText(status: AdvanceFileStatus): string {
+  if (status === 'new') {
+    return 'Ver contenido';
+  }
+  if (status === 'modified') {
+    return 'Ver diferencias';
+  }
+  return '';
+}
+
+/**
+ * Título de la pestaña del diff. Un archivo que todavía no existe en el
+ * proyecto del alumno se anuncia como nuevo: comparar contra la nada y decir
+ * "tu versión" confunde.
+ */
+export function diffTitleText(relativePath: string, isNew: boolean): string {
+  return isNew
+    ? `${relativePath} — Archivo nuevo del avance`
+    : `${relativePath} — Tu versión y el avance del docente`;
 }
 
 /** Texto del badge de la rúbrica según el propósito pedagógico. */

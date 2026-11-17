@@ -42,7 +42,16 @@ export interface AdvanceRollbackResult {
   advance_id: string;
   files_restored: number;
   restored: string[];
+  /** Archivos que siguen respaldados: mientras haya, el avance sigue aplicado. */
+  remaining: string[];
+  fully_restored: boolean;
   backup_path: string;
+}
+
+/** Archivos del respaldo que todavía se pueden volver a su versión anterior. */
+export interface AdvanceRollbackInventory {
+  advance_id: string;
+  files: string[];
 }
 
 /** Estado de un archivo del avance frente al proyecto del alumno. */

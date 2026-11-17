@@ -27,6 +27,9 @@ func NewClassAdvanceHandler(service *services.ClassAdvanceService) *ClassAdvance
 type emitAdvanceRequest struct {
 	Scope      string   `json:"scope"`
 	StudentIDs []string `json:"student_ids"`
+	// SelectedFiles acota el avance a esas rutas del entorno del docente. Sin
+	// lista se emite el entorno completo.
+	SelectedFiles []string `json:"selected_files"`
 }
 
 // PostAdvance emite un avance: empaqueta el código del entorno de clase del
@@ -47,9 +50,10 @@ func (h *ClassAdvanceHandler) PostAdvance(w http.ResponseWriter, r *http.Request
 		TenantID:   getTenantFromCtx(r),
 		TeacherID:  teacherID,
 		Role:       requestRole(r),
-		SessionID:  r.PathValue("id"),
-		Scope:      req.Scope,
-		StudentIDs: req.StudentIDs,
+		SessionID:     r.PathValue("id"),
+		Scope:         req.Scope,
+		StudentIDs:    req.StudentIDs,
+		SelectedFiles: req.SelectedFiles,
 	})
 	if err != nil {
 		h.writeAdvanceError(w, err, "Error al emitir el avance")
@@ -169,8 +173,33 @@ func (h *ClassAdvanceHandler) ApplyAdvance(w http.ResponseWriter, r *http.Reques
 	SendJSON(w, http.StatusOK, result, "Avance aplicado")
 }
 
-// RollbackAdvance deshace el último avance aplicado desde el respaldo del
-// propio avance y deja el aviso pendiente otra vez.
+// rollbackAdvanceRequest es la selección de archivos a deshacer. Sin cuerpo o
+// con la lista vacía se restauran todos los archivos respaldados, que es el
+// contrato anterior.
+type rollbackAdvanceRequest struct {
+	Paths []string `json:"paths"`
+}
+
+// RollbackInventory lista los archivos del respaldo que todavía se pueden
+// volver a su versión anterior.
+func (h *ClassAdvanceHandler) RollbackInventory(w http.ResponseWriter, r *http.Request) {
+	studentID := resolveRequestStudentID(r)
+	if strings.TrimSpace(studentID) == "" {
+		SendError(w, http.StatusUnauthorized, "Missing student identity", "No se pudo resolver la identidad del alumno desde la sesión")
+		return
+	}
+
+	inventory, err := h.service.RollbackInventory(r.Context(), getTenantFromCtx(r), studentID, r.PathValue("id"))
+	if err != nil {
+		h.writeAdvanceError(w, err, "Error al leer los archivos para deshacer el avance")
+		return
+	}
+	SendJSON(w, http.StatusOK, inventory, "Archivos para deshacer obtenidos")
+}
+
+// RollbackAdvance deshace un avance aplicado desde el respaldo del propio
+// avance. Con paths restaura solo esos archivos y conserva el respaldo y el
+// estado applied para el resto; sin paths deja el aviso pendiente otra vez.
 func (h *ClassAdvanceHandler) RollbackAdvance(w http.ResponseWriter, r *http.Request) {
 	studentID := resolveRequestStudentID(r)
 	if strings.TrimSpace(studentID) == "" {
@@ -178,7 +207,13 @@ func (h *ClassAdvanceHandler) RollbackAdvance(w http.ResponseWriter, r *http.Req
 		return
 	}
 
-	result, err := h.service.Rollback(r.Context(), getTenantFromCtx(r), studentID, r.PathValue("id"))
+	var req rollbackAdvanceRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil && !errors.Is(err, io.EOF) {
+		SendError(w, http.StatusBadRequest, "Invalid JSON payload", "El cuerpo debe indicar paths como lista de rutas")
+		return
+	}
+
+	result, err := h.service.Rollback(r.Context(), getTenantFromCtx(r), studentID, r.PathValue("id"), req.Paths)
 	if err != nil {
 		h.writeAdvanceError(w, err, "Error al deshacer el avance")
 		return
@@ -327,6 +362,8 @@ func (h *ClassAdvanceHandler) writeAdvanceError(w http.ResponseWriter, err error
 		SendError(w, http.StatusConflict, err.Error(), "Abre tu entorno de clase y escribe el código antes de emitir")
 	case errors.Is(err, domain.ErrAdvanceScopeInvalid):
 		SendError(w, http.StatusUnprocessableEntity, err.Error(), "Elige toda la clase o al menos un alumno")
+	case errors.Is(err, domain.ErrAdvanceFilesUnknown):
+		SendError(w, http.StatusUnprocessableEntity, err.Error(), "Los archivos elegidos tienen que existir en tu entorno de la práctica")
 	case errors.Is(err, domain.ErrAdvanceNoRecipients):
 		SendError(w, http.StatusUnprocessableEntity, err.Error(), "Todavía no hay alumnos en el aula")
 	case errors.Is(err, domain.ErrAdvanceRecipientNotInSession):
@@ -339,6 +376,8 @@ func (h *ClassAdvanceHandler) writeAdvanceError(w http.ResponseWriter, err error
 		SendError(w, http.StatusConflict, err.Error(), "Solo se deshace un avance que ya aplicaste")
 	case errors.Is(err, domain.ErrAdvanceBackupMissing):
 		SendError(w, http.StatusConflict, err.Error(), "El avance no reemplazó archivos: no hay versión anterior para restaurar")
+	case errors.Is(err, domain.ErrAdvanceRollbackFilesUnknown):
+		SendError(w, http.StatusUnprocessableEntity, err.Error(), "Los archivos elegidos no tienen versión anterior respaldada")
 	case errors.Is(err, domain.ErrAdvanceExamBlocked):
 		SendError(w, http.StatusConflict, err.Error(), "En examen no se aplican avances")
 	case errors.Is(err, domain.ErrAdvanceGraceExpired):

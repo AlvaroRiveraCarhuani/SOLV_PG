@@ -4,7 +4,7 @@ import { AdvanceContentProvider } from './advance-content-provider';
 import { AdvanceDelivery, AdvanceFileEntry, AdvancePreview } from '../domain/advance';
 import { SolvApiError } from '../client/solv-client';
 import { SolvSettings } from '../config/solv-settings';
-import { applySelection, buildChecklist, selectedPaths } from '../views/panel-state';
+import { applySelection, buildChecklist, diffTitleText, selectedPaths } from '../views/panel-state';
 
 /** Avance recordado para ofrecer deshacer aun cuando ya no está pendiente. */
 export interface AppliedAdvance {
@@ -20,6 +20,8 @@ export interface AdvanceSnapshot {
     files: AdvanceFileEntry[];
   };
   applied?: AppliedAdvance;
+  /** Archivos que el respaldo todavía puede restaurar. */
+  appliedFiles?: string[];
   board?: SessionBoard;
 }
 
@@ -35,6 +37,7 @@ export class AdvanceController implements vscode.Disposable {
   private readonly disposables: vscode.Disposable[] = [];
   private current?: SnapshotCache;
   private board?: SessionBoard;
+  private appliedFiles?: string[];
 
   readonly onDidChange = this.emitter.event;
 
@@ -67,6 +70,9 @@ export class AdvanceController implements vscode.Disposable {
           snapshot.advance = { delivery, preview, files: await this.checklist(preview) };
         }
         snapshot.applied = this.lastApplied;
+        if (snapshot.applied) {
+          snapshot.appliedFiles = await this.loadRollbackFiles(snapshot.applied.id);
+        }
       }
     } catch (error) {
       this.current = undefined;
@@ -75,6 +81,7 @@ export class AdvanceController implements vscode.Disposable {
     }
 
     this.board = snapshot.board;
+    this.appliedFiles = snapshot.appliedFiles;
     this.current = snapshot.advance
       ? {
           delivery: snapshot.advance.delivery,
@@ -95,6 +102,7 @@ export class AdvanceController implements vscode.Disposable {
           }
         : undefined,
       applied: this.lastApplied,
+      appliedFiles: this.appliedFiles,
       board: this.board
     };
   }
@@ -129,11 +137,16 @@ export class AdvanceController implements vscode.Disposable {
 
     const root = vscode.workspace.workspaceFolders?.[0]?.uri;
     const local = root ? vscode.Uri.joinPath(root, relativePath) : vscode.Uri.file(relativePath);
+    // Un archivo que el alumno todavía no tiene no se puede comparar contra un
+    // `file:` inexistente: el editor responde "file was not found" y la pestaña
+    // queda vacía. Se compara contra un documento virtual vacío y el avance se
+    // lee completo como agregado.
+    const isNew = !(await fileExists(local));
     await vscode.commands.executeCommand(
       'vscode.diff',
-      local,
+      isNew ? AdvanceContentProvider.emptyBaseUri(current.preview.advance_id, relativePath) : local,
       virtual,
-      `${relativePath} — Tu versión y el avance del docente`
+      diffTitleText(relativePath, isNew)
     );
   }
 
@@ -170,18 +183,46 @@ export class AdvanceController implements vscode.Disposable {
     this.emitter.fire();
   }
 
-  /** Restaura la versión anterior de los archivos que aplicó el avance. */
-  async rollback(): Promise<{ filesRestored: number }> {
+  /**
+   * Restaura los archivos elegidos desde el respaldo; sin lista restaura todo.
+   * Mientras quede respaldo el aviso sigue aplicado, para deshacer el resto
+   * después; recién al restaurar el último archivo vuelve a pendiente.
+   */
+  async rollback(
+    paths?: string[]
+  ): Promise<{ filesRestored: number; remaining: number; fullyRestored: boolean }> {
     const applied = this.lastApplied;
     if (!applied) {
       throw new Error('No hay un avance aplicado para deshacer.');
     }
 
     await vscode.workspace.saveAll(false);
-    const result = await this.client.rollback(applied.id);
-    await this.state.update(APPLIED_KEY, undefined);
+    const result = await this.client.rollback(applied.id, paths ?? []);
+    if (result.fully_restored) {
+      await this.state.update(APPLIED_KEY, undefined);
+      this.appliedFiles = undefined;
+    } else {
+      this.appliedFiles = result.remaining;
+    }
     this.emitter.fire();
-    return { filesRestored: result.files_restored };
+    return {
+      filesRestored: result.files_restored,
+      remaining: result.remaining?.length ?? 0,
+      fullyRestored: result.fully_restored
+    };
+  }
+
+  /**
+   * Archivos todavía restaurables del avance aplicado. Un fallo no rompe el
+   * panel: devuelve `undefined` y la vista ofrece el deshacer completo.
+   */
+  private async loadRollbackFiles(advanceId: string): Promise<string[] | undefined> {
+    try {
+      const inventory = await this.client.rollbackFiles(advanceId);
+      return inventory.files;
+    } catch {
+      return undefined;
+    }
   }
 
   /** Congela o descongela la emisión del aula. */
@@ -197,8 +238,8 @@ export class AdvanceController implements vscode.Disposable {
     return !frozen;
   }
 
-  async openSession(subjectId: string, durationMinutes = 90): Promise<{ id: string }> {
-    const res = await this.client.openSession(subjectId, durationMinutes);
+  async openSession(subjectId: string, durationMinutes = 90, exerciseId?: string): Promise<{ id: string }> {
+    const res = await this.client.openSession(subjectId, durationMinutes, exerciseId);
     // El aula recién abierta se recuerda en la sesión del editor: emitir y
     // congelar leen el identificador de ahí.
     this.settings.setSessionId(res.id);
@@ -273,6 +314,15 @@ interface SnapshotCache {
   delivery: AdvanceDelivery;
   preview: AdvancePreview;
   files: AdvanceFileEntry[];
+}
+
+async function fileExists(uri: vscode.Uri): Promise<boolean> {
+  try {
+    await vscode.workspace.fs.stat(uri);
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 export function describeAdvanceError(error: unknown): string {
