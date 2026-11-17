@@ -1,6 +1,8 @@
 package services
 
 import (
+	"os"
+	"path/filepath"
 	"testing"
 	"time"
 )
@@ -15,6 +17,11 @@ func TestTrivyScanArgsSkipsTheDBUpdate(t *testing.T) {
 
 	if !hasArg(args, "--skip-db-update") {
 		t.Fatalf("el escaneo debía incluir --skip-db-update, obtuve %v", args)
+	}
+	// Sin red, dejar que Trivy intente actualizar el índice Java aborta el
+	// escaneo con "network is unreachable" y la plantilla se reintenta sin fin.
+	if !hasArg(args, "--skip-java-db-update") {
+		t.Fatalf("el escaneo debía incluir --skip-java-db-update, obtuve %v", args)
 	}
 	if hasArg(args, "--download-db-only") {
 		t.Fatalf("el escaneo no debe descargar la base, obtuve %v", args)
@@ -54,6 +61,48 @@ func TestAuditCadenceStaysGentle(t *testing.T) {
 	}
 	if trivyDBRefresh != 24*time.Hour {
 		t.Fatalf("la sincronización diaria de la base CVE no cambia, obtuve %s", trivyDBRefresh)
+	}
+}
+
+// TestJavaDBIsFreshSpacesTheDownload evita que un índice de casi 1 GB se baje
+// en cada arranque o cada día: solo se refresca cuando pasó una semana.
+func TestJavaDBIsFreshSpacesTheDownload(t *testing.T) {
+	dir := t.TempDir()
+	jdbc := filepath.Join(dir, "trivy", "java-db")
+	if err := os.MkdirAll(jdbc, 0o755); err != nil {
+		t.Fatal(err)
+	}
+
+	now := time.Date(2026, 11, 17, 12, 0, 0, 0, time.UTC)
+	worker := &TemplateAuditWorker{cacheDir: dir, now: func() time.Time { return now }}
+
+	if worker.javaDBIsFresh() {
+		t.Fatal("sin metadata no hay índice vigente")
+	}
+
+	writeMeta := func(updated time.Time) {
+		t.Helper()
+		body := []byte(`{"Version":1,"UpdatedAt":"` + updated.Format(time.RFC3339) + `"}`)
+		if err := os.WriteFile(filepath.Join(jdbc, "metadata.json"), body, 0o600); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	writeMeta(now.Add(-48 * time.Hour))
+	if !worker.javaDBIsFresh() {
+		t.Fatal("un índice de hace dos días debe considerarse vigente")
+	}
+
+	writeMeta(now.Add(-trivyJavaDBMaxAge - time.Hour))
+	if worker.javaDBIsFresh() {
+		t.Fatal("un índice de más de una semana debe refrescarse")
+	}
+
+	if err := os.WriteFile(filepath.Join(jdbc, "metadata.json"), []byte("no es json"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if worker.javaDBIsFresh() {
+		t.Fatal("una metadata ilegible debe forzar la descarga")
 	}
 }
 

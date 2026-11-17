@@ -105,6 +105,8 @@ type TemplateAuditWorker struct {
 	dbSyncer func(context.Context) error
 	dbReady  func() bool
 	now      func() time.Time
+	// javaDBSyncer descarga el índice Java en la misma caché del escaneo.
+	javaDBSyncer func(context.Context) error
 
 	nextDBRetry     time.Time
 	dbBackoff       time.Duration
@@ -152,9 +154,13 @@ func prepareTrivyCacheDir(cacheDir string) {
 	//nolint:gosec
 	_ = os.MkdirAll(filepath.Join(cacheDir, "trivy", "db"), 0777)
 	//nolint:gosec
+	_ = os.MkdirAll(filepath.Join(cacheDir, "trivy", "java-db"), 0777)
+	//nolint:gosec
 	_ = os.Chmod(filepath.Join(cacheDir, "trivy"), 0777)
 	//nolint:gosec
 	_ = os.Chmod(filepath.Join(cacheDir, "trivy", "db"), 0777)
+	//nolint:gosec
+	_ = os.Chmod(filepath.Join(cacheDir, "trivy", "java-db"), 0777)
 }
 
 func NewTemplateAuditWorker(dockerCli *client.Client, govRepo domain.AdminGovernanceRepository) *TemplateAuditWorker {
@@ -177,6 +183,7 @@ func NewTemplateAuditWorker(dockerCli *client.Client, govRepo domain.AdminGovern
 	worker.trivyRunner = worker.runTrivyScan
 	worker.dbSyncer = worker.UpdateTrivyDB
 	worker.dbReady = worker.hasTrivyDB
+	worker.javaDBSyncer = worker.updateJavaDB
 	worker.now = time.Now
 	worker.templateRetry = make(map[string]time.Time)
 	worker.templateBackoff = make(map[string]time.Duration)

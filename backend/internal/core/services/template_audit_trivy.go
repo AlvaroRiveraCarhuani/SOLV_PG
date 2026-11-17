@@ -63,6 +63,10 @@ func trivyScanArgs(dockerImage string) []string {
 		"--format", "json",
 		"--quiet",
 		"--skip-db-update",
+		// El escaneo corre sin red: si intentara actualizar el índice Java
+		// abortaría con "network is unreachable" y la plantilla quedaría
+		// reintentándose para siempre. El índice lo deja el worker en caché.
+		"--skip-java-db-update",
 		dockerImage,
 	}
 }
@@ -254,6 +258,110 @@ func (w *TemplateAuditWorker) UpdateTrivyDB(ctx context.Context) (err error) {
 	}
 
 	log.Println("[TemplateAuditWorker] Base de datos CVE actualizada correctamente en cache")
+
+	// El índice Java viaja aparte y se descarga acá porque el escaneo corre sin
+	// red. Si falla no se bloquea la cola: solo quedan sin analizar las imágenes
+	// que traen JAR.
+	switch {
+	case w.javaDBIsFresh():
+		log.Println("[TemplateAuditWorker] Índice Java vigente en cache; no se descarga")
+	default:
+		if javaErr := w.javaDBSyncer(ctx); javaErr != nil {
+			log.Printf("[TemplateAuditWorker] No se pudo actualizar el índice Java: %v. Las imágenes con JAR quedarán sin analizar hasta que haya red", javaErr)
+		}
+	}
+	return nil
+}
+
+// trivyJavaDBMaxAge espacia la descarga del índice Java. Son 954 MiB
+// comprimidos y se expanden a varios GB: bajarlo a diario no se justifica en un
+// host de desarrollo, porque la cobertura de JAR cambia mucho más despacio que
+// la base CVE.
+const trivyJavaDBMaxAge = 7 * 24 * time.Hour
+
+// javaDBIsFresh indica si el índice Java de la caché se descargó dentro del
+// margen permitido, para no repetir una descarga de casi 1 GB.
+func (w *TemplateAuditWorker) javaDBIsFresh() bool {
+	raw, err := os.ReadFile(filepath.Join(w.cacheDir, "trivy", "java-db", "metadata.json"))
+	if err != nil {
+		return false
+	}
+	var meta struct {
+		UpdatedAt    string `json:"UpdatedAt"`
+		DownloadedAt string `json:"DownloadedAt"`
+	}
+	if err := json.Unmarshal(raw, &meta); err != nil {
+		return false
+	}
+	stamp := strings.TrimSpace(meta.UpdatedAt)
+	if stamp == "" {
+		stamp = strings.TrimSpace(meta.DownloadedAt)
+	}
+	updated, err := time.Parse(time.RFC3339, stamp)
+	if err != nil {
+		return false
+	}
+	return w.now().Sub(updated) < trivyJavaDBMaxAge
+}
+
+// updateJavaDB descarga el índice de dependencias Java en la misma caché que usa
+// el escaneo. Sin él, Trivy aborta cualquier imagen con JAR: el escaneo corre con
+// la red apagada y no puede bajar el índice por su cuenta.
+func (w *TemplateAuditWorker) updateJavaDB(ctx context.Context) error {
+	// Casi 1 GB comprimido tarda diez minutos en una conexión doméstica y luego
+	// se expande: quince minutos no alcanzan para completar descarga y escritura.
+	syncCtx, cancel := context.WithTimeout(ctx, 30*time.Minute)
+	defer cancel()
+
+	if err := w.ensureTrivyImage(syncCtx); err != nil {
+		return fmt.Errorf("error preparando la imagen de Trivy: %w", err)
+	}
+
+	hostConfig := &container.HostConfig{
+		Binds: []string{
+			fmt.Sprintf("%s:/root/.cache", w.cacheDir),
+		},
+		Resources:  trivyResources(),
+		AutoRemove: false,
+	}
+	containerConfig := &container.Config{
+		Image:  TrivyDockerImage,
+		Cmd:    []string{"image", "--download-java-db-only"},
+		Labels: map[string]string{auditContainerLabel: trivyDBContainerRole},
+	}
+
+	resp, err := w.dockerCli.ContainerCreate(syncCtx, containerConfig, hostConfig, nil, nil, "")
+	if err != nil {
+		return fmt.Errorf("error creando contenedor para el índice Java: %w", err)
+	}
+	defer func() {
+		_ = w.dockerCli.ContainerRemove(context.Background(), resp.ID, container.RemoveOptions{Force: true})
+	}()
+
+	if err := w.dockerCli.ContainerStart(syncCtx, resp.ID, container.StartOptions{}); err != nil {
+		return fmt.Errorf("error iniciando la descarga del índice Java: %w", err)
+	}
+
+	statusCh, errCh := w.dockerCli.ContainerWait(syncCtx, resp.ID, container.WaitConditionNotRunning)
+	select {
+	case waitErr := <-errCh:
+		if waitErr != nil {
+			return fmt.Errorf("error esperando el índice Java: %w", waitErr)
+		}
+	case <-statusCh:
+	case <-syncCtx.Done():
+		return fmt.Errorf("timeout en la descarga del índice Java")
+	}
+
+	inspect, inspectErr := w.dockerCli.ContainerInspect(context.Background(), resp.ID)
+	if inspectErr != nil {
+		return fmt.Errorf("no se pudo verificar el índice Java: %w", inspectErr)
+	}
+	if inspect.State != nil && inspect.State.ExitCode != 0 {
+		return fmt.Errorf("la descarga del índice Java terminó con código %d", inspect.State.ExitCode)
+	}
+
+	log.Println("[TemplateAuditWorker] Índice Java actualizado en cache")
 	return nil
 }
 

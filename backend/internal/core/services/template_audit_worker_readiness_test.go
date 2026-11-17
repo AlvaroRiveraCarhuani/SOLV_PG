@@ -191,6 +191,7 @@ func TestNewTemplateAuditWorkerLeavesTheCacheDirPurgeable(t *testing.T) {
 	for _, dir := range []string{
 		filepath.Join(cacheDir, "trivy"),
 		filepath.Join(cacheDir, "trivy", "db"),
+		filepath.Join(cacheDir, "trivy", "java-db"),
 	} {
 		info, err := os.Stat(dir)
 		if err != nil {
