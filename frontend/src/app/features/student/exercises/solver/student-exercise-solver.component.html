@@ -70,7 +70,7 @@
       </section>
     }
 
-    <div class="solver-split-grid">
+    <div class="solver-split-grid" [class.is-project]="isIdeExercise()">
       <!-- Columna izquierda: Consigna y ejemplos públicos -->
       <section class="statement-panel">
         @if (difficultyLabel() || !isIdeExercise()) {
@@ -180,7 +180,7 @@
       <!-- Columna derecha: Editor de código + Resultado del Juez -->
       <section class="editor-panel">
         @if (isIdeExercise()) {
-          <div class="editor-card">
+          <div class="editor-card rail-card">
             <div class="editor-toolbar">
               <div class="toolbar-left">
                 <svg lucideTerminal class="toolbar-icon" aria-hidden="true"></svg>
@@ -189,33 +189,35 @@
               <div class="toolbar-actions">
                 @if (isExamSubmitted()) {
                   <span class="exam-locked-pill">Examen entregado</span>
-                  <a [routerLink]="['/student/history', lastSubmissionId()]" class="btn-outline btn-view-submission">
-                    Ver entrega enviada
-                  </a>
-                } @else {
-                  <button
-                    type="button"
-                    class="btn-primary"
-                    data-testid="btn-start-ide"
-                    [disabled]="isStartingEnvironment()"
-                    (click)="openEnvironment()"
-                  >
-                    @if (isStartingEnvironment()) {
-                      <svg lucideRefreshCw class="btn-icon motion-spin" aria-hidden="true"></svg>
-                      <span>Abriendo entorno…</span>
-                    } @else {
-                      <svg lucideExternalLink class="btn-icon" aria-hidden="true"></svg>
-                      <span>Abrir entorno</span>
-                    }
-                  </button>
                 }
               </div>
             </div>
 
-            <div class="editor-body">
-              <p class="empty-note">
-                Tu entorno se abre en una pestaña nueva y conserva los archivos de esta práctica
-                entre sesiones.
+            <div class="editor-body rail-body">
+              @if (isExamSubmitted()) {
+                <a [routerLink]="['/student/history', lastSubmissionId()]" class="btn-outline rail-action">
+                  Ver entrega enviada
+                </a>
+              } @else {
+                <button
+                  type="button"
+                  class="btn-primary rail-action"
+                  data-testid="btn-start-ide"
+                  [disabled]="isStartingEnvironment()"
+                  (click)="openEnvironment()"
+                >
+                  @if (isStartingEnvironment()) {
+                    <svg lucideRefreshCw class="btn-icon motion-spin" aria-hidden="true"></svg>
+                    <span>Abriendo entorno…</span>
+                  } @else {
+                    <svg lucideExternalLink class="btn-icon" aria-hidden="true"></svg>
+                    <span>Abrir entorno</span>
+                  }
+                </button>
+              }
+
+              <p class="rail-note">
+                Se abre en una pestaña nueva y conserva tus archivos entre sesiones.
               </p>
 
               @if (environmentIsRunning()) {
@@ -302,7 +304,7 @@
             </div>
           </div>
 
-          <div class="editor-card">
+          <div class="editor-card rail-card">
             <div class="editor-toolbar">
               <div class="toolbar-left">
                 <svg lucideLayers class="toolbar-icon"></svg>
@@ -311,30 +313,32 @@
               <div class="toolbar-actions">
                 @if (isExamSubmitted()) {
                   <span class="exam-locked-pill">Examen entregado</span>
-                } @else {
-                  <button
-                    type="button"
-                    class="btn-primary"
-                    data-testid="btn-submit-project"
-                    [disabled]="!canSubmitProject()"
-                    (click)="requestSubmitProject()"
-                  >
-                    @if (isSubmittingProject()) {
-                      <svg lucideLoader2 class="btn-icon motion-spin"></svg>
-                      <span>Entregando...</span>
-                    } @else if (examSubmitPending()) {
-                      <svg lucidePlay class="btn-icon"></svg>
-                      <span>Confirmar entrega</span>
-                    } @else {
-                      <svg lucidePlay class="btn-icon"></svg>
-                      <span>Entregar Proyecto</span>
-                    }
-                  </button>
                 }
               </div>
             </div>
 
-            <div class="editor-body">
+            <div class="editor-body rail-body">
+              @if (!isExamSubmitted()) {
+                <button
+                  type="button"
+                  class="btn-primary rail-action"
+                  data-testid="btn-submit-project"
+                  [disabled]="!canSubmitProject()"
+                  (click)="requestSubmitProject()"
+                >
+                  @if (isSubmittingProject()) {
+                    <svg lucideLoader2 class="btn-icon motion-spin"></svg>
+                    <span>Entregando…</span>
+                  } @else if (examSubmitPending()) {
+                    <svg lucidePlay class="btn-icon"></svg>
+                    <span>Confirmar entrega</span>
+                  } @else {
+                    <svg lucidePlay class="btn-icon"></svg>
+                    <span>Entregar proyecto</span>
+                  }
+                </button>
+              }
+
               @if (isExamSubmitted()) {
                 <div class="exam-locked-banner" role="status">
                   <svg lucideCheckCircle2 class="locked-icon"></svg>
@@ -376,12 +380,11 @@
                   <p class="empty-note">Este ejercicio admite una única entrega.</p>
                 }
               } @else {
-                <p class="empty-note">
-                  Se entrega el contenido actual de tu entorno de esta práctica. No hay que copiar
-                  archivos a mano: lo que está en el IDE es lo que recibe el docente.
+                <p class="rail-note">
+                  Se entrega el entorno tal como está en el IDE: no hay que copiar archivos.
                 </p>
-                <p class="empty-note">
-                  La entrega queda pendiente de calificación hasta que el docente la revise con la rúbrica.
+                <p class="rail-note">
+                  Queda pendiente hasta que el docente la revise con la rúbrica.
                 </p>
               }
 

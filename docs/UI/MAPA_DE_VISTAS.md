@@ -250,6 +250,9 @@ graph TD
 ### 5.3. Práctica de entorno (`/student/exercises/:exerciseId`)
 * **Propósito:** Resolver la práctica dentro de su entorno de desarrollo y entregar el proyecto al docente.
 * **Formato común con el juez:** topbar, enunciado a la izquierda y área de trabajo a la derecha. Cambia la herramienta: entorno en pestaña nueva para la práctica de IDE, editor embebido para la de juez.
+* **Columnas con scroll propio:** cada columna se desplaza por separado y su alto queda acotado a la ventana menos la topbar. Por debajo de 1100 px las columnas se apilan y vuelve el desplazamiento de página.
+* **Consigna ancha y riel de acciones:** la práctica de entorno no tiene editor en la columna derecha, así que ahí va un riel de 280–340 px, fijo al desplazar, con `[Abrir entorno]` y `[Entregar proyecto]` a todo el ancho y los detalles de cuota y estado debajo. La consigna se queda con el resto del ancho, que es donde está el texto largo; la práctica de juez conserva su reparto porque el editor necesita lugar.
+* **Lectura de la consigna:** el Markdown se compone con el ritmo del sistema (títulos, listas, tablas, código y citas) y el bloque que dibuja un árbol de carpetas se reconoce como estructura: cada rama es una fila, las guías quedan atenuadas y las carpetas se distinguen de los archivos, como el árbol de archivos del entorno.
 * **Componentes de la Pantalla:**
   * **Topbar:** `[Volver a la materia]`, título de la práctica y sello de examen.
   * **Franja de metadatos:** dificultad traducida (Fácil / Medio / Difícil) y, sólo en el juez, el límite de tiempo en segundos. No se muestran la memoria del contenedor, el identificador del entorno ni su URL.

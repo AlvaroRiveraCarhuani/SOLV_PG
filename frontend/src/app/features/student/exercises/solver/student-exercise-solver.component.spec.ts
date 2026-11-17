@@ -349,6 +349,33 @@ describe('StudentExerciseSolverComponent', () => {
     expect(component.lastSubmissionId()).toBe('sub-909');
   });
 
+  it('dibuja la estructura de carpetas de la consigna como árbol y no como bloque plano', () => {
+    component.exercise.set({
+      ...component.exercise()!,
+      type: 'project',
+      environment_type: 'IDE_PERSISTENTE',
+      description: [
+        'Estructura de carpetas',
+        '',
+        '```text',
+        'proyecto/',
+        '├── backend/',
+        '│   └── package.json',
+        '└── frontend/',
+        '    └── vite.config.ts',
+        '```'
+      ].join('\n')
+    });
+    fixture.detectChanges();
+
+    const host = fixture.nativeElement as HTMLElement;
+    expect(host.querySelectorAll('.file-tree .tree-row').length).toBe(5);
+    expect(host.querySelector('.file-tree .tree-node.is-dir')?.textContent).toContain('proyecto/');
+    expect(host.querySelector('.file-tree .tree-node.is-file')?.textContent).toContain('package.json');
+    expect(host.querySelector('.file-tree .tree-guide')?.textContent).toContain('├──');
+    expect(host.querySelector('.markdown-body pre')).toBeNull();
+  });
+
   it('muestra el aviso de examen sin acceso a internet cuando exam_network es none', () => {
     component.exercise.set({
       ...component.exercise()!,

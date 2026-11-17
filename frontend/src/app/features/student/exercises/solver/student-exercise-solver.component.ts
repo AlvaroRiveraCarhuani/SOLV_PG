@@ -19,7 +19,6 @@ import {
   LucideExternalLink,
   LucideRefreshCw
 } from '@lucide/angular';
-import { marked } from 'marked';
 import { MachineDataDirective } from '@shared/directives/machine-data.directive';
 import { CodeEditorComponent } from '@shared/components/code-editor/code-editor.component';
 import { ComboboxComponent, ComboboxOption } from '@shared/components/combobox/combobox.component';
@@ -39,6 +38,7 @@ import {
   PendingClassAdvance
 } from '../../services/class-advance-notice.service';
 import { AdvanceConfirmModalComponent } from './advance-confirm-modal/advance-confirm-modal.component';
+import { renderStatementMarkdown } from './statement-markdown.utils';
 
 interface KeystrokeEventPayload {
   event_type: 'insert' | 'delete' | 'paste';
@@ -151,11 +151,7 @@ export class StudentExerciseSolverComponent implements OnInit {
   });
 
   readonly renderedDescription = computed<string>(() => {
-    const raw = this.exercise()?.description || '';
-    if (!raw.trim()) {
-      return '<p>Sin descripción disponible.</p>';
-    }
-    return marked.parse(raw) as string;
+    return renderStatementMarkdown(this.exercise()?.description || '');
   });
 
   readonly exampleCases = computed<StudentPublicTestCaseDTO[]>(() => {

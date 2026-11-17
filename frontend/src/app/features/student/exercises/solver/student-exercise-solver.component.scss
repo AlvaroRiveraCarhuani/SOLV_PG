@@ -151,11 +151,27 @@
   }
 }
 
+// Dos columnas con scroll propio: la consigna suele ser mucho más larga que el
+// editor y, sin tope, la página se estira a lo alto del texto y deja media
+// pantalla vacía al lado.
 .solver-split-grid {
   display: grid;
   grid-template-columns: minmax(320px, 5fr) minmax(380px, 7fr);
   gap: var(--space-5);
-  align-items: start;
+  align-items: stretch;
+}
+
+// Práctica de entorno: la columna derecha no tiene editor, solo dos acciones.
+// Un riel angosto devuelve el ancho a la consigna, que es el texto largo de
+// esta pantalla, en vez de dejar media pantalla vacía al lado.
+.solver-split-grid.is-project {
+  grid-template-columns: minmax(0, 1fr) minmax(280px, 340px);
+}
+
+.is-project .editor-panel {
+  position: sticky;
+  top: var(--space-4);
+  align-self: start;
 }
 
 .statement-panel,
@@ -163,6 +179,27 @@
   display: flex;
   flex-direction: column;
   gap: var(--space-4);
+  max-height: calc(100vh - 220px);
+  overflow-y: auto;
+  padding-right: var(--space-1);
+}
+
+// Angosto: las dos columnas no entran, se apilan y vuelve el scroll de página.
+@media (max-width: 1100px) {
+  .solver-split-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .statement-panel,
+  .editor-panel {
+    max-height: none;
+    overflow: visible;
+    padding-right: 0;
+  }
+
+  .is-project .editor-panel {
+    position: static;
+  }
 }
 
 .meta-strip {
@@ -212,10 +249,164 @@
   }
 }
 
-.markdown-body {
+// marked emite etiquetas planas: el ritmo de lectura (títulos, listas, código,
+// árboles de carpetas) se define acá y no en el HTML generado.
+:host ::ng-deep .markdown-body {
   font-size: var(--text-sm);
   color: var(--text-primary);
-  line-height: var(--leading-normal);
+  line-height: var(--leading-relaxed);
+
+  > :first-child {
+    margin-top: 0;
+  }
+
+  h1,
+  h2,
+  h3,
+  h4 {
+    margin: var(--space-5) 0 var(--space-2);
+    line-height: var(--leading-tight);
+    font-weight: 700;
+    color: var(--text-primary);
+  }
+
+  h1 {
+    font-size: var(--text-xl);
+  }
+
+  h2 {
+    font-size: var(--text-lg);
+  }
+
+  h3 {
+    font-size: var(--text-base);
+  }
+
+  h4 {
+    font-size: var(--text-sm);
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--text-secondary);
+  }
+
+  p {
+    margin: 0 0 var(--space-3);
+  }
+
+  ul,
+  ol {
+    margin: 0 0 var(--space-3);
+    padding-left: var(--space-5);
+  }
+
+  li + li {
+    margin-top: var(--space-1);
+  }
+
+  li > ul,
+  li > ol {
+    margin-top: var(--space-1);
+    margin-bottom: 0;
+  }
+
+  a {
+    color: var(--tenant-primary);
+    text-decoration: underline;
+    text-underline-offset: 2px;
+  }
+
+  code {
+    padding: 2px var(--space-1);
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-xs);
+    background-color: var(--bg-surface-active);
+    font-family: var(--font-mono);
+    font-size: var(--text-xs);
+  }
+
+  pre {
+    margin: 0 0 var(--space-3);
+    padding: var(--space-3);
+    border: 1px solid var(--code-border);
+    border-radius: var(--radius-md);
+    background-color: var(--code-bg);
+    overflow-x: auto;
+  }
+
+  pre code {
+    padding: 0;
+    border: 0;
+    background-color: transparent;
+    color: var(--code-text);
+    font-size: var(--text-xs);
+    line-height: var(--leading-normal);
+  }
+
+  blockquote {
+    margin: 0 0 var(--space-3);
+    padding: var(--space-2) var(--space-3);
+    border-left: 3px solid var(--tenant-primary);
+    background-color: var(--bg-surface-subtle);
+    color: var(--text-secondary);
+  }
+
+  hr {
+    margin: var(--space-5) 0;
+    border: 0;
+    border-top: 1px solid var(--border-subtle);
+  }
+
+  table {
+    width: 100%;
+    margin-bottom: var(--space-3);
+    border-collapse: collapse;
+    font-size: var(--text-sm);
+  }
+
+  th,
+  td {
+    padding: var(--space-2);
+    border: 1px solid var(--border-subtle);
+    text-align: left;
+  }
+
+  th {
+    background-color: var(--bg-surface-subtle);
+  }
+
+  // Estructura de carpetas: guías atenuadas y nombres legibles, como el árbol
+  // de archivos del entorno, en vez de un bloque monoespaciado plano.
+  .file-tree {
+    margin: 0 0 var(--space-3);
+    padding: var(--space-3) var(--space-4);
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-md);
+    background-color: var(--bg-surface-subtle);
+    overflow-x: auto;
+  }
+
+  .tree-row {
+    display: flex;
+    align-items: baseline;
+    font-family: var(--font-mono);
+    font-size: var(--text-xs);
+    line-height: var(--leading-relaxed);
+    white-space: pre;
+  }
+
+  .tree-guide {
+    color: var(--border-strong);
+    user-select: none;
+  }
+
+  .tree-node {
+    color: var(--text-secondary);
+
+    &.is-dir {
+      color: var(--text-primary);
+      font-weight: 600;
+    }
+  }
 }
 
 .constraints-list {
@@ -273,6 +464,39 @@
   margin: 0;
   font-size: var(--text-sm);
   color: var(--text-secondary);
+}
+
+// Riel de acciones de la práctica de entorno: una acción principal a todo el
+// ancho y los detalles debajo, para que el ancho angosto no parta el contenido.
+.rail-card .rail-body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: var(--space-4);
+}
+
+.rail-action {
+  justify-content: center;
+  width: 100%;
+}
+
+.rail-note {
+  margin: 0;
+  font-size: var(--text-xs);
+  line-height: var(--leading-normal);
+  color: var(--text-muted);
+}
+
+.rail-card .quota-summary {
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.rail-card .quota-item {
+  flex-direction: row;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-3);
 }
 
 .editor-card {
