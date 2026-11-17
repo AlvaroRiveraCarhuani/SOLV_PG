@@ -369,7 +369,11 @@ func (s *PracticeEnvironmentService) provisionManagedSatellite(
 		}, nil
 
 	case "mongodb":
+		user, password := satelliteIsolationIdentity(studentID, subjectID)
 		if usesManagedContainer && hasSpec && orchestrator != nil {
+			if err := s.ensureMongoIsolatedUser(ctx, orchestrator, spec, dbName, user, password); err != nil {
+				return satelliteProvision{}, err
+			}
 			if err := s.applyManagedMongoExerciseDBInitScript(ctx, orchestrator, spec, dbName, exercise); err != nil {
 				return satelliteProvision{}, err
 			}
@@ -379,16 +383,26 @@ func (s *PracticeEnvironmentService) provisionManagedSatellite(
 			Env: []string{
 				fmt.Sprintf("MONGODB_URI=mongodb://%s:27017/%s", host, dbName),
 				fmt.Sprintf("MONGO_DATABASE=%s", dbName),
+				fmt.Sprintf("MONGO_USER=%s", user),
+				fmt.Sprintf("MONGO_PASSWORD=%s", password),
 			},
 		}, nil
 
 	case "redis":
+		user, password := satelliteIsolationIdentity(studentID, subjectID)
+		if usesManagedContainer && hasSpec && orchestrator != nil {
+			if err := s.ensureRedisIsolatedUser(ctx, orchestrator, spec, dbName, user, password); err != nil {
+				return satelliteProvision{}, err
+			}
+		}
 		return satelliteProvision{
 			UsesManagedContainer: usesManagedContainer,
 			Env: []string{
 				fmt.Sprintf("REDIS_URL=redis://%s:6379/0", host),
 				fmt.Sprintf("REDIS_HOST=%s", host),
 				"REDIS_PORT=6379",
+				fmt.Sprintf("REDIS_USER=%s", user),
+				fmt.Sprintf("REDIS_PASSWORD=%s", password),
 				fmt.Sprintf("REDIS_KEY_PREFIX=%s:", dbName),
 			},
 		}, nil
@@ -441,6 +455,59 @@ func (s *PracticeEnvironmentService) applyManagedMongoExerciseDBInitScript(
 		return fmt.Errorf("exercise %s db_init_script failed on %s: %w", exercise.ID, dbName, err)
 	}
 	log.Printf("[Satellites] db_init_script del ejercicio %s aplicado/verificado en %s", exercise.ID, dbName)
+	return nil
+}
+
+// ensureMongoIsolatedUser crea o actualiza el usuario del alumno con rol readWrite
+// acotado a su propia base de datos NoSQL (ADR-050).
+func (s *PracticeEnvironmentService) ensureMongoIsolatedUser(
+	ctx context.Context,
+	orchestrator domain.ManagedSatelliteOrchestrator,
+	spec domain.ManagedSatelliteSpec,
+	dbName, user, password string,
+) error {
+	port := spec.Port
+	if port == 0 {
+		port = 27017
+	}
+	eval := fmt.Sprintf(
+		"try { db.createUser({ user: '%s', pwd: '%s', roles: [ { role: 'readWrite', db: '%s' } ] }); } catch (e) { db.updateUser('%s', { pwd: '%s' }); }",
+		escapeJSString(user), escapeJSString(password), escapeJSString(dbName),
+		escapeJSString(user), escapeJSString(password),
+	)
+	args := []string{
+		"mongosh", "--quiet",
+		fmt.Sprintf("mongodb://127.0.0.1:%d/%s", port, dbName),
+		"--eval", eval,
+	}
+	if _, err := orchestrator.ExecInManagedSatellite(ctx, spec.Engine, args); err != nil {
+		return fmt.Errorf("no se pudo preparar el usuario aislado de MongoDB %s: %w", user, err)
+	}
+	return nil
+}
+
+// ensureRedisIsolatedUser configura una ACL en Redis con el prefijo obligatorio
+// de claves del alumno y deniega comandos destructivos (ADR-050).
+func (s *PracticeEnvironmentService) ensureRedisIsolatedUser(
+	ctx context.Context,
+	orchestrator domain.ManagedSatelliteOrchestrator,
+	spec domain.ManagedSatelliteSpec,
+	dbName, user, password string,
+) error {
+	args := []string{
+		"redis-cli", "ACL", "SETUSER", user, "on",
+		">" + password,
+		"~" + dbName + ":*",
+		"+@all",
+		"-@dangerous",
+		"-FLUSHALL",
+		"-FLUSHDB",
+		"-CONFIG",
+		"-SHUTDOWN",
+	}
+	if _, err := orchestrator.ExecInManagedSatellite(ctx, spec.Engine, args); err != nil {
+		return fmt.Errorf("no se pudo configurar la ACL de Redis para %s: %w", user, err)
+	}
 	return nil
 }
 

@@ -10,9 +10,12 @@ export interface ImageSuggestion {
 }
 
 export interface ServiceRequirement {
-  category: string;
+  role?: 'primary_database' | 'cache' | string;
+  category?: string;
   engine: string;
+  component_id?: string;
   version?: string;
+  env_alias?: string;
 }
 
 export interface ServicesConfig {

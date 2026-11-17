@@ -594,9 +594,9 @@
                       </p>
                     </div>
                   } @else {
-                    <span class="sub-group-label">Motores disponibles en el nodo y el catálogo</span>
+                    <span class="sub-group-label">Base de Datos Principal (Elija 1)</span>
                     <div class="databases-grid">
-                      @for (db of databaseOptions(); track db.id) {
+                      @for (db of primaryDatabaseOptions(); track db.id) {
                         <button
                           type="button"
                           class="tech-component-card db-card"
@@ -619,12 +619,48 @@
                         </button>
                       }
                     </div>
+
+                    @if (auxiliaryServiceOptions().length > 0) {
+                      <span class="sub-group-label" style="margin-top: 1rem;">Servicios Auxiliares / Caché (Opcional)</span>
+                      <div class="databases-grid">
+                        @for (aux of auxiliaryServiceOptions(); track aux.id) {
+                          <button
+                            type="button"
+                            class="tech-component-card db-card"
+                            [class.selected]="selectedAuxiliaryId() === aux.id || selectedAuxiliaryId() === aux.slug || selectedAuxiliaryId() === aux.service_engine"
+                            [attr.aria-pressed]="selectedAuxiliaryId() === aux.id || selectedAuxiliaryId() === aux.slug || selectedAuxiliaryId() === aux.service_engine"
+                            [title]="aux.description || aux.name"
+                            (click)="toggleAuxiliaryService(aux.id)"
+                          >
+                            <div class="comp-compact-row">
+                              <tech-logo [iconType]="aux.icon_key" [size]="24" />
+                              <div class="db-info">
+                                <span class="comp-name">{{ aux.name }}</span>
+                                <span class="comp-ram-badge" machineData>
+                                  {{ aux.ram_delta_mb === 0 ? 'sin costo de nodo' : 'nodo ~' + aux.ram_delta_mb + ' MB' }}
+                                </span>
+                              </div>
+                            </div>
+                          </button>
+                        }
+                      </div>
+                    }
+
                     @if (selectedDatabaseOption(); as db) {
                       @if (db.id !== 'db-none' && db.description) {
                         <div class="tech-inspector-strip">
                           <tech-logo [iconType]="db.icon_key" [size]="16" class="inspector-icon" />
                           <strong class="inspector-name">{{ db.name }}:</strong>
                           <span class="inspector-desc">{{ db.description }}</span>
+                        </div>
+                      }
+                    }
+                    @if (selectedAuxiliaryOption(); as aux) {
+                      @if (aux.description) {
+                        <div class="tech-inspector-strip">
+                          <tech-logo [iconType]="aux.icon_key" [size]="16" class="inspector-icon" />
+                          <strong class="inspector-name">{{ aux.name }}:</strong>
+                          <span class="inspector-desc">{{ aux.description }}</span>
                         </div>
                       }
                     }

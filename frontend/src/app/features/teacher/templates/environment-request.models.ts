@@ -98,6 +98,7 @@ export interface EnvironmentRequestStackConfig {
   web_platform_id?: string;
   addon_ids?: string[];
   database_id?: string;
+  services?: { role?: string; component_id?: string }[];
   environment_folders?: string[];
 }
 

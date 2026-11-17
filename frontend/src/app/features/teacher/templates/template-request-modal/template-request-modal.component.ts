@@ -642,12 +642,20 @@ export class TemplateRequestModalComponent implements OnInit {
   // --- receta ----------------------------------------------------------------
 
   stackConfig(): EnvironmentRequestStackConfig {
+    const services: { role?: string; component_id?: string }[] = [];
+    if (this.databaseId()) {
+      const db = this.catalog().find(p => p.id === this.databaseId());
+      const role = (db?.service_engine || '').toLowerCase() === 'redis' ? 'cache' : 'primary_database';
+      services.push({ role, component_id: this.databaseId() });
+    }
+
     return {
       mode: 'visual',
       runtime_id: this.runtimeId() || undefined,
       web_platform_id: this.webPlatformId() || undefined,
       addon_ids: this.addonIds().length ? this.addonIds() : undefined,
-      database_id: this.databaseId() || undefined
+      database_id: this.databaseId() || undefined,
+      services: services.length ? services : undefined
     };
   }
 

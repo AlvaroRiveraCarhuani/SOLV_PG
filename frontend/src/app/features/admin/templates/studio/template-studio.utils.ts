@@ -799,8 +799,9 @@ export function synthesizeVisualStackState(params: {
   web: TemplateComponent | null;
   addons: TemplateComponent[];
   db: StudioDatabaseOption | null;
+  aux?: StudioDatabaseOption | null;
 }): SynthesizedVisualStackResult {
-  const { targetEnvironment, rt, web, addons, db } = params;
+  const { targetEnvironment, rt, web, addons, db, aux } = params;
   const isJudge = targetEnvironment === 'JUEZ_EFIMERO';
   const isDual = targetEnvironment === 'AMBOS';
 
@@ -809,6 +810,7 @@ export function synthesizeVisualStackState(params: {
   if (web) parts.push(web.name);
   for (const a of addons) parts.push(a.name.split(' ')[0]);
   if (db) parts.push(db.name.split(' ')[0]);
+  if (aux) parts.push(aux.name.split(' ')[0]);
   const prefix = isDual
     ? `${ENVIRONMENT_TYPES.AMBOS.short}: `
     : isJudge

@@ -2156,6 +2156,120 @@ describe('TemplateStudioComponent', () => {
       expect(component.selectedRuntimeId()).toBe('rt-python-312');
     });
   });
+
+  describe('Columna 3: Servicios Satélite por Rol (N-Satélites)', () => {
+    it('divide la Columna 3 en dos bloques: Base de Datos Principal y Servicios Auxiliares', () => {
+      fixture.detectChanges();
+      expect((component as any).primaryDatabaseOptions().length).toBeGreaterThan(0);
+      expect((component as any).auxiliaryServiceOptions().length).toBeGreaterThan(0);
+
+      const primaryEngines = (component as any).primaryDatabaseOptions().map((d: any) => d.service_engine);
+      expect(primaryEngines).toContain('none');
+      expect(primaryEngines).toContain('sqlite');
+      expect(primaryEngines).toContain('postgres');
+      expect(primaryEngines).not.toContain('redis');
+
+      const auxEngines = (component as any).auxiliaryServiceOptions().map((d: any) => d.service_engine);
+      expect(auxEngines).toContain('redis');
+      expect(auxEngines).not.toContain('postgres');
+    });
+
+    it('permite reemplazar la base de datos principal mediante selectDatabase', () => {
+      component.selectDatabase('sqlite');
+      expect(component.selectedDatabaseOption()?.service_engine).toBe('sqlite');
+
+      component.selectDatabase('postgres');
+      expect(component.selectedDatabaseOption()?.service_engine).toBe('postgres');
+    });
+
+    it('permite seleccionar y deseleccionar Redis auxiliar mediante toggleAuxiliaryService', () => {
+      const redis = (component as any).auxiliaryServiceOptions().find((d: any) => d.service_engine === 'redis');
+      expect(redis).toBeTruthy();
+
+      (component as any).toggleAuxiliaryService(redis.id);
+      expect((component as any).selectedAuxiliaryOption()?.service_engine).toBe('redis');
+
+      (component as any).toggleAuxiliaryService(redis.id);
+      expect((component as any).selectedAuxiliaryOption()).toBeNull();
+    });
+
+    it('permite seleccionar simultáneamente una Base de Datos y Redis auxiliar', () => {
+      component.selectDatabase('postgres');
+      const redis = (component as any).auxiliaryServiceOptions().find((d: any) => d.service_engine === 'redis');
+      (component as any).toggleAuxiliaryService(redis.id);
+
+      expect(component.selectedDatabaseOption()?.service_engine).toBe('postgres');
+      expect((component as any).selectedAuxiliaryOption()?.service_engine).toBe('redis');
+
+      const stack = component.selectedStackComponents();
+      expect(stack.some(c => c.service_engine === 'postgres')).toBe(true);
+      expect(stack.some(c => c.service_engine === 'redis')).toBe(true);
+    });
+
+    it('construye payload con dos bindings en services_config y stack_config, conservando database_id', () => {
+      component.name.set('Plantilla Fullstack con Caché');
+      component.selectedRuntimeId.set('rt-python-312');
+      component.selectDatabase('postgres');
+      const redis = (component as any).auxiliaryServiceOptions().find((d: any) => d.service_engine === 'redis');
+      (component as any).toggleAuxiliaryService(redis.id);
+
+      const payload = component.buildCreatePayload();
+      expect(payload.services_config?.services.length).toBe(2);
+
+      const primaryBinding = payload.services_config?.services.find(s => s.role === 'primary_database');
+      expect(primaryBinding?.engine).toBe('postgres');
+      expect(primaryBinding?.env_alias).toBe('db');
+
+      const cacheBinding = payload.services_config?.services.find(s => s.role === 'cache');
+      expect(cacheBinding?.engine).toBe('redis');
+      expect(cacheBinding?.env_alias).toBe('cache');
+
+      expect(payload.stack_config?.services?.length).toBe(2);
+      expect(payload.stack_config?.services?.some(s => s.role === 'primary_database')).toBe(true);
+      expect(payload.stack_config?.services?.some(s => s.role === 'cache')).toBe(true);
+
+      expect(payload.stack_config?.database_id).toBeTruthy();
+    });
+
+    it('restaura ambos bindings en applyTemplateToStudio cuando la plantilla contiene stack_config.services', () => {
+      const redis = (component as any).auxiliaryServiceOptions().find((d: any) => d.service_engine === 'redis');
+      const postgres = (component as any).primaryDatabaseOptions().find((d: any) => d.service_engine === 'postgres');
+
+      const mockTemplate: any = {
+        id: 'tpl-multi-satellite',
+        name: 'Node con Mongo y Redis',
+        docker_image: 'solv/node:20',
+        base_ram_mb: 512,
+        target_environment: 'IDE_PERSISTENTE',
+        services_config: {
+          services: [
+            { role: 'primary_database', engine: 'postgres', component_id: postgres?.id, env_alias: 'db' },
+            { role: 'cache', engine: 'redis', component_id: redis?.id, env_alias: 'cache' }
+          ]
+        },
+        stack_config: {
+          mode: 'visual',
+          runtime_id: 'rt-python-312',
+          services: [
+            { role: 'primary_database', component_id: postgres?.id },
+            { role: 'cache', component_id: redis?.id }
+          ]
+        }
+      };
+
+      (component as any).applyTemplateToStudio(mockTemplate, false);
+
+      expect(component.selectedDatabaseOption()?.service_engine).toBe('postgres');
+      expect((component as any).selectedAuxiliaryOption()?.service_engine).toBe('redis');
+    });
+
+    it('muestra el costo del nodo en las tarjetas de la Columna 3', () => {
+      fixture.detectChanges();
+      const badges = fixture.nativeElement.querySelectorAll('.comp-ram-badge') as NodeListOf<HTMLElement>;
+      const badgeTexts = Array.from(badges).map(b => b.textContent?.trim());
+      expect(badgeTexts.some(t => t?.includes('nodo ~') || t?.includes('sin costo de nodo'))).toBe(true);
+    });
+  });
 });
 
 

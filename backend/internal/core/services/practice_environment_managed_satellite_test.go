@@ -162,6 +162,12 @@ func TestStartPracticeEnvironmentForExercise_ProvisionsManagedSatelliteEngines(t
 		if db, _ := envValue(config.Env, "MONGO_DATABASE"); db != "solv_std_std0001_subj001" {
 			t.Errorf("MONGO_DATABASE inyectada inesperada: %q", db)
 		}
+		if user, ok := envValue(config.Env, "MONGO_USER"); !ok || user == "" {
+			t.Errorf("MONGO_USER debe estar presente y no vacío, obtenido: %q", user)
+		}
+		if pass, ok := envValue(config.Env, "MONGO_PASSWORD"); !ok || pass == "" {
+			t.Errorf("MONGO_PASSWORD debe estar presente y no vacío, obtenido: %q", pass)
+		}
 		if _, ok := envValue(config.Env, "DATABASE_URL"); ok {
 			t.Error("un motor NoSQL no debe inyectar DATABASE_URL relacional")
 		}
@@ -196,6 +202,27 @@ func TestStartPracticeEnvironmentForExercise_ProvisionsManagedSatelliteEngines(t
 		}
 		if prefix, _ := envValue(config.Env, "REDIS_KEY_PREFIX"); prefix != "solv_std_std0001_subj001:" {
 			t.Errorf("REDIS_KEY_PREFIX inyectado inesperado: %q", prefix)
+		}
+		if user, ok := envValue(config.Env, "REDIS_USER"); !ok || user == "" {
+			t.Errorf("REDIS_USER debe estar presente y no vacío, obtenido: %q", user)
+		}
+		if pass, ok := envValue(config.Env, "REDIS_PASSWORD"); !ok || pass == "" {
+			t.Errorf("REDIS_PASSWORD debe estar presente y no vacío, obtenido: %q", pass)
+		}
+
+		// Verificar que se configuró la ACL de Redis con comandos denegados
+		foundACL := false
+		for _, exec := range orch.satelliteExecs {
+			if exec.engine == "redis" && len(exec.cmd) >= 3 && exec.cmd[0] == "redis-cli" && exec.cmd[1] == "ACL" && exec.cmd[2] == "SETUSER" {
+				cmdStr := strings.Join(exec.cmd, " ")
+				if strings.Contains(cmdStr, "-FLUSHALL") && strings.Contains(cmdStr, "-@dangerous") {
+					foundACL = true
+					break
+				}
+			}
+		}
+		if !foundACL {
+			t.Error("debe configurarse la ACL de Redis con -FLUSHALL y -@dangerous")
 		}
 	})
 

@@ -10,6 +10,7 @@ import {
   RuntimeCapabilities,
   ServiceRequirement,
   StackConfig,
+  StackServiceSelection,
   TargetEnvironment,
   TemplateCategory,
   TemplateComponent
@@ -195,6 +196,7 @@ export class TemplateStudioComponent implements OnInit, OnDestroy {
   readonly selectedWebPlatformId = signal<string | null>(null);
   readonly selectedAddonIds = signal<string[]>([]);
   readonly selectedDatabaseId = signal<string>('db-none');
+  readonly selectedAuxiliaryId = signal<string | null>(null);
 
   readonly dockerImage = signal<string>('');
   readonly dockerfileContent = signal<string>('');
@@ -403,12 +405,31 @@ export class TemplateStudioComponent implements OnInit, OnDestroy {
     this.showScopeInfoModal.set(false);
   }
 
+  readonly primaryDatabaseOptions = computed<StudioDatabaseOption[]>(() =>
+    this.databaseOptions().filter(d => d.id === 'db-none' || (d.service_engine || '').toLowerCase() !== 'redis')
+  );
+
+  readonly auxiliaryServiceOptions = computed<StudioDatabaseOption[]>(() =>
+    this.databaseOptions().filter(d => d.id !== 'db-none' && (d.service_engine || '').toLowerCase() === 'redis')
+  );
+
   readonly selectedDatabaseOption = computed<StudioDatabaseOption | null>(() => {
     if (this.targetEnvironment() === 'JUEZ_EFIMERO' || this.targetEnvironment() === 'AMBOS') return null;
     const id = this.selectedDatabaseId();
     if (!id || id === 'db-none' || id === 'none') return null;
     return (
-      this.databaseOptions().find(
+      this.primaryDatabaseOptions().find(
+        i => (i.id === id || i.slug === id || i.service_engine === id) && i.service_engine !== 'none'
+      ) || null
+    );
+  });
+
+  readonly selectedAuxiliaryOption = computed<StudioDatabaseOption | null>(() => {
+    if (this.targetEnvironment() === 'JUEZ_EFIMERO' || this.targetEnvironment() === 'AMBOS') return null;
+    const id = this.selectedAuxiliaryId();
+    if (!id || id === 'none') return null;
+    return (
+      this.auxiliaryServiceOptions().find(
         i => (i.id === id || i.slug === id || i.service_engine === id) && i.service_engine !== 'none'
       ) || null
     );
@@ -423,6 +444,8 @@ export class TemplateStudioComponent implements OnInit, OnDestroy {
     list.push(...this.selectedAddonComponents());
     const db = this.selectedDatabaseOption();
     if (db) list.push(db);
+    const aux = this.selectedAuxiliaryOption();
+    if (aux) list.push(aux);
     return list;
   });
 
@@ -748,7 +771,34 @@ export class TemplateStudioComponent implements OnInit, OnDestroy {
       this.selectedRuntimeId.set(cfg.runtime_id || null);
       this.selectedWebPlatformId.set(cfg.web_platform_id || null);
       this.selectedAddonIds.set(cfg.addon_ids || []);
-      this.selectedDatabaseId.set(cfg.database_id || 'db-none');
+
+      const svcs = (cfg.services && cfg.services.length > 0)
+        ? cfg.services
+        : (tpl.services_config?.services || []).map(s => ({
+            role: s.role || (s.engine === 'redis' ? 'cache' : 'primary_database'),
+            component_id: s.component_id || this.databaseOptions().find(o => o.service_engine === s.engine)?.id
+          }));
+
+      if (svcs.length > 0) {
+        let foundDb = false;
+        let foundAux = false;
+        for (const s of svcs) {
+          const comp = this.techComponents().find(c => c.id === s.component_id || c.slug === s.component_id);
+          const engine = (comp?.service_engine || s.role || '').toLowerCase();
+          if (s.role === 'cache' || engine === 'redis') {
+            this.selectedAuxiliaryId.set(s.component_id || null);
+            foundAux = true;
+          } else if (s.role === 'primary_database' || !foundDb) {
+            this.selectedDatabaseId.set(s.component_id || 'db-none');
+            foundDb = true;
+          }
+        }
+        if (!foundDb) this.selectedDatabaseId.set(cfg.database_id || 'db-none');
+        if (!foundAux) this.selectedAuxiliaryId.set(null);
+      } else {
+        this.selectedDatabaseId.set(cfg.database_id || 'db-none');
+        this.selectedAuxiliaryId.set(null);
+      }
       this.recalculateFromVisualSelection();
 
       if (cfg.dockerfile_content && cfg.dockerfile_content !== this.dockerfileContent()) {
@@ -796,6 +846,7 @@ export class TemplateStudioComponent implements OnInit, OnDestroy {
     if (env === 'JUEZ_EFIMERO' || env === 'AMBOS') {
       this.selectedWebPlatformId.set(null);
       this.selectedDatabaseId.set('db-none');
+      this.selectedAuxiliaryId.set(null);
     }
     this.isRamManuallyEdited.set(false);
     this.recalculateFromVisualSelection();
@@ -959,6 +1010,24 @@ export class TemplateStudioComponent implements OnInit, OnDestroy {
     const db = this.databaseOptions().find(i => i.id === id || i.slug === id || i.service_engine === id);
     if (!db || !db.is_available) return;
     this.selectedDatabaseId.set(db.id);
+    if ((db.service_engine || '').toLowerCase() === 'redis') {
+      this.selectedAuxiliaryId.set(db.id);
+    }
+    this.recalculateFromVisualSelection();
+  }
+
+  toggleAuxiliaryService(id: string): void {
+    const aux = this.auxiliaryServiceOptions().find(i => i.id === id || i.slug === id || i.service_engine === id);
+    if (!aux || !aux.is_available) return;
+    if (
+      this.selectedAuxiliaryId() === aux.id ||
+      this.selectedAuxiliaryId() === aux.slug ||
+      this.selectedAuxiliaryId() === aux.service_engine
+    ) {
+      this.selectedAuxiliaryId.set(null);
+    } else {
+      this.selectedAuxiliaryId.set(aux.id);
+    }
     this.recalculateFromVisualSelection();
   }
 
@@ -1057,7 +1126,8 @@ export class TemplateStudioComponent implements OnInit, OnDestroy {
       rt,
       web,
       addons: this.selectedAddonComponents(),
-      db: this.selectedDatabaseOption()
+      db: this.selectedDatabaseOption(),
+      aux: this.selectedAuxiliaryOption()
     });
 
     if (!this.isNameManuallyEdited()) {
@@ -1308,11 +1378,35 @@ export class TemplateStudioComponent implements OnInit, OnDestroy {
 
   buildCreatePayload(): CreateOfficialTemplateDTO {
     const db = this.selectedDatabaseOption();
+    const aux = this.selectedAuxiliaryOption();
     const services: ServiceRequirement[] = [];
+    const stackServices: StackServiceSelection[] = [];
+
     if (db?.service_engine && db.service_engine !== 'none') {
       services.push({
-        category: db.service_engine === 'redis' ? 'cache' : 'database',
-        engine: db.service_engine
+        role: 'primary_database',
+        category: 'database',
+        engine: db.service_engine,
+        component_id: db.id,
+        env_alias: 'db'
+      });
+      stackServices.push({
+        role: 'primary_database',
+        component_id: db.id
+      });
+    }
+
+    if (aux?.service_engine && aux.service_engine !== 'none') {
+      services.push({
+        role: 'cache',
+        category: 'cache',
+        engine: aux.service_engine,
+        component_id: aux.id,
+        env_alias: 'cache'
+      });
+      stackServices.push({
+        role: 'cache',
+        component_id: aux.id
       });
     }
 
@@ -1322,6 +1416,7 @@ export class TemplateStudioComponent implements OnInit, OnDestroy {
       web_platform_id: this.selectedWebPlatformId() || undefined,
       addon_ids: this.selectedAddonIds(),
       database_id: this.selectedDatabaseId(),
+      services: stackServices.length > 0 ? stackServices : undefined,
       dockerfile_content: this.dockerfileContent().trim() || undefined
     };
 

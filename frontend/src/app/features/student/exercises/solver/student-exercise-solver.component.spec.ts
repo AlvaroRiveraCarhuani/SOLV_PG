@@ -348,4 +348,33 @@ describe('StudentExerciseSolverComponent', () => {
     expect(component.lastResult()?.verdict).toBe('AC');
     expect(component.lastSubmissionId()).toBe('sub-909');
   });
+
+  it('muestra el aviso de examen sin acceso a internet cuando exam_network es none', () => {
+    component.exercise.set({
+      ...component.exercise()!,
+      type: 'project',
+      environment_type: 'IDE_PERSISTENTE',
+      purpose: 'exam',
+      exam_network: 'none'
+    });
+    fixture.detectChanges();
+
+    const text = (fixture.nativeElement as HTMLElement).textContent;
+    expect(text).toContain('Este examen no tiene acceso a internet');
+    expect(text).not.toContain('Este examen tiene acceso a internet por una excepción');
+  });
+
+  it('muestra el aviso de excepcion de red cuando exam_network es egress', () => {
+    component.exercise.set({
+      ...component.exercise()!,
+      type: 'project',
+      environment_type: 'IDE_PERSISTENTE',
+      purpose: 'exam',
+      exam_network: 'egress'
+    });
+    fixture.detectChanges();
+
+    const text = (fixture.nativeElement as HTMLElement).textContent;
+    expect(text).toContain('Este examen tiene acceso a internet por una excepción declarada por el docente');
+  });
 });

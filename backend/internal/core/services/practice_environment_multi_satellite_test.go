@@ -202,10 +202,18 @@ func TestStartPracticeEnvironmentForExercise_AppliesMongoDBInitScriptWithSeal(t 
 	}
 
 	execs := orch.satelliteExecsWith("mongosh")
-	if len(execs) != 1 {
-		t.Fatalf("esperada una invocación de init en mongodb, obtenidas %d", len(execs))
+	var initExec *satelliteExec
+	for _, e := range execs {
+		if strings.Contains(strings.Join(e.cmd, " "), "_solv_exercise_migrations") {
+			cpy := e
+			initExec = &cpy
+			break
+		}
 	}
-	joined := strings.Join(execs[0].cmd, " ")
+	if initExec == nil {
+		t.Fatalf("esperada una invocación de init en mongodb con _solv_exercise_migrations, obtenidos %d comandos mongosh", len(execs))
+	}
+	joined := strings.Join(initExec.cmd, " ")
 	for _, want := range []string{
 		"mongodb://127.0.0.1:27017/solv_std_std0001_subj001",
 		`db.getCollection("_solv_exercise_migrations").findOne({ exercise_id: "ex-sat" })`,
