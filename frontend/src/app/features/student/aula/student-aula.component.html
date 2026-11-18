@@ -39,6 +39,17 @@
           <span class="status-pill" [class]="'status-' + statusTone(clase.status)">{{ statusLabel(clase.status) }}</span>
         </div>
 
+        @if (clase.frozen_at && clase.purpose === 'exam') {
+          <div class="paused-note" role="status">
+            <svg lucidePause></svg>
+            <span>
+              El docente pausó el examen. Tu entorno quedó en solo lectura desde
+              <time [attr.datetime]="clase.frozen_at">{{ clase.frozen_at | dateText:'time' }}</time>
+              y vuelve a escribir cuando lo reanude.
+            </span>
+          </div>
+        }
+
         <dl class="aula-meta">
           <div class="meta-item">
             <dt><svg lucideBookOpen></svg> Práctica</dt>

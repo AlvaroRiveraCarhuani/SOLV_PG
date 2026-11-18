@@ -19,6 +19,7 @@ export type PanelMessage =
         | 'open-tab'
         | 'focus-panel'
         | 'open-aula'
+        | 'toggle-pause'
         | 'close-aula';
     };
 

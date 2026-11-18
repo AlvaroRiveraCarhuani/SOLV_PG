@@ -62,6 +62,7 @@ func auditMeta(t *testing.T, log *domain.AuditLog) map[string]any {
 
 func TestClassAdvanceAudit_RecordsTeacherActionsWithPreviousAndNewWindow(t *testing.T) {
 	session := newOpenSession()
+	session.Purpose = string(domain.ExercisePurposeExam)
 	store := &fakeGraceStore{fakeAdvanceStore: fakeAdvanceStore{
 		participants: []string{advanceStudentID},
 		purpose:      "class",
@@ -100,12 +101,14 @@ func TestClassAdvanceAudit_RecordsTeacherActionsWithPreviousAndNewWindow(t *test
 	closedAt := time.Now()
 	session.Status = domain.ClassSessionStatusClosed
 	session.ClosesAt = &closedAt
-	if _, err := svc.AddGrace(ctx, advanceTenantID, advanceTeacherID, "teacher", session.ID, 15); err != nil {
-		t.Fatalf("AddGrace falló: %v", err)
+	extended := time.Now().Add(15 * time.Minute).UTC().Truncate(time.Second)
+	if _, err := svc.SetGraceUntil(ctx, advanceTenantID, advanceTeacherID, "teacher", session.ID, extended); err != nil {
+		t.Fatalf("SetGraceUntil falló: %v", err)
 	}
+	session.GraceUntil = &extended
 	deadline := time.Now().Add(time.Hour).UTC().Truncate(time.Second)
-	if _, err := svc.SetGraceDeadline(ctx, advanceTenantID, advanceTeacherID, "teacher", session.ID, deadline); err != nil {
-		t.Fatalf("SetGraceDeadline falló: %v", err)
+	if _, err := svc.SetGraceUntil(ctx, advanceTenantID, advanceTeacherID, "teacher", session.ID, deadline); err != nil {
+		t.Fatalf("SetGraceUntil falló: %v", err)
 	}
 	if _, err := svc.CloseGrace(ctx, advanceTenantID, advanceTeacherID, "teacher", session.ID); err != nil {
 		t.Fatalf("CloseGrace falló: %v", err)
@@ -115,8 +118,8 @@ func TestClassAdvanceAudit_RecordsTeacherActionsWithPreviousAndNewWindow(t *test
 		domain.AuditClassAdvanceEmitted,
 		domain.AuditClassFrozen,
 		domain.AuditClassUnfrozen,
-		domain.AuditClassAdvanceGraceExtended,
-		domain.AuditClassAdvanceGraceDeadline,
+		domain.AuditClassAdvanceGraceSet,
+		domain.AuditClassAdvanceGraceSet,
 		domain.AuditClassAdvanceGraceClosed,
 	}
 	if len(audit.logs) != len(wantActions) {
@@ -143,20 +146,17 @@ func TestClassAdvanceAudit_RecordsTeacherActionsWithPreviousAndNewWindow(t *test
 		t.Error("la emisión debía guardar el id del avance")
 	}
 
-	extended := auditMeta(t, audit.action(domain.AuditClassAdvanceGraceExtended))
-	if extended["minutes"] != float64(15) {
-		t.Errorf("la suma debía guardar 15 minutos: %v", extended)
+	firstSet := auditMeta(t, audit.logs[3])
+	if firstSet["until"] == nil {
+		t.Error("el ajuste debía guardar la hora final")
 	}
-	if extended["until"] == nil {
-		t.Error("la suma debía guardar la nueva ventana")
-	}
-	if extended["previous_until"] != nil {
-		t.Errorf("la primera suma no tenía ventana anterior: %v", extended["previous_until"])
+	if firstSet["previous_until"] != nil {
+		t.Errorf("el primer ajuste no tenía ventana anterior: %v", firstSet["previous_until"])
 	}
 
-	deadlineMeta := auditMeta(t, audit.action(domain.AuditClassAdvanceGraceDeadline))
-	if deadlineMeta["until"] == nil {
-		t.Error("la fecha límite debía quedar en la metadata")
+	secondSet := auditMeta(t, audit.logs[4])
+	if secondSet["previous_until"] == nil || secondSet["until"] == nil {
+		t.Errorf("el segundo ajuste debía guardar la ventana anterior y la nueva: %v", secondSet)
 	}
 
 	closed := auditMeta(t, audit.action(domain.AuditClassAdvanceGraceClosed))
@@ -207,6 +207,7 @@ func TestClassAdvanceAudit_RecordsStudentApplyAndDismiss(t *testing.T) {
 
 func TestClassAdvanceAudit_FailureDoesNotBreakTheAction(t *testing.T) {
 	session := newOpenSession()
+	session.Purpose = string(domain.ExercisePurposeExam)
 	store := &fakeGraceStore{fakeAdvanceStore: fakeAdvanceStore{participants: []string{advanceStudentID}, purpose: "class"}}
 	svc := services.NewClassAdvanceService(store, &fakeAdvanceSessions{session: session})
 	svc.SetAuditRepository(failingAudit{})

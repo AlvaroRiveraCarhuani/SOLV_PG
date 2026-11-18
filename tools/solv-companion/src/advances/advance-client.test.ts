@@ -38,6 +38,7 @@ test('emitir con archivos elegidos envía la selección', async () => {
   }
   assert.deepEqual(bodies[0], {
     exercise_id: 'e-1',
+    title: '',
     scope: 'class',
     student_ids: [],
     selected_files: ['src/a.ts', 'README.md']
@@ -54,6 +55,29 @@ test('emitir todo el proyecto no manda una selección', async () => {
   }
   assert.deepEqual(bodies[0], {
     exercise_id: 'e-1',
+    title: '',
+    scope: 'class',
+    student_ids: [],
+    selected_files: []
+  });
+});
+
+test('emitir con título personalizado envía el título', async () => {
+  const original = globalThis.fetch;
+  const { advances, bodies } = buildClient();
+  try {
+    await advances.emit({
+      sessionId: 's-1',
+      exerciseId: 'e-1',
+      title: 'Paso 2: rutas del servicio',
+      scope: 'class'
+    });
+  } finally {
+    globalThis.fetch = original;
+  }
+  assert.deepEqual(bodies[0], {
+    exercise_id: 'e-1',
+    title: 'Paso 2: rutas del servicio',
     scope: 'class',
     student_ids: [],
     selected_files: []

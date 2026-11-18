@@ -198,6 +198,12 @@ func openClassSessionForHTTP() *domain.ClassSession {
 	}
 }
 
+func openExamSessionForHTTP() *domain.ClassSession {
+	session := openClassSessionForHTTP()
+	session.Purpose = string(domain.ExercisePurposeExam)
+	return session
+}
+
 func closedClassSessionForHTTP() *domain.ClassSession {
 	session := openClassSessionForHTTP()
 	session.Status = domain.ClassSessionStatusClosed
@@ -229,7 +235,7 @@ func decodeSessionResponse(t *testing.T, recorder *httptest.ResponseRecorder) do
 }
 
 func TestClassAdvanceHandler_FreezeAndUnfreezeSession(t *testing.T) {
-	handler, store := newAdvanceHandlerForHTTP(openClassSessionForHTTP())
+	handler, store := newAdvanceHandlerForHTTP(openExamSessionForHTTP())
 
 	freeze := httptest.NewRecorder()
 	handler.FreezeSession(freeze, advanceSessionRequest(http.MethodPatch, "teacher", advanceHTTPSessionID, ""))
@@ -256,6 +262,19 @@ func TestClassAdvanceHandler_FreezeAndUnfreezeSession(t *testing.T) {
 	}
 }
 
+func TestClassAdvanceHandler_FreezeRejectsClassSession(t *testing.T) {
+	handler, store := newAdvanceHandlerForHTTP(openClassSessionForHTTP())
+
+	recorder := httptest.NewRecorder()
+	handler.FreezeSession(recorder, advanceSessionRequest(http.MethodPatch, "teacher", advanceHTTPSessionID, ""))
+	if recorder.Code != http.StatusConflict {
+		t.Fatalf("una clase no se pausa: esperado 409, hubo %d: %s", recorder.Code, recorder.Body.String())
+	}
+	if len(store.frozenCalls) != 0 {
+		t.Fatalf("la sesión de clase no debía marcarse: %v", store.frozenCalls)
+	}
+}
+
 func TestClassAdvanceHandler_FreezeRejectsStudent(t *testing.T) {
 	handler, store := newAdvanceHandlerForHTTP(openClassSessionForHTTP())
 
@@ -279,26 +298,18 @@ func TestClassAdvanceHandler_FreezeUnknownSession(t *testing.T) {
 	}
 }
 
-func TestClassAdvanceHandler_ExtendGrace(t *testing.T) {
+func TestClassAdvanceHandler_SetGraceUntilWritesTheExactHour(t *testing.T) {
 	handler, store := newAdvanceHandlerForHTTP(closedClassSessionForHTTP())
+	until := time.Now().Add(45 * time.Minute).UTC().Truncate(time.Second)
 
-	before := time.Now()
 	recorder := httptest.NewRecorder()
-	handler.ExtendGrace(recorder, advanceSessionRequest(http.MethodPatch, "teacher", advanceHTTPSessionID, `{"add_minutes":45}`))
+	handler.ExtendGrace(recorder, advanceSessionRequest(http.MethodPatch, "teacher", advanceHTTPSessionID,
+		fmt.Sprintf(`{"until":%q}`, until.Format(time.RFC3339))))
 	if recorder.Code != http.StatusOK {
 		t.Fatalf("esperado 200, hubo %d: %s", recorder.Code, recorder.Body.String())
 	}
-
-	session := decodeSessionResponse(t, recorder)
-	if session.GraceUntil == nil {
-		t.Fatal("la respuesta debía traer grace_until")
-	}
-	delta := session.GraceUntil.Sub(before)
-	if delta < 44*time.Minute || delta > 46*time.Minute {
-		t.Fatalf("la ventana debía quedar a 45 minutos, quedó a %v", delta)
-	}
-	if len(store.graceCalled) != 1 {
-		t.Fatalf("el almacén debía recibir una sola ventana: %v", store.graceCalled)
+	if len(store.graceCalled) != 1 || !store.graceCalled[0].Equal(until) {
+		t.Fatalf("el almacén debía recibir la hora final %v: %v", until, store.graceCalled)
 	}
 }
 
@@ -306,7 +317,9 @@ func TestClassAdvanceHandler_ExtendGraceRequiresClosedSession(t *testing.T) {
 	handler, store := newAdvanceHandlerForHTTP(openClassSessionForHTTP())
 
 	recorder := httptest.NewRecorder()
-	handler.ExtendGrace(recorder, advanceSessionRequest(http.MethodPatch, "teacher", advanceHTTPSessionID, `{"add_minutes":30}`))
+	until := time.Now().Add(30 * time.Minute).UTC().Truncate(time.Second)
+	handler.ExtendGrace(recorder, advanceSessionRequest(http.MethodPatch, "teacher", advanceHTTPSessionID,
+		fmt.Sprintf(`{"until":%q}`, until.Format(time.RFC3339))))
 	if recorder.Code != http.StatusConflict {
 		t.Fatalf("esperado 409, hubo %d: %s", recorder.Code, recorder.Body.String())
 	}
@@ -315,18 +328,16 @@ func TestClassAdvanceHandler_ExtendGraceRequiresClosedSession(t *testing.T) {
 	}
 }
 
-func TestClassAdvanceHandler_ExtendGraceOutOfRange(t *testing.T) {
-	for _, minutes := range []string{`{"add_minutes":0}`, `{"add_minutes":481}`, `{"add_minutes":-5}`, `{}`} {
-		handler, store := newAdvanceHandlerForHTTP(closedClassSessionForHTTP())
+func TestClassAdvanceHandler_GraceRejectsABodyWithoutAction(t *testing.T) {
+	handler, store := newAdvanceHandlerForHTTP(closedClassSessionForHTTP())
 
-		recorder := httptest.NewRecorder()
-		handler.ExtendGrace(recorder, advanceSessionRequest(http.MethodPatch, "teacher", advanceHTTPSessionID, minutes))
-		if recorder.Code != http.StatusBadRequest {
-			t.Errorf("%s: esperado 400, hubo %d: %s", minutes, recorder.Code, recorder.Body.String())
-		}
-		if len(store.graceCalled) != 0 {
-			t.Errorf("%s: fuera de rango no debía escribir la ventana: %v", minutes, store.graceCalled)
-		}
+	recorder := httptest.NewRecorder()
+	handler.ExtendGrace(recorder, advanceSessionRequest(http.MethodPatch, "teacher", advanceHTTPSessionID, `{}`))
+	if recorder.Code != http.StatusBadRequest {
+		t.Fatalf("esperado 400, hubo %d: %s", recorder.Code, recorder.Body.String())
+	}
+	if len(store.graceCalled) != 0 {
+		t.Fatalf("un cuerpo sin acción no debía escribir la ventana: %v", store.graceCalled)
 	}
 }
 
@@ -334,7 +345,9 @@ func TestClassAdvanceHandler_ExtendGraceRejectsStudent(t *testing.T) {
 	handler, store := newAdvanceHandlerForHTTP(closedClassSessionForHTTP())
 
 	recorder := httptest.NewRecorder()
-	handler.ExtendGrace(recorder, advanceSessionRequest(http.MethodPatch, "student", advanceHTTPSessionID, `{"add_minutes":30}`))
+	until := time.Now().Add(30 * time.Minute).UTC().Truncate(time.Second)
+	handler.ExtendGrace(recorder, advanceSessionRequest(http.MethodPatch, "student", advanceHTTPSessionID,
+		fmt.Sprintf(`{"until":%q}`, until.Format(time.RFC3339))))
 	if recorder.Code != http.StatusForbidden {
 		t.Fatalf("esperado 403, hubo %d: %s", recorder.Code, recorder.Body.String())
 	}
@@ -467,30 +480,9 @@ func TestClassAdvanceHandler_ExtendGraceInvalidBody(t *testing.T) {
 	handler, _ := newAdvanceHandlerForHTTP(closedClassSessionForHTTP())
 
 	recorder := httptest.NewRecorder()
-	handler.ExtendGrace(recorder, advanceSessionRequest(http.MethodPatch, "teacher", advanceHTTPSessionID, `{"add_minutes":`))
+	handler.ExtendGrace(recorder, advanceSessionRequest(http.MethodPatch, "teacher", advanceHTTPSessionID, `{"until":`))
 	if recorder.Code != http.StatusBadRequest {
 		t.Fatalf("esperado 400, hubo %d: %s", recorder.Code, recorder.Body.String())
-	}
-}
-
-func TestClassAdvanceHandler_AddGraceToCurrentWindow(t *testing.T) {
-	session := closedClassSessionForHTTP()
-	base := time.Now().Add(10 * time.Minute)
-	session.GraceUntil = &base
-	handler, store := newAdvanceHandlerForHTTP(session)
-
-	before := time.Now()
-	recorder := httptest.NewRecorder()
-	handler.ExtendGrace(recorder, advanceSessionRequest(http.MethodPatch, "teacher", advanceHTTPSessionID, `{"add_minutes":15}`))
-	if recorder.Code != http.StatusOK {
-		t.Fatalf("esperado 200, hubo %d: %s", recorder.Code, recorder.Body.String())
-	}
-	if len(store.graceCalled) != 1 {
-		t.Fatalf("el almacén debía recibir una sola ventana: %v", store.graceCalled)
-	}
-	delta := store.graceCalled[0].Sub(before)
-	if delta < 24*time.Minute || delta > 26*time.Minute {
-		t.Fatalf("sumar 15 minutos a una ventana de 10 debía dejar 25, quedó a %v", delta)
 	}
 }
 
@@ -547,7 +539,7 @@ func TestClassAdvanceHandler_GraceRejectsAmbiguousAction(t *testing.T) {
 	handler, store := newAdvanceHandlerForHTTP(closedClassSessionForHTTP())
 
 	recorder := httptest.NewRecorder()
-	handler.ExtendGrace(recorder, advanceSessionRequest(http.MethodPatch, "teacher", advanceHTTPSessionID, `{"add_minutes":15,"close":true}`))
+	handler.ExtendGrace(recorder, advanceSessionRequest(http.MethodPatch, "teacher", advanceHTTPSessionID, `{"until":"2026-11-18T23:00:00Z","close":true}`))
 	if recorder.Code != http.StatusBadRequest {
 		t.Fatalf("esperado 400, hubo %d: %s", recorder.Code, recorder.Body.String())
 	}

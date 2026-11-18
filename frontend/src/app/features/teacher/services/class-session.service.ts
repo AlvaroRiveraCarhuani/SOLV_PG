@@ -269,21 +269,15 @@ export class ClassSessionService {
     );
   }
 
-  /**
-   * Suma minutos al final vigente de la ventana de disponibilidad. Si la
-   * ventana ya venció, el servidor cuenta desde ahora y reabre los vencidos.
-   */
-  addGrace(sessionId: string, minutes: number): Observable<ClassSession> {
-    return this.updateGrace(sessionId, { add_minutes: minutes });
-  }
-
-  /**
-   * Fija una fecha límite concreta para una tarea. El servidor exige que sea
-   * futura y que no supere el máximo desde el cierre de la clase.
-   */
-  setGraceDeadline(sessionId: string, until: string): Observable<ClassSession> {
-    return this.updateGrace(sessionId, { until });
-  }
+  	/**
+	 * Fija la hora en que termina la ventana de disponibilidad. Se manda la hora
+	 * final y no una cantidad de minutos: repetir la misma petición deja la
+	 * ventana igual. El servidor exige que sea futura y que no supere el máximo
+	 * desde el cierre de la clase.
+	 */
+	setGraceUntil(sessionId: string, until: string): Observable<ClassSession> {
+		return this.updateGrace(sessionId, { until });
+	}
 
   /** Cierra la ventana en el momento: los pendientes pasan a vencidos. */
   closeGrace(sessionId: string): Observable<ClassSession> {
@@ -292,7 +286,7 @@ export class ClassSessionService {
 
   private updateGrace(
     sessionId: string,
-    payload: { add_minutes: number } | { until: string } | { close: true }
+    		payload: { until: string } | { close: true }
   ): Observable<ClassSession> {
     this.isExtendingGrace.set(true);
     return this.http.patch<ApiResponse<ClassSession>>(`/api/v1/teacher/sessions/${sessionId}/grace`, payload).pipe(

@@ -80,6 +80,28 @@
   }
 }
 
+// Examen pausado: el docente detuvo la escritura sin cerrar la sesión.
+.paused-note {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--border-subtle);
+  border-left: 3px solid var(--color-warning);
+  border-radius: var(--radius-lg);
+  background: var(--bg-surface-active);
+  color: var(--text-primary);
+  font-family: var(--font-sans);
+  font-size: var(--text-sm);
+
+  > svg {
+    width: 18px;
+    height: 18px;
+    flex-shrink: 0;
+    color: var(--color-warning);
+  }
+}
+
 .aula-meta {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));

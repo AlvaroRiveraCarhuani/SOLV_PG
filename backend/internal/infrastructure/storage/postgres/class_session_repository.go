@@ -63,6 +63,8 @@ func (r *PostgresClassSessionRepository) expireSessions(ctx context.Context, ten
 			SET status = 'closed',
 			    closes_at = ends_at,
 			    grace_until = COALESCE(grace_until, ends_at + make_interval(mins => $2)),
+			    -- La pausa en vivo solo vive mientras el examen está abierto.
+			    frozen_at = NULL,
 			    updated_at = NOW()
 			WHERE tenant_id = $1
 			  AND status = 'open'
@@ -151,6 +153,9 @@ func (r *PostgresClassSessionRepository) CloseSession(ctx context.Context, tenan
 		SET status = 'closed',
 		    closes_at = COALESCE(cs.closes_at, NOW()),
 		    grace_until = COALESCE(cs.grace_until, COALESCE(cs.closes_at, NOW()) + make_interval(mins => $4)),
+		    -- Cerrar el examen termina la pausa: los volúmenes ya quedan en solo
+		    -- lectura por el cierre, no por una pausa vigente.
+		    frozen_at = NULL,
 		    updated_at = NOW()
 		FROM subjects s
 		WHERE cs.id = $1::uuid AND cs.tenant_id = $2

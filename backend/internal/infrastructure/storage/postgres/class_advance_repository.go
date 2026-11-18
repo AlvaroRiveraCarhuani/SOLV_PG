@@ -39,12 +39,12 @@ func (r *PostgresClassAdvanceRepository) CreateAdvance(ctx context.Context, adva
 
 	if _, err := tx.ExecContext(ctx, `
 		INSERT INTO class_advances (
-			id, tenant_id, session_id, exercise_id, scope,
+			id, tenant_id, session_id, exercise_id, title, scope,
 			snapshot_key, snapshot_sha256, snapshot_size_bytes, file_count,
 			created_by, created_at
 		)
-		VALUES ($1::uuid, $2::uuid, $3::uuid, $4::uuid, $5, $6, $7, $8, $9, $10::uuid, $11)
-	`, advance.ID, advance.TenantID, advance.SessionID, advance.ExerciseID, advance.Scope,
+		VALUES ($1::uuid, $2::uuid, $3::uuid, $4::uuid, $5, $6, $7, $8, $9, $10, $11::uuid, $12)
+	`, advance.ID, advance.TenantID, advance.SessionID, advance.ExerciseID, advance.Title, advance.Scope,
 		advance.SnapshotKey, advance.SnapshotSHA256, advance.SnapshotSize, advance.FileCount,
 		advance.CreatedBy, advance.CreatedAt); err != nil {
 		return fmt.Errorf("failed to insert class advance: %w", err)
@@ -97,7 +97,7 @@ func (r *PostgresClassAdvanceRepository) ExercisePurpose(ctx context.Context, te
 // sesión en una sola consulta. El filtro por student_id es la autorización: un
 // avance ajeno no aparece.
 const advanceDeliveryQuery = `
-	SELECT ca.id, ca.tenant_id, ca.session_id, ca.exercise_id, ca.scope,
+	SELECT ca.id, ca.tenant_id, ca.session_id, ca.exercise_id, ca.title, ca.scope,
 	       ca.snapshot_key, ca.snapshot_sha256, ca.snapshot_size_bytes, ca.file_count,
 	       ca.created_by, ca.created_at,
 	       r.status AS recipient_status, r.decided_at,
@@ -179,6 +179,7 @@ type advanceRecipientRow struct {
 	AdvanceID     string     `db:"advance_id"`
 	ExerciseID    string     `db:"exercise_id"`
 	ExerciseTitle string     `db:"exercise_title"`
+	Title         string     `db:"title"`
 	Scope         string     `db:"scope"`
 	FileCount     int        `db:"file_count"`
 	CreatedAt     time.Time  `db:"created_at"`
@@ -218,7 +219,7 @@ func (r *PostgresClassAdvanceRepository) SessionAdvances(ctx context.Context, te
 	rows := make([]advanceRecipientRow, 0, 32)
 	if err := r.db.SelectContext(ctx, &rows, `
 		SELECT ca.id AS advance_id, ca.exercise_id, e.title AS exercise_title,
-		       ca.scope, ca.file_count, ca.created_at,
+		       ca.title, ca.scope, ca.file_count, ca.created_at,
 		       r.student_id,
 		       COALESCE(NULLIF(TRIM(u.first_name || ' ' || u.last_name), ''), u.email) AS name,
 		       COALESCE(u.email, '') AS email,
@@ -340,6 +341,7 @@ func groupSessionAdvances(rows []advanceRecipientRow) []domain.AdvanceWithRecipi
 				ID:            row.AdvanceID,
 				ExerciseID:    row.ExerciseID,
 				ExerciseTitle: row.ExerciseTitle,
+				Title:         row.Title,
 				Scope:         row.Scope,
 				FileCount:     row.FileCount,
 				CreatedAt:     row.CreatedAt,

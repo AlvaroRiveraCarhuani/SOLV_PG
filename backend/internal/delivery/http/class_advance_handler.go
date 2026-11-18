@@ -25,8 +25,9 @@ func NewClassAdvanceHandler(service *services.ClassAdvanceService) *ClassAdvance
 // emitAdvanceRequest no lleva la práctica: el avance pertenece a la práctica del
 // aula y el servidor la resuelve desde la sesión.
 type emitAdvanceRequest struct {
-	Scope      string   `json:"scope"`
-	StudentIDs []string `json:"student_ids"`
+	Title         string   `json:"title"`
+	Scope         string   `json:"scope"`
+	StudentIDs    []string `json:"student_ids"`
 	// SelectedFiles acota el avance a esas rutas del entorno del docente. Sin
 	// lista se emite el entorno completo.
 	SelectedFiles []string `json:"selected_files"`
@@ -51,6 +52,7 @@ func (h *ClassAdvanceHandler) PostAdvance(w http.ResponseWriter, r *http.Request
 		TeacherID:  teacherID,
 		Role:       requestRole(r),
 		SessionID:     r.PathValue("id"),
+		Title:         req.Title,
 		Scope:         req.Scope,
 		StudentIDs:    req.StudentIDs,
 		SelectedFiles: req.SelectedFiles,
@@ -236,13 +238,13 @@ func (h *ClassAdvanceHandler) DismissAdvance(w http.ResponseWriter, r *http.Requ
 	SendJSON(w, http.StatusOK, map[string]bool{"ok": true}, "Avance descartado")
 }
 
-// FreezeSession congela la clase: bloquea las emisiones nuevas y deja intacto el
-// trabajo del alumno. Descongelar recorre el mismo camino.
+// FreezeSession pausa un examen en curso: los laboratorios de los alumnos pasan
+// a solo lectura y la sesión sigue abierta. Descongelar recorre el mismo camino.
 func (h *ClassAdvanceHandler) FreezeSession(w http.ResponseWriter, r *http.Request) {
 	h.setFrozen(w, r, true)
 }
 
-// UnfreezeSession descongela la clase.
+// UnfreezeSession reanuda el examen pausado y devuelve la escritura.
 func (h *ClassAdvanceHandler) UnfreezeSession(w http.ResponseWriter, r *http.Request) {
 	h.setFrozen(w, r, false)
 }
@@ -273,20 +275,20 @@ func (h *ClassAdvanceHandler) setFrozen(w http.ResponseWriter, r *http.Request, 
 	}
 
 	if frozen {
-		SendJSON(w, http.StatusOK, session, "Clase congelada")
+		SendJSON(w, http.StatusOK, session, "Examen pausado")
 		return
 	}
-	SendJSON(w, http.StatusOK, session, "Clase descongelada")
+	SendJSON(w, http.StatusOK, session, "Examen reanudado")
 }
 
 type graceAdvanceRequest struct {
-	AddMinutes *int       `json:"add_minutes"`
-	Until      *time.Time `json:"until"`
-	Close      bool       `json:"close"`
+	Until *time.Time `json:"until"`
+	Close bool       `json:"close"`
 }
 
-// ExtendGrace ajusta la ventana de disponibilidad de una clase cerrada: suma
-// minutos, fija una fecha límite para una tarea o la cierra en el momento.
+// ExtendGrace ajusta la ventana de disponibilidad de una clase cerrada: fija la
+// hora en que termina o la cierra en el momento. La hora llega absoluta, así
+// que dos clics seguidos mandan la misma y la ventana no se corre dos veces.
 // Solo aplica con el aula cerrada; con la clase en curso responde 409.
 func (h *ClassAdvanceHandler) ExtendGrace(w http.ResponseWriter, r *http.Request) {
 	if !hasAnyRole(r, "teacher", "admin") {
@@ -299,18 +301,9 @@ func (h *ClassAdvanceHandler) ExtendGrace(w http.ResponseWriter, r *http.Request
 		SendError(w, http.StatusBadRequest, "Invalid JSON payload", "Cuerpo de la petición JSON inválido")
 		return
 	}
-	actions := 0
-	if req.AddMinutes != nil {
-		actions++
-	}
-	if req.Until != nil {
-		actions++
-	}
-	if req.Close {
-		actions++
-	}
-	if actions != 1 {
-		SendError(w, http.StatusBadRequest, "Missing window action", "Indicá una sola acción: add_minutes, until o close")
+	// Ambos o ninguno: el cliente tiene que decir si fija la hora o cierra.
+	if (req.Until != nil) == req.Close {
+		SendError(w, http.StatusBadRequest, "Missing window action", "Indicá una sola acción: until o close")
 		return
 	}
 
@@ -323,13 +316,10 @@ func (h *ClassAdvanceHandler) ExtendGrace(w http.ResponseWriter, r *http.Request
 		session *domain.ClassSession
 		err     error
 	)
-	switch {
-	case req.Close:
+	if req.Close {
 		session, err = h.service.CloseGrace(r.Context(), tenantID, teacherID, role, sessionID)
-	case req.AddMinutes != nil:
-		session, err = h.service.AddGrace(r.Context(), tenantID, teacherID, role, sessionID, *req.AddMinutes)
-	default:
-		session, err = h.service.SetGraceDeadline(r.Context(), tenantID, teacherID, role, sessionID, *req.Until)
+	} else {
+		session, err = h.service.SetGraceUntil(r.Context(), tenantID, teacherID, role, sessionID, *req.Until)
 	}
 	if err != nil {
 		h.writeAdvanceError(w, err, "Error al ajustar la ventana de disponibilidad")
@@ -382,8 +372,6 @@ func (h *ClassAdvanceHandler) writeAdvanceError(w http.ResponseWriter, err error
 		SendError(w, http.StatusConflict, err.Error(), "En examen no se aplican avances")
 	case errors.Is(err, domain.ErrAdvanceGraceExpired):
 		SendError(w, http.StatusConflict, err.Error(), "La ventana para aplicar el avance venció")
-	case errors.Is(err, domain.ErrAdvanceGraceInvalid):
-		SendError(w, http.StatusBadRequest, err.Error(), "La ventana debe estar entre 1 y 480 minutos")
 	case errors.Is(err, domain.ErrAdvanceGraceExceeded):
 		SendError(w, http.StatusUnprocessableEntity, err.Error(), "La ventana no puede superar los 7 días desde el cierre")
 	case errors.Is(err, domain.ErrAdvanceGraceDeadline):
@@ -392,6 +380,10 @@ func (h *ClassAdvanceHandler) writeAdvanceError(w http.ResponseWriter, err error
 		SendError(w, http.StatusConflict, err.Error(), "Cerrá el aula para extender la ventana de rezago")
 	case errors.Is(err, domain.ErrAdvancePracticeEnvironmentStopped):
 		SendError(w, http.StatusConflict, err.Error(), "Abre tu laboratorio para aplicar el avance")
+	case errors.Is(err, domain.ErrExamPauseNotAllowed):
+		SendError(w, http.StatusConflict, err.Error(), "La pausa en vivo es solo para un examen en curso")
+	case errors.Is(err, domain.ErrExamPauseFailed):
+		SendError(w, http.StatusServiceUnavailable, err.Error(), "No se pudo dejar en solo lectura el entorno de los alumnos")
 	case errors.Is(err, domain.ErrAdvanceSnapshotTooLarge):
 		SendError(w, http.StatusUnprocessableEntity, err.Error(), "El avance supera el tamaño permitido")
 	case errors.Is(err, services.ErrAdvanceStorageUnavailable):

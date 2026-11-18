@@ -37,6 +37,8 @@ describe('AulaComponent — Abrir mi IDE', () => {
   let fixture: ComponentFixture<AulaComponent>;
   let component: AulaComponent;
   let aula: ReturnType<typeof signal<ClassSession | null>>;
+  let lastClosed: ReturnType<typeof signal<ClassSession | null>>;
+  let setGraceUntil: ReturnType<typeof vi.fn>;
   let openPracticeIDE: ReturnType<typeof vi.fn>;
 
   function ideButton(): HTMLButtonElement {
@@ -52,6 +54,8 @@ describe('AulaComponent — Abrir mi IDE', () => {
 
   beforeEach(async () => {
     aula = signal<ClassSession | null>(sessionWith({}));
+    lastClosed = signal<ClassSession | null>(null);
+    setGraceUntil = vi.fn(() => of(sessionWith({ status: 'closed' })));
     openPracticeIDE = vi.fn(() => NEVER);
 
     const sessionService = {
@@ -61,7 +65,8 @@ describe('AulaComponent — Abrir mi IDE', () => {
       isOpening: signal(false),
       error: signal<string | null>(null),
       lastClosedAt: signal(null),
-      lastClosedSession: signal(null),
+      lastClosedSession: lastClosed,
+      setGraceUntil,
       history: signal([]),
       isLoadingHistory: signal(false),
       historyError: signal(null),
@@ -148,6 +153,19 @@ describe('AulaComponent — Abrir mi IDE', () => {
     expect(tab.close).toHaveBeenCalled();
     expect(component.ideError()).toBe('No se pudo abrir el IDE de la práctica.');
     expect(component.isOpeningIde()).toBe(false);
+  });
+
+  it('calcula la hora final de la ventana en vez de mandar los minutos', () => {
+    const from = new Date(Date.now() + 10 * 60_000);
+    lastClosed.set(sessionWith({ status: 'closed', grace_until: from.toISOString() }));
+    component.graceMinutes.set(20);
+
+    component.addGrace();
+
+    expect(setGraceUntil).toHaveBeenCalledTimes(1);
+    const [sessionId, until] = setGraceUntil.mock.calls[0] as [string, string];
+    expect(sessionId).toBe('session-1');
+    expect(new Date(until).getTime()).toBe(from.getTime() + 20 * 60_000);
   });
 
   it('deshabilita la acción y explica por qué cuando el aula no tiene práctica', () => {

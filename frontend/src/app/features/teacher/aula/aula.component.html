@@ -1,35 +1,77 @@
 <div class="aula-screen">
   @if (session(); as aula) {
-    <!-- Cabecera del aula: materia, hora de apertura y cierre en un solo lugar. -->
+    <!-- Cabecera: identidad de la clase, la conclusión y las dos acciones del momento. -->
     <header class="aula-header">
       <div class="header-main">
-        <span class="header-eyebrow">Aula abierta</span>
-        <h1 class="page-title">{{ aula.subject_name }}</h1>
-        <p class="header-meta">
+        <p class="header-eyebrow">
+          <span class="eyebrow-dot" [class.eyebrow-dot--paused]="aula.frozen_at"></span>
+          Aula abierta
+          <span class="meta-sep">·</span>
           <span class="meta-code" machineData>{{ aula.subject_code }}</span>
           <span class="meta-sep">·</span>
-          <span>desde</span>
           <time class="meta-time">{{ aula.opens_at | dateText:'time' }}</time>
-          <span class="meta-sep">·</span>
-          <span>hasta</span>
+          <span class="meta-sep">–</span>
           <time class="meta-time">{{ aula.ends_at | dateText:'time' }}</time>
-          @if (aula.exercise_title) {
-            <span class="meta-sep">·</span>
-            <span class="meta-practice">{{ aula.exercise_title }}</span>
-          }
           @if (isExamSession()) {
             <span class="exam-chip">Examen</span>
           }
         </p>
+        <h1 class="page-title">{{ aula.subject_name }}</h1>
+        @if (aula.exercise_title) {
+          <p class="header-practice">{{ aula.exercise_title }}</p>
+        }
+
+        <!-- La cabecera concluye: una frase sobre el estado de la clase, no un tablero de cifras. -->
+        <div class="aula-conclusion">
+          <!-- El anuncio vive solo en la conclusión: el botón no se repite en voz alta. -->
+          <span class="conclusion-status" role="status" aria-live="polite">
+            @if (!hasExceptions()) {
+              <span class="summary-ok">
+                <svg lucideCheckCircle2 class="summary-icon"></svg>
+                Todo en orden:
+                <span machineData>{{ summary().present }}</span> de
+                <span machineData>{{ summary().enrolled }}</span> dentro,
+                <span machineData>{{ summary().submitted }}</span> entregaron.
+              </span>
+            } @else {
+              <!-- La conclusión es una sola frase: primero la presencia, después lo que pide atención. -->
+              <span class="conclusion-intro">
+                <span machineData>{{ summary().present }}</span> de
+                <span machineData>{{ summary().enrolled }}</span> dentro
+              </span>
+              <span class="meta-sep">·</span>
+              @if (summary().stuck > 0) {
+                <span class="summary-chip summary-chip--error">
+                  <svg lucideAlertTriangle class="summary-icon"></svg>
+                  <span machineData>{{ summary().stuck }}</span> trabados
+                </span>
+              }
+              @if (studentsWithoutEnvironment() > 0) {
+                <span class="summary-chip summary-chip--warning">
+                  <span machineData>{{ studentsWithoutEnvironment() }}</span> sin entorno
+                </span>
+              }
+              @if (summary().without_submission > 0) {
+                <span class="summary-chip summary-chip--warning">
+                  <span machineData>{{ summary().without_submission }}</span> sin entregar
+                </span>
+              }
+              @if (summary().not_started > 0) {
+                <span class="summary-chip">
+                  <span machineData>{{ summary().not_started }}</span> sin empezar
+                </span>
+              }
+              @if (summary().absent > 0) {
+                <span class="summary-chip">
+                  <span machineData>{{ summary().absent }}</span> salieron del aula
+                </span>
+              }
+            }
+          </span>
+        </div>
       </div>
 
       <div class="header-actions">
-        <span class="presence">
-          <span class="presence-count" machineData>{{ summary().present }}</span>
-          <span class="presence-label">de</span>
-          <span class="presence-count" machineData>{{ summary().enrolled }}</span>
-          <span class="presence-label">dentro</span>
-        </span>
         <button
           type="button"
           class="btn btn-secondary"
@@ -44,38 +86,55 @@
             Abrir mi IDE
           }
         </button>
-        <button
-          type="button"
-          class="btn btn-primary"
-          (click)="openAdvanceModal()"
-          [disabled]="!canEmit()"
-          [title]="aula.frozen_at ? 'Descongelá la clase para emitir' : 'Enviar tu código a los alumnos'">
-          <svg lucideSend class="btn-icon"></svg>
-          Emitir avance
-        </button>
-        <button
-          type="button"
-          class="btn btn-secondary"
-          (click)="toggleFreeze()"
-          [disabled]="isChangingFreeze()"
-          [title]="aula.frozen_at ? 'Volver a permitir emisiones' : 'Cortar las emisiones nuevas sin tocar el trabajo del alumno'"
-        >
-          @if (aula.frozen_at) {
-            <svg lucideSun class="btn-icon"></svg>
-            Descongelar
-          } @else {
-            <svg lucideSnowflake class="btn-icon"></svg>
-            Congelar
+        @if (!isExamSession()) {
+          <button
+            type="button"
+            class="btn btn-primary"
+            (click)="openAdvanceModal()"
+            [disabled]="!canEmit()"
+            title="Enviar tu código a los alumnos">
+            <svg lucideSend class="btn-icon"></svg>
+            Emitir avance
+          </button>
+        }
+        @if (isExamSession()) {
+          <button
+            type="button"
+            class="btn btn-secondary"
+            (click)="togglePauseClick()"
+            [disabled]="isChangingFreeze()"
+            [title]="aula.frozen_at
+              ? 'Reanudar el examen: los alumnos vuelven a escribir'
+              : 'Pausar el examen: los entornos quedan en solo lectura'">
+            @if (aula.frozen_at) {
+              <svg lucidePlay class="btn-icon"></svg>
+              Reanudar examen
+            } @else {
+              <svg lucidePause class="btn-icon"></svg>
+              Pausar examen
+            }
+          </button>
+        }
+
+        <!-- Fin de la clase: la acción que no se usa en caliente vive en el menú. -->
+        <div class="header-menu" dismissible (dismiss)="isMenuOpen.set(false)">
+          <button
+            type="button"
+            class="menu-toggle"
+            (click)="isMenuOpen.update(open => !open)"
+            [attr.aria-expanded]="isMenuOpen()"
+            aria-haspopup="true"
+            aria-label="Más acciones del aula">
+            <svg lucideMoreHorizontal class="btn-icon"></svg>
+          </button>
+          @if (isMenuOpen()) {
+            <div class="menu-panel">
+              <button type="button" class="menu-item" (click)="isMenuOpen.set(false); openCloseConfirm()">
+                {{ isExamSession() ? 'Cerrar examen' : 'Cerrar aula' }}
+              </button>
+            </div>
           }
-        </button>
-        <button
-          type="button"
-          class="btn btn-secondary"
-          (click)="closeAula()"
-          [title]="isExamSession() ? 'Al cerrar, los entornos de los alumnos quedan en solo lectura' : 'Cerrar el aula de esta clase'"
-        >
-          {{ isExamSession() ? 'Cerrar examen' : 'Cerrar aula' }}
-        </button>
+        </div>
       </div>
     </header>
 
@@ -85,7 +144,7 @@
 
     <!-- Examen: el cierre congela los volúmenes, no solo cierra la lista. -->
     @if (isExamSession()) {
-      <div class="exam-note" role="status">
+      <div class="exam-note motion-rise" role="status">
         <svg lucideLock class="summary-icon"></svg>
         <span>
           Examen en curso. Al cerrar, los entornos de los alumnos quedan en solo lectura.
@@ -94,219 +153,169 @@
       </div>
     }
 
+    @if (aula.frozen_at && isExamSession()) {
+      <div class="frozen-note motion-rise" role="status">
+        <svg lucidePause class="summary-icon"></svg>
+        <span>
+          Examen en pausa desde
+          <time class="frozen-time">{{ aula.frozen_at | dateText:'time' }}</time>.
+          La edición está suspendida para todos los alumnos hasta que reanudes.
+        </span>
+      </div>
+    }
+
     <!-- Emisión: el aviso confirma a quiénes llegó lo que el docente acaba de emitir. -->
     @if (lastEmission(); as notice) {
-      <div class="advance-notice" role="status">
+      <div class="advance-notice motion-rise" role="status">
         <svg lucideCheckCircle2 class="summary-icon"></svg>
         <span>
           Avance de <strong>{{ notice.title }}</strong> emitido a
-          <span machineData>{{ notice.recipients }}</span> alumnos.
+          <span machineData>{{ notice.recipients }}</span>
+          {{ notice.recipients === 1 ? 'alumno' : 'alumnos' }}.
         </span>
         <button type="button" class="notice-dismiss" (click)="dismissEmissionNotice()">Cerrar</button>
       </div>
     }
 
-    @if (aula.frozen_at) {
-      <div class="frozen-note" role="status">
-        <svg lucideSnowflake class="summary-icon"></svg>
-        <span>
-          Clase congelada desde
-          <time class="frozen-time">{{ aula.frozen_at | dateText:'time' }}</time>.
-          No se emiten avances nuevos; el editor del alumno sigue funcionando.
-        </span>
-      </div>
-    }
-
-    <!-- Marcador: cuando todo está en orden lo dice en una línea, sin alarmas. -->
-    <div class="aula-summary" role="status" aria-live="polite">
-      @if (!hasExceptions()) {
-        <span class="summary-ok">
-          <svg lucideCheckCircle2 class="summary-icon"></svg>
-          Todo en orden:
-          <span machineData>{{ summary().submitted }}</span> de
-          <span machineData>{{ summary().enrolled }}</span> entregaron, 0 trabados.
-        </span>
-      } @else {
-        @if (summary().stuck > 0) {
-          <span class="summary-chip summary-chip--error">
-            <svg lucideAlertTriangle class="summary-icon"></svg>
-            <span machineData>{{ summary().stuck }}</span> trabados
-          </span>
-        }
-        @if (summary().without_submission > 0) {
-          <span class="summary-chip summary-chip--warning">
-            <span machineData>{{ summary().without_submission }}</span> sin entregar
-          </span>
-        }
-        @if (summary().not_started > 0) {
-          <span class="summary-chip">
-            <span machineData>{{ summary().not_started }}</span> sin empezar
-          </span>
-        }
-        @if (summary().absent > 0) {
-          <span class="summary-chip">
-            <span machineData>{{ summary().absent }}</span> salieron del aula
-          </span>
-        }
-        <button type="button" class="summary-refresh" (click)="refreshBoard()" [disabled]="isLoading()">
-          <svg lucideRotateCcw class="action-icon"></svg>
-          Actualizar
-        </button>
-      }
-    </div>
-
-    <div class="aula-toolbar">
-      <status-tabs [tabs]="tabs()" [activeTab]="activeTab()" (tabChange)="setTab($event)" />
-      <search-bar
-        [query]="searchTerm()"
-        (queryChange)="onSearch($event)"
-        placeholder="Buscar alumno"
-        [compact]="true"
-        ariaLabel="Buscar alumno en el aula"
-      />
-    </div>
-
-    @if (visibleStudents().length === 0) {
-      <div class="empty-state">
-        <p>
-          @if (searchTerm()) {
-            Ningún alumno coincide con la búsqueda.
-          } @else {
-            No hay alumnos en este filtro.
-          }
-        </p>
-      </div>
-    } @else {
-      <table class="aula-table">
-        <thead>
-          <tr>
-            <th scope="col">
-              <sort-header
-                column="name"
-                [activeColumn]="sortState().column"
-                [direction]="sortState().direction"
-                (sortChange)="onSortChange($event)"
-              >
-                Alumno
-              </sort-header>
-            </th>
-            <th scope="col">
-              <sort-header
-                column="state"
-                [activeColumn]="sortState().column"
-                [direction]="sortState().direction"
-                (sortChange)="onSortChange($event)"
-              >
-                Estado
-              </sort-header>
-            </th>
-            <th scope="col">
-              <sort-header
-                column="time"
-                [activeColumn]="sortState().column"
-                [direction]="sortState().direction"
-                (sortChange)="onSortChange($event)"
-              >
-                Entrega
-              </sort-header>
-            </th>
-            <th scope="col" class="num">
-              <sort-header
-                column="attempts"
-                [activeColumn]="sortState().column"
-                [direction]="sortState().direction"
-                (sortChange)="onSortChange($event)"
-              >
-                Intentos
-              </sort-header>
-            </th>
-            <th scope="col">Entorno</th>
-          </tr>
-        </thead>
-        <tbody>
-          @for (student of visibleStudents(); track student.student_id) {
-            <tr [class.row-stuck]="student.state === 'trabado'">
-              <td class="col-student">
-                <span class="student-name">{{ student.name }}</span>
-                <span class="student-email">{{ student.email }}</span>
-              </td>
-              <td>
-                <span class="state" [class]="'state state-' + student.state">
-                  <span class="state-dot"></span>
-                  {{ stateLabel(student.state) }}
-                </span>
-              </td>
-              <td>
-                @if (student.submitted_at; as submittedAt) {
-                  <span class="submission">
-                    <time class="submission-time">{{ submittedAt | dateText:'time' }}</time>
-                    @if (student.verdict; as verdict) {
-                      <verdict-badge [verdict]="verdict" [size]="'sm'" [showHumanLabel]="false" />
-                    }
-                  </span>
-                } @else {
-                  <span class="empty-cell">—</span>
-                }
-              </td>
-              <td class="num">
-                <span machineData>{{ student.attempts }}</span>
-              </td>
-              <td>
-                @if (student.environment_id) {
-                  <button type="button" class="row-action" (click)="openConsole(student)">
-                    <svg lucideTerminal class="action-icon"></svg>
-                    Consola
-                  </button>
-                } @else {
-                  <span class="muted">Sin entorno</span>
-                }
-              </td>
-            </tr>
-          }
-        </tbody>
-      </table>
-    }
-
-    <!-- Avances emitidos: quién aplicó, quién descartó y quién sigue pendiente. -->
-    @if (sessionAdvances().length > 0) {
-      <section class="advance-status">
-        <header class="advance-status-head">
-          <h2 class="section-title section-title-sm section-title-flush">
-            Avances de esta clase
-            <span class="section-count" machineData>({{ sessionAdvances().length }})</span>
-          </h2>
+    <section class="aula-roster" aria-label="Alumnos del aula">
+      <div class="aula-toolbar">
+        <status-tabs [tabs]="tabs()" [activeTab]="activeTab()" (tabChange)="setTab($event)" />
+        <div class="toolbar-tools">
+          <div class="toolbar-search">
+            <search-bar
+              [query]="searchTerm()"
+              (queryChange)="onSearch($event)"
+              placeholder="Buscar alumno"
+              [compact]="true"
+              ariaLabel="Buscar alumno en el aula"
+            />
+          </div>
           <button
             type="button"
-            class="advance-refresh"
-            (click)="refreshAdvances()"
-            [disabled]="isLoadingAdvances()"
-          >
-            <svg lucideRotateCcw class="action-icon"></svg>
-            Actualizar
+            class="icon-action"
+            (click)="refreshAll()"
+            title="Actualizar la clase"
+            aria-label="Actualizar la clase">
+            <svg lucideRotateCcw class="action-icon" [class.motion-spin]="isLoading()"></svg>
           </button>
+        </div>
+      </div>
+
+      @if (visibleStudents().length === 0) {
+        <div class="empty-state">
+          <p>
+            @if (searchTerm()) {
+              Ningún alumno coincide con la búsqueda.
+            } @else {
+              No hay alumnos en este filtro.
+            }
+          </p>
+        </div>
+      } @else {
+        <table class="aula-table motion-fade">
+          <thead>
+            <tr>
+              <th scope="col">
+                <sort-header
+                  column="name"
+                  [activeColumn]="sortState().column"
+                  [direction]="sortState().direction"
+                  (sortChange)="onSortChange($event)"
+                >
+                  Alumno
+                </sort-header>
+              </th>
+              <th scope="col" class="col-state">
+                <sort-header
+                  column="state"
+                  [activeColumn]="sortState().column"
+                  [direction]="sortState().direction"
+                  (sortChange)="onSortChange($event)"
+                >
+                  Estado
+                </sort-header>
+              </th>
+              <th scope="col" class="col-activity">
+                <sort-header
+                  column="time"
+                  [activeColumn]="sortState().column"
+                  [direction]="sortState().direction"
+                  (sortChange)="onSortChange($event)"
+                >
+                  Actividad
+                </sort-header>
+              </th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (student of visibleStudents(); track student.student_id) {
+              <tr [class.row-stuck]="student.state === 'trabado'">
+                <td class="col-student">
+                  <span class="student-name">{{ student.name }}</span>
+                  <span class="student-meta">
+                    <span class="student-email">{{ student.email }}</span>
+                    @if (student.attempts > 0) {
+                      <span class="student-attempts">
+                        · <span machineData>{{ student.attempts }}</span>
+                        {{ student.attempts === 1 ? 'intento' : 'intentos' }}
+                      </span>
+                    }
+                  </span>
+                </td>
+                <td class="col-state">
+                  <div class="state-cell">
+                    <span class="state" [class]="'state state-' + student.state">
+                      <span class="state-dot"></span>
+                      {{ stateLabel(student.state) }}
+                    </span>
+                    @if (showsEnvironmentWarning(student)) {
+                      <span class="row-flag">Sin entorno</span>
+                    }
+                  </div>
+                </td>
+                <td class="col-activity">
+                  @if (student.submitted_at; as submittedAt) {
+                    <span class="submission">
+                      <time class="submission-time">{{ submittedAt | dateText:'time' }}</time>
+                      @if (student.verdict; as verdict) {
+                        <verdict-badge [verdict]="verdict" [size]="'sm'" [showHumanLabel]="false" />
+                      }
+                    </span>
+                  } @else {
+                    <span class="empty-cell">—</span>
+                  }
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      }
+    </section>
+
+    <!-- Avances emitidos: la línea dice cuántos siguen sin aplicarlo; el resto vive en el detalle. -->
+    @if (sessionAdvances().length > 0) {
+      <section class="advance-strip" aria-labelledby="advance-strip-title">
+        <header class="advance-strip-head">
+          <h2 class="section-title" id="advance-strip-title">Avances de esta clase</h2>
+          <span class="section-count" machineData>{{ sessionAdvances().length }}</span>
         </header>
 
         @for (advance of sessionAdvances(); track advance.id) {
-          <article class="advance-row">
-            <div class="advance-row-main">
-              <p class="advance-row-title">{{ advance.exercise_title }}</p>
-              <p class="advance-row-meta">
-                Emitido a las <time>{{ advance.created_at | dateText:'time' }}</time>
-                · <span machineData>{{ advance.file_count }}</span> archivos
-              </p>
-            </div>
-            <div class="advance-row-counts">
-              <span class="advance-count advance-count-applied">
-                <span machineData>{{ advance.counts.applied }}</span> aplicaron
+          <article class="advance-line">
+            <time class="advance-time">{{ advance.created_at | dateText:'time' }}</time>
+            <span class="advance-files">
+              <span machineData>{{ advance.file_count }}</span>
+              {{ advance.file_count === 1 ? 'archivo' : 'archivos' }}
+            </span>
+            @if (advance.counts.pending > 0) {
+              <span class="advance-pending">
+                <span machineData>{{ advance.counts.pending }}</span>
+                {{ advance.counts.pending === 1 ? 'pendiente' : 'pendientes' }}
               </span>
-              <span class="advance-count advance-count-dismissed">
-                <span machineData>{{ advance.counts.dismissed }}</span> descartaron
-              </span>
-              <span class="advance-count advance-count-pending">
-                <span machineData>{{ advance.counts.pending }}</span> pendientes
-              </span>
-            </div>
-            <button type="button" class="btn btn-secondary" (click)="openAdvanceDetail(advance)">
+            } @else {
+              <span class="advance-done">todos lo aplicaron</span>
+            }
+            <button type="button" class="link-action" (click)="openAdvanceDetail(advance)">
               Ver detalle
             </button>
           </article>
@@ -315,38 +324,14 @@
     }
 
     <!-- Historial: lo que pasó en la clase, con nombre y hora. -->
-    <class-history
-      [events]="history()"
-      [isLoading]="isLoadingHistory()"
-      [error]="historyError()"
-      (refresh)="refreshHistory()"
-    />
-
-    <!-- Telemetría de la clase: solo los entornos de esta materia. -->
-    @if (sessionEnvironments().length > 0) {
-      <section class="environments">
-        <h2 class="section-title section-title-sm section-title-flush">
-          Entornos de esta clase
-          <span class="section-count" machineData>({{ sessionEnvironments().length }})</span>
-        </h2>
-        <aula-telemetry-widget
-          [sessions]="sessionEnvironments()"
-          [isLoading]="false"
-          [isPollingActive]="isPollingActive()"
-          [pollingRateMs]="pollingRateMs()"
-          (pollingRateChange)="setPollingRate($event)"
-          (refresh)="refreshEnvironments()"
-          (openTerminal)="selectedEnvironment.set($event)"
-        />
-      </section>
-    }
+    <class-history [events]="history()" [isLoading]="isLoadingHistory()" [error]="historyError()" />
   } @else {
     <!-- Sin aula: abrirla es una decisión del docente, no un requisito del alumno. -->
-    <header class="aula-header aula-header--empty">
+    <header class="aula-header">
       <div class="header-main">
-        <span class="header-eyebrow">Aula</span>
+        <p class="header-eyebrow">Aula</p>
         <h1 class="page-title">Sin aula abierta</h1>
-        <p class="header-meta">
+        <p class="header-hint">
           Abrí el aula cuando empieza la clase. Mientras no haya una, los alumnos
           pueden trabajar en su práctica y aquí solo se ven los entornos encendidos.
         </p>
@@ -354,10 +339,11 @@
     </header>
 
     @if (lastClosedAt(); as closedAt) {
-      <div class="aula-closed-note" role="status">
-        El aula anterior se cerró a las
-        <time class="closed-time">{{ closedAt | dateText:'time' }}</time>.
-        Si la clase sigue, abrí otra.
+      <div class="aula-closed-note motion-fade" role="status">
+        <span>El aula anterior se cerró a las</span>
+        <time class="closed-time">{{ closedAt | dateText:'time' }}</time>
+        <span class="meta-sep">·</span>
+        <span>Si la clase sigue, abrí otra.</span>
       </div>
     }
 
@@ -367,7 +353,7 @@
         <section class="exam-panel" aria-labelledby="exam-panel-title">
           <header class="exam-panel-head">
             <div>
-              <h2 class="section-title section-title-sm section-title-flush" id="exam-panel-title">Entornos del examen</h2>
+              <h2 class="section-title section-title--base" id="exam-panel-title">Entornos del examen</h2>
               <p class="exam-panel-sub">
                 <span class="section-count" machineData>{{ frozenCount() }}</span>
                 en solo lectura
@@ -379,7 +365,7 @@
               (click)="freezeExamAgain(closed)"
               [disabled]="isFreezingExam()"
             >
-              {{ isFreezingExam() ? 'Congelando…' : (freezeReport()?.failed ? 'Reintentar congelamiento' : 'Congelar entornos') }}
+              {{ isFreezingExam() ? 'Dejando en solo lectura…' : (freezeReport()?.failed ? 'Reintentar' : 'Dejar en solo lectura') }}
             </button>
           </header>
 
@@ -387,11 +373,11 @@
             <p class="exam-report" role="status">
               <span machineData>{{ report.frozen }}</span> quedaron en solo lectura.
               @if (report.skipped > 0) {
-                <span><span machineData>{{ report.skipped }}</span> ya estaban cerrados.</span>
+                <span><span machineData>{{ report.skipped }}</span> ya estaban en solo lectura.</span>
               }
               @if (report.failed > 0) {
                 <span class="exam-report-failed">
-                  <span machineData>{{ report.failed }}</span> no se pudieron cerrar; el servidor los
+                  <span machineData>{{ report.failed }}</span> no quedaron en solo lectura; el servidor los
                   reintenta cada 15 minutos.
                 </span>
               }
@@ -445,7 +431,12 @@
 
       <section class="grace-panel" aria-labelledby="grace-title">
         <div class="grace-info">
-          <span class="grace-title" id="grace-title">Ventana de los avances</span>
+          <div class="grace-head">
+            <h2 class="grace-title" id="grace-title">Ventana de los avances</h2>
+            <span class="grace-state" [class.grace-state--open]="isGraceActive(closed)">
+              {{ isGraceActive(closed) ? 'Abierta' : 'Cerrada' }}
+            </span>
+          </div>
           @if (isGraceActive(closed) && closed.grace_until) {
             <p class="grace-text">
               Los avances de esta clase se pueden aplicar hasta
@@ -523,95 +514,78 @@
       </section>
     }
 
-    <!-- La clase cerró, pero su historial sigue disponible para el docente. -->
-    @if (historySession()) {
-      <class-history
-        [events]="history()"
-        [isLoading]="isLoadingHistory()"
-        [error]="historyError()"
-        (refresh)="refreshHistory()"
-      />
-    }
-
+    <!-- Abrir la siguiente clase es la acción del cierre; el registro queda al final. -->
     <section class="open-form">
-      <div class="form-field">
-        <label class="field-label" for="aula-subject">Materia</label>
-        <combobox
-          id="aula-subject"
-          [options]="subjectOptions()"
-          [value]="selectedSubjectId()"
-          (valueChange)="onSubjectChange($event)"
-          placeholder="Elegir materia"
-          [compact]="true"
-          [showSearchIcon]="false"
-        />
-      </div>
+      <header class="open-form-head">
+        <div class="open-form-titles">
+          <h2 class="section-title section-title--base">Abrir otra clase</h2>
+          <p class="open-form-hint">
+            Sin práctica, el aula solo muestra quién está y quién salió. Se cierra sola cuando vence.
+          </p>
+        </div>
+      </header>
 
-      <div class="form-field">
-        <label class="field-label" for="aula-practice">Práctica</label>
-        <combobox
-          id="aula-practice"
-          [options]="practiceOptions()"
-          [value]="selectedExerciseId()"
-          (valueChange)="onExerciseChange($event)"
-          placeholder="Sin práctica asignada"
-          [compact]="true"
-          [showSearchIcon]="false"
-          [allowClear]="true"
-          [disabled]="practiceOptions().length === 0"
-        />
-        <span class="field-hint">Opcional. Con práctica, el aula muestra entregas y trabados.</span>
-      </div>
+      <div class="open-form-fields">
+        <div class="form-field">
+          <label class="field-label" for="aula-subject">Materia</label>
+          <combobox
+            id="aula-subject"
+            [options]="subjectOptions()"
+            [value]="selectedSubjectId()"
+            (valueChange)="onSubjectChange($event)"
+            placeholder="Elegir materia"
+            [compact]="true"
+            [showSearchIcon]="false"
+          />
+        </div>
 
-      <div class="form-field">
-        <label class="field-label" for="aula-duration">Duración</label>
-        <combobox
-          id="aula-duration"
-          [options]="durationOptions"
-          [value]="selectedDuration()"
-          (valueChange)="onDurationChange($event)"
-          placeholder="1 hora 30 min"
-          [compact]="true"
-          [showSearchIcon]="false"
-        />
-        <span class="field-hint">El aula se cierra sola cuando vence.</span>
-      </div>
+        <div class="form-field">
+          <label class="field-label" for="aula-practice">Práctica</label>
+          <combobox
+            id="aula-practice"
+            [options]="practiceOptions()"
+            [value]="selectedExerciseId()"
+            (valueChange)="onExerciseChange($event)"
+            placeholder="Sin práctica asignada"
+            [compact]="true"
+            [showSearchIcon]="false"
+            [allowClear]="true"
+            [disabled]="practiceOptions().length === 0"
+          />
+        </div>
 
-      <button
-        type="button"
-        class="btn btn-primary open-button"
-        [disabled]="!selectedSubjectId() || isOpening()"
-        (click)="openAula()"
-      >
-        Abrir aula
-      </button>
+        <div class="form-field">
+          <label class="field-label" for="aula-duration">Duración</label>
+          <combobox
+            id="aula-duration"
+            [options]="durationOptions"
+            [value]="selectedDuration()"
+            (valueChange)="onDurationChange($event)"
+            placeholder="1 hora 30 min"
+            [compact]="true"
+            [showSearchIcon]="false"
+          />
+        </div>
+
+        <button
+          type="button"
+          class="btn btn-primary open-button"
+          [disabled]="!selectedSubjectId() || isOpening()"
+          (click)="openAula()"
+        >
+          Abrir aula
+        </button>
+      </div>
     </section>
 
     @if (error(); as message) {
       <div class="error-panel" role="alert">{{ message }}</div>
     }
 
-    @if (liveSessions().length > 0) {
-      <section class="environments">
-        <h2 class="section-title section-title-sm section-title-flush">
-          Entornos abiertos ahora
-          <span class="section-count" machineData>({{ liveSessions().length }})</span>
-        </h2>
-        <aula-telemetry-widget
-          [sessions]="liveSessions()"
-          [isLoading]="false"
-          [isPollingActive]="isPollingActive()"
-          [pollingRateMs]="pollingRateMs()"
-          (pollingRateChange)="setPollingRate($event)"
-          (refresh)="refreshEnvironments()"
-          (openTerminal)="selectedEnvironment.set($event)"
-        />
-      </section>
+    <!-- La clase cerró, pero su registro sigue disponible: colapsado y al final. -->
+    @if (historySession()) {
+      <class-history [events]="history()" [isLoading]="isLoadingHistory()" [error]="historyError()" />
     }
-  }
-
-  @if (selectedEnvironment(); as environment) {
-    <shadow-terminal-modal [session]="environment" (closed)="closeConsole()" />
   }
 
   @if (unfreezeTarget(); as student) {
@@ -640,5 +614,33 @@
     @if (advanceDetail(); as advance) {
       <advance-recipients-modal animate.leave="motion-modal-out" [advance]="advance" (closed)="closeAdvanceDetail()" />
     }
+  }
+
+  @if (isCloseConfirmOpen()) {
+    <confirm-modal
+      [title]="isExamSession() ? '¿Cerrar examen definitivamente?' : '¿Cerrar sesión de clase?'"
+      [message]="isExamSession()
+        ? 'Al cerrar el examen, los entornos de todos los alumnos pasarán a solo lectura de forma inmediata e irreversible. ¿Deseas finalizar la evaluación?'
+        : 'Se dará por finalizada la sesión de clase actual. ¿Confirmar el cierre?'"
+      [confirmText]="isExamSession() ? 'Cerrar examen' : 'Cerrar aula'"
+      cancelText="Volver al aula"
+      type="danger"
+      [isLoading]="isClosing()"
+      (confirm)="confirmCloseAula()"
+      (cancel)="cancelCloseAula()"
+    />
+  }
+
+  @if (isPauseConfirmOpen()) {
+    <confirm-modal
+      title="¿Pausar examen temporalmente?"
+      message="Los entornos de todos los alumnos pasarán a solo lectura durante la pausa y el examen seguirá abierto. Podrás reanudarlo con un clic. ¿Deseas pausar ahora?"
+      confirmText="Pausar examen"
+      cancelText="Cancelar"
+      type="primary"
+      [isLoading]="isChangingFreeze()"
+      (confirm)="confirmPause()"
+      (cancel)="cancelPause()"
+    />
   }
 </div>

@@ -93,3 +93,5 @@ Este documento consolida todas las Decisiones de Arquitectura (ADRs) tomadas dur
 | 084 | [Cuotas de CPU, Procesos y Disco por Entorno](ADR-084-cuotas-de-cpu-procesos-y-disco.md) | Aceptado | Capacidad |
 | 085 | [Aislamiento de Salida a Internet en Ejercicios de Examen](ADR-085-aislamiento-de-salida-en-examenes.md) | Aceptado | Seguridad |
 | 086 | [Autonomía Operativa del Docente: Proveedores BYOK Propios y Padrón de Cátedra](ADR-086-autonomia-docente-byok-propio-y-padron-de-catedra.md) | Aceptado | Docencia |
+| 087 | [Identidad del Aula como Tablero de la Clase, sin Consola ni Telemetría](ADR-087-identidad-del-aula-tablero-de-la-clase.md) | Aceptado | Docencia |
+| 088 | [Remodelación Minimalista del Tablero del Aula](ADR-088-remodelacion-minimalista-del-tablero-del-aula.md) | Aceptado | Docencia |

@@ -29,6 +29,10 @@ const (
 	AuditClassAdvanceEmitted       = "CLASS_ADVANCE_EMITTED"
 	AuditClassFrozen               = "CLASS_FROZEN"
 	AuditClassUnfrozen             = "CLASS_UNFROZEN"
+	// AuditClassAdvanceGraceSet es el único movimiento de la ventana: su hora
+	// final. Las dos acciones anteriores se conservan porque hay filas ya
+	// escritas que el historial sigue mostrando.
+	AuditClassAdvanceGraceSet      = "CLASS_ADVANCE_GRACE_SET"
 	AuditClassAdvanceGraceExtended = "CLASS_ADVANCE_GRACE_EXTENDED"
 	AuditClassAdvanceGraceDeadline = "CLASS_ADVANCE_GRACE_DEADLINE_SET"
 	AuditClassAdvanceGraceClosed   = "CLASS_ADVANCE_GRACE_CLOSED"
@@ -37,11 +41,11 @@ const (
 	AuditClassAdvanceRollback      = "CLASS_ADVANCE_ROLLBACK"
 )
 
-// Ventana de rezago por defecto al cerrar el aula, y extensiones válidas.
+// Ventana de rezago por defecto al cerrar el aula. El ajuste viaja como hora
+// final, así que el rango de minutos lo decide la pantalla y el servidor solo
+// valida que la hora sea futura.
 const (
 	DefaultAdvanceGraceMinutes = 30
-	MinAdvanceGraceMinutes     = 1
-	MaxAdvanceGraceMinutes     = 480
 	// MaxAdvanceGraceDays acota la ventana total desde el cierre de la clase.
 	MaxAdvanceGraceDays = 7
 	// AdvanceSnapshotRetentionDays cubre la última reapertura posible de la
@@ -86,8 +90,6 @@ var (
 	ErrAdvanceFilesUnknown = errors.New("la selección incluye archivos que no están en la práctica")
 	// ErrAdvanceSnapshotTooLarge: el snapshot supera el tope de bytes o de archivos.
 	ErrAdvanceSnapshotTooLarge = errors.New("el snapshot supera el tamaño permitido")
-	// ErrAdvanceGraceInvalid: la extensión de ventana está fuera de rango.
-	ErrAdvanceGraceInvalid = errors.New("la ventana debe estar entre 1 y 480 minutos")
 	// ErrAdvanceGraceExceeded: la suma supera el máximo desde el cierre.
 	ErrAdvanceGraceExceeded = errors.New("la ventana no puede superar los 7 días desde el cierre")
 	// ErrAdvanceGraceDeadline: la fecha límite no es futura o supera el máximo.
@@ -120,6 +122,7 @@ type ClassAdvance struct {
 	TenantID       string    `db:"tenant_id" json:"-"`
 	SessionID      string    `db:"session_id" json:"session_id"`
 	ExerciseID     string    `db:"exercise_id" json:"exercise_id"`
+	Title          string    `db:"title" json:"title"`
 	Scope          string    `db:"scope" json:"scope"`
 	SnapshotKey    string    `db:"snapshot_key" json:"-"`
 	SnapshotSHA256 string    `db:"snapshot_sha256" json:"snapshot_sha256"`
@@ -195,6 +198,7 @@ type AdvanceWithRecipients struct {
 	ID            string                    `json:"id"`
 	ExerciseID    string                    `json:"exercise_id"`
 	ExerciseTitle string                    `json:"exercise_title"`
+	Title         string                    `json:"title"`
 	Scope         string                    `json:"scope"`
 	FileCount     int                       `json:"file_count"`
 	CreatedAt     time.Time                 `json:"created_at"`

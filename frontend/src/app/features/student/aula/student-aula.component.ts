@@ -5,6 +5,7 @@ import {
   LucideBookOpen,
   LucideCalendarClock,
   LucideInbox,
+  LucidePause,
   LucideRefreshCw,
   LucideUsers
 } from '@lucide/angular';
@@ -46,6 +47,7 @@ import { AdvanceConfirmModalComponent } from '../exercises/solver/advance-confir
     LucideBookOpen,
     LucideCalendarClock,
     LucideInbox,
+    LucidePause,
     LucideRefreshCw,
     LucideUsers
   ],

@@ -5,6 +5,7 @@ export interface AdvanceDelivery {
   id: string;
   session_id: string;
   exercise_id: string;
+  title?: string;
   scope: string;
   snapshot_sha256: string;
   snapshot_size_bytes: number;

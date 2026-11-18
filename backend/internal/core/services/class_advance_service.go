@@ -27,10 +27,22 @@ type ClassAdvanceService struct {
 	snapshots    domain.AdvanceSnapshotStore
 	environments domain.PracticeEnvironmentRepository
 	volumes      domain.PracticeEnvironmentVolumeStore
+	// pause aplica la pausa en vivo al sistema de archivos de los alumnos. Sin
+	// él la sesión se marca, pero nadie queda en solo lectura; en producción se
+	// cablea con el servicio de congelamiento de examen.
+	pause SessionPauseStore
 	// applySlots limita cuántas aplicaciones leen y escriben volúmenes a la vez.
 	// Las demás esperan su turno en cola; ninguna se rechaza por esto.
 	applySlots chan struct{}
 	now        func() time.Time
+}
+
+// SessionPauseStore aplica y revierte el solo lectura de los laboratorios de un
+// examen en curso. Se declara en el consumidor para no atar el servicio de
+// avances al mecanismo de Docker.
+type SessionPauseStore interface {
+	PauseSession(ctx context.Context, tenantID, teacherID, role, sessionID string) (FreezeReport, error)
+	ResumeSession(ctx context.Context, tenantID, teacherID, role, sessionID string) (FreezeReport, error)
 }
 
 // defaultAdvanceApplyConcurrency es cuántas aplicaciones de avance corren a la
@@ -74,6 +86,13 @@ func (s *ClassAdvanceService) SetRetentionStore(retention domain.AdvanceSnapshot
 	s.retention = retention
 }
 
+// WithPauseStore engancha la pausa en vivo: el docente detiene la escritura de
+// los alumnos sin cerrar el examen (ADR-005 §5.2).
+func (s *ClassAdvanceService) WithPauseStore(pause SessionPauseStore) *ClassAdvanceService {
+	s.pause = pause
+	return s
+}
+
 // IssueAdvanceInput agrupa los datos de una emisión.
 type IssueAdvanceInput struct {
 	// ID permite fijar el identificador antes de subir el snapshot, para que la
@@ -84,6 +103,7 @@ type IssueAdvanceInput struct {
 	Role       string
 	SessionID  string
 	ExerciseID string
+	Title      string
 	Scope      string
 	StudentIDs []string
 	// SnapshotKey, SnapshotSHA256, SnapshotSize y FileCount los produce el
@@ -139,11 +159,16 @@ func (s *ClassAdvanceService) Issue(ctx context.Context, in IssueAdvanceInput) (
 	if advanceID == "" {
 		advanceID = uuid.NewString()
 	}
+	title := strings.TrimSpace(in.Title)
+	if len(title) > 255 {
+		title = title[:255]
+	}
 	advance := domain.ClassAdvance{
 		ID:             advanceID,
 		TenantID:       in.TenantID,
 		SessionID:      in.SessionID,
 		ExerciseID:     in.ExerciseID,
+		Title:          title,
 		Scope:          in.Scope,
 		SnapshotKey:    in.SnapshotKey,
 		SnapshotSHA256: in.SnapshotSHA256,
@@ -205,16 +230,20 @@ func resolveRecipients(scope string, selected, participants []string) ([]string,
 	}
 }
 
-// Freeze congela la clase: bloquea emisiones nuevas, sin tocar la edición del alumno.
+// Freeze pausa un examen en curso: pone en solo lectura los laboratorios de los
+// alumnos y deja la sesión abierta. Una clase no se pausa.
 func (s *ClassAdvanceService) Freeze(ctx context.Context, tenantID, teacherID, role, sessionID string) (*domain.ClassSession, error) {
 	return s.setFrozen(ctx, tenantID, teacherID, role, sessionID, true)
 }
 
-// Unfreeze descongela la clase.
+// Unfreeze reanuda el examen pausado: los laboratorios vuelven a escritura.
 func (s *ClassAdvanceService) Unfreeze(ctx context.Context, tenantID, teacherID, role, sessionID string) (*domain.ClassSession, error) {
 	return s.setFrozen(ctx, tenantID, teacherID, role, sessionID, false)
 }
 
+// setFrozen pausa o reanuda un examen. Primero se toca el montaje y después la
+// fila de la sesión: el alumno nunca ve "pausado" mientras todavía puede
+// escribir. Reanudar hace lo inverso por la misma razón.
 func (s *ClassAdvanceService) setFrozen(ctx context.Context, tenantID, teacherID, role, sessionID string, frozen bool) (*domain.ClassSession, error) {
 	if strings.TrimSpace(tenantID) == "" {
 		return nil, domain.ErrInvalidTenant
@@ -222,7 +251,33 @@ func (s *ClassAdvanceService) setFrozen(ctx context.Context, tenantID, teacherID
 	if _, err := uuid.Parse(strings.TrimSpace(sessionID)); err != nil {
 		return nil, domain.ErrSessionNotFound
 	}
-	session, err := s.store.SetFrozen(ctx, tenantID, teacherScope(role, teacherID), sessionID, frozen)
+	session, err := s.sessions.GetSession(ctx, tenantID, teacherScope(role, teacherID), sessionID)
+	if err != nil {
+		return nil, err
+	}
+	if !session.IsOpen() {
+		return nil, domain.ErrSessionNotOpen
+	}
+	if session.Purpose != string(domain.ExercisePurposeExam) {
+		return nil, domain.ErrExamPauseNotAllowed
+	}
+
+	if s.pause != nil {
+		var report FreezeReport
+		if frozen {
+			report, err = s.pause.PauseSession(ctx, tenantID, teacherID, role, sessionID)
+		} else {
+			report, err = s.pause.ResumeSession(ctx, tenantID, teacherID, role, sessionID)
+		}
+		if err != nil {
+			return nil, err
+		}
+		if frozen && report.Frozen == 0 && report.Failed > 0 {
+			return nil, domain.ErrExamPauseFailed
+		}
+	}
+
+	session, err = s.store.SetFrozen(ctx, tenantID, teacherScope(role, teacherID), sessionID, frozen)
 	if err != nil {
 		return nil, err
 	}
@@ -279,40 +334,14 @@ func (s *ClassAdvanceService) SessionHistory(ctx context.Context, tenantID, teac
 	return events, nil
 }
 
-// AddGrace suma minutos al final vigente de una sesión cerrada. Si la ventana
-// ya venció, cuenta desde ahora: el docente puede reabrirla. El máximo se mide
-// desde el cierre, no desde la suma.
-func (s *ClassAdvanceService) AddGrace(ctx context.Context, tenantID, teacherID, role, sessionID string, minutes int) (*domain.ClassSession, error) {
-	if minutes < domain.MinAdvanceGraceMinutes || minutes > domain.MaxAdvanceGraceMinutes {
-		return nil, domain.ErrAdvanceGraceInvalid
-	}
-	session, err := s.closedSession(ctx, tenantID, teacherID, role, sessionID)
-	if err != nil {
-		return nil, err
-	}
-	base := s.now()
-	if session.GraceUntil != nil && session.GraceUntil.After(base) {
-		base = *session.GraceUntil
-	}
-	until := base.Add(time.Duration(minutes) * time.Minute)
-	if !insideAdvanceWindow(session, until, s.now()) {
-		return nil, domain.ErrAdvanceGraceExceeded
-	}
-	updated, err := s.store.SetGrace(ctx, tenantID, teacherScope(role, teacherID), sessionID, until)
-	if err != nil {
-		return nil, err
-	}
-	s.recordAudit(ctx, tenantID, teacherID, domain.AuditClassAdvanceGraceExtended, sessionID, map[string]any{
-		"minutes":        minutes,
-		"previous_until": session.GraceUntil,
-		"until":          graceUntilOf(updated),
-	})
-	return updated, nil
-}
-
-// SetGraceDeadline fija la fecha límite de una tarea. Debe ser futura y no
-// superar el máximo desde el cierre de la clase.
-func (s *ClassAdvanceService) SetGraceDeadline(ctx context.Context, tenantID, teacherID, role, sessionID string, until time.Time) (*domain.ClassSession, error) {
+// SetGraceUntil fija la hora en que termina la ventana de una sesión cerrada.
+//
+// Recibe la hora final, no una cantidad de minutos: un doble clic, un reintento
+// o dos pestañas abiertas mandan la misma hora y la ventana no se corre dos
+// veces. Si la hora pedida ya es la vigente no se escribe nada ni se agrega
+// otra fila al historial. Debe ser futura y no superar el máximo desde el
+// cierre de la clase.
+func (s *ClassAdvanceService) SetGraceUntil(ctx context.Context, tenantID, teacherID, role, sessionID string, until time.Time) (*domain.ClassSession, error) {
 	session, err := s.closedSession(ctx, tenantID, teacherID, role, sessionID)
 	if err != nil {
 		return nil, err
@@ -321,11 +350,14 @@ func (s *ClassAdvanceService) SetGraceDeadline(ctx context.Context, tenantID, te
 	if !until.After(now) || !insideAdvanceWindow(session, until, now) {
 		return nil, domain.ErrAdvanceGraceDeadline
 	}
+	if session.GraceUntil != nil && session.GraceUntil.Equal(until) {
+		return session, nil
+	}
 	updated, err := s.store.SetGrace(ctx, tenantID, teacherScope(role, teacherID), sessionID, until)
 	if err != nil {
 		return nil, err
 	}
-	s.recordAudit(ctx, tenantID, teacherID, domain.AuditClassAdvanceGraceDeadline, sessionID, map[string]any{
+	s.recordAudit(ctx, tenantID, teacherID, domain.AuditClassAdvanceGraceSet, sessionID, map[string]any{
 		"previous_until": session.GraceUntil,
 		"until":          graceUntilOf(updated),
 	})

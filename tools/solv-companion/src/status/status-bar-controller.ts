@@ -61,7 +61,13 @@ export class StatusBarController implements vscode.Disposable {
       this.action.tooltip = isExam ? 'Revisar el código y entregar el examen' : 'Revisar el código y entregar la práctica';
       this.action.command = this.commands.submit;
       this.action.show();
-      this.presence.hide();
+      if (state.student?.paused) {
+        this.presence.text = '$(debug-pause) Examen en pausa';
+        this.presence.tooltip = 'El docente pausó el examen: tu entorno está en solo lectura';
+        this.presence.show();
+      } else {
+        this.presence.hide();
+      }
     }
 
     if (state.connection === 'connected') {

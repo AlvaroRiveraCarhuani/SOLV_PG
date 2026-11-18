@@ -39,6 +39,8 @@ type IconName =
   | 'warning'
   | 'check'
   | 'clock'
+  | 'pause'
+  | 'play'
   | 'chevron-down';
 
 const ICON_PATHS: Record<IconName, string> = {
@@ -51,6 +53,8 @@ const ICON_PATHS: Record<IconName, string> = {
   broadcast: '<circle cx="12" cy="12" r="2.5"/><path d="M7.7 7.7a6 6 0 0 0 0 8.6"/><path d="M16.3 16.3a6 6 0 0 0 0-8.6"/><path d="M4.6 4.6a10 10 0 0 0 0 14.8"/><path d="M19.4 19.4a10 10 0 0 0 0-14.8"/>',
   users: '<circle cx="9" cy="8" r="3.5"/><path d="M2.5 20a6.5 6.5 0 0 1 13 0"/><path d="M16 5.5a3.5 3.5 0 0 1 0 5"/><path d="M17.5 20a6.5 6.5 0 0 0-3-5.5"/>',
   freeze: '<path d="M12 2v20"/><path d="m4 6 16 12"/><path d="M20 6 4 18"/><path d="m9 4 3 2 3-2"/><path d="m9 20 3-2 3 2"/>',
+  pause: '<rect width="4" height="16" x="6" y="4"/><rect width="4" height="16" x="14" y="4"/>',
+  play: '<polygon points="6 3 20 12 6 21 6 3"/>',
   external: '<path d="M14 4h6v6"/><path d="M20 4 11 13"/><path d="M18 14v5a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h5"/>',
   warning: '<path d="M12 3 2.5 20h19z"/><path d="M12 9v5"/><path d="M12 17v.5"/>',
   check: '<path d="m5 12.5 4.5 4.5L19 7"/>',
@@ -280,6 +284,7 @@ function renderTeacher(state: PanelState): string {
     return '';
   }
 
+  const isExam = state.assignment?.purpose === 'exam';
   const ratio =
     teacher.enrolled > 0 ? Math.min(100, Math.round((teacher.present / teacher.enrolled) * 100)) : 0;
   const remaining = teacher.sessionOpen ? formatRemainingTime(teacher.endsAt) : null;
@@ -288,11 +293,21 @@ function renderTeacher(state: PanelState): string {
     <section class="section" aria-labelledby="class-title">
       <div class="section-head">
         <h2 id="class-title">Aula</h2>
-        <span class="badge ${teacher.sessionOpen ? 'badge-new' : 'badge-neutral'}">${
+        <span class="badge ${
           teacher.sessionOpen
-            ? remaining
-              ? `Sesión abierta · ${remaining}`
-              : 'Sesión abierta'
+            ? teacher.frozen
+              ? 'badge-stuck'
+              : 'badge-new'
+            : 'badge-neutral'
+        }">${
+          teacher.sessionOpen
+            ? teacher.frozen
+              ? isExam
+                ? 'Examen en pausa'
+                : 'Clase en pausa'
+              : remaining
+                ? `Sesión abierta · ${remaining}`
+                : 'Sesión abierta'
             : 'Sin sesión'
         }</span>
       </div>
@@ -305,10 +320,6 @@ function renderTeacher(state: PanelState): string {
         <div class="metric">
           <span class="metric-label">${icon('upload')}Entregas</span>
           <span class="metric-value">${teacher.submitted}</span>
-        </div>
-        <div class="metric">
-          <span class="metric-label">${icon('freeze')}Emisión</span>
-          <span class="metric-value">${teacher.frozen ? 'Congelada' : 'Habilitada'}</span>
         </div>
         ${
           teacher.sessionOpen && remaining
@@ -327,9 +338,13 @@ function renderTeacher(state: PanelState): string {
       <div class="actions">
         ${
           teacher.sessionOpen
-            ? `<button class="btn btn-primary" data-action="broadcast">${icon('broadcast')}Emitir avance a la clase</button>
-               <button class="btn btn-secondary" data-action="freeze">${icon('freeze')}${teacher.frozen ? 'Descongelar clase' : 'Congelar clase'}</button>
-               <button class="btn btn-ghost" data-action="close-aula">Cerrar clase</button>`
+            ? isExam
+              ? `<button class="btn btn-secondary" data-action="toggle-pause">${
+                  teacher.frozen ? `${icon('play')}Reanudar examen` : `${icon('pause')}Pausar examen`
+                }</button>
+                 <button class="btn btn-ghost" data-action="close-aula">Cerrar examen</button>`
+              : `<button class="btn btn-primary" data-action="broadcast">${icon('broadcast')}Emitir avance a la clase</button>
+                 <button class="btn btn-ghost" data-action="close-aula">Cerrar clase</button>`
             : `<button class="btn btn-primary" data-action="open-aula" style="width: 100%; justify-content: center;">${icon('users')}Iniciar clase</button>`
         }
       </div>
@@ -364,7 +379,7 @@ function renderRubric(assignment: PanelState['assignment']): string {
     if (!assignment.criteria || assignment.criteria.length === 0) {
       return '';
     }
-    return `<ul class="criteria">${assignment.criteria
+    return `<div class="section-head"><h2 id="rubric-title">${escapeHtml(rubricTitleText(assignment.purpose))}</h2></div><ul class="criteria">${assignment.criteria
       .map(item => `<li>${escapeHtml(item)}</li>`)
       .join('')}</ul>`;
   }
@@ -466,11 +481,11 @@ function renderRubric(assignment: PanelState['assignment']): string {
 
   const rubricHeader = rubricTitleText(assignment.purpose);
 
-  return `<details class="rubric-details" data-detail-key="rubric">
+  return `<details class="rubric-details" data-detail-key="rubric" open>
     <summary class="rubric-summary-header">
       <div class="rubric-header-left">
         <span class="rubric-chevron" aria-hidden="true">${icon('chevron-down')}</span>
-        <span class="rubric-header-title">${escapeHtml(rubricHeader)}</span>
+        <h2 class="rubric-header-title" id="rubric-title">${escapeHtml(rubricHeader)}</h2>
       </div>
       <span class="rubric-total-badge">Total: ${totalPoints} pts</span>
     </summary>
@@ -516,7 +531,32 @@ function consignaSummary(state: PanelState): string {
 function renderSidebar(state: PanelState): string {
   const action = state.role === 'student' ? renderAdvance(state) : renderTeacher(state);
   const comments = state.role === 'student' ? renderComments(state) : '';
-  return `${action}${comments}${renderConsignaExcerpt(state)}${renderEvaluation(state)}`;
+  return `${renderPauseNotice(state)}${action}${comments}${renderConsignaExcerpt(state)}${renderEvaluation(state)}`;
+}
+
+/**
+ * Aviso de examen pausado en el panel del alumno. El entorno ya está en solo
+ * lectura: esto explica por qué el editor no guarda, sin ofrecer una acción que
+ * el alumno no puede tomar.
+ */
+function renderPauseNotice(state: PanelState): string {
+  if (state.role !== 'student' || !state.student?.paused) {
+    return '';
+  }
+  const since = state.student.pausedSince;
+  return `
+    <section class="section" aria-labelledby="pause-title" role="status">
+      <div class="section-head">
+        <h2 id="pause-title">Examen en pausa</h2>
+        <span class="badge badge-stuck">Solo lectura</span>
+      </div>
+      <p class="notice notice-warning">${icon('pause')}El docente pausó el examen. Tu entorno no acepta escritura hasta que lo reanude.</p>
+      ${
+        since
+          ? `<p class="muted">Pausado desde <time datetime="${escapeHtml(since)}">${escapeHtml(formatTimestamp(since))}</time>.</p>`
+          : ''
+      }
+    </section>`;
 }
 
 function renderConsignaExcerpt(state: PanelState): string {
@@ -599,12 +639,9 @@ function renderDocument(state: PanelState, rubricContent: string): string {
     </section>`);
 
   if (hasRubric(state.assignment) && rubricContent) {
-    // La rúbrica con criterios trae su propio encabezado en el resumen del
-    // acordeón; la lista simple de criterios necesita el título explícito.
-    const heading = state.assignment.rubricCriteria?.length ? '' : '<h2>Rúbrica</h2>';
     sections.push(`
-      <section class="section doc-section" id="rubric" data-doc-section="rubric">
-        ${heading}${rubricContent}
+      <section class="section doc-section" id="rubric" data-doc-section="rubric" aria-labelledby="rubric-title">
+        ${rubricContent}
       </section>`);
   }
 
@@ -858,11 +895,12 @@ export function renderPanelHtml(
     transform: rotate(180deg);
   }
   .rubric-header-title {
+    margin: 0;
     font-size: 0.85em;
     font-weight: 600;
     text-transform: uppercase;
-    letter-spacing: 0.04em;
-    color: var(--vscode-descriptionForeground);
+    letter-spacing: 0.06em;
+    color: var(--vscode-foreground);
   }
   .rubric-total-badge {
     background-color: var(--vscode-badge-background);
@@ -1348,19 +1386,41 @@ export function renderPanelHtml(
         .map(link => document.getElementById(link.getAttribute('data-nav-target')))
         .filter(Boolean);
       if (sections.length > 0) {
-        const observer = new IntersectionObserver(
-          entries => {
-            const visible = entries
-              .filter(entry => entry.isIntersecting)
-              .sort((left, right) => left.boundingClientRect.top - right.boundingClientRect.top);
-            if (visible.length > 0) {
-              markActive(visible[0].target.id);
+        const updateActiveSection = () => {
+          const scrollBottom = window.innerHeight + window.scrollY;
+          const isAtBottom = scrollBottom >= document.documentElement.scrollHeight - 30;
+          if (isAtBottom) {
+            markActive(sections[sections.length - 1].id);
+            return;
+          }
+          const readingLine = 140;
+          let currentId = sections[0].id;
+          for (let i = 0; i < sections.length; i++) {
+            const rect = sections[i].getBoundingClientRect();
+            if (rect.top <= readingLine) {
+              currentId = sections[i].id;
+            } else {
+              break;
+            }
+          }
+          markActive(currentId);
+        };
+
+        let scrollTicking = false;
+        window.addEventListener(
+          'scroll',
+          () => {
+            if (!scrollTicking) {
+              window.requestAnimationFrame(() => {
+                updateActiveSection();
+                scrollTicking = false;
+              });
+              scrollTicking = true;
             }
           },
-          { rootMargin: '0px 0px -60% 0px', threshold: 0 }
+          { passive: true }
         );
-        sections.forEach(section => observer.observe(section));
-        markActive(sections[0].id);
+        updateActiveSection();
       }
     }
 

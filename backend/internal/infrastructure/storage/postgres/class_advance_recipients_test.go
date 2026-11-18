@@ -11,7 +11,7 @@ func TestGroupSessionAdvances_CountsRecipientsByStatus(t *testing.T) {
 	created := time.Now()
 	decided := created.Add(time.Minute)
 	rows := []advanceRecipientRow{
-		{AdvanceID: "avance-2", ExerciseID: "ej-2", ExerciseTitle: "Recorridos", Scope: "class", FileCount: 1, CreatedAt: created,
+		{AdvanceID: "avance-2", ExerciseID: "ej-2", ExerciseTitle: "Recorridos", Title: "Paso 2", Scope: "class", FileCount: 1, CreatedAt: created,
 			StudentID: "s1", Name: "Ana", Email: "ana@solv.test", Status: domain.AdvanceRecipientApplied, DecidedAt: &decided},
 		{AdvanceID: "avance-2", ExerciseID: "ej-2", ExerciseTitle: "Recorridos", Scope: "class", FileCount: 1, CreatedAt: created,
 			StudentID: "s2", Name: "Beto", Email: "beto@solv.test", Status: domain.AdvanceRecipientPending},
@@ -29,8 +29,8 @@ func TestGroupSessionAdvances_CountsRecipientsByStatus(t *testing.T) {
 	}
 
 	first := advances[0]
-	if first.ID != "avance-2" || first.ExerciseTitle != "Recorridos" {
-		t.Fatalf("el orden debía conservar la emisión más nueva primero: %+v", first)
+	if first.ID != "avance-2" || first.ExerciseTitle != "Recorridos" || first.Title != "Paso 2" {
+		t.Fatalf("el orden y título debían conservarse: %+v", first)
 	}
 	if first.Counts.Total != 4 || first.Counts.Applied != 1 || first.Counts.Dismissed != 1 ||
 		first.Counts.Pending != 1 || first.Counts.Expired != 1 || first.Counts.Failed != 0 {

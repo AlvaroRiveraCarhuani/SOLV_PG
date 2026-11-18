@@ -1,5 +1,5 @@
 import * as vscode from 'vscode';
-import { SolvClient } from './client/solv-client';
+import { SolvClient, StudentClassSession } from './client/solv-client';
 import { AdvanceClient } from './advances/advance-client';
 import { AdvanceContentProvider } from './advances/advance-content-provider';
 import { AdvanceController, describeAdvanceError } from './advances/advance-controller';
@@ -28,6 +28,9 @@ const MAX_ADVANCE_FILES = 2000;
 /** Último avance que ya se avisó al alumno, para no repetirlo en cada ciclo. */
 const ADVANCE_NOTICE_KEY = 'solv.notifiedAdvance';
 
+/** Última pausa de examen avisada, para no repetir el aviso en cada ciclo. */
+const PAUSED_EXAM_KEY = 'solv.pausedExam';
+
 export async function activate(context: vscode.ExtensionContext): Promise<void> {
   const settings = new SolvSettings(context);
   const client = new SolvClient(settings);
@@ -52,6 +55,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
   let connection: ConnectionState = 'connecting';
   let lastOkAt = Date.now();
   let notice: PanelState['message'];
+  let studentPause: { sessionId: string; since: string } | null = null;
   let progress:
     | {
         delivery: DeliveryState;
@@ -95,7 +99,8 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     vscode.commands.registerCommand('solv.refreshPanel', () => refreshAll(true)),
     vscode.commands.registerCommand('solv.submit', () => submitPractice()),
     vscode.commands.registerCommand('solv.broadcastAdvance', () => broadcastAdvance()),
-    vscode.commands.registerCommand('solv.toggleFreeze', () => toggleFreeze()),
+    vscode.commands.registerCommand('solv.togglePause', () => togglePauseExam()),
+    vscode.commands.registerCommand('solv.toggleFreeze', () => togglePauseExam()),
     vscode.commands.registerCommand('solv.showPresence', () => showPresence()),
     vscode.commands.registerCommand('solv.openSpeedGrader', () => openSpeedGrader()),
     vscode.commands.registerCommand('solv.configure', async () => {
@@ -155,7 +160,9 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     if (snapshot.advance) {
       state.advance = {
         id: snapshot.advance.delivery.id,
-        title: assignmentTitle ? `Avance de ${assignmentTitle}` : 'Avance de clase',
+        title:
+          snapshot.advance.delivery.title ||
+          (assignmentTitle ? `Avance de ${assignmentTitle}` : 'Avance de clase'),
         createdAt: snapshot.advance.delivery.created_at,
         files: snapshot.advance.files,
         applied: false,
@@ -184,6 +191,12 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
         enrolled: board?.summary.enrolled ?? 0,
         submitted: board?.summary.submitted ?? 0
       };
+    }
+
+    if (!settings.isTeacher) {
+      state.student = studentPause
+        ? { paused: true, pausedSince: studentPause.since }
+        : { paused: false };
     }
 
     if (notice) {
@@ -232,8 +245,9 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
       case 'broadcast':
         await broadcastAdvance();
         return;
+      case 'toggle-pause':
       case 'freeze':
-        await toggleFreeze();
+        await togglePauseExam();
         return;
       case 'submit':
         await submitPractice();
@@ -343,11 +357,40 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     }
   }
 
-  async function toggleFreeze(): Promise<void> {
+  /**
+   * Pausa en vivo del examen: los volúmenes de los alumnos pasan a solo lectura
+   * y la sesión sigue abierta. Una clase no se pausa, así que el comando solo
+   * aplica a exámenes.
+   */
+  async function togglePauseExam(): Promise<void> {
+    const isExam = settings.exercisePurpose === 'exam' || progress?.purpose === 'exam';
+    if (!isExam) {
+      warn('La pausa en vivo es solo para exámenes.');
+      return;
+    }
+
+    const board = advances.snapshot().board;
+    const isFrozen = Boolean(board?.session.frozen_at);
+    if (!isFrozen) {
+      const actionLabel = 'Pausar examen';
+      const confirm = await vscode.window.showWarningMessage(
+        '¿Pausar el examen? Los entornos de todos los alumnos quedan en solo lectura y el examen sigue abierto. Podés reanudarlo cuando quieras.',
+        { modal: true },
+        actionLabel
+      );
+      if (confirm !== actionLabel) {
+        return;
+      }
+    }
+
     try {
       const frozen = await advances.toggleFreeze();
-      info(frozen ? 'Clase congelada: no se emiten avances nuevos.' : 'Clase habilitada para emitir avances.');
-      await renderAll();
+      info(
+        frozen
+          ? 'Examen pausado: los alumnos no pueden editar hasta que lo reanudes.'
+          : 'Examen reanudado: los alumnos recuperan la escritura.'
+      );
+      await refreshAll(false);
     } catch (error) {
       warn(describeAdvanceError(error));
     }
@@ -456,14 +499,14 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
 
     const title = await vscode.window.showInputBox({
       title: 'Emitir avance a la clase',
-      prompt: 'Título del avance que verán los alumnos',
+      prompt: 'Título del avance (opcional, Enter para omitir)',
       placeHolder: 'Paso 2: rutas del servicio',
-      ignoreFocusOut: true,
-      validateInput: value => (value.trim() === '' ? 'El título es obligatorio' : undefined)
+      ignoreFocusOut: true
     });
     if (title === undefined) {
       return;
     }
+    const cleanTitle = title.trim();
 
     const scope = await vscode.window.showQuickPick(
       [
@@ -525,11 +568,13 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
       const emitted = await advanceClient.emit({
         sessionId,
         exerciseId,
+        title: cleanTitle || undefined,
         scope: scope.value,
         studentIds,
         selectedFiles
       });
-      info(`Avance «${title.trim()}» emitido a ${emitted.recipients.length} alumnos.`);
+      const displayTitle = cleanTitle || settings.assignmentTitle || 'Avance';
+      info(`Avance «${displayTitle}» emitido a ${emitted.recipients.length} alumnos.`);
       await refreshAll(false);
     } catch (error) {
       warn(describeAdvanceError(error));
@@ -562,14 +607,15 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     }
 
     const isExam = settings.exercisePurpose === 'exam' || progress?.purpose === 'exam';
+    const actionLabel = isExam ? 'Entregar examen' : 'Entregar';
     const confirm = await vscode.window.showWarningMessage(
       isExam
-        ? '¿Entregar el examen? Se guarda el estado actual del proyecto.'
+        ? '¿Registrar entrega de examen? Se guardará el estado actual. Podés seguir editando y volver a entregar hasta que el examen cierre definitivamente.'
         : '¿Entregar la práctica? Se guarda el estado actual del proyecto.',
       { modal: true },
-      'Entregar'
+      actionLabel
     );
-    if (confirm !== 'Entregar') {
+    if (confirm !== actionLabel) {
       return;
     }
 
@@ -674,18 +720,65 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     }
   }
 
-  async function sendStudentPresenceHeartbeat(): Promise<void> {
+  /**
+   * Ciclo del alumno: late en el aula abierta y detecta la pausa del docente. El
+   * aviso sale una vez por pausa, no en cada vuelta del temporizador.
+   */
+  async function pollStudentSession(): Promise<void> {
     if (settings.isTeacher) {
       return;
     }
+    let sessions: StudentClassSession[];
     try {
-      const activeSessions = await client.activeStudentSessions();
-      if (activeSessions && activeSessions.length > 0) {
-        const session = activeSessions[0];
-        await client.sendStudentHeartbeat(session.id);
-      }
+      sessions = await client.activeStudentSessions();
     } catch {
-      // El latido en segundo plano no bloquea la interfaz
+      // Un fallo de red no inventa una reanudación: se conserva el estado.
+      return;
+    }
+
+    const session = sessions[0];
+    if (!session) {
+      // Sin aula abierta no hay reanudación que anunciar: el examen pudo cerrarse.
+      applyStudentPause(null);
+      return;
+    }
+    try {
+      await client.sendStudentHeartbeat(session.id);
+    } catch {
+      // El latido en segundo plano no bloquea la interfaz.
+    }
+    applyStudentPause(
+      session.frozen_at ? { sessionId: session.id, since: session.frozen_at } : null,
+      session.id
+    );
+  }
+
+  /**
+   * Guarda y avisa el cambio de pausa. `resumedSessionId` llega solo cuando el
+   * aula sigue abierta: así cerrar el examen no se confunde con reanudarlo.
+   */
+  function applyStudentPause(
+    next: { sessionId: string; since: string } | null,
+    resumedSessionId?: string
+  ): void {
+    const previousKey = context.workspaceState.get<string>(PAUSED_EXAM_KEY);
+    if (next) {
+      const key = `${next.sessionId}:${next.since}`;
+      studentPause = next;
+      if (previousKey !== key) {
+        void context.workspaceState.update(PAUSED_EXAM_KEY, key);
+        warn('El docente pausó el examen. Tu entorno quedó en solo lectura hasta que lo reanude.');
+      }
+      return;
+    }
+
+    studentPause = null;
+    if (!previousKey) {
+      return;
+    }
+    void context.workspaceState.update(PAUSED_EXAM_KEY, undefined);
+    if (resumedSessionId && previousKey.startsWith(`${resumedSessionId}:`)) {
+      info('Examen reanudado: ya podés volver a editar.');
     }
   }
 
@@ -745,17 +838,21 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
       warn('No hay una sesión activa para cerrar.');
       return;
     }
+    const isExam = settings.exercisePurpose === 'exam' || progress?.purpose === 'exam';
+    const actionLabel = isExam ? 'Cerrar examen' : 'Cerrar clase';
     const confirm = await vscode.window.showWarningMessage(
-      '¿Cerrar la sesión de clase actual? Los alumnos ya no podrán emitir avances ni asistencia.',
+      isExam
+        ? '¿Cerrar el examen definitivamente? Los entornos de todos los alumnos pasarán a solo lectura y no se permitirán más cambios.'
+        : '¿Cerrar la sesión de clase actual? Los alumnos ya no podrán emitir avances ni registrar asistencia.',
       { modal: true },
-      'Cerrar clase'
+      actionLabel
     );
-    if (confirm !== 'Cerrar clase') {
+    if (confirm !== actionLabel) {
       return;
     }
     try {
       await advances.closeSession(sessionId);
-      info('Sesión de clase cerrada.');
+      info(isExam ? 'Examen cerrado: los entornos quedaron congelados.' : 'Sesión de clase cerrada.');
       await refreshAll(true);
     } catch (error) {
       warn(describeAdvanceError(error));
@@ -864,7 +961,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     if (refreshed) {
       notifyPendingAdvance();
     }
-    await sendStudentPresenceHeartbeat();
+    await pollStudentSession();
     await comments.refresh(showErrors);
     await renderAll();
   }

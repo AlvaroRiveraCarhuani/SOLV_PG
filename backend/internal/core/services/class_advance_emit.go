@@ -24,6 +24,7 @@ type EmitAdvanceInput struct {
 	TeacherID  string
 	Role       string
 	SessionID  string
+	Title      string
 	Scope      string
 	StudentIDs []string
 	// SelectedFiles acota el snapshot a esas rutas del entorno del docente. Vacío
@@ -87,6 +88,7 @@ func (s *ClassAdvanceService) Emit(ctx context.Context, in EmitAdvanceInput) (*d
 		Role:           in.Role,
 		SessionID:      in.SessionID,
 		ExerciseID:     exerciseID,
+		Title:          in.Title,
 		Scope:          in.Scope,
 		StudentIDs:     in.StudentIDs,
 		SnapshotKey:    key,

@@ -71,6 +71,12 @@ export interface TeacherView {
   lastAdvance?: { id: string; createdAt: string; recipients: number };
 }
 
+export interface StudentView {
+  /** El docente pausó el examen: el entorno quedó en solo lectura. */
+  paused: boolean;
+  pausedSince?: string;
+}
+
 export interface PanelState {
   role: Role;
   connection: ConnectionState;
@@ -79,6 +85,7 @@ export interface PanelState {
   advance?: AdvanceView;
   comments: CommentView[];
   teacher?: TeacherView;
+  student?: StudentView;
   canSubmit: boolean;
   message?: { kind: 'info' | 'warning' | 'error'; text: string };
 }

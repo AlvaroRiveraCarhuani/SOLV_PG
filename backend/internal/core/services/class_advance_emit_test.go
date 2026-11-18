@@ -103,10 +103,15 @@ func TestEmitAdvance_StoresSnapshotAndIssuesTheAdvance(t *testing.T) {
 		TeacherID: advanceTeacherID,
 		Role:      "teacher",
 		SessionID: newOpenSession().ID,
+		Title:     "Paso 2: rutas del servicio",
 		Scope:     domain.AdvanceScopeClass,
 	})
 	if err != nil {
 		t.Fatalf("error inesperado al emitir: %v", err)
+	}
+
+	if advance.Title != "Paso 2: rutas del servicio" {
+		t.Errorf("title del avance = %q, se esperaba 'Paso 2: rutas del servicio'", advance.Title)
 	}
 
 	wantKey := "class-advances/" + advanceTenantID + "/" + advance.ID + ".tar.gz"

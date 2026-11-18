@@ -48,9 +48,9 @@ Un alumno que no participa de la sesión no recibe avisos, aunque esté matricul
 
 ### 4. Congelación, ventana de disponibilidad y examen
 
-**Examen (`purpose = exam`).** No se emiten ni aplican avances. Durante el examen el alumno programa: el bloqueo de edición no se activa al empezar, sino al cerrar, cuando su volumen pasa a solo lectura (ADR-005 §5). No hay ventana de disponibilidad en examen.
+**Examen (`purpose = exam`).** No se emiten ni aplican avances. Durante el examen el alumno programa; el docente puede pausar el examen en vivo y los volúmenes pasan a solo lectura hasta que lo reanude, y al cerrar quedan en solo lectura de forma definitiva (ADR-005 §5.2). No hay ventana de disponibilidad en examen.
 
-**Congelar clase.** Es una acción manual del docente sobre la sesión abierta, sin temporizador. Mientras la clase esté congelada no se emiten avances nuevos. La congelación no bloquea la edición del alumno: puede seguir programando.
+**No hay pausa de clase.** Una clase no se pausa: el docente emite avances cuando quiere y los alumnos siguen programando. La única pausa con efecto sobre la escritura es la del examen, y vive en ADR-005 §5.2. `class_sessions.frozen_at` sigue siendo la marca de esa pausa, pero no bloquea la emisión por sí sola: en examen la emisión ya está bloqueada.
 
 **Cierre de la sesión.** Al cerrar el aula (a mano o al vencer `ends_at`, ADR-056) se bloquean las emisiones nuevas. Los avances ya emitidos quedan aplicables durante la ventana de disponibilidad de la sesión, que arranca en 30 minutos después del cierre. El valor es de 30 minutos para todas las materias; el valor por materia queda para una iteración posterior.
 
@@ -58,7 +58,7 @@ Un alumno que no participa de la sesión no recibe avisos, aunque esté matricul
 
 | Acción | Efecto |
 | --- | --- |
-| Sumar minutos | Agrega minutos al final vigente. Si la ventana ya venció, cuenta desde ahora. El campo es libre: 1 a 480 minutos por suma. |
+| Sumar minutos | Extiende la ventana: el aula calcula el final vigente (o ahora, si venció) más los minutos elegidos y manda esa hora. El campo es libre: 1 a 480 minutos por suma. |
 | Fijar fecha límite | Para una tarea, el docente elige día y hora. Reemplaza el final vigente. El máximo es de 7 días desde el cierre de la clase. |
 | Cerrar ahora | Fija el final en el momento y los avances de la sesión dejan de aplicarse. |
 
@@ -68,7 +68,7 @@ No hay tope de cantidad de extensiones: el control es el máximo de tiempo y el 
 
 **Vencimiento de la ventana.** Al vencer, el destinatario pendiente pasa a `expired`. El aviso deja de mostrarse y no puede aplicarse. `expired` es un estado del sistema, no una decisión del alumno: si el docente reabre la ventana (sumando minutos desde ahora o fijando una fecha futura), esos destinatarios vuelven a `pending`. `applied`, `dismissed` y `failed` no se revierten. El vencimiento se refleja sin depender de que el alumno abra el laboratorio: la consulta del alumno y la lectura del docente cierran los pendientes vencidos.
 
-**Estado de implementación.** La ventana automática, la suma de minutos, la fecha límite y el cierre manual están implementados. El cierre a mano y el cierre por `ends_at` fijan `grace_until`; `PATCH /grace` acepta `add_minutes`, `until` o `close`, y al reabrir una ventana vencida los destinatarios `expired` vuelven a `pending`.
+**Estado de implementación.** La ventana automática, la suma de minutos, la fecha límite y el cierre manual están implementados. El cierre a mano y el cierre por `ends_at` fijan `grace_until`; `PATCH /grace` acepta `until` (la hora final de la ventana) o `close`, y al reabrir una ventana vencida los destinatarios `expired` vuelven a `pending`.
 
 ### 5. Qué se copia
 
@@ -136,7 +136,7 @@ El aviso aparece en la pantalla donde el alumno trabaja: el solver de la prácti
 
 | Campo | Tipo | Nota |
 | --- | --- | --- |
-| `frozen_at` | timestamptz, nullable | Momento de congelación manual; nulo si la clase no está congelada |
+| `frozen_at` | timestamptz, nullable | Momento de la pausa en vivo de un examen; nulo si el examen no está pausado. Al cerrar el aula vuelve a nulo |
 | `grace_until` | timestamptz, nullable | Fin de la ventana de disponibilidad de los avances de la sesión; se fija al cerrar con 30 minutos y puede sumarse, fijarse con fecha límite o cerrarse antes |
 
 **Nueva tabla `class_advances`:**
@@ -147,6 +147,7 @@ El aviso aparece en la pantalla donde el alumno trabaja: el solver de la prácti
 | `tenant_id` | uuid | Aislamiento multi-tenant |
 | `session_id` | uuid | FK a `class_sessions` |
 | `exercise_id` | uuid | Práctica de la sesión; el snapshot se lee y el avance se registra bajo ese id |
+| `title` | varchar(255) | Título opcional del avance para rotular el hito pedagógico |
 | `scope` | varchar(10) | `class` o `selected` |
 | `snapshot_key` | text | Clave del objeto en SeaweedFS (`class-advances/<tenant_id>/<avance_id>.tar.gz`) |
 | `snapshot_sha256` | char(64) | Hash del tar.gz; se verifica antes de copiar |
@@ -172,18 +173,18 @@ Clave primaria compuesta `(advance_id, student_id)`. Las migraciones viven en `b
 
 | Método | Ruta | Rol | Efecto |
 | --- | --- | --- | --- |
-| `POST` | `/api/v1/teacher/sessions/{id}/advances` | docente | Emite un avance (`scope`, `student_ids` si es `selected` y `selected_files` para compartir una parte; la práctica sale del aula) |
+| `POST` | `/api/v1/teacher/sessions/{id}/advances` | docente | Emite un avance (`title` opcional, `scope`, `student_ids` si es `selected` y `selected_files` para compartir una parte; la práctica sale del aula) |
 | `GET` | `/api/v1/teacher/sessions/{id}/advances` | docente | Emisiones del aula con el estado de cada destinatario |
 | `GET` | `/api/v1/teacher/sessions/{id}/history` | docente | Historial de la clase: emisiones, congelaciones, ventana y decisiones de los alumnos |
-| `PATCH` | `/api/v1/teacher/sessions/{id}/freeze` | docente | Congela la sesión; responde con la sesión y su `frozen_at` |
-| `PATCH` | `/api/v1/teacher/sessions/{id}/unfreeze` | docente | Descongela la sesión; `frozen_at` vuelve a nulo |
-| `PATCH` | `/api/v1/teacher/sessions/{id}/grace` | docente | Ajusta la ventana con el aula cerrada: `{"add_minutes": 15}` suma al final vigente, `{"until": "2026-11-01T22:00:00Z"}` fija la fecha límite de una tarea y `{"close": true}` la cierra en el momento |
+| `PATCH` | `/api/v1/teacher/sessions/{id}/freeze` | docente | Pausa un examen en curso: los volúmenes pasan a `:ro`; responde con la sesión y su `frozen_at`. Un aula de clase responde 409 |
+| `PATCH` | `/api/v1/teacher/sessions/{id}/unfreeze` | docente | Reanuda el examen pausado: los volúmenes vuelven a `:rw` y `frozen_at` queda nulo |
+| `PATCH` | `/api/v1/teacher/sessions/{id}/grace` | docente | Ajusta la ventana con el aula cerrada: `{"until": "2026-11-01T22:00:00Z"}` fija la hora final y `{"close": true}` la cierra en el momento |
 | `GET` | `/api/v1/class-advances/pending` | alumno | Avances pendientes para el alumno autenticado |
 | `GET` | `/api/v1/class-advances/{id}/files` | alumno | Archivos del aviso: los que se agregan y los que se reemplazan, sin escribir |
 | `POST` | `/api/v1/class-advances/{id}/apply` | alumno | Aplica el avance con respaldo previo |
 | `POST` | `/api/v1/class-advances/{id}/dismiss` | alumno | Marca el aviso como descartado |
 
-Los diez endpoints están montados. La lectura de archivos es la que hace posible el paso 1 de §7; sin ella la confirmación solo podría anunciar una cantidad. La lectura por sesión es la que responde "quién lo aplicó": devuelve cada emisión con sus destinatarios ya resueltos (nombre, correo, estado y hora de decisión) y el conteo por estado, del más nuevo al más viejo. El filtro es el docente dueño de la materia; un `teacherID` vacío (administrador) no filtra. Congelar y descongelar comparten camino: el rol `student` recibe 403 antes de llegar al servicio, una sesión inexistente o de otro docente recibe 404 y el éxito devuelve 200 con la sesión. Ajustar la ventana exige el aula cerrada (409 si sigue abierta): `add_minutes` suma al final vigente (1 a 480 minutos), `until` fija una fecha futura dentro de los 7 días desde el cierre y `close` la termina en el momento. El historial de la clase se lee en `GET /history`; ver §12.
+Los diez endpoints están montados. La lectura de archivos es la que hace posible el paso 1 de §7; sin ella la confirmación solo podría anunciar una cantidad. La lectura por sesión es la que responde "quién lo aplicó": devuelve cada emisión con sus destinatarios ya resueltos (nombre, correo, estado y hora de decisión) y el conteo por estado, del más nuevo al más viejo. El filtro es el docente dueño de la materia; un `teacherID` vacío (administrador) no filtra. Pausar y reanudar comparten camino: el rol `student` recibe 403 antes de llegar al servicio, una sesión inexistente o de otro docente recibe 404, un aula de clase responde 409 y una sesión cerrada, 409. El éxito devuelve 200 con la sesión. El efecto sobre la escritura lo aplica el montaje del volumen (ADR-005 §5.2), no esta tabla. Ajustar la ventana exige el aula cerrada (409 si sigue abierta): `until` fija una hora futura dentro de los 7 días desde el cierre y `close` la termina en el momento. El aula suma los minutos elegidos al final vigente y manda esa hora final, no el delta: repetir la misma petición deja la ventana igual y no agrega otra fila al historial. El historial de la clase se lee en `GET /history`; ver §12.
 
 **Pantalla docente.** `/teacher/aula` usa esas rutas en la misma vista: el modal de emisión elige la práctica publicada y el alcance entre quienes pasaron por el aula; la cabecera congela o descongela; y, con el aula cerrada, el bloque de la ventana muestra "Disponible hasta ...", un campo libre de minutos para sumar, un campo de fecha y hora para la tarea y `[Cerrar ventana ahora]`. La pantalla conserva la sesión cerrada al cerrar el aula, porque ajustar la ventana necesita su identificador. Ver `proyecto-grado/avances/emision-avances-aula.md`.
 
@@ -214,8 +215,8 @@ Emitir, congelar, descongelar, sumar minutos, fijar la fecha límite, cerrar la 
 | --- | --- |
 | `CLASS_ADVANCE_EMITTED` | Avance, práctica, alcance, destinatarios y archivos |
 | `CLASS_FROZEN` / `CLASS_UNFROZEN` | Docente y estado de congelación |
-| `CLASS_ADVANCE_GRACE_EXTENDED` | Minutos sumados, ventana anterior y nueva |
-| `CLASS_ADVANCE_GRACE_DEADLINE_SET` | Ventana anterior y fecha límite |
+| `CLASS_ADVANCE_GRACE_SET` | Ventana anterior y hora final |
+| `CLASS_ADVANCE_GRACE_EXTENDED` y `CLASS_ADVANCE_GRACE_DEADLINE_SET` | Acciones anteriores al 2026-11-18: siguen en el historial de las clases ya registradas |
 | `CLASS_ADVANCE_GRACE_CLOSED` | Ventana anterior y hora de cierre |
 | `CLASS_ADVANCE_APPLIED` | Alumno, avance y archivos escritos |
 | `CLASS_ADVANCE_DISMISSED` | Alumno y avance |
@@ -293,7 +294,7 @@ Deshacer exige que el destinatario esté en `applied` y que exista respaldo. Si 
 - Emitir en una sesión abierta con `scope = class` crea un destinatario por cada participante de la sesión.
 - Emitir con `scope = selected` a un alumno fuera de la sesión devuelve 422.
 - Al cerrar el aula, la ventana queda en 30 minutos por defecto.
-- Sumar minutos alarga el final vigente; si la ventana ya venció, cuenta desde ahora.
+- Sumar minutos alarga el final vigente; si la ventana ya venció, cuenta desde ahora. El aula manda la hora final resultante, así que repetir la acción no la corre dos veces.
 - Fijar una fecha límite para una tarea mantiene el avance aplicable fuera del horario de clase.
 - Cerrar la ventana impide aplicar de inmediato.
 - Un destinatario `expired` vuelve a `pending` si la ventana se reabre antes de que decida; `applied`, `dismissed` y `failed` no se revierten.

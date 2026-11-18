@@ -29,8 +29,11 @@ export interface StudentClassSession {
   id: string;
   subject_id: string;
   exercise_id?: string;
+  purpose?: string;
   status: 'open' | 'closed';
   started_at: string;
+  /** Hora de la pausa del docente; nulo cuando el examen está escribible. */
+  frozen_at?: string | null;
 }
 
 export interface TeacherOpenSession {
@@ -180,16 +183,15 @@ export class SolvClient {
     }
   }
 
-  /** Aulas de clase activas para el alumno, para emitir su presencia. */
+  /**
+   * Aulas activas del alumno: presencia y estado de pausa. Un fallo se propaga
+   * para que el ciclo no confunda "sin aula" con "la API no respondió".
+   */
   async activeStudentSessions(): Promise<StudentClassSession[]> {
-    try {
-      const res = await this.request<StudentClassSession[]>('/api/v1/student/sessions/active', {
-        method: 'GET'
-      });
-      return Array.isArray(res) ? res : [];
-    } catch {
-      return [];
-    }
+    const res = await this.request<StudentClassSession[]>('/api/v1/student/sessions/active', {
+      method: 'GET'
+    });
+    return Array.isArray(res) ? res : [];
   }
 
   /** Emite latido de presencia del alumno en un aula abierta. */

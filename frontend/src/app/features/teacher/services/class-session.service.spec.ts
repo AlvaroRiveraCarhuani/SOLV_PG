@@ -155,19 +155,20 @@ describe('ClassSessionService', () => {
     expect(service.isLoadingClosedBoard()).toBe(false);
   });
 
-  it('adds free minutes to the current grace window', () => {
+  it('sends the end of the window so a repeated click cannot add twice', () => {
     service.lastClosedSession.set(session({ status: 'closed', closes_at: '2026-10-31T16:00:00Z' }));
+    const until = '2026-10-31T17:00:00.000Z';
 
-    service.addGrace(SESSION_ID, 20).subscribe();
+    service.setGraceUntil(SESSION_ID, until).subscribe();
 
     const req = httpMock.expectOne(`/api/v1/teacher/sessions/${SESSION_ID}/grace`);
     expect(req.request.method).toBe('PATCH');
-    expect(req.request.body).toEqual({ add_minutes: 20 });
+    expect(req.request.body).toEqual({ until });
     req.flush({
-      data: session({ status: 'closed', grace_until: '2026-10-31T17:00:00Z' })
+      data: session({ status: 'closed', grace_until: until })
     });
 
-    expect(service.lastClosedSession()?.grace_until).toBe('2026-10-31T17:00:00Z');
+    expect(service.lastClosedSession()?.grace_until).toBe(until);
     expect(service.isExtendingGrace()).toBe(false);
   });
 
@@ -175,7 +176,7 @@ describe('ClassSessionService', () => {
     service.lastClosedSession.set(session({ status: 'closed', closes_at: '2026-10-31T16:00:00Z' }));
     const until = '2026-11-02T23:00:00.000Z';
 
-    service.setGraceDeadline(SESSION_ID, until).subscribe();
+    service.setGraceUntil(SESSION_ID, until).subscribe();
 
     const req = httpMock.expectOne(`/api/v1/teacher/sessions/${SESSION_ID}/grace`);
     expect(req.request.body).toEqual({ until });

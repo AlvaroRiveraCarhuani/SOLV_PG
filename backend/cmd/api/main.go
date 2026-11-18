@@ -352,9 +352,8 @@ func main() {
 	examFreezeService := services.NewExamFreezeService(examFreezeRepo, classSessionRepo, environmentRepo, environmentService)
 	examFreezeService.SetAuditRepository(auditLogRepo)
 	classSessionService.WithExamFreezer(examFreezeService)
-	// Entrega anticipada: el alumno que termina antes cierra solo su volumen y
-	// la clase sigue escribiendo para los demás (ADR-005 §5.2).
-	environmentService.SetExamSubmissionFreezer(examFreezeService)
+	// Entregar durante el examen registra una versión y no toca el volumen: el
+	// alumno sigue editando hasta el cierre (ADR-005 §5.2).
 	go services.NewExamFreezeWorker(examFreezeService).Start(ctx)
 
 	// Avance voluntario del docente (ADR-058). Emitir y congelar viven en el
@@ -363,6 +362,9 @@ func main() {
 	classAdvanceRepo := postgres.NewPostgresClassAdvanceRepository(db.GetDB(), classSessionRepo)
 	classAdvanceService := services.NewClassAdvanceService(classAdvanceRepo, classSessionRepo)
 	classAdvanceService.SetAuditRepository(auditLogRepo)
+	// Pausa en vivo del examen (ADR-005 §5.2): el docente detiene la escritura de
+	// los alumnos sin cerrar la sesión y la reanuda con el mismo servicio.
+	classAdvanceService.WithPauseStore(examFreezeService)
 	classAdvanceService.SetHistoryStore(classAdvanceRepo)
 	var advanceVolumes domain.PracticeEnvironmentVolumeStore = dockerClient
 	if snapshots := newAdvanceSnapshotStore(ctx); snapshots != nil {

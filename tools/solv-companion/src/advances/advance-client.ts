@@ -34,6 +34,7 @@ export interface SessionBoard {
 export interface EmitAdvanceInput {
   sessionId: string;
   exerciseId: string;
+  title?: string;
   scope: AdvanceScope;
   studentIds?: string[];
   /** Presente = solo esas rutas del entorno. Vacío u omitido = todo el entorno. */
@@ -105,6 +106,7 @@ export class AdvanceClient {
         method: 'POST',
         body: JSON.stringify({
           exercise_id: input.exerciseId,
+          title: input.title ?? '',
           scope: input.scope,
           student_ids: input.studentIds ?? [],
           selected_files: input.selectedFiles ?? []
