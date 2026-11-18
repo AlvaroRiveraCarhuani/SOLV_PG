@@ -666,7 +666,7 @@ func isPracticeEnvironmentManagedContainer(names []string, labels map[string]str
 			return true
 		}
 		if trimmed == "solv_backend" || trimmed == "solv_frontend" || trimmed == "solv_traefik" ||
-			trimmed == "solv_db" || trimmed == "solv_seaweedfs" || trimmed == "solv_prometheus" || trimmed == "solv_grafana" {
+			trimmed == "solv_db" || trimmed == "solv_seaweedfs" {
 			return false
 		}
 	}

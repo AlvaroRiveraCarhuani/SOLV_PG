@@ -27,7 +27,6 @@ Ejecutá los comandos desde el directorio del proyecto (`cd /opt/solv` o donde e
 | Interfaz | `solv_frontend` | — | Nginx sirviendo Angular. Solo alcanzable por Traefik. |
 | Base de datos | `solv_db` | 5432 | PostgreSQL 18. Es la fuente de verdad. |
 | Archivos de avance | `solv_seaweedfs` | 8333 | S3 para snapshots. |
-| Métricas | `solv_prometheus`, `solv_grafana` | 9090, 3001 | Solo en loopback. |
 
 | Recurso | Ruta |
 |---|---|

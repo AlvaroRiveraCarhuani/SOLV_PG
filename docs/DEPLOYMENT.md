@@ -204,7 +204,7 @@ la operación.
 ## 8. Imágenes, versiones y actualización
 
 La pila completa se levanta con `compose.yml`. El backend y el frontend son
-imágenes propias con tag; Traefik, PostgreSQL, SeaweedFS, Prometheus y Grafana
+imágenes propias con tag; Traefik, PostgreSQL y SeaweedFS
 conservan las versiones fijadas del archivo.
 
 ### Variables que gobiernan el despliegue

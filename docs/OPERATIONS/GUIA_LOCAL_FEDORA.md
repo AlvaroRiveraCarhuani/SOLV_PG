@@ -126,7 +126,7 @@ docker compose up -d postgres seaweedfs
 docker compose ps
 ```
 
-No hace falta levantar `traefik`, `prometheus` ni `grafana` para probar la
+No hace falta levantar `traefik` para probar la
 aplicación en `localhost`. Traefik ocupa los puertos 80/443 y su configuración
 de TLS apunta al dominio institucional.
 
