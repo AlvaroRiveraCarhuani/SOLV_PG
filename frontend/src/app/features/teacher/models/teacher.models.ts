@@ -949,11 +949,13 @@ export type ClassHistoryAction =
   | 'CLASS_ADVANCE_EMITTED'
   | 'CLASS_FROZEN'
   | 'CLASS_UNFROZEN'
+  | 'CLASS_ADVANCE_GRACE_SET'
   | 'CLASS_ADVANCE_GRACE_EXTENDED'
   | 'CLASS_ADVANCE_GRACE_DEADLINE_SET'
   | 'CLASS_ADVANCE_GRACE_CLOSED'
   | 'CLASS_ADVANCE_APPLIED'
-  | 'CLASS_ADVANCE_DISMISSED';
+  | 'CLASS_ADVANCE_DISMISSED'
+  | 'CLASS_ADVANCE_ROLLBACK';
 
 /** Un movimiento del aula: quién lo hizo, cuándo y qué cambió. */
 export interface ClassHistoryEvent {

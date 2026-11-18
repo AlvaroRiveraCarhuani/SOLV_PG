@@ -56,30 +56,6 @@
               </span>
             }
 
-            @if (ideQuota(); as quota) {
-              @if (quota.memory_limit_mb) {
-                <span class="meta-separator">·</span>
-                <span class="meta-item">
-                  RAM:
-                  <code machineData>{{ quota.memory_limit_mb }} MB</code>
-                </span>
-              }
-              @if (quota.memory_profile_mb) {
-                <span class="meta-separator">·</span>
-                <span class="meta-item">
-                  Perfil:
-                  <code machineData>{{ quota.memory_profile_mb }} MB</code>
-                </span>
-              }
-              @if (quota.cpu_millis) {
-                <span class="meta-separator">·</span>
-                <span class="meta-item">
-                  CPU:
-                  <code machineData>{{ formatCpuMillis(quota.cpu_millis) }}</code>
-                </span>
-              }
-            }
-
             @if (isJudge() && practice.expected_complexity) {
               <span class="meta-separator">·</span>
               <span class="meta-item">
@@ -90,7 +66,7 @@
           </div>
         </div>
 
-        <div class="header-actions">
+        <div class="header-actions" data-tour="practice-header-actions">
           @if (isIde()) {
             <button type="button" class="btn-primary" [disabled]="isOpeningIde()" (click)="openIde()">
               @if (isOpeningIde()) {
@@ -99,20 +75,6 @@
               } @else {
                 <svg lucideLaptop class="btn-icon"></svg>
                 <span>Abrir IDE</span>
-              }
-            </button>
-            <button
-              type="button"
-              class="btn-outline"
-              [disabled]="isEnvTestRunning()"
-              (click)="startEnvTest()"
-            >
-              @if (isEnvTestRunning()) {
-                <svg lucideLoader2 class="btn-icon motion-spin"></svg>
-                <span>Probando entorno…</span>
-              } @else {
-                <svg lucideTerminal class="btn-icon"></svg>
-                <span>Probar Entorno</span>
               }
             </button>
           } @else {
@@ -124,19 +86,7 @@
               <span>Probar Solución</span>
             </a>
           }
-          @if (isJudge()) {
-            <button type="button" class="btn-outline" (click)="openFuzzingModal()">
-              <svg lucideSparkles class="btn-icon"></svg>
-              <span>Fuzzing de Casos</span>
-            </button>
-          }
-          <a
-            class="btn-outline"
-            [routerLink]="['/teacher/cursos', courseId(), 'practicas', practice.id, 'similitud']"
-          >
-            <svg lucideShieldAlert class="btn-icon"></svg>
-            <span>Auditoría de Similitud</span>
-          </a>
+
           @if (practice.status === 'published') {
             <a
               class="btn-outline"
@@ -147,6 +97,7 @@
               <span>Llevar al Aula</span>
             </a>
           }
+
           <a
             class="btn-outline"
             [routerLink]="['/teacher/cursos', courseId(), 'ejercicios', practice.id, 'editar']"
@@ -154,23 +105,72 @@
             <svg lucideEdit3 class="btn-icon"></svg>
             <span>Editar Laboratorio</span>
           </a>
-          @if (practice.status === 'published') {
+
+          <!-- Menú desplegable de más opciones -->
+          <div
+            class="more-actions-dropdown"
+            dismissible
+            (dismiss)="showMoreActions.set(false)"
+          >
             <button
               type="button"
-              class="btn-outline"
-              [disabled]="isUnpublishing()"
-              (click)="askUnpublish()"
-              title="Ocultar la práctica a los estudiantes sin borrar su contenido"
+              class="btn-outline btn-more-toggle"
+              (click)="showMoreActions.update(v => !v)"
+              title="Más opciones de la práctica"
             >
-              @if (isUnpublishing()) {
-                <svg lucideLoader2 class="btn-icon motion-spin"></svg>
-                <span>Despublicando...</span>
-              } @else {
-                <svg lucideRotateCcw class="btn-icon"></svg>
-                <span>Volver a borrador</span>
-              }
+              <span>Más opciones</span>
+              <svg lucideChevronDown class="btn-icon-xs"></svg>
             </button>
-          }
+
+            @if (showMoreActions()) {
+              <div class="dropdown-menu animate-dropdown" animate.leave="motion-dropdown-out">
+                @if (isIde()) {
+                  <button
+                    type="button"
+                    class="dropdown-item"
+                    [disabled]="isEnvTestRunning()"
+                    (click)="startEnvTest(); showMoreActions.set(false)"
+                  >
+                    <svg lucideTerminal class="btn-icon-xs"></svg>
+                    <span>Probar Entorno</span>
+                  </button>
+                } @else {
+                  <button
+                    type="button"
+                    class="dropdown-item"
+                    (click)="openFuzzingModal(); showMoreActions.set(false)"
+                  >
+                    <svg lucideSparkles class="btn-icon-xs"></svg>
+                    <span>Casos límite</span>
+                  </button>
+                }
+
+                <a
+                  class="dropdown-item"
+                  [routerLink]="['/teacher/cursos', courseId(), 'practicas', practice.id, 'similitud']"
+                  (click)="showMoreActions.set(false)"
+                >
+                  <svg lucideShieldAlert class="btn-icon-xs"></svg>
+                  <span>Auditoría de Similitud</span>
+                </a>
+
+                @if (practice.status === 'published') {
+                  <div class="dropdown-divider"></div>
+                  <button
+                    type="button"
+                    class="dropdown-item text-danger"
+                    [disabled]="isUnpublishing()"
+                    (click)="askUnpublish(); showMoreActions.set(false)"
+                    title="Ocultar la práctica a los estudiantes sin borrar su contenido"
+                  >
+                    <svg lucideRotateCcw class="btn-icon-xs"></svg>
+                    <span>{{ isUnpublishing() ? 'Despublicando...' : 'Volver a borrador' }}</span>
+                  </button>
+                }
+              </div>
+            }
+          </div>
+
           @if (unpublishError(); as error) {
             <span class="unpublish-error">{{ error }}</span>
           }
@@ -208,6 +208,7 @@
       @if (isIde()) {
         <div
           class="env-test-status"
+          data-tour="practice-env-status"
           [class.env-test-status-running]="envTestTone() === 'running'"
           [class.env-test-status-success]="envTestTone() === 'success'"
           [class.env-test-status-error]="envTestTone() === 'error'"
@@ -254,7 +255,7 @@
 
     <!-- Ficha del entorno persistente -->
     @if (isIde()) {
-      <div class="params-grid">
+      <div class="params-grid" data-tour="practice-params-grid">
         <div class="param-card">
           <div class="param-head">Plantilla del Laboratorio</div>
           <div class="param-body">
@@ -344,170 +345,250 @@
 
     <!-- Bases de los alumnos -->
     @if (isIde() && hasDatabase()) {
-      <section class="section-card">
-        <h2 class="section-title">
-          <span>Bases de Datos de los Alumnos</span>
-        </h2>
-        <p class="section-hint">
-          Reiniciar una base la borra y la vuelve a crear con el script vigente. El código del alumno no se toca.
-        </p>
-
-        @if (databasesError(); as error) {
-          <p class="empty-note">{{ error }}</p>
-        } @else if (isLoadingDatabases()) {
-          <p class="empty-note">Cargando bases…</p>
-        } @else if (studentDatabases().length === 0) {
-          <p class="empty-note">Todavía ningún alumno abrió esta práctica.</p>
-        } @else {
-          <ul class="database-list">
-            @for (database of studentDatabases(); track database.student_id) {
-              <li class="database-row">
-                <div class="database-copy">
-                  <strong>{{ database.student_name }}</strong>
-                  <span class="database-email">{{ database.student_email }}</span>
-                </div>
-                <span class="database-status">{{ database.status }}</span>
-                <button
-                  type="button"
-                  class="btn-outline database-reset"
-                  [disabled]="resettingStudentId() === database.student_id"
-                  (click)="askResetDatabase(database)"
-                >
-                  @if (resettingStudentId() === database.student_id) {
-                    <svg lucideLoader2 class="btn-icon motion-spin"></svg>
-                  } @else {
-                    <svg lucideRotateCcw class="btn-icon"></svg>
-                  }
-                  <span>Reiniciar base</span>
-                </button>
-              </li>
+      <section class="section-card" data-tour="practice-databases" [class.is-collapsed]="!isDatabasesExpanded()">
+        <button
+          type="button"
+          class="section-toggle-head"
+          [attr.aria-expanded]="isDatabasesExpanded()"
+          (click)="isDatabasesExpanded.set(!isDatabasesExpanded())"
+        >
+          <div class="toggle-head-left">
+            <svg lucideDatabase class="section-head-icon"></svg>
+            <span class="section-head-title">Bases de Datos de los Alumnos</span>
+            @if (studentDatabases().length > 0) {
+              <span class="points-badge" machineData>{{ studentDatabases().length }} activas</span>
             }
-          </ul>
-        }
+          </div>
+          <div class="toggle-head-right">
+            <svg
+              lucideChevronDown
+              class="toggle-chevron"
+              [class.is-rotated]="isDatabasesExpanded()"
+            ></svg>
+          </div>
+        </button>
 
-        @if (databaseMessage(); as message) {
-          <p class="database-message">{{ message }}</p>
+        @if (isDatabasesExpanded()) {
+          <div class="section-collapsible-body">
+            <p class="section-hint">
+              Reiniciar una base la borra y la vuelve a crear con el script vigente. El código del alumno no se toca.
+            </p>
+
+            @if (databasesError(); as error) {
+              <p class="empty-note">{{ error }}</p>
+            } @else if (isLoadingDatabases()) {
+              <p class="empty-note">Cargando bases…</p>
+            } @else if (studentDatabases().length === 0) {
+              <p class="empty-note">Todavía ningún alumno abrió esta práctica.</p>
+            } @else {
+              <ul class="database-list">
+                @for (database of studentDatabases(); track database.student_id) {
+                  <li class="database-row">
+                    <div class="database-copy">
+                      <strong>{{ database.student_name }}</strong>
+                      <span class="database-email">{{ database.student_email }}</span>
+                    </div>
+                    <span class="database-status">{{ database.status }}</span>
+                    <button
+                      type="button"
+                      class="btn-outline database-reset"
+                      [disabled]="resettingStudentId() === database.student_id"
+                      (click)="askResetDatabase(database)"
+                    >
+                      @if (resettingStudentId() === database.student_id) {
+                        <svg lucideLoader2 class="btn-icon motion-spin"></svg>
+                      } @else {
+                        <svg lucideRotateCcw class="btn-icon"></svg>
+                      }
+                      <span>Reiniciar base</span>
+                    </button>
+                  </li>
+                }
+              </ul>
+            }
+
+            @if (databaseMessage(); as message) {
+              <p class="database-message">{{ message }}</p>
+            }
+          </div>
         }
       </section>
     }
 
     <!-- Consigna y boilerplate -->
-    <section class="section-card">
-      <h2 class="section-title">
-        <span>{{ isIde() ? 'Consigna de la Práctica' : 'Consigna del Problema' }}</span>
-      </h2>
+    <section class="section-card" data-tour="practice-consigna" [class.is-collapsed]="!isDescriptionExpanded()">
+      <button
+        type="button"
+        class="section-toggle-head"
+        [attr.aria-expanded]="isDescriptionExpanded()"
+        (click)="isDescriptionExpanded.set(!isDescriptionExpanded())"
+      >
+        <div class="toggle-head-left">
+          <svg lucideFileText class="section-head-icon"></svg>
+          <span class="section-head-title">{{ isIde() ? 'Consigna de la Práctica' : 'Consigna del Problema' }}</span>
+        </div>
+        <div class="toggle-head-right">
+          <svg
+            lucideChevronDown
+            class="toggle-chevron"
+            [class.is-rotated]="isDescriptionExpanded()"
+          ></svg>
+        </div>
+      </button>
 
-      @if (renderedDescription(); as description) {
-        <div class="callout-desc markdown-body" [innerHTML]="description"></div>
-      } @else {
-        <p class="callout-desc">Sin descripción registrada.</p>
-      }
+      @if (isDescriptionExpanded()) {
+        <div class="section-collapsible-body">
+          @if (renderedDescription(); as description) {
+            <div class="callout-desc markdown-body" [innerHTML]="description"></div>
+          } @else {
+            <p class="callout-desc">Sin descripción registrada.</p>
+          }
 
-      @if (isJudge() && practice.boilerplate) {
-        <h3 class="subsection-title">Código Base para el Estudiante</h3>
-        <div class="boilerplate-editor-wrapper">
-          <code-editor
-            [value]="practice.boilerplate"
-            [language]="language() || 'python'"
-            [readonly]="true"
-            minHeight="140px"
-            maxHeight="360px"
-          />
+          @if (isJudge() && practice.boilerplate) {
+            <h3 class="subsection-title">Código Base para el Estudiante</h3>
+            <div class="boilerplate-editor-wrapper">
+              <code-editor
+                [value]="practice.boilerplate"
+                [language]="language() || 'python'"
+                [readonly]="true"
+                minHeight="140px"
+                maxHeight="360px"
+              />
+            </div>
+          }
         </div>
       }
     </section>
 
     <!-- Ficha del juez: casos de prueba -->
     @if (isJudge()) {
-      <section class="section-card">
-        <div class="section-title">
-          <span>Casos de Prueba ({{ testCases().length }} configurados)</span>
-          @if (casesTotalPoints() > 0) {
-            <span class="points-badge" machineData>Puntaje total: {{ casesTotalPoints() }} pts</span>
-          }
-        </div>
-
-        @if (testCases().length === 0) {
-          <p class="empty-note">Esta práctica todavía no tiene casos de prueba configurados.</p>
-        } @else {
-          <div class="tabs-wrapper">
-            <div class="tabs-header-bar" role="tablist" aria-label="Casos de prueba">
-              @for (testCase of testCases(); track $index; let index = $index) {
-                <button
-                  type="button"
-                  class="case-tab-btn"
-                  role="tab"
-                  [class.active]="selectedCaseIndex() === index"
-                  [attr.aria-selected]="selectedCaseIndex() === index"
-                  (click)="selectCase(index)"
-                >
-                  <span>Caso {{ index + 1 }}</span>
-                  <span class="tab-pill" [class.tab-pill-hidden]="isHiddenCase(testCase)">
-                    {{ caseVisibility(testCase) }}
-                  </span>
-                </button>
-              }
-            </div>
+      <section class="section-card" data-tour="practice-eval-criteria" [class.is-collapsed]="!isTestCasesExpanded()">
+        <button
+          type="button"
+          class="section-toggle-head"
+          [attr.aria-expanded]="isTestCasesExpanded()"
+          (click)="isTestCasesExpanded.set(!isTestCasesExpanded())"
+        >
+          <div class="toggle-head-left">
+            <svg lucideTerminal class="section-head-icon"></svg>
+            <span class="section-head-title">Casos de Prueba ({{ testCases().length }} configurados)</span>
+            @if (casesTotalPoints() > 0) {
+              <span class="points-badge" machineData>Puntaje total: {{ casesTotalPoints() }} pts</span>
+            }
           </div>
+          <div class="toggle-head-right">
+            <svg
+              lucideChevronDown
+              class="toggle-chevron"
+              [class.is-rotated]="isTestCasesExpanded()"
+            ></svg>
+          </div>
+        </button>
 
-          @if (activeCase(); as testCase) {
-            <div class="case-panel" role="tabpanel">
-              <div class="case-meta-line">
-                <span class="case-desc">{{ caseTitle(testCase, selectedCaseIndex()) }}</span>
-                <span class="case-points" machineData>{{ casePoints(testCase) }}</span>
+        @if (isTestCasesExpanded()) {
+          <div class="section-collapsible-body">
+            @if (testCases().length === 0) {
+              <p class="empty-note">Esta práctica todavía no tiene casos de prueba configurados.</p>
+            } @else {
+              <div class="tabs-wrapper">
+                <div class="tabs-header-bar" role="tablist" aria-label="Casos de prueba">
+                  @for (testCase of testCases(); track $index; let index = $index) {
+                    <button
+                      type="button"
+                      class="case-tab-btn"
+                      role="tab"
+                      [class.active]="selectedCaseIndex() === index"
+                      [attr.aria-selected]="selectedCaseIndex() === index"
+                      (click)="selectCase(index)"
+                    >
+                      <span>Caso {{ index + 1 }}</span>
+                      <span class="tab-pill" [class.tab-pill-hidden]="isHiddenCase(testCase)">
+                        {{ caseVisibility(testCase) }}
+                      </span>
+                    </button>
+                  }
+                </div>
               </div>
 
-              <div class="io-grid">
-                <div class="io-column">
-                  <span class="io-label">Entrada (STDIN)</span>
-                  <pre class="io-pre">{{ testCase.input || 'Sin entrada' }}</pre>
+              @if (activeCase(); as testCase) {
+                <div class="case-panel" role="tabpanel">
+                  <div class="case-meta-line">
+                    <span class="case-desc">{{ caseTitle(testCase, selectedCaseIndex()) }}</span>
+                    <span class="case-points" machineData>{{ casePoints(testCase) }}</span>
+                  </div>
+
+                  <div class="io-grid">
+                    <div class="io-column">
+                      <span class="io-label">Entrada (STDIN)</span>
+                      <pre class="io-pre">{{ testCase.input || 'Sin entrada' }}</pre>
+                    </div>
+                    <div class="io-column">
+                      <span class="io-label">Salida Esperada (STDOUT)</span>
+                      <pre class="io-pre">{{ testCase.expected_output || 'Sin salida esperada' }}</pre>
+                    </div>
+                  </div>
                 </div>
-                <div class="io-column">
-                  <span class="io-label">Salida Esperada (STDOUT)</span>
-                  <pre class="io-pre">{{ testCase.expected_output || 'Sin salida esperada' }}</pre>
-                </div>
-              </div>
-            </div>
-          }
+              }
+            }
+          </div>
         }
       </section>
     }
 
     <!-- Rúbrica de calificación -->
     @if (isIde() || rubric()) {
-      <section class="section-card">
-        <div class="section-title">
-          <span>Rúbrica de Calificación</span>
-          @if (rubricTotal() > 0) {
-            <span class="points-badge" machineData>Puntaje total: {{ rubricTotal() }} pts</span>
-          }
-        </div>
-
-        @if (rubric(); as rubricData) {
-          <div class="rubric-grid">
-            @for (criterion of rubricData.criteria; track $index; let index = $index) {
-              <article class="rubric-card">
-                <div class="rubric-head">
-                  <span class="rubric-title">
-                    <span class="rubric-dot"></span>
-                    {{ index + 1 }}. {{ criterion.name }}
-                  </span>
-                  <span class="rubric-score">
-                    <span
-                      class="progress-track"
-                      [attr.title]="rubricShare(criterion.weight) + '% del puntaje'"
-                    >
-                      <span class="progress-fill" [style.width.%]="rubricShare(criterion.weight)"></span>
-                    </span>
-                    <span class="rubric-points" machineData>{{ criterion.weight }} pts</span>
-                  </span>
-                </div>
-                <p class="rubric-desc">{{ criterion.description }}</p>
-              </article>
+      <section class="section-card" data-tour="practice-eval-criteria" [class.is-collapsed]="!isRubricExpanded()">
+        <button
+          type="button"
+          class="section-toggle-head"
+          [attr.aria-expanded]="isRubricExpanded()"
+          (click)="isRubricExpanded.set(!isRubricExpanded())"
+        >
+          <div class="toggle-head-left">
+            <svg lucideLayers class="section-head-icon"></svg>
+            <span class="section-head-title">Rúbrica de Calificación</span>
+            @if (rubricTotal() > 0) {
+              <span class="points-badge" machineData>Puntaje total: {{ rubricTotal() }} pts</span>
             }
           </div>
-        } @else {
-          <p class="empty-note">Esta práctica todavía no tiene rúbrica configurada.</p>
+          <div class="toggle-head-right">
+            <svg
+              lucideChevronDown
+              class="toggle-chevron"
+              [class.is-rotated]="isRubricExpanded()"
+            ></svg>
+          </div>
+        </button>
+
+        @if (isRubricExpanded()) {
+          <div class="section-collapsible-body">
+            @if (rubric(); as rubricData) {
+              <div class="rubric-grid">
+                @for (criterion of rubricData.criteria; track $index; let index = $index) {
+                  <article class="rubric-card">
+                    <div class="rubric-head">
+                      <span class="rubric-title">
+                        <span class="rubric-dot"></span>
+                        {{ index + 1 }}. {{ criterion.name }}
+                      </span>
+                      <span class="rubric-score">
+                        <span
+                          class="progress-track"
+                          [attr.title]="rubricShare(criterion.weight) + '% del puntaje'"
+                        >
+                          <span class="progress-fill" [style.width.%]="rubricShare(criterion.weight)"></span>
+                        </span>
+                        <span class="rubric-points" machineData>{{ criterion.weight }} pts</span>
+                      </span>
+                    </div>
+                    <p class="rubric-desc">{{ criterion.description }}</p>
+                  </article>
+                }
+              </div>
+            } @else {
+              <p class="empty-note">Esta práctica todavía no tiene rúbrica configurada.</p>
+            }
+          </div>
         }
       </section>
     }

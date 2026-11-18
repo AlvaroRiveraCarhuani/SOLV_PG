@@ -1,5 +1,6 @@
 import { Component, OnDestroy, OnInit, computed, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
 import { HttpClient } from '@angular/common/http';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { Subscription, forkJoin, of } from 'rxjs';
@@ -9,11 +10,14 @@ import {
   LucideArrowLeft,
   LucideCalendar,
   LucideCheckCircle,
+  LucideChevronDown,
   LucideClock,
   LucideCpu,
   LucideDatabase,
   LucideEdit3,
+  LucideFileText,
   LucideLaptop,
+  LucideLayers,
   LucideListChecks,
   LucideLoader2,
   LucideRotateCcw,
@@ -24,6 +28,15 @@ import {
 import { marked } from 'marked';
 import katex from 'katex';
 
+import { ContextHelpService } from '@shared/help/context-help.service';
+import { ProductTourService } from '@shared/help/product-tour.service';
+import { InteractiveTutorialService } from '@shared/help/interactive-tutorial.service';
+import {
+  buildPracticeDetailTour,
+  buildPracticeDetailTutorial
+} from './practice-detail-help.definitions';
+import { isTreeBlock, renderTreeBlock } from '@shared/utils/markdown-tree.utils';
+
 import { TeacherCourseService } from '../../services/teacher-course.service';
 import { PracticeIDESession, TeacherEnvironmentService } from '../../services/teacher-environment.service';
 import { PracticeEnvTestService } from '../../services/practice-env-test.service';
@@ -32,6 +45,7 @@ import { ExerciseDetailDTO, TeacherLabStats, TestCaseDTO } from '../../models/te
 import type { RubricDTO } from '../../exercise-editor/exercise-editor.store';
 import { DateTextPipe } from '@shared/pipes/date-text.pipe';
 import { MachineDataDirective } from '@shared/directives/machine-data.directive';
+import { DismissibleDirective } from '@shared/directives/dismissible.directive';
 import { SkeletonLoaderComponent } from '@shared/components/skeleton/skeleton-loader.component';
 import { CodeEditorComponent } from '@shared/components/code-editor/code-editor.component';
 import { TechLogoComponent } from '@features/admin/templates/components/tech-logo/tech-logo.component';
@@ -44,6 +58,14 @@ import { ConfirmModalComponent } from '@shared/components/confirm-modal/confirm-
 
 interface ApiResponse<T> {
   data: T;
+}
+
+function escapeHtml(value: string): string {
+  return value
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
 }
 
 function renderMarkdownWithKatex(raw: string): string {
@@ -67,8 +89,18 @@ function renderMarkdownWithKatex(raw: string): string {
     }
   });
 
+  const renderer = new marked.Renderer();
+  renderer.code = ({ text, lang }) => {
+    if (isTreeBlock(text)) {
+      return renderTreeBlock(text);
+    }
+    const language = (lang ?? '').trim().toLowerCase();
+    const languageClass = language ? ` class="language-${escapeHtml(language)}"` : '';
+    return `<pre><code${languageClass}>${escapeHtml(text)}</code></pre>`;
+  };
+
   try {
-    return marked.parse(processed, { async: false }) as string;
+    return marked.parse(processed, { renderer, async: false }) as string;
   } catch {
     return `<pre>${raw}</pre>`;
   }
@@ -86,11 +118,11 @@ import { environmentBadge } from '@shared/constants/environment-types.constants'
   selector: 'practice-detail',
   standalone: true,
   imports: [
-    EnvironmentLabelPipe,
     CommonModule,
     RouterLink,
     DateTextPipe,
     MachineDataDirective,
+    DismissibleDirective,
     SkeletonLoaderComponent,
     CodeEditorComponent,
     TechLogoComponent,
@@ -98,11 +130,14 @@ import { environmentBadge } from '@shared/constants/environment-types.constants'
     LucideArrowLeft,
     LucideCalendar,
     LucideCheckCircle,
+    LucideChevronDown,
     LucideClock,
     LucideCpu,
     LucideDatabase,
     LucideEdit3,
+    LucideFileText,
     LucideLaptop,
+    LucideLayers,
     LucideListChecks,
     LucideLoader2,
     LucideRotateCcw,
@@ -120,6 +155,10 @@ export class PracticeDetailComponent implements OnInit, OnDestroy {
   private courseService = inject(TeacherCourseService);
   private practiceEnvTest = inject(PracticeEnvTestService);
   private environment = inject(TeacherEnvironmentService);
+  private help = inject(ContextHelpService);
+  private tourService = inject(ProductTourService);
+  private tutorialService = inject(InteractiveTutorialService);
+  private sanitizer = inject(DomSanitizer);
   private http = inject(HttpClient);
   private envTestPoll?: Subscription;
   private databasesSub?: Subscription;
@@ -149,10 +188,20 @@ export class PracticeDetailComponent implements OnInit, OnDestroy {
   showUnpublishModal = signal<boolean>(false);
   unpublishError = signal<string | null>(null);
 
+  /** Menú desplegable de más opciones */
+  showMoreActions = signal<boolean>(false);
+
+  /** Secciones desplegables */
+  isDescriptionExpanded = signal<boolean>(true);
+  isDatabasesExpanded = signal<boolean>(false);
+  isTestCasesExpanded = signal<boolean>(true);
+  isRubricExpanded = signal<boolean>(true);
+
   /** Presentación neutra para un valor que no corresponde a una modalidad conocida. */
   envBadge = computed(() => environmentBadge(this.exercise()?.environment_type));
   isIde = computed(() => this.envBadge().variant === 'ide');
   isJudge = computed(() => this.envBadge().variant === 'judge');
+  isEvalExpanded = computed(() => (this.isIde() ? this.isRubricExpanded() : this.isTestCasesExpanded()));
 
   testCases = computed<TestCaseDTO[]>(() => {
     const exercise = this.exercise();
@@ -209,9 +258,11 @@ export class PracticeDetailComponent implements OnInit, OnDestroy {
       stack_config: (template?.stack_config as ResolvableStackConfig | null | undefined) ?? null
     });
   });
-  renderedDescription = computed(() => {
+  renderedDescription = computed<SafeHtml>(() => {
     const description = this.exercise()?.description ?? '';
-    return description.trim() ? renderMarkdownWithKatex(description) : '';
+    return description.trim()
+      ? this.sanitizer.bypassSecurityTrustHtml(renderMarkdownWithKatex(description))
+      : '';
   });
 
   envTestTone = computed<'neutral' | 'running' | 'success' | 'error'>(() => {
@@ -298,6 +349,7 @@ export class PracticeDetailComponent implements OnInit, OnDestroy {
         this.labStats.set(labs.find(lab => lab.id === exerciseId) ?? null);
         this.isLoading.set(false);
         this.loadRubric(exerciseId);
+        this.registerHelpGuides(exercise);
         if (exercise.environment_type === 'IDE_PERSISTENTE') {
           this.loadLatestEnvTest(exerciseId);
           if (this.hasDatabase()) {
@@ -533,9 +585,43 @@ export class PracticeDetailComponent implements OnInit, OnDestroy {
     });
   }
 
+  private registerHelpGuides(exercise: ExerciseDetailDTO): void {
+    this.help.registerScreen('teacher-practice-detail');
+    const isIde = exercise.environment_type === 'IDE_PERSISTENTE';
+    const hasDatabase = this.hasDatabase();
+    this.help.registerGuides('teacher-practice-detail', {
+      tour: {
+        label: 'Recorrido por la ficha de práctica',
+        hint: 'Descubrí los parámetros técnicos, consigna, criterios y gestión de bases.',
+        run: () => {
+          this.tourService.start(buildPracticeDetailTour(isIde, hasDatabase));
+        }
+      },
+      tutorial: {
+        label: 'Cómo explorar la ficha de una práctica',
+        hint: 'Aprendé a alternar secciones compactas y validar la actividad previa a clase.',
+        run: () => {
+          this.tutorialService.start(
+            buildPracticeDetailTutorial({
+              isIde: () => this.isIde(),
+              isConsignaExpanded: () => this.isDescriptionExpanded(),
+              isEvalExpanded: () => this.isEvalExpanded(),
+              hasDatabase: () => this.hasDatabase(),
+              isDatabasesExpanded: () => this.isDatabasesExpanded()
+            })
+          );
+        }
+      }
+    });
+  }
+
   ngOnDestroy(): void {
     this.stopEnvTestPoll();
     this.databasesSub?.unsubscribe();
+    this.help.unregisterScreen('teacher-practice-detail');
+    this.help.unregisterGuides('teacher-practice-detail');
+    this.tourService.destroy();
+    this.tutorialService.exit();
   }
 
   loadStudentDatabases(exerciseId = this.exercise()?.id ?? ''): void {

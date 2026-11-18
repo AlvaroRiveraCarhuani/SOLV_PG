@@ -679,6 +679,32 @@ export const CONTEXT_HELP_ENTRIES: Record<string, ContextHelpEntry> = {
       }
     ],
     manualFragment: null
+  },
+
+  'teacher-practice-detail': {
+    key: 'teacher-practice-detail',
+    title: 'Ficha de Detalle de Práctica',
+    intro:
+      'Supervisión integral de la práctica: parámetros técnicos, consigna con estructura de archivos, casos de prueba o rúbricas de evaluación y gestión de bases de datos.',
+    items: [
+      {
+        label: 'Consigna y Estructura de Proyecto',
+        text: 'Visualice la consigna completa con árboles de carpetas enriquecidos con íconos de directorios y archivos. Despliegue o colapse la sección según necesite.'
+      },
+      {
+        label: 'Acreditación y Rúbricas',
+        text: 'Inspeccione los casos de prueba configurados con entradas y salidas esperadas, o la rúbrica analítica con los criterios de evaluación ponderados.'
+      },
+      {
+        label: 'Validación Previa al Aula',
+        text: 'Compruebe el estado del entorno base antes de la clase y abra el espacio de trabajo docente o lleve la actividad directamente al aula en vivo.'
+      },
+      {
+        label: 'Bases de Datos Satélite (si aplica)',
+        text: 'Visible únicamente en prácticas con base de datos configurada: permite consultar las instancias individuales de los alumnos y reiniciar su esquema inicial si corrompieron sus tablas, sin tocar su código ni su trabajo.'
+      }
+    ],
+    manualFragment: null
   }
 };
 
