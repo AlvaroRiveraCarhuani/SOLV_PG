@@ -518,7 +518,7 @@ export class AulaComponent implements OnInit, OnDestroy {
       return;
     }
 
-    const tab = window.open('', '_blank');
+    const tab = window.open('/entorno.html', '_blank');
     this.ideError.set(null);
     this.isOpeningIde.set(true);
 

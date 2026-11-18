@@ -163,8 +163,8 @@ sudo chmod 660 /var/run/docker.sock
 ## 7. Firewall y Backup Automáticos
 
 El host no depende de cron ni de reglas aplicadas a mano. `infra/systemd/`
-contiene cuatro unidades y `scripts/install.sh` las instala, habilita y deja el
-sistema en un estado reproducible:
+contiene cuatro unidades que se instalan copiándolas con la ruta del proyecto en
+lugar del marcador `@PROJECT_ROOT@`:
 
 | Unidad | Qué hace | Cuándo |
 |---|---|---|
@@ -174,19 +174,21 @@ sistema en un estado reproducible:
 | `solv-backup.timer` | Dispara el respaldo (se recupera si el host estuvo apagado) | Diario, 03:00 |
 
 ```bash
-# Instación completa: unidades, timers, directorios y pila
-sudo bash scripts/install.sh
+# Instalar las cuatro unidades con la ruta real del proyecto
+for unit in infra/systemd/*.service infra/systemd/*.timer; do
+  sed "s|@PROJECT_ROOT@|$PWD|g" "$unit" | sudo tee "/etc/systemd/system/$(basename "$unit")" >/dev/null
+done
+sudo systemctl daemon-reload
+sudo systemctl enable --now solv-firewall.timer solv-firewall.service solv-backup.timer
 
-# Solo preparar el host, sin levantar contenedores
-sudo bash scripts/install.sh --no-start
-
-# Ver qué haría, sin tocar nada
-bash scripts/install.sh --dry-run
+# Ver qué haría, sin tocar nada: las unidades no tienen modo simulación, así que
+# se revisa su contenido antes de copiarlas
+cat infra/systemd/solv-firewall.service
 ```
 
-El script es idempotente: escribe una unidad solo si su contenido cambió y
-`systemctl enable --now` no duplica nada. Ejecutarlo dos veces seguidas deja el
-host igual que la primera vez.
+El procedimiento es idempotente: copiar de nuevo la unidad solo cambia el
+archivo si su contenido cambió, y `systemctl enable --now` no duplica nada.
+Ejecutarlo dos veces seguidas deja el host igual que la primera vez.
 
 ### Verificación
 

@@ -2426,6 +2426,28 @@ El avance que se emite desde el aula sale del entorno del docente de la práctic
 
 El entorno vive sobre el volumen `solv_workspace_<usuario>_<materia>_<práctica>`, que es exactamente el que lee la emisión de avances. Por eso lo que el docente escribe en esa práctica es lo que se copia al aula, y sin entorno abierto la emisión responde `409`.
 
+### Arranque del editor y `503 environment_not_ready`
+
+`POST /api/v1/environments/start` y `POST /api/v1/teacher/courses/{courseId}/exercises/{exerciseId}/ide` no devuelven la `access_url` hasta que el editor responde a través de Traefik. El backend sondea la URL pública cada 400 ms durante un máximo de 20 segundos, y solo un `2xx` o un `3xx` cuentan como entorno listo: un `502/503/504` (proxy sin upstream) o un `404` (router todavía no registrado) siguen esperando.
+
+Si el plazo vence sin respuesta válida, la petición responde `503` con el código estable `environment_not_ready`:
+
+```json
+{
+  "data": null,
+  "error": "environment_not_ready",
+  "message": "El entorno está arrancando: esperá unos segundos y volvé a intentar"
+}
+```
+
+| Código | Cuándo | Qué hace el cliente |
+| --- | --- | --- |
+| `503 environment_not_ready` | El contenedor existe y sigue arrancando, pero el editor no respondió dentro de la ventana de espera. | Reintentar la misma petición: el entorno se reutiliza, no se crea otro. |
+| `503 environment_url_unavailable` | Solo en `…/exercises/{exerciseId}/ide`: el IDE de la práctica arrancó sin `access_url` asignada. | Reintentar; si persiste, revisar la configuración de dominio y Traefik. |
+| `502/503/504` del proxy | El cliente abrió la URL del entorno antes de que el editor atendiera. | No debería ocurrir al usar `access_url`; si aparece, el proxy perdió el router y corresponde al runbook §4.11. |
+
+La espera solo aplica cuando `BASE_DOMAIN` está configurado. Sin dominio público el acceso va directo al puerto publicado y la respuesta es inmediata.
+
 ---
 
 ## Auditoría de similitud por práctica (ADR-062)

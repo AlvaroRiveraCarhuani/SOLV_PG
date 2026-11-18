@@ -992,6 +992,12 @@ func (s *PracticeEnvironmentService) startPracticeEnvironment(ctx context.Contex
 	if linkSession {
 		s.linkSessionToAula(ctx, instance)
 	}
+	// La URL se entrega cuando el editor ya responde: la pestaña del docente o
+	// del alumno entra por Traefik, que no reintenta y devuelve 504 mientras el
+	// contenedor no atiende.
+	if err := waitForEditorReady(ctx, instance.AccessURL); err != nil {
+		return nil, err
+	}
 	return instance, nil
 }
 

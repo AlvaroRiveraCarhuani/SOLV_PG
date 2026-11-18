@@ -136,7 +136,7 @@ describe('AulaComponent — Abrir mi IDE', () => {
     fixture.detectChanges();
     component.openIde();
 
-    expect(window.open).toHaveBeenCalledWith('', '_blank');
+    expect(window.open).toHaveBeenCalledWith('/entorno.html', '_blank');
     expect(openPracticeIDE).toHaveBeenCalledWith('subject-1', 'exercise-1');
     expect(tab.location.href).toBe('https://ide.example/session');
     expect(component.isOpeningIde()).toBe(false);

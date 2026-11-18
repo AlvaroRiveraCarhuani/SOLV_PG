@@ -157,6 +157,12 @@ func (s *PracticeEnvironmentService) reactivatePracticeEnvironment(ctx context.C
 	if linkSession {
 		s.linkSessionToAula(ctx, instance)
 	}
+	// Un entorno que vuelve de la hibernación tarda lo mismo que uno nuevo en
+	// servir el editor: se espera antes de entregar la URL para no mandar la
+	// pestaña a un 504 del proxy.
+	if err := waitForEditorReady(ctx, instance.AccessURL); err != nil {
+		return nil, err
+	}
 	return instance, nil
 }
 

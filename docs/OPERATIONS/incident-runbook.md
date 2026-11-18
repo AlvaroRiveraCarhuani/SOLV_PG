@@ -69,6 +69,7 @@ El endpoint de versión es la referencia: dice qué tag corre, qué commit, y ha
 | El sitio no abre, error 502 | `docker compose ps` | Backend caído o Traefik sin routers (§4.1) |
 | El sitio abre pero las pantallas quedan vacías | `docker compose logs --tail=50 backend` | API respondiendo 401/403 o error de base |
 | Los alumnos no pueden abrir su entorno | `docker compose logs --tail=100 backend \| grep -i admission` | Techo de contenedores o RAM del host (§4.6) |
+| El IDE abre en 504 o la pestaña queda en «Gateway Timeout» | `iptables -S DOCKER-USER \| grep ACCEPT` | Falta la excepción de Traefik hacia los entornos (§4.11) |
 | Todo va lento y el disco está al 100 % | `docker system df` | Imágenes y capas acumuladas (§4.5) |
 | El certificado venció | `docker compose logs --tail=100 traefik \| grep -i acme` | Token de desec o `acme.json` con permisos malos (§4.8) |
 | Un alumno perdió su trabajo | `docker volume ls -q \| grep solv_vol_` | Volumen desmontado o contenedor eliminado (§4.10) |
@@ -355,6 +356,45 @@ docker compose logs --tail=100 backend | grep -i "<id-del-entorno>"
    Restaurá **en un volumen nuevo** y revisá el contenido antes de reasociarlo. Sobrescribir un volumen en uso destruye lo que quede.
 
 **Verificación:** el alumno ve sus archivos al reabrir el entorno.
+
+---
+
+### 4.11 El IDE responde 504 (Gateway Timeout)
+
+**Síntoma:** al abrir el entorno de una práctica, la pestaña termina en una
+página «Gateway Timeout» del navegador. En el backend aparece
+`environment_not_ready` cuando la espera de arranque se agota.
+
+**Causa:** `solv-traefik-net` se crea con `enable_icc=false` para que un entorno
+no alcance el editor de otro, y ese corte también alcanza a Traefik. Sin la
+excepción de `DOCKER-USER` que describe el ADR-023, el proxy no puede hablar con
+el contenedor del editor y responde 504.
+
+**Diagnóstico**
+
+```bash
+iptables -S DOCKER-USER | grep ACCEPT
+docker inspect solv_traefik -f '{{(index .NetworkSettings.Networks "solv-traefik-net").IPAddress}}'
+systemctl status solv-firewall.service
+```
+
+Si la IP de Traefik no aparece en ninguna regla `ACCEPT`, la excepción no está
+aplicada o quedó apuntando a una IP anterior: el contenedor se recreó y el
+script no se volvió a ejecutar.
+
+**Acción**
+
+```bash
+sudo bash infra/firewall/docker-user-rules.sh
+sudo systemctl start solv-firewall.service
+```
+
+El script deriva la IP actual de Traefik y es idempotente. Las unidades
+`solv-firewall.service` y `solv-firewall.timer` lo reaplican al arrancar y cada
+15 minutos; si no están instaladas, ver `docs/DEPLOYMENT.md` §7.
+
+**Verificación:** abrir el IDE devuelve el editor en pocos segundos y
+`curl -I https://<uuid>.<dominio>` responde 200.
 
 ---
 

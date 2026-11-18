@@ -478,7 +478,7 @@ export class StudentExerciseSolverComponent implements OnInit {
       return;
     }
 
-    const tab = typeof window !== 'undefined' ? window.open('', '_blank') : null;
+    const tab = typeof window !== 'undefined' ? window.open('/entorno.html', '_blank') : null;
     if (tab) {
       tab.opener = null;
     }

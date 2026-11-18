@@ -148,6 +148,10 @@ func (h *PracticeEnvironmentHandler) StartPracticeEnvironment(w http.ResponseWri
 			SendError(w, http.StatusConflict, "workspace_seed_version_invalid", "La versión inicial asignada ya no es válida; no se abrió el entorno")
 			return
 		}
+		if errors.Is(err, services.ErrEnvironmentNotReady) {
+			SendError(w, http.StatusServiceUnavailable, "environment_not_ready", "El entorno está arrancando: esperá unos segundos y volvé a intentar")
+			return
+		}
 		SendError(w, http.StatusInternalServerError, err.Error(), "Error al iniciar el entorno de desarrollo interactivo")
 		return
 	}
@@ -200,6 +204,8 @@ func (h *PracticeEnvironmentHandler) OpenPracticeIDE(w http.ResponseWriter, r *h
 			SendError(w, http.StatusServiceUnavailable, "host_memory_exhausted", "Servidor saturado: la memoria del host no alcanza para abrir el entorno")
 		case errors.Is(err, services.ErrMaxContainersReached):
 			SendError(w, http.StatusServiceUnavailable, "max_containers_reached", "Cupo institucional lleno: se alcanzó el máximo de entornos concurrentes")
+		case errors.Is(err, services.ErrEnvironmentNotReady):
+			SendError(w, http.StatusServiceUnavailable, "environment_not_ready", "El entorno está arrancando: esperá unos segundos y volvé a intentar")
 		default:
 			SendError(w, http.StatusInternalServerError, "environment_start_failed", "No se pudo abrir el IDE de la práctica")
 		}
