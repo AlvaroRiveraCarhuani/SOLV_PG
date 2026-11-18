@@ -11,8 +11,10 @@ This document specifies the security controls implemented in the SOLV platform t
 Rate limiting is enforced at two distinct levels using token-bucket rate limiters (`golang.org/x/time/rate`).
 
 ### Global Rate Limiting (IP-based)
-- **Limit:** 100 requests per minute per IP address (`~1.66 req/sec`).
-- **Burst:** 20 requests.
+- **Limit:** 600 requests per minute per IP address (`~10 req/sec`).
+- **Burst:** 120 requests.
+- **Configuration:** `RATE_LIMIT_IP_PER_MINUTE` and `RATE_LIMIT_IP_BURST` override the defaults. The quota is selected by usage profile (ADR-089): A local/CI 6000/500, B single node with NAT 600/120 (binary default) and C shared classroom 3000/600. The limit is per IP, not per user: a deployment where several users share one public address declares profile C.
+- **Dimensioning:** one dashboard load issues 8–12 parallel requests (configuration, identity, notifications, classroom, panel). The burst has to cover several open tabs, not one isolated request. With the original burst of 20, a normal load exhausted the bucket before the panel painted and the UI reported a connection error that did not exist.
 - **Behavior when exceeded:** Returns `HTTP 429 Too Many Requests` with response header `Retry-After: 60` and JSON payload `{"error": "Too Many Requests"}`.
 
 ### Authentication Failure Protection (Brute-Force Mitigation)

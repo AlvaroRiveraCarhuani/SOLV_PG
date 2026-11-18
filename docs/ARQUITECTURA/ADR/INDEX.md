@@ -95,3 +95,4 @@ Este documento consolida todas las Decisiones de Arquitectura (ADRs) tomadas dur
 | 086 | [Autonomía Operativa del Docente: Proveedores BYOK Propios y Padrón de Cátedra](ADR-086-autonomia-docente-byok-propio-y-padron-de-catedra.md) | Aceptado | Docencia |
 | 087 | [Identidad del Aula como Tablero de la Clase, sin Consola ni Telemetría](ADR-087-identidad-del-aula-tablero-de-la-clase.md) | Aceptado | Docencia |
 | 088 | [Remodelación Minimalista del Tablero del Aula](ADR-088-remodelacion-minimalista-del-tablero-del-aula.md) | Aceptado | Docencia |
+| 089 | [Perfiles de Cupo del Limitador Global por IP](ADR-089-perfiles-de-cupo-del-limitador-global.md) | Aceptado | Seguridad |

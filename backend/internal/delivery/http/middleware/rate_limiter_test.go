@@ -15,8 +15,9 @@ func TestRateLimiter_GlobalIPLimit(t *testing.T) {
 		w.WriteHeader(http.StatusOK)
 	}))
 
-	// Enviar peticiones dentro del burst (burst = 20)
-	for i := 0; i < 20; i++ {
+	// Enviar peticiones dentro del burst configurado
+	_, burst := ipLimitConfig()
+	for i := 0; i < burst; i++ {
 		req := httptest.NewRequestWithContext(context.Background(), "GET", "/api/v1/health", nil)
 		req.RemoteAddr = "192.168.1.10:12345"
 		rr := httptest.NewRecorder()
@@ -27,7 +28,7 @@ func TestRateLimiter_GlobalIPLimit(t *testing.T) {
 		}
 	}
 
-	// La peticion 21 debe ser rechazada con 429 Too Many Requests
+	// La peticion siguiente al burst debe ser rechazada con 429 Too Many Requests
 	req := httptest.NewRequestWithContext(context.Background(), "GET", "/api/v1/health", nil)
 	req.RemoteAddr = "192.168.1.10:12345"
 	rr := httptest.NewRecorder()

@@ -424,13 +424,13 @@ las pruebas se etiquetan con `solv.test.run` y la limpieza solo toca los del run
 actual o residuos antiguos etiquetados.
 
 El backend limita los pedidos por IP (`RATE_LIMIT_IP_PER_MINUTE` y
-`RATE_LIMIT_IP_BURST`, por defecto 100 por minuto y ráfaga de 20). En un stack
-local o de CI los tres roles salen por `127.0.0.1` y comparten ese cupo: la
-carga del mapa curricular del estudiante llega al límite y recibe 429, que la
-pantalla traduce en un mapa vacío. Los workflows y el arranque local suben el
-cupo; cualquier entorno donde varios usuarios compartan una dirección pública
-necesita ajustar los mismos valores, porque el límite es por IP y no por
-usuario.
+`RATE_LIMIT_IP_BURST`). Los cupos se eligen por perfil de uso según ADR-089:
+local y CI usan el perfil A (6000 por minuto, ráfaga 500), porque las tres
+sesiones de rol salen por `127.0.0.1` y comparten un único cubo. El perfil B
+(600 por minuto, ráfaga 120) es el valor por defecto del binario y cubre una
+carga de tablero con varias pestañas. El perfil C (3000 por minuto, ráfaga 600)
+se declara en el `.env` de un aula detrás de una sola dirección pública. El
+límite sigue siendo por IP y no por usuario.
 
 ## Interfaz para agentes
 

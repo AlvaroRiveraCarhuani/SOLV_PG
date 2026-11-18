@@ -38,6 +38,10 @@ DB_CONN_MAX_LIFETIME=15m
 # Seguridad y Autenticación
 JWT_SECRET=super-secret-jwt-key-change-in-production-32bytes
 JWT_EXPIRATION_HOURS=24
+# Limitador global por IP (ADR-089). Perfil B por defecto. Un aula detrás de
+# una sola IP pública declara el perfil C: 3000 por minuto y ráfaga 600.
+RATE_LIMIT_IP_PER_MINUTE=600
+RATE_LIMIT_IP_BURST=120
 
 # Integración Docker Engine
 DOCKER_HOST=unix:///var/run/docker.sock
@@ -60,6 +64,16 @@ ADVANCE_APPLY_CONCURRENCY=4
 ```
 
 Las credenciales son las mismas que usa el servicio `seaweedfs` de `compose.yml`. El backend crea el bucket al arrancar si no existe, así que no hace falta prepararlo a mano.
+
+### Cupo del limitador global
+
+El limitador por IP se configura con las dos variables del bloque anterior y su
+valor no se elige a mano: se selecciona un perfil de ADR-089. El perfil B
+(600/120) es el valor por defecto del binario y alcanza para una persona con
+varias pestañas o hasta cuatro personas tras la misma IP. Un laboratorio donde
+una cohorte completa comparte la salida a Internet declara el perfil C
+(3000/600) en su `.env`. Los workflows de CI y E2E usan el perfil A (6000/500)
+porque todas sus sesiones salen por `127.0.0.1`.
 
 ---
 

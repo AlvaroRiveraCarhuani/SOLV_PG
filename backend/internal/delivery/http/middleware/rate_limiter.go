@@ -53,15 +53,22 @@ func NewRateLimiter() *RateLimiter {
 // ipLimitConfig toma el límite global por IP del entorno, con los valores de
 // producción como default. Sirve para que los entornos de test puedan subirlo
 // sin tocar el comportamiento normal.
+//
+// Una sola carga de tablero abre entre ocho y doce peticiones en paralelo
+// (configuración, identidad, notificaciones, aula y panel). Un cupo de ráfaga
+// menor que eso deja a la propia interfaz sin turno antes de pintar los datos:
+// el backend responde 429 y la pantalla informa un fallo de conexión que no
+// existe. El cupo se dimensiona entonces sobre pestañas y navegación normal,
+// no sobre una petición aislada.
 func ipLimitConfig() (rate.Limit, int) {
-	perMinute := 100.0
+	perMinute := 600.0
 	if raw := os.Getenv("RATE_LIMIT_IP_PER_MINUTE"); raw != "" {
 		if v, err := strconv.ParseFloat(raw, 64); err == nil && v > 0 {
 			perMinute = v
 		}
 	}
 
-	burst := 20
+	burst := 120
 	if raw := os.Getenv("RATE_LIMIT_IP_BURST"); raw != "" {
 		if v, err := strconv.Atoi(raw); err == nil && v > 0 {
 			burst = v
