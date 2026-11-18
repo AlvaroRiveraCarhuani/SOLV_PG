@@ -106,6 +106,7 @@
         [rubricErrorMessage]="rubricErrorMessage()"
         [isSubmittingRubric]="isSubmittingRubric()"
         [calculatedRubricScore]="calculatedRubricScore()"
+        [directScore]="directScore()"
         [review]="r"
         [ephemeralResult]="ephemeralResult()"
         [getComplexityClass]="getComplexityClass"
@@ -115,6 +116,8 @@
         (levelSelected)="onLevelSelected($event.criterionId, $event.levelName)"
         (rubricCommentsChange)="rubricComments.set($event)"
         (saveRubricEvaluation)="saveRubricEvaluation()"
+        (directScoreChange)="directScore.set($event)"
+        (saveDirectEvaluation)="saveDirectEvaluation()"
         (copyCaseInput)="copyCaseInput($event.input, $event.index)"
       />
     </div>

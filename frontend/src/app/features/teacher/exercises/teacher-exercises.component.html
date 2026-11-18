@@ -5,7 +5,7 @@
       <h1 class="page-title">Catálogo de Laboratorios</h1>
       <p class="page-subtitle">Prácticas reutilizables de tus materias. Edítalas, genera casos de prueba o duplícalas a otra materia.</p>
       @if (!isLoading()) {
-        <p class="page-summary" aria-label="Resumen de laboratorios">
+        <p class="page-summary" aria-label="Resumen de laboratorios" data-tour="exercises-summary">
           <button
             type="button"
             class="summary-filter"
@@ -42,7 +42,7 @@
       }
     </div>
 
-    <div class="header-actions">
+    <div class="header-actions" data-tour="exercises-header-actions">
       <button
         type="button"
         class="btn btn-primary"
@@ -57,7 +57,7 @@
   </header>
 
   <!-- Barra de Filtros -->
-  <div class="filters-toolbar">
+  <div class="filters-toolbar" data-tour="exercises-filters">
     <div class="search-box">
       <svg lucideSearch class="search-icon"></svg>
       <input
@@ -84,7 +84,7 @@
         />
       </div>
 
-      <div class="filter-item">
+      <div class="filter-item" data-tour="exercises-modality-filter">
         <label class="filter-label">Modalidad:</label>
         <combobox
           [compact]="true"
@@ -138,9 +138,9 @@
   } @else {
     <div class="exercises-grid">
       @for (lab of filteredExercises(); track lab.id) {
-        <article class="exercise-card" [class.card-draft]="lab.status === 'draft'">
+        <article class="exercise-card" [class.card-draft]="lab.status === 'draft'" data-tour="exercise-card">
           <!-- Card Header -->
-          <div class="card-header">
+          <div class="card-header" data-tour="exercise-card-meta">
             <div class="course-meta">
               <span class="course-tag">{{ lab.subject_code }}</span>
               <span class="course-name">{{ lab.subject_name }}</span>
@@ -187,11 +187,12 @@
               <button
                 type="button"
                 class="btn-card-action"
+                data-tour="exercise-action-tests"
                 (click)="openFuzzingModal(lab)"
-                title="Generar casos de prueba automáticos mediante Fuzzing"
+                title="Generar casos de prueba automáticos para condiciones límite y de borde"
               >
                 <svg lucideSparkles class="action-icon"></svg>
-                <span>Fuzzing</span>
+                <span>Casos límite</span>
               </button>
             }
 
@@ -208,6 +209,7 @@
             <button
               type="button"
               class="btn-card-action"
+              data-tour="exercise-action-duplicate"
               (click)="openDuplicateModal(lab)"
               title="Copiar este laboratorio a otra de tus materias"
             >
@@ -240,7 +242,7 @@
       <p class="duplicate-text">
         Se creará una copia de <strong>{{ lab.title }}</strong> como borrador, sin entregas.
       </p>
-      <div class="filter-item">
+      <div class="filter-item" data-tour="duplicate-course-select">
         <label class="filter-label">Materia destino:</label>
         <combobox
           [compact]="true"
@@ -259,6 +261,7 @@
         <button
           type="button"
           class="btn btn-primary"
+          data-tour="duplicate-confirm-btn"
           [disabled]="!duplicateTargetId() || isDuplicating()"
           (click)="confirmDuplicate()"
         >

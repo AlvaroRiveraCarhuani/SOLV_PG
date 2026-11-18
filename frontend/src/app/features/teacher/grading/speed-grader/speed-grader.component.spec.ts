@@ -6,6 +6,9 @@ import { vi, describe, beforeEach, it, expect } from 'vitest';
 import { SpeedGraderComponent } from './speed-grader.component';
 import { TeacherGradingService } from '../../services/teacher-grading.service';
 import { HotkeysService } from '@core/services/hotkeys.service';
+import { ContextHelpService } from '@shared/help/context-help.service';
+import { ProductTourService } from '@shared/help/product-tour.service';
+import { InteractiveTutorialService } from '@shared/help/interactive-tutorial.service';
 import {
   TeacherSubmissionReviewDTO,
   SubmissionComment,
@@ -111,7 +114,8 @@ describe('SpeedGraderComponent', () => {
         url: 'http://localhost:4100',
         expires_at: new Date(Date.now() + 15 * 60 * 1000).toISOString()
       })),
-      overrideSubmission: vi.fn().mockReturnValue(of(void 0))
+      overrideSubmission: vi.fn().mockReturnValue(of(void 0)),
+      updateReviewScore: vi.fn().mockReturnValue(of({}))
     };
 
     await TestBed.configureTestingModule({
@@ -353,6 +357,74 @@ describe('SpeedGraderComponent', () => {
     expect(component.liveApp()?.url).toBe('http://localhost:4100');
     expect(openSpy).toHaveBeenCalled();
     openSpy.mockRestore();
+  });
+
+  it('registers help entry, tour and tutorial on loadSubmission', () => {
+    const helpService = TestBed.inject(ContextHelpService);
+
+    const screenSpy = vi.spyOn(helpService, 'registerScreen');
+    const guidesSpy = vi.spyOn(helpService, 'registerGuides');
+
+    component.loadSubmission('rev-1');
+
+    expect(screenSpy).toHaveBeenCalledWith('teacher-submission-review');
+    expect(guidesSpy).toHaveBeenCalledWith(
+      'teacher-submission-review',
+      expect.objectContaining({
+        tour: expect.any(Object),
+        tutorial: expect.any(Object)
+      })
+    );
+  });
+
+  it('unregisters help entry, tour and tutorial on destroy', () => {
+    const helpService = TestBed.inject(ContextHelpService);
+    const tourService = TestBed.inject(ProductTourService);
+    const tutorialService = TestBed.inject(InteractiveTutorialService);
+
+    const screenSpy = vi.spyOn(helpService, 'unregisterScreen');
+    const guidesSpy = vi.spyOn(helpService, 'unregisterGuides');
+    const tourSpy = vi.spyOn(tourService, 'destroy');
+    const tutorialSpy = vi.spyOn(tutorialService, 'exit');
+
+    component.ngOnDestroy();
+
+    expect(screenSpy).toHaveBeenCalledWith('teacher-submission-review');
+    expect(guidesSpy).toHaveBeenCalledWith('teacher-submission-review');
+    expect(tourSpy).toHaveBeenCalled();
+    expect(tutorialSpy).toHaveBeenCalled();
+  });
+
+  it('saves direct evaluation when submission is in project mode without rubric', () => {
+    const gradingService = TestBed.inject(TeacherGradingService);
+    component.submissionId.set('rev-1');
+    component.directScore.set(88);
+    component.rubricComments.set('Excelente implementación modular.');
+
+    component.saveDirectEvaluation();
+
+    expect(gradingService.updateReviewScore).toHaveBeenCalledWith('rev-1', {
+      status: 'graded',
+      score: 88,
+      feedback_summary: 'Excelente implementación modular.'
+    });
+    expect(component.rubricSuccessMessage()).toContain('88 / 100 pts');
+  });
+
+  it('hydrates directScore and rubricComments from review data on loadSubmission', () => {
+    const gradingService = TestBed.inject(TeacherGradingService);
+    vi.spyOn(gradingService, 'getSubmissionReview').mockReturnValue(
+      of({
+        ...mockReview,
+        score: 92,
+        override_reason: 'Retroalimentación previa guardada'
+      })
+    );
+
+    component.loadSubmission('rev-1');
+
+    expect(component.directScore()).toBe(92);
+    expect(component.rubricComments()).toBe('Retroalimentación previa guardada');
   });
 });
 

@@ -6,6 +6,7 @@ import { RouterTestingModule } from '@angular/router/testing';
 import { Router } from '@angular/router';
 import { of } from 'rxjs';
 import { signal } from '@angular/core';
+import { ContextHelpService } from '@shared/help/context-help.service';
 import { TeacherCourseSummary, TeacherExerciseBankItem } from '../models/teacher.models';
 
 describe('TeacherExercisesComponent', () => {
@@ -166,12 +167,28 @@ describe('TeacherExercisesComponent', () => {
     expect(component.filteredExercises()[0].id).toBe('lab-1');
   });
 
-  it('should expose fuzzing only for juez virtual exercises, not IDE persistente', () => {
+  it('should expose test case generator button with unified label for judge exercises', () => {
     const juez = component.allExercises().find(e => e.id === 'lab-1')!;
     const ide = component.allExercises().find(e => e.id === 'lab-3')!;
 
     expect(component.canFuzz(juez)).toBe(true);
     expect(component.canFuzz(ide)).toBe(false);
+
+    const compiled = fixture.nativeElement as HTMLElement;
+    const testButtons = compiled.querySelectorAll('[data-tour="exercise-action-tests"]');
+    expect(testButtons.length).toBeGreaterThan(0);
+    expect(testButtons[0].textContent).toContain('Casos límite');
+  });
+
+  it('should register help screen and tour/tutorial guides on init', () => {
+    const help = TestBed.inject(ContextHelpService);
+    expect(help.screenKey()).toBe('teacher-exercises');
+
+    const context = component.tutorialContext();
+    expect(context.hasCourses()).toBe(true);
+    expect(context.coursesCount()).toBe(2);
+    expect(context.totalExercisesCount()).toBe(3);
+    expect(context.isDuplicateModalOpen()).toBe(false);
   });
 
   it('should navigate to create and edit routes correctly', () => {

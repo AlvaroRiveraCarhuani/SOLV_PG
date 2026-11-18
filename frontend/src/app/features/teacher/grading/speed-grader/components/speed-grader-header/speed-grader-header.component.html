@@ -13,7 +13,7 @@
     </div>
   </div>
 
-  <div class="header-nav">
+  <div class="header-nav" data-tour="review-header-nav">
     <button
       type="button"
       class="nav-arrow-btn"
@@ -82,7 +82,7 @@
     }
 
     <!-- Menú Desplegable: Herramientas de Análisis -->
-    <div class="tools-dropdown">
+    <div class="tools-dropdown" data-tour="review-forensic-tools">
       <button
         type="button"
         class="btn-outline btn-tools-toggle"
@@ -155,6 +155,7 @@
     <!-- En IDE la acción primaria es guardar la rúbrica; el override es la excepción. -->
     <button
       type="button"
+      [attr.data-tour]="mode() === 'judge' ? 'review-grade-action' : null"
       [class]="mode() === 'project' ? 'btn-outline' : 'btn-primary'"
       (click)="openOverrideModal.emit()"
       [title]="mode() === 'project' ? 'Ajuste manual excepcional de la nota (Atajo: A)' : 'Ajustar calificación o veredicto (Atajo: A)'"

@@ -1,4 +1,4 @@
-import { Component, OnInit, inject, signal, computed } from '@angular/core';
+import { Component, OnInit, OnDestroy, inject, signal, computed } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
@@ -13,6 +13,14 @@ import {
 } from '@lucide/angular';
 import { TeacherDashboardService } from '../services/teacher-dashboard.service';
 import { TeacherCourseService } from '../services/teacher-course.service';
+import { ContextHelpService } from '@shared/help/context-help.service';
+import { ProductTourService } from '@shared/help/product-tour.service';
+import { InteractiveTutorialService } from '@shared/help/interactive-tutorial.service';
+import {
+  buildTeacherExercisesTour,
+  buildTeacherExercisesTutorial,
+  TeacherExercisesTutorialContext
+} from './teacher-exercises-help.definitions';
 import { TeacherExerciseBankItem, TeacherLabStats } from '../models/teacher.models';
 import { MachineDataDirective } from '@shared/directives/machine-data.directive';
 import { SkeletonLoaderComponent } from '@shared/components/skeleton/skeleton-loader.component';
@@ -54,10 +62,13 @@ export interface LabTechChip {
   templateUrl: './teacher-exercises.component.html',
   styleUrl: './teacher-exercises.component.scss'
 })
-export class TeacherExercisesComponent implements OnInit {
-  private dashboardService = inject(TeacherDashboardService);
-  private courseService = inject(TeacherCourseService);
-  private router = inject(Router);
+export class TeacherExercisesComponent implements OnInit, OnDestroy {
+  private readonly dashboardService = inject(TeacherDashboardService);
+  private readonly courseService = inject(TeacherCourseService);
+  private readonly router = inject(Router);
+  private readonly help = inject(ContextHelpService);
+  private readonly tour = inject(ProductTourService);
+  private readonly tutorial = inject(InteractiveTutorialService);
 
   courses = this.dashboardService.courses;
   hasCourses = computed(() => this.courses().length > 0);
@@ -84,6 +95,16 @@ export class TeacherExercisesComponent implements OnInit {
   duplicateTargetId = signal<string>('');
   isDuplicating = signal<boolean>(false);
   duplicateError = signal<string>('');
+  readonly isDuplicateCompleted = signal<boolean>(false);
+
+  readonly tutorialContext = computed<TeacherExercisesTutorialContext>(() => ({
+    hasCourses: () => this.hasCourses(),
+    coursesCount: () => this.courses().length,
+    totalExercisesCount: () => this.allExercises().length,
+    isDuplicateModalOpen: () => this.duplicatingLab() !== null,
+    hasSelectedTargetCourse: () => this.duplicateTargetId().trim().length > 0,
+    isDuplicationFinished: () => this.isDuplicateCompleted()
+  }));
 
   // Computeds
   filteredExercises = computed(() => {
@@ -195,6 +216,25 @@ export class TeacherExercisesComponent implements OnInit {
 
   ngOnInit(): void {
     this.loadData();
+    this.help.registerScreen('teacher-exercises');
+    this.help.registerGuides('teacher-exercises', {
+      tour: {
+        label: 'Recorrido por el Catálogo de Laboratorios',
+        hint: 'Explicación de modalidades, filtros, casos límite y duplicación',
+        run: () => this.tour.start(buildTeacherExercisesTour())
+      },
+      tutorial: {
+        label: 'Cómo reutilizar un laboratorio en otra materia',
+        hint: 'Guía paso a paso para duplicar una práctica limpia a otra materia',
+        run: () => this.tutorial.start(buildTeacherExercisesTutorial(this.tutorialContext()))
+      }
+    });
+  }
+
+  ngOnDestroy(): void {
+    this.help.unregisterGuides('teacher-exercises');
+    this.help.unregisterScreen('teacher-exercises');
+    this.tutorial.exit();
   }
 
   loadData(): void {
@@ -285,6 +325,7 @@ export class TeacherExercisesComponent implements OnInit {
     this.duplicatingLab.set(lab);
     this.duplicateTargetId.set('');
     this.duplicateError.set('');
+    this.isDuplicateCompleted.set(false);
   }
 
   closeDuplicateModal(): void {
@@ -311,6 +352,7 @@ export class TeacherExercisesComponent implements OnInit {
       next: () => {
         this.isDuplicating.set(false);
         this.duplicatingLab.set(null);
+        this.isDuplicateCompleted.set(true);
         this.loadData();
       },
       error: () => {

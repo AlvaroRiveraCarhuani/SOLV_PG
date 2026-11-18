@@ -1,6 +1,6 @@
 <div class="reviews-container">
   <header class="reviews-header">
-    <div class="header-titles">
+    <div class="header-titles" data-tour="reviews-header-summary">
       <h1 class="page-title">Por calificar</h1>
       <p class="page-subtitle">
         Lo que espera tu corrección, agrupado por práctica.
@@ -44,7 +44,7 @@
     </div>
   } @else {
     <div class="reviews-layout">
-      <section class="queue-pane" aria-label="Prácticas con entregas pendientes">
+      <section class="queue-pane" data-tour="reviews-queue-pane" aria-label="Prácticas con entregas pendientes">
         <ul class="queue-list">
           @for (group of groups(); track trackGroup($index, group)) {
             <li>
@@ -79,7 +79,7 @@
 
       <section class="work-pane" aria-live="polite">
         @if (selectedGroup(); as group) {
-          <header class="work-header">
+          <header class="work-header" data-tour="reviews-work-header">
             <div class="work-header-info">
               <p class="work-subject">{{ group.subject_name }}</p>
               <h2 class="work-title">{{ group.exercise_title }}</h2>
@@ -97,7 +97,7 @@
               <p class="state-copy">Es posible que otro docente ya las haya corregido.</p>
             </div>
           } @else {
-            <div class="submission-table">
+            <div class="submission-table" data-tour="reviews-table">
               <div class="submission-table-header">
                 <div class="col-student">NOMBRE</div>
                 <div class="col-wait">ESPERA</div>
@@ -128,7 +128,7 @@
                       }
                     </div>
                     <div class="submission-action">
-                      <a class="btn-primary btn-grade" [routerLink]="reviewLink(item)">
+                      <a class="btn-primary btn-grade" data-tour="reviews-grade-action" [routerLink]="reviewLink(item)">
                         <span class="btn-grade-text">Calificar</span>
                         <svg lucideArrowRight aria-hidden="true"></svg>
                       </a>
