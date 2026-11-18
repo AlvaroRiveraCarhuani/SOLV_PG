@@ -1,8 +1,8 @@
-<aside class="evaluation-panel">
+<aside class="evaluation-panel" data-tour="review-eval-panel">
   @if (mode() === 'project') {
     <!-- Panel de Evaluación por Rúbrica (IDE Persistente) -->
     @if (rubric(); as rub) {
-    <div class="rubric-grader-box">
+    <div class="rubric-grader-box" data-tour="review-eval-rubric">
       <div class="rubric-header">
         <svg lucideClipboardList class="btn-icon-sm"></svg>
         <span>Evaluación por Rúbrica</span>
@@ -63,6 +63,7 @@
       <button
         type="button"
         class="btn-primary btn-save-rubric"
+        data-tour="review-grade-action"
         [disabled]="isSubmittingRubric()"
         (click)="saveRubricEvaluation.emit()"
       >
@@ -70,21 +71,64 @@
       </button>
     </div>
     } @else {
-      <div class="rubric-empty-box">
-        <svg lucideAlertTriangle class="btn-icon-sm"></svg>
-        <div>
-          <h3>Esta práctica no tiene rúbrica configurada</h3>
-          <p>Sin criterios no se puede calcular la nota. Configurá la rúbrica en la práctica antes de corregir.</p>
-          @if (rubricErrorMessage()) {
-            <p class="rubric-load-error">{{ rubricErrorMessage() }}</p>
-          }
-          <a
-            class="btn-outline"
-            [routerLink]="['/teacher/cursos', review().subject_id, 'practicas', review().exercise_id]"
-          >
-            Abrir la práctica
-          </a>
+      <div class="direct-grader-box" data-tour="review-eval-direct">
+        <div class="direct-header">
+          <svg lucideEdit3 class="btn-icon-sm"></svg>
+          <span>Calificación Directa</span>
         </div>
+
+        @if (rubricErrorMessage()) {
+          <div class="error-banner-sm">
+            <span>{{ rubricErrorMessage() }}</span>
+          </div>
+        }
+
+        @if (rubricSuccessMessage()) {
+          <div class="success-banner-sm">
+            <span>{{ rubricSuccessMessage() }}</span>
+          </div>
+        }
+
+        <p class="direct-desc">
+          Esta práctica no utiliza rúbrica de criterios. Calificá el proyecto de forma directa asignando un puntaje global y tu devolución.
+        </p>
+
+        <div class="form-group margin-top-sm">
+          <label class="form-label" for="direct-score-input">Puntaje Asignado (0 - 100 pts)</label>
+          <input
+            id="direct-score-input"
+            type="number"
+            min="0"
+            max="100"
+            class="form-input font-mono"
+            machineData
+            [ngModel]="directScore()"
+            (ngModelChange)="directScoreChange.emit($event)"
+            placeholder="Ej: 85"
+          />
+        </div>
+
+        <div class="form-group margin-top-sm">
+          <label class="form-label" for="direct-feedback-input">Devolución Docente</label>
+          <textarea
+            id="direct-feedback-input"
+            class="form-textarea"
+            rows="3"
+            placeholder="Retroalimentación general para el alumno..."
+            [ngModel]="rubricComments()"
+            (ngModelChange)="rubricCommentsChange.emit($event)"
+          ></textarea>
+        </div>
+
+        <button
+          type="button"
+          class="btn-primary btn-save-direct margin-top-sm"
+          data-tour="review-grade-action"
+          [disabled]="isSubmittingRubric()"
+          (click)="saveDirectEvaluation.emit()"
+        >
+          <span>{{ isSubmittingRubric() ? 'Guardando...' : 'Guardar Calificación' }}</span>
+        </button>
       </div>
     }
   }

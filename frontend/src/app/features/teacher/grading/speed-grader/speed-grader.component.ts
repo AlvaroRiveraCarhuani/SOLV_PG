@@ -16,6 +16,14 @@ import {
 } from '../../models/teacher.models';
 import { DateTextPipe } from '@shared/pipes/date-text.pipe';
 import { commentsForFile, commentsOutsideFiles, globalToLocalLine } from './review-line-map';
+import { ContextHelpService } from '@shared/help/context-help.service';
+import { ProductTourService } from '@shared/help/product-tour.service';
+import { InteractiveTutorialService } from '@shared/help/interactive-tutorial.service';
+import {
+  SpeedGraderTutorialContext,
+  buildSpeedGraderTour,
+  buildSpeedGraderTutorial
+} from './speed-grader-help.definitions';
 import { ReviewFileTreeComponent } from '@shared/components/review-file-tree/review-file-tree.component';
 import { SkeletonLoaderComponent } from '@shared/components/skeleton/skeleton-loader.component';
 import { KeystrokeReplayModalComponent } from './keystroke-replay-modal/keystroke-replay-modal.component';
@@ -51,6 +59,9 @@ export class SpeedGraderComponent implements OnInit, OnDestroy {
   private gradingService = inject(TeacherGradingService);
   private hotkeysService = inject(HotkeysService);
   private http = inject(HttpClient);
+  private helpService = inject(ContextHelpService);
+  private tourService = inject(ProductTourService);
+  private tutorialService = inject(InteractiveTutorialService);
   private unregisterFns: Array<() => void> = [];
 
   readonly verdictOptions: { id: string; label: string; value: string }[] = VERDICT_OVERRIDE_OPTIONS;
@@ -173,6 +184,54 @@ export class SpeedGraderComponent implements OnInit, OnDestroy {
         );
       }
     });
+  }
+
+  readonly directScore = signal<number>(100);
+
+  readonly tutorialContext: SpeedGraderTutorialContext = {
+    mode: () => this.reviewMode(),
+    hasCodeLoaded: () => !!(this.review()?.code || this.activeFile()?.content),
+    isDiffActive: () => this.showDiffView(),
+    hasEvaluationInput: () => {
+      if (this.isJudge()) return true;
+      if (this.rubric()) return Object.keys(this.selections()).length > 0;
+      return this.directScore() >= 0;
+    },
+    isGraded: () => this.review()?.score !== undefined && this.review()?.score !== null
+  };
+
+  saveDirectEvaluation(): void {
+    const id = this.submissionId();
+    if (!id) return;
+
+    this.isSubmittingRubric.set(true);
+    this.rubricSuccessMessage.set(null);
+    this.rubricErrorMessage.set(null);
+
+    const score = this.directScore();
+    const feedback = this.rubricComments().trim();
+
+    this.gradingService
+      .updateReviewScore(id, {
+        status: 'graded',
+        score,
+        ...(feedback ? { feedback_summary: feedback } : {})
+      })
+      .subscribe({
+        next: () => {
+          this.isSubmittingRubric.set(false);
+          this.rubricSuccessMessage.set(
+            `Calificación guardada: ${score} / 100 pts. La entrega quedó en la libreta.`
+          );
+          this.gradingService.getSubmissionReview(id).subscribe({ error: () => undefined });
+        },
+        error: (err) => {
+          this.isSubmittingRubric.set(false);
+          this.rubricErrorMessage.set(
+            err?.error?.message || 'No se pudo guardar la calificación. Revisá la libreta e intentá de nuevo.'
+          );
+        }
+      });
   }
 
   showDiffView = signal<boolean>(false);
@@ -324,6 +383,10 @@ export class SpeedGraderComponent implements OnInit, OnDestroy {
       unregister();
     }
     this.hotkeysService.setScope('global');
+    this.helpService.unregisterGuides('teacher-submission-review');
+    this.helpService.unregisterScreen('teacher-submission-review');
+    this.tourService.destroy();
+    this.tutorialService.exit();
   }
 
   private registerHotkeys(): void {
@@ -443,6 +506,9 @@ export class SpeedGraderComponent implements OnInit, OnDestroy {
     this.gradingService.getSubmissionReview(id).subscribe({
       next: (rev) => {
         if (!rev) return;
+        this.directScore.set(rev.score ?? 100);
+        this.rubricComments.set(rev.override_reason || '');
+        this.registerHelpAndTour();
         if (rev.environment_type === 'IDE_PERSISTENTE') {
           // El árbol incluye metadatos del IDE (.vscode, .git, node_modules).
           // La revisión abre el primer archivo del alumno, no la configuración.
@@ -455,6 +521,22 @@ export class SpeedGraderComponent implements OnInit, OnDestroy {
             this.loadRubric(rev.exercise_id);
           }
         }
+      }
+    });
+  }
+
+  private registerHelpAndTour(): void {
+    this.helpService.registerScreen('teacher-submission-review');
+    this.helpService.registerGuides('teacher-submission-review', {
+      tour: {
+        label: 'Recorrido por la Revisión',
+        hint: 'Navegación de entregas, visor de código, diff y panel de evaluación',
+        run: () => void this.tourService.start(buildSpeedGraderTour(this.reviewMode(), !!this.rubric()))
+      },
+      tutorial: {
+        label: 'Cómo calificar una entrega',
+        hint: 'Aprenda a inspeccionar código, evaluar criterios y asentar la nota',
+        run: () => this.tutorialService.start(buildSpeedGraderTutorial(this.tutorialContext))
       }
     });
   }
@@ -472,6 +554,7 @@ export class SpeedGraderComponent implements OnInit, OnDestroy {
             }
           }
           this.selections.set(initialSel);
+          this.registerHelpAndTour();
         }
       },
       error: (err) => {

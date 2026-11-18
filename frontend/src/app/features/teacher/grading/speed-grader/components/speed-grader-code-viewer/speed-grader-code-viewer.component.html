@@ -1,4 +1,4 @@
-<main class="code-viewer-panel">
+<main class="code-viewer-panel" data-tour="review-code-viewer">
   <!-- Reproductor Time-Travel Replay Standalone Integrado -->
   @if (showReplayPlayer()) {
     <div class="replay-embedded-container">
@@ -9,7 +9,7 @@
       />
     </div>
   } @else {
-    <div class="code-panel-header">
+    <div class="code-panel-header" data-tour="review-diff-tool">
       <span class="panel-label">
         @if (activeFile(); as file) {
           <code class="file-path">{{ file.path }}</code>

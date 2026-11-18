@@ -1,7 +1,6 @@
 import { Component, computed, input, output } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { RouterLink } from '@angular/router';
 import {
   LucideClipboardList,
   LucideTrendingUp,
@@ -9,7 +8,8 @@ import {
   LucideCheckCircle,
   LucideXCircle,
   LucideTerminal,
-  LucideCopy
+  LucideCopy,
+  LucideEdit3
 } from '@lucide/angular';
 import { VerdictBadgeComponent } from '@shared/components/verdict-badge/verdict-badge.component';
 import { MachineDataDirective } from '@shared/directives/machine-data.directive';
@@ -36,7 +36,6 @@ export interface CopyCaseEvent {
   imports: [
     CommonModule,
     FormsModule,
-    RouterLink,
     LucideClipboardList,
     LucideTrendingUp,
     LucideAlertTriangle,
@@ -44,6 +43,7 @@ export interface CopyCaseEvent {
     LucideXCircle,
     LucideTerminal,
     LucideCopy,
+    LucideEdit3,
     VerdictBadgeComponent,
     MachineDataDirective
   ],
@@ -57,6 +57,7 @@ export class SpeedGraderEvalPanelComponent {
   readonly rubricErrorMessage = input<string | null>(null);
   readonly isSubmittingRubric = input<boolean>(false);
   readonly calculatedRubricScore = input<number>(0);
+  readonly directScore = input<number>(100);
   readonly review = input.required<TeacherSubmissionReviewDTO>();
   readonly ephemeralResult = input<EphemeralRunResult | null>(null);
   readonly getComplexityClass = input.required<(complexity: string) => string>();
@@ -67,6 +68,8 @@ export class SpeedGraderEvalPanelComponent {
   readonly levelSelected = output<LevelSelectedEvent>();
   readonly rubricCommentsChange = output<string>();
   readonly saveRubricEvaluation = output<void>();
+  readonly directScoreChange = output<number>();
+  readonly saveDirectEvaluation = output<void>();
   readonly copyCaseInput = output<CopyCaseEvent>();
 
   readonly astViolation = computed<{ ruleId: string; detail: string } | null>(() => {

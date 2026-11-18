@@ -653,6 +653,32 @@ export const CONTEXT_HELP_ENTRIES: Record<string, ContextHelpEntry> = {
       }
     ],
     manualFragment: null
+  },
+
+  'teacher-submission-review': {
+    key: 'teacher-submission-review',
+    title: 'Mesa de Revisión y Calificación de Entregas',
+    intro:
+      'Mesa de trabajo para inspeccionar código, contrastar diferencias, verificar resultados pedagógicos y asentar calificaciones según la modalidad.',
+    items: [
+      {
+        label: 'Casos de prueba y corrección automática',
+        text: 'El código se evalúa contra casos de prueba automáticos. Los resultados se traducen en estados pedagógicos claros («Cumple», «No cumple») y el docente puede convalidar o ajustar la nota con el atajo A.'
+      },
+      {
+        label: 'Proyectos y aplicaciones vivas',
+        text: 'Permite explorar el árbol de archivos completo del proyecto, probar la aplicación viva en un contenedor efímero y calificar mediante rúbrica analítica o asignación directa con devolución.'
+      },
+      {
+        label: 'Herramientas de Inspección',
+        text: 'Alterne la vista de diferencias (atajo D) frente a la plantilla base, reproduzca la evolución temporal del código (atajo T) o audite la cadencia y pegados de tipeo.'
+      },
+      {
+        label: 'Navegación Ágil y Atajos',
+        text: 'Avance a la siguiente entrega con J, retroceda con K, o active comentarios en línea sobre el código pulsando C.'
+      }
+    ],
+    manualFragment: null
   }
 };
 
