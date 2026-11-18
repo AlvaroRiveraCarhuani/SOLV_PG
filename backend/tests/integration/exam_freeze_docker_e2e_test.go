@@ -21,10 +21,10 @@ import (
 	"solv-backend/internal/infrastructure/docker"
 )
 
-// TestExamFreezeDockerE2E recorre el cierre del examen sobre un contenedor y un
-// volumen reales: el alumno escribe, entrega, y el sistema de archivos deja de
-// aceptar escrituras tanto desde el editor como desde un contenedor efímero con
-// el volumen montado en solo lectura.
+// TestExamFreezeDockerE2E recorre el solo lectura del examen sobre un contenedor
+// y un volumen reales: el alumno escribe, entrega sin perder la escritura, y al
+// pausar el examen el sistema de archivos deja de aceptar escrituras tanto desde
+// el editor como desde un contenedor efímero. Reanudar devuelve la escritura.
 //
 // Está apagada por defecto porque necesita el daemon de Docker, la imagen
 // gitpod/openvscode-server:1.96.0 y la red solv-traefik-net. Se activa con:
@@ -74,8 +74,6 @@ func TestExamFreezeDockerE2E(t *testing.T) {
 		WithExerciseSubmission(&e2eExamExerciseRepo{subjectID: subjectID}, submissions)
 
 	store := &e2eFreezeStore{instance: instance}
-	freezer := services.NewExamFreezeService(store, &e2eFreezeSessions{}, repo, environments)
-	environments.SetExamSubmissionFreezer(freezer)
 
 	if err := client.EnsureVolumeExists(ctx, volumeName); err != nil {
 		t.Fatalf("no se pudo crear el volumen %s: %v", volumeName, err)
@@ -97,7 +95,8 @@ func TestExamFreezeDockerE2E(t *testing.T) {
 		t.Fatalf("el alumno debía poder escribir antes de entregar, se leyó %q", got)
 	}
 
-	// 2. La entrega es la que dispara el congelamiento: solo ese volumen.
+	// 2. La entrega registra una versión y no toca el montaje: el alumno sigue
+	// escribiendo hasta que el docente pause o cierre el examen.
 	submission, err := environments.SubmitPracticeEnvironmentProject(ctx, environmentID, studentID, exerciseID, map[string]string{
 		"notas.txt": "entrega del examen",
 	})
@@ -110,16 +109,26 @@ func TestExamFreezeDockerE2E(t *testing.T) {
 	if !strings.Contains(submission.Code, "# === FILE: main.go ===") {
 		t.Fatalf("el snapshot debía incluir el archivo del alumno: %s", submission.Code)
 	}
-	if instance.FrozenAt == nil || instance.Status != domain.PracticeEnvironmentStatusFrozen {
-		t.Fatalf("la entrega debía marcar el volumen como congelado: %+v", instance)
+	if instance.FrozenAt != nil || instance.ContainerID == nil || *instance.ContainerID != editableContainer {
+		t.Fatalf("la entrega no debía congelar ni recrear el entorno: %+v", instance)
 	}
-	if instance.ContainerID == nil || *instance.ContainerID == editableContainer {
-		t.Fatal("el contenedor debía reconstruirse en solo lectura")
+	execInPracticeEnvironment(t, raw, editableContainer, "printf 'avance\\n' >> /home/workspace/main.go")
+	if got := execInPracticeEnvironment(t, raw, editableContainer, "cat /home/workspace/main.go"); !strings.Contains(got, "avance") {
+		t.Fatalf("el alumno debía seguir escribiendo después de entregar, se leyó %q", got)
+	}
+
+	// 3. La pausa en vivo congela el montaje y marca la fila, igual que
+	// PauseSession con los participantes del aula.
+	if err := store.SetPracticeEnvironmentFrozen(ctx, tenantID, environmentID, true, time.Now()); err != nil {
+		t.Fatalf("no se pudo marcar el volumen como congelado: %v", err)
+	}
+	if err := environments.SetPracticeEnvironmentMount(ctx, instance, true); err != nil {
+		t.Fatalf("no se pudo montar el volumen en solo lectura: %v", err)
 	}
 	frozenContainer := *instance.ContainerID
 	waitContainerRunning(t, raw, frozenContainer)
 
-	// 3. El editor ya no escribe: el montaje en :ro lo impide aunque el proceso
+	// 4. El editor ya no escribe: el montaje en :ro lo impide aunque el proceso
 	// corra como root. La lectura sigue disponible para consultar lo entregado.
 	_, stderr, code, err := execResult(ctx, raw, frozenContainer, "echo intruso > /home/workspace/main.go")
 	if err != nil {
@@ -135,7 +144,7 @@ func TestExamFreezeDockerE2E(t *testing.T) {
 		t.Fatalf("el contenido entregado debía seguir legible: %q", got)
 	}
 
-	// 4. Un contenedor efímero con el volumen en solo lectura, que es como lo lee
+	// 5. Un contenedor efímero con el volumen en solo lectura, que es como lo lee
 	// el juez, tampoco puede escribir.
 	if got := runEphemeralVolumeCommand(t, ctx, raw, volumeName, true, "cat /environment/main.go"); !strings.Contains(got, "package main") {
 		t.Fatalf("el contenedor efímero debía leer lo entregado: %q", got)
@@ -148,8 +157,8 @@ func TestExamFreezeDockerE2E(t *testing.T) {
 		t.Fatalf("el contenedor efímero no debía escribir en un volumen congelado (code=%d, stderr=%q)", code, stderr)
 	}
 
-	// 5. Volver a entregar tampoco es una vía para escribir: el servidor rechaza
-	// la entrega antes de tocar el volumen.
+	// 6. Entregar con el examen pausado tampoco es una vía para escribir: el
+	// servidor rechaza la entrega antes de tocar el volumen.
 	_, err = environments.SubmitPracticeEnvironmentProject(ctx, environmentID, studentID, exerciseID, map[string]string{
 		"tarde.txt": "fuera de plazo",
 	})
@@ -164,7 +173,10 @@ func TestExamFreezeDockerE2E(t *testing.T) {
 		t.Fatal("la entrega rechazada no debía escribir archivos en el volumen")
 	}
 
-	// 6. Reabrir vuelve a habilitar la escritura en el mismo volumen.
+	// 7. Reanudar vuelve a habilitar la escritura en el mismo volumen.
+	if err := store.SetPracticeEnvironmentFrozen(ctx, tenantID, environmentID, false, time.Now()); err != nil {
+		t.Fatalf("no se pudo limpiar la marca de congelamiento: %v", err)
+	}
 	if err := environments.SetPracticeEnvironmentMount(ctx, instance, false); err != nil {
 		t.Fatalf("no se pudo reabrir el volumen: %v", err)
 	}

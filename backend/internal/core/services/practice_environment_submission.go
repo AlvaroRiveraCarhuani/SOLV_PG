@@ -128,7 +128,6 @@ func (s *PracticeEnvironmentService) SubmitPracticeEnvironmentProject(ctx contex
 	if tenantID == "" {
 		tenantID = domain.DefaultTenantID
 	}
-	isExam := s.isExamExercise(ctx, exerciseID, tenantID, environment.SubjectID)
 
 	volumeStore, ok := s.docker.(domain.PracticeEnvironmentVolumeStore)
 	if !ok {
@@ -196,39 +195,14 @@ func (s *PracticeEnvironmentService) SubmitPracticeEnvironmentProject(ctx contex
 		return nil, fmt.Errorf("failed to create project submission: %w", err)
 	}
 
-	// Entrega de examen: el alumno termina y su volumen queda en solo lectura.
-	// La clase sigue abierta para los demás. Si el cierre falla, la entrega ya
-	// quedó registrada y el barrido del aula lo reintenta.
-	if isExam && s.examFreezer != nil {
-		if freezeErr := s.examFreezer.FreezePracticeEnvironment(ctx, tenantID, environment.StudentID, environment.ID); freezeErr != nil {
-			log.Printf("[Exam Freeze] la entrega %s quedó registrada pero no se pudo congelar el volumen %s: %v", submission.ID, environment.ID, freezeErr)
-		}
-	}
+	// Entrega de examen: se registra el checkpoint de entrega con su código y timestamp.
+	// El volumen permanece en lectura/escritura (:rw) para permitir correcciones y
+	// re-entregas mientras el examen siga en curso. El congelamiento atómico en solo
+	// lectura (:ro) se realiza al cerrar el aula de examen.
 
 	return submission, nil
 }
 
-// isExamExercise dice si la entrega pertenece a un examen de la materia del
-// laboratorio. Sin repositorio de ejercicios, o si no se puede leer, se trata
-// como clase: un volumen nunca se congela por una duda.
-func (s *PracticeEnvironmentService) isExamExercise(ctx context.Context, exerciseID, tenantID, subjectID string) bool {
-	if s.exerciseRepo == nil || strings.TrimSpace(exerciseID) == "" {
-		return false
-	}
-	exercise, err := s.exerciseRepo.GetByIDAndTenant(ctx, exerciseID, tenantID)
-	if err != nil || exercise == nil {
-		return false
-	}
-	if exercise.Purpose != string(domain.ExercisePurposeExam) {
-		return false
-	}
-	// La entrega congela el volumen del laboratorio: el examen tiene que ser de
-	// la misma materia para no cerrar un entorno ajeno.
-	if exercise.SubjectID != nil && strings.TrimSpace(*exercise.SubjectID) != "" {
-		return *exercise.SubjectID == subjectID
-	}
-	return true
-}
 
 // classifyIDEBaseStatus traduce el estado de siembra del entorno a la
 // clasificación persistida de la entrega. Un entorno legacy o sin datos de

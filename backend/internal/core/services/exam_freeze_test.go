@@ -278,3 +278,81 @@ func TestFreezeClosedExams_NoCandidates(t *testing.T) {
 		t.Fatalf("sin aulas cerradas no debía tocarse nada: %+v", report)
 	}
 }
+
+func TestPauseSession_MountsReadOnlyForAnOpenExam(t *testing.T) {
+	service, store, mounts, audit := newExamFreezeFixture(t)
+	session := service.sessions.(*fakeExamSessions).session
+	session.Status = domain.ClassSessionStatusOpen
+	alreadyFrozen := time.Date(2026, 10, 31, 18, 0, 0, 0, time.UTC)
+	store.participants[1].FrozenAt = &alreadyFrozen
+
+	report, err := service.PauseSession(context.Background(), "tenant-1", "teacher-1", "teacher", session.ID)
+	if err != nil {
+		t.Fatalf("PauseSession falló: %v", err)
+	}
+	if report.Frozen != 1 || report.Skipped != 1 || report.Failed != 0 {
+		t.Fatalf("conteo inesperado: %+v", report)
+	}
+	if len(mounts.calls) != 1 || mounts.calls[0].environmentID != "ws-a" || !mounts.calls[0].readOnly {
+		t.Fatalf("se esperaba un solo montaje en solo lectura de ws-a: %+v", mounts.calls)
+	}
+	if !store.frozenMarks["ws-a"] {
+		t.Fatalf("ws-a debía quedar marcado como congelado: %v", store.frozenMarks)
+	}
+	if len(audit.logs) != 1 || audit.logs[0].Action != domain.AuditExamPracticeEnvironmentFrozen {
+		t.Fatalf("se esperaba una entrada de auditoría de congelamiento: %+v", audit.logs)
+	}
+}
+
+func TestPauseSession_RejectsClosedSession(t *testing.T) {
+	service, store, mounts, _ := newExamFreezeFixture(t)
+
+	_, err := service.PauseSession(context.Background(), "tenant-1", "teacher-1", "teacher", "11111111-1111-1111-1111-111111111111")
+	if !errors.Is(err, domain.ErrSessionNotOpen) {
+		t.Fatalf("se esperaba ErrSessionNotOpen, fue: %v", err)
+	}
+	if len(mounts.calls) != 0 || len(store.frozenMarks) != 0 {
+		t.Fatal("un examen cerrado no se pausa: el cierre ya lo congeló")
+	}
+}
+
+func TestPauseSession_RejectsClassSession(t *testing.T) {
+	service, store, mounts, _ := newExamFreezeFixture(t)
+	session := service.sessions.(*fakeExamSessions).session
+	session.Status = domain.ClassSessionStatusOpen
+	store.isExam = false
+
+	_, err := service.PauseSession(context.Background(), "tenant-1", "teacher-1", "teacher", session.ID)
+	if !errors.Is(err, domain.ErrExamPauseNotAllowed) {
+		t.Fatalf("se esperaba ErrExamPauseNotAllowed, fue: %v", err)
+	}
+	if len(mounts.calls) != 0 {
+		t.Fatal("una clase no debía tocar ningún volumen")
+	}
+}
+
+func TestResumeSession_ReturnsFrozenVolumesToWritable(t *testing.T) {
+	service, store, mounts, audit := newExamFreezeFixture(t)
+	session := service.sessions.(*fakeExamSessions).session
+	session.Status = domain.ClassSessionStatusOpen
+	frozenAt := time.Date(2026, 10, 31, 18, 0, 0, 0, time.UTC)
+	store.participants[1].FrozenAt = &frozenAt
+	store.participants[1].Status = domain.PracticeEnvironmentStatusFrozen
+
+	report, err := service.ResumeSession(context.Background(), "tenant-1", "teacher-1", "teacher", session.ID)
+	if err != nil {
+		t.Fatalf("ResumeSession falló: %v", err)
+	}
+	if report.Frozen != 1 || report.Skipped != 1 || report.Failed != 0 {
+		t.Fatalf("conteo inesperado: %+v", report)
+	}
+	if len(mounts.calls) != 1 || mounts.calls[0].environmentID != "ws-b" || mounts.calls[0].readOnly {
+		t.Fatalf("se esperaba un solo montaje en escritura de ws-b: %+v", mounts.calls)
+	}
+	if store.frozenMarks["ws-b"] {
+		t.Fatalf("ws-b debía quedar sin marca de congelado: %v", store.frozenMarks)
+	}
+	if len(audit.logs) != 1 || audit.logs[0].Action != domain.AuditExamPracticeEnvironmentUnfrozen {
+		t.Fatalf("se esperaba una entrada de auditoría de reanudación: %+v", audit.logs)
+	}
+}

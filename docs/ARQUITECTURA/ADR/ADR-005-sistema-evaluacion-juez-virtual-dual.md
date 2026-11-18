@@ -78,13 +78,15 @@ La pantalla del alumno deja de ofrecer el editor y muestra el motivo. El bloqueo
 | Momento | Qué pasa |
 | --- | --- |
 | El examen se abre | El entorno queda escribible. El alumno tiene que programar durante el examen; bloquear al empezar vacía la evaluación. |
+| El docente pausa el examen en vivo | Los volúmenes de los alumnos pasan a `:ro` y la sesión sigue abierta: el cronómetro corre, el aula no se cierra. |
+| El docente reanuda el examen | Los volúmenes vuelven a `:rw`. Cada alumno sigue donde estaba. |
 | El docente cierra el examen | Se congelan los volúmenes de los alumnos del aula, uno por uno. |
 | Se vence `ends_at` | Mismo cierre, sin que el docente tenga que pulsar nada. |
-| El alumno entrega antes | Se congela solo su volumen. La clase sigue abierta para los demás. |
+| El alumno entrega antes | Se registra una entrega con su hora y el volumen sigue en `:rw`. Puede corregir y volver a entregar hasta el cierre; se califica la última entrega. |
 | El docente reabre a un alumno | Vuelve a `:rw` con un motivo escrito y queda en auditoría. Es la "excepción individual" de §4. |
-| Es una clase, no un examen | No se congela nunca. |
+| Es una clase, no un examen | No se pausa ni se congela nunca. |
 
-Solo aplica a prácticas con `purpose = exam`. Una sesión de clase congelada (`class_sessions.frozen_at`, ADR-058) es otra cosa: bloquea emitir avances nuevos y no toca el volumen de nadie.
+Solo aplica a prácticas con `purpose = exam`. La pausa en vivo usa `class_sessions.frozen_at`, pero su efecto no vive ahí: el bloqueo lo aplica el montaje del volumen. La emisión de avances ya está bloqueada en examen por ADR-058.
 
 ### 5.3 Alternativas comparadas
 
@@ -152,10 +154,11 @@ Implementado el 31/10/2026.
 - **Pantalla del alumno.** Con el estado `frozen` se muestra el aviso de examen cerrado con la hora del cierre en lugar del editor, y no se ofrece iniciar el entorno.
 - **Pantalla del docente.** La sesión de aula trae `purpose` (`class` o `exam`), así que `/teacher/aula` marca el examen y cambia `[Cerrar aula]` por `[Cerrar examen]`, con el aviso de que el cierre deja los entornos en solo lectura. Ya cerrada, muestra el conteo de volúmenes en solo lectura, el resultado del cierre o del reintento, y la lista de alumnos con entorno para reabrir uno con motivo.
 
-- **Entrega anticipada.** Entregar un examen desde el IDE cierra solo el volumen de ese alumno: el montaje pasa a `:ro`, la fila queda `frozen` y la clase sigue abierta para los demás. Una segunda entrega responde `409`, porque escribir por esa vía sería seguir editando. La pantalla del alumno pide confirmación antes de entregar y avisa que el entorno queda en solo lectura; la auditoría registra el laboratorio como recurso.
+- **Entrega anticipada.** Entregar un examen desde el IDE registra una versión con su código y su hora, y el volumen sigue escribible: el alumno puede corregir y volver a entregar mientras el examen esté abierto. Se califica la última entrega anterior al cierre. El congelamiento ocurre al cerrar el aula, no al entregar.
+- **Pausa en vivo.** `PATCH /teacher/sessions/{id}/freeze` pone en `:ro` los laboratorios de los participantes y deja la sesión abierta; `/unfreeze` los devuelve a `:rw`. Solo aplica a exámenes: un aula de clase responde `409`. Si ningún laboratorio pudo congelarse, la sesión no se marca como pausada y la respuesta es `503`. La pantalla del docente lo pide con confirmación, y el alumno ve el aviso de examen pausado y su entorno en solo lectura.
 
 Todos los puntos de §5.6 quedaron implementados.
 
-La prueba de punta a punta corre contra Docker y el volumen reales: arranca el laboratorio con el montaje en `:rw`, escribe desde el contenedor como root, entrega el examen por el mismo camino de la aplicación —que dispara el congelamiento— y comprueba que la siguiente escritura falla con `Read-only file system` mientras la lectura sigue disponible. Repite la comprobación con un contenedor efímero montado en `:ro`, verifica que una segunda entrega responde `409` sin tocar el volumen y que reabrir devuelve la escritura. Está apagada por defecto porque necesita el daemon, la imagen del editor y la red de Traefik: `EXAM_FREEZE_E2E=1 go test ./tests/integration -run TestExamFreezeDockerE2E`.
+La prueba de punta a punta corre contra Docker y el volumen reales: arranca el laboratorio con el montaje en `:rw`, escribe desde el contenedor como root, entrega el examen y comprueba que el volumen sigue escribible y que el contenedor no se recreó. Después aplica la pausa —marca `frozen_at` y monta `:ro`— y verifica que la siguiente escritura falla con `Read-only file system` mientras la lectura sigue disponible, que un contenedor efímero montado en `:ro` tampoco escribe y que una entrega con la pausa activa responde `409` sin tocar el volumen. Por último reanuda y confirma que la escritura vuelve en el mismo volumen. Está apagada por defecto porque necesita el daemon, la imagen del editor y la red de Traefik: `EXAM_FREEZE_E2E=1 go test ./tests/integration -run TestExamFreezeDockerE2E`.
 
 La ficha de trabajo con las tareas y el registro de decisiones es [examen-congelamiento.md](../../../odd/tasks/examen-congelamiento.md).

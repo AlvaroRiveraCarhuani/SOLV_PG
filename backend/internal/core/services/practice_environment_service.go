@@ -68,10 +68,6 @@ type PracticeEnvironmentService struct {
 	// sessionLinker deja constancia de en qué aula nació el entorno. Es opcional:
 	// sin él el ciclo de vida del contenedor funciona igual.
 	sessionLinker domain.ClassSessionPracticeEnvironmentLinker
-	// examFreezer cierra el volumen de un examen cuando el alumno entrega antes.
-	// Es opcional: sin él, la entrega se registra y el cierre llega con el aula.
-	examFreezer ExamPracticeEnvironmentFreezer
-
 	// satelliteUseMu protege satelliteLastUse: el último momento en que un
 	// laboratorio pidió un motor. Evita que el scale-to-zero apague el satélite en
 	// el hueco entre el aprovisionamiento y el registro del laboratorio como activo.
@@ -142,13 +138,6 @@ func (s *PracticeEnvironmentService) SetWorkspaceProjects(repo domain.WorkspaceP
 		return s
 	}
 	s.workspaceProjects = repo
-	return s
-}
-
-// SetExamSubmissionFreezer habilita el cierre anticipado por alumno: al entregar
-// un examen, solo su volumen pasa a solo lectura (ADR-005 §5.2).
-func (s *PracticeEnvironmentService) SetExamSubmissionFreezer(freezer ExamPracticeEnvironmentFreezer) *PracticeEnvironmentService {
-	s.examFreezer = freezer
 	return s
 }
 

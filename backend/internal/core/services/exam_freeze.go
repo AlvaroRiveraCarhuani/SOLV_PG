@@ -48,12 +48,6 @@ type ExamPracticeEnvironmentReader interface {
 	GetByID(ctx context.Context, id string) (*domain.PracticeEnvironment, error)
 }
 
-// ExamPracticeEnvironmentFreezer es la capacidad que la entrega anticipada necesita:
-// cerrar un solo volumen sin tocar el resto de la clase.
-type ExamPracticeEnvironmentFreezer interface {
-	FreezePracticeEnvironment(ctx context.Context, tenantID, actorID, environmentID string) error
-}
-
 // ExamAuditWriter registra el congelamiento y la excepción.
 type ExamAuditWriter interface {
 	Create(ctx context.Context, log *domain.AuditLog) error
@@ -132,6 +126,64 @@ func (s *ExamFreezeService) FreezeSession(ctx context.Context, tenantID, teacher
 		actor = session.CreatedBy
 	}
 	return s.freezeParticipants(ctx, tenantID, sessionID, actor)
+}
+
+// PauseSession pone en solo lectura los laboratorios de un examen que sigue en
+// curso: el aula no se cierra, el cronómetro no se detiene y nadie pierde el
+// trabajo. Es la pausa en vivo del docente (ADR-005 §5.2).
+func (s *ExamFreezeService) PauseSession(ctx context.Context, tenantID, teacherID, role, sessionID string) (FreezeReport, error) {
+	var report FreezeReport
+	session, err := s.openExamSession(ctx, tenantID, teacherID, role, sessionID)
+	if err != nil {
+		return report, err
+	}
+	actor := strings.TrimSpace(teacherID)
+	if actor == "" {
+		actor = session.CreatedBy
+	}
+	return s.freezeParticipants(ctx, tenantID, sessionID, actor)
+}
+
+// ResumeSession devuelve la escritura a los laboratorios del examen pausado.
+// No cierra la sesión ni reabre excepciones: cada alumno vuelve a :rw donde
+// estaba.
+func (s *ExamFreezeService) ResumeSession(ctx context.Context, tenantID, teacherID, role, sessionID string) (FreezeReport, error) {
+	var report FreezeReport
+	session, err := s.openExamSession(ctx, tenantID, teacherID, role, sessionID)
+	if err != nil {
+		return report, err
+	}
+	actor := strings.TrimSpace(teacherID)
+	if actor == "" {
+		actor = session.CreatedBy
+	}
+	return s.resumeParticipants(ctx, tenantID, sessionID, actor)
+}
+
+// openExamSession valida lo que comparten pausar y reanudar: la sesión es del
+// docente, la práctica es de examen y el aula sigue abierta.
+func (s *ExamFreezeService) openExamSession(ctx context.Context, tenantID, teacherID, role, sessionID string) (*domain.ClassSession, error) {
+	if strings.TrimSpace(tenantID) == "" {
+		return nil, domain.ErrInvalidTenant
+	}
+	if _, err := uuid.Parse(strings.TrimSpace(sessionID)); err != nil {
+		return nil, domain.ErrSessionNotFound
+	}
+	session, err := s.sessions.GetSession(ctx, tenantID, teacherScope(role, teacherID), sessionID)
+	if err != nil {
+		return nil, err
+	}
+	isExam, err := s.store.SessionIsExam(ctx, tenantID, sessionID)
+	if err != nil {
+		return nil, err
+	}
+	if !isExam {
+		return nil, domain.ErrExamPauseNotAllowed
+	}
+	if session == nil || session.Status != domain.ClassSessionStatusOpen {
+		return nil, domain.ErrSessionNotOpen
+	}
+	return session, nil
 }
 
 // FreezeClosedExams recorre las aulas cerradas de examen que todavía tienen
@@ -333,6 +385,51 @@ func (s *ExamFreezeService) freezeParticipants(ctx context.Context, tenantID, se
 		s.recordAudit(ctx, tenantID, actor, domain.AuditExamPracticeEnvironmentFrozen, sessionID, map[string]any{
 			"student_id":     row.StudentID,
 			"environment_id": row.EnvironmentID,
+		})
+	}
+	return report, nil
+}
+
+// resumeParticipants devuelve a :rw cada laboratorio congelado de la sesión. Un
+// fallo no frena al resto: el docente ve el conteo y puede repetir la reanudación.
+func (s *ExamFreezeService) resumeParticipants(ctx context.Context, tenantID, sessionID, actor string) (FreezeReport, error) {
+	var report FreezeReport
+	rows, err := s.store.ParticipantPracticeEnvironments(ctx, tenantID, sessionID)
+	if err != nil {
+		return report, err
+	}
+
+	for _, row := range rows {
+		if !row.IsFrozen() {
+			report.Skipped++
+			continue
+		}
+		instance, err := s.environments.GetByID(withTenant(ctx, tenantID), row.EnvironmentID)
+		if err != nil || instance == nil {
+			if isMissingRow(err) {
+				report.Skipped++
+				continue
+			}
+			report.Failed++
+			log.Printf("[Exam Freeze] no se pudo leer el laboratorio %s al reanudar: %v", row.EnvironmentID, err)
+			continue
+		}
+		if err := s.mounts.SetPracticeEnvironmentMount(ctx, instance, false); err != nil {
+			report.Failed++
+			log.Printf("[Exam Freeze] no se pudo montar en escritura el laboratorio %s: %v", row.EnvironmentID, err)
+			continue
+		}
+		if err := s.store.SetPracticeEnvironmentFrozen(ctx, tenantID, row.EnvironmentID, false, s.now()); err != nil {
+			report.Failed++
+			log.Printf("[Exam Freeze] el laboratorio %s quedó en escritura pero no se pudo marcar: %v", row.EnvironmentID, err)
+			continue
+		}
+		report.Frozen++
+
+		s.recordAudit(ctx, tenantID, actor, domain.AuditExamPracticeEnvironmentUnfrozen, sessionID, map[string]any{
+			"student_id":     row.StudentID,
+			"environment_id": row.EnvironmentID,
+			"reason":         "session_resume",
 		})
 	}
 	return report, nil

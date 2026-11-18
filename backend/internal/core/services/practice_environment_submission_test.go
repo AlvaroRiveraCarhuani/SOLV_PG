@@ -154,23 +154,7 @@ func (f *fakeExerciseRepo) GetByIDAndTenant(_ context.Context, _, _ string) (*do
 	return f.exercise, f.err
 }
 
-type environmentFreezeCall struct {
-	tenantID      string
-	actorID       string
-	environmentID string
-}
-
-type fakePracticeEnvironmentExamFreezer struct {
-	calls []environmentFreezeCall
-	err   error
-}
-
-func (f *fakePracticeEnvironmentExamFreezer) FreezePracticeEnvironment(_ context.Context, tenantID, actorID, environmentID string) error {
-	f.calls = append(f.calls, environmentFreezeCall{tenantID: tenantID, actorID: actorID, environmentID: environmentID})
-	return f.err
-}
-
-func newProjectSubmissionService(t *testing.T, purpose string) (*services.PracticeEnvironmentService, *fakeVolumeOrchestrator, *fakeSubmissionRepo, *fakePracticeEnvironmentExamFreezer, *domain.PracticeEnvironment) {
+func newProjectSubmissionService(t *testing.T, purpose string) (*services.PracticeEnvironmentService, *fakeVolumeOrchestrator, *fakeSubmissionRepo, *domain.PracticeEnvironment) {
 	t.Helper()
 	wsRepo := newMockPracticeEnvironmentRepo()
 	orch := &fakeVolumeOrchestrator{
@@ -181,10 +165,8 @@ func newProjectSubmissionService(t *testing.T, purpose string) (*services.Practi
 	}
 	subRepo := &fakeSubmissionRepo{}
 	examRepo := &fakeExerciseRepo{exercise: &domain.Exercise{ID: testExerciseID, Purpose: purpose}}
-	freezer := &fakePracticeEnvironmentExamFreezer{}
 	svc := services.NewPracticeEnvironmentService(wsRepo, orch, &mockHostMonitor{}).
-		WithExerciseSubmission(examRepo, subRepo).
-		SetExamSubmissionFreezer(freezer)
+		WithExerciseSubmission(examRepo, subRepo)
 
 	environment := &domain.PracticeEnvironment{
 		ID:        "44444444-4444-4444-8444-444444444444",
@@ -196,13 +178,13 @@ func newProjectSubmissionService(t *testing.T, purpose string) (*services.Practi
 	if err := wsRepo.Create(context.Background(), environment); err != nil {
 		t.Fatalf("no se pudo preparar el environment: %v", err)
 	}
-	return svc, orch, subRepo, freezer, environment
+	return svc, orch, subRepo, environment
 }
 
-// Entregar un examen cierra solo el volumen de quien entrega: el aula sigue
-// abierta para el resto (ADR-005 §5.2).
-func TestSubmitPracticeEnvironmentProject_FreezesExamPracticeEnvironment(t *testing.T) {
-	svc, _, subRepo, freezer, environment := newProjectSubmissionService(t, string(domain.ExercisePurposeExam))
+// Entregar un examen registra una versión sin congelar el volumen: el alumno
+// sigue editando y puede re-entregar mientras el examen esté abierto.
+func TestSubmitPracticeEnvironmentProject_AllowsResubmissionsWhileTheExamIsOpen(t *testing.T) {
+	svc, _, subRepo, environment := newProjectSubmissionService(t, string(domain.ExercisePurposeExam))
 
 	if _, err := svc.SubmitPracticeEnvironmentProject(context.Background(), environment.ID, "student-1", testExerciseID, nil); err != nil {
 		t.Fatalf("la entrega del examen no debía fallar: %v", err)
@@ -210,18 +192,20 @@ func TestSubmitPracticeEnvironmentProject_FreezesExamPracticeEnvironment(t *test
 	if subRepo.created == nil {
 		t.Fatal("la entrega debía quedar registrada")
 	}
-	if len(freezer.calls) != 1 {
-		t.Fatalf("el volumen del alumno debía congelarse una vez: %+v", freezer.calls)
+
+	// Segunda entrega (re-entrega correctiva dentro del examen abierto)
+	subRepo.created = nil
+	if _, err := svc.SubmitPracticeEnvironmentProject(context.Background(), environment.ID, "student-1", testExerciseID, nil); err != nil {
+		t.Fatalf("la re-entrega del examen debía permitirse: %v", err)
 	}
-	call := freezer.calls[0]
-	if call.environmentID != environment.ID || call.actorID != environment.StudentID || call.tenantID != domain.DefaultTenantID {
-		t.Fatalf("el cierre debía apuntar al alumno y su institución: %+v", call)
+	if subRepo.created == nil {
+		t.Fatal("la segunda entrega debía quedar registrada")
 	}
 }
 
 // Una práctica de clase no congela nada: entregar no termina el laboratorio.
-func TestSubmitPracticeEnvironmentProject_DoesNotFreezeClassPracticeEnvironment(t *testing.T) {
-	svc, _, subRepo, freezer, environment := newProjectSubmissionService(t, string(domain.ExercisePurposeClass))
+func TestSubmitPracticeEnvironmentProject_RecordsTheClassDelivery(t *testing.T) {
+	svc, _, subRepo, environment := newProjectSubmissionService(t, string(domain.ExercisePurposeClass))
 
 	if _, err := svc.SubmitPracticeEnvironmentProject(context.Background(), environment.ID, "student-1", testExerciseID, nil); err != nil {
 		t.Fatalf("la entrega de clase no debía fallar: %v", err)
@@ -229,54 +213,12 @@ func TestSubmitPracticeEnvironmentProject_DoesNotFreezeClassPracticeEnvironment(
 	if subRepo.created == nil {
 		t.Fatal("la entrega debía quedar registrada")
 	}
-	if len(freezer.calls) != 0 {
-		t.Fatalf("un aula de clase no debía congelar volúmenes: %+v", freezer.calls)
-	}
 }
 
-// Un volumen congelado no acepta entregas: escribir por esta vía sería seguir
-// editando después del cierre.
-// Un examen de otra materia no cierra el laboratorio de esta: el cierre apunta
-// al entorno donde se trabajó, no a cualquier entrega con purpose exam.
-func TestSubmitPracticeEnvironmentProject_DoesNotFreezeExamOfAnotherSubject(t *testing.T) {
-	wsRepo := newMockPracticeEnvironmentRepo()
-	orch := &fakeVolumeOrchestrator{
-		mockOrchestrator: &mockOrchestrator{},
-		snapshotFiles:    []domain.PracticeEnvironmentVolumeFile{{Path: "main.py", Content: []byte("print(1)\n")}},
-	}
-	subRepo := &fakeSubmissionRepo{}
-	otherSubject := "subject-2"
-	examRepo := &fakeExerciseRepo{exercise: &domain.Exercise{
-		ID:        testExerciseID,
-		Purpose:   string(domain.ExercisePurposeExam),
-		SubjectID: &otherSubject,
-	}}
-	freezer := &fakePracticeEnvironmentExamFreezer{}
-	svc := services.NewPracticeEnvironmentService(wsRepo, orch, &mockHostMonitor{}).
-		WithExerciseSubmission(examRepo, subRepo).
-		SetExamSubmissionFreezer(freezer)
-
-	environment := &domain.PracticeEnvironment{
-		ID:        "55555555-5555-4555-8555-555555555555",
-		TenantID:  domain.DefaultTenantID,
-		StudentID: "student-1",
-		SubjectID: "subject-1",
-		Status:    domain.PracticeEnvironmentStatusRunning,
-	}
-	if err := wsRepo.Create(context.Background(), environment); err != nil {
-		t.Fatalf("no se pudo preparar el environment: %v", err)
-	}
-
-	if _, err := svc.SubmitPracticeEnvironmentProject(context.Background(), environment.ID, "student-1", testExerciseID, nil); err != nil {
-		t.Fatalf("la entrega no debía fallar: %v", err)
-	}
-	if len(freezer.calls) != 0 {
-		t.Fatalf("un examen de otra materia no debía congelar este volumen: %+v", freezer.calls)
-	}
-}
-
+// Un volumen en solo lectura no acepta entregas: escribir por esta vía sería
+// seguir editando después del cierre.
 func TestSubmitPracticeEnvironmentProject_RejectsFrozenPracticeEnvironment(t *testing.T) {
-	svc, orch, subRepo, freezer, environment := newProjectSubmissionService(t, string(domain.ExercisePurposeExam))
+	svc, orch, subRepo, environment := newProjectSubmissionService(t, string(domain.ExercisePurposeExam))
 	frozenAt := time.Date(2026, 10, 31, 16, 0, 0, 0, time.UTC)
 	environment.FrozenAt = &frozenAt
 	environment.Status = domain.PracticeEnvironmentStatusFrozen
@@ -290,9 +232,6 @@ func TestSubmitPracticeEnvironmentProject_RejectsFrozenPracticeEnvironment(t *te
 	}
 	if subRepo.created != nil {
 		t.Fatal("un volumen congelado no debía registrar la entrega")
-	}
-	if len(freezer.calls) != 0 {
-		t.Fatalf("una entrega rechazada no debía volver a congelar: %+v", freezer.calls)
 	}
 }
 
