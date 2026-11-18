@@ -215,10 +215,10 @@ describe('StudentExerciseSolverComponent', () => {
     component.environment.set({ id: 'ws-1', status: 'frozen' } as unknown as PracticeEnvironment);
     fixture.detectChanges();
     expect(component.environmentState()).toBe('closed');
-    expect(fixture.nativeElement.textContent).toContain('Examen cerrado');
+    expect(fixture.nativeElement.textContent).toContain('Tu espacio está en solo lectura');
   });
 
-  it('muestra "Examen cerrado" cuando el examen ya terminó y el entorno no carga', async () => {
+  it('muestra el aviso de solo lectura cuando el examen ya terminó y el entorno no carga', async () => {
     const current = component.exercise();
     component.exercise.set({
       ...current!,
@@ -240,7 +240,7 @@ describe('StudentExerciseSolverComponent', () => {
     expect(component.environment()).toBeNull();
     expect(component.examClosed()).toBe(true);
     expect(component.environmentState()).toBe('closed');
-    expect(fixture.nativeElement.textContent).toContain('Examen cerrado');
+    expect(fixture.nativeElement.textContent).toContain('Tu espacio está en solo lectura');
 
     startSpy.mockRestore();
     openSpy.mockRestore();
@@ -254,7 +254,7 @@ describe('StudentExerciseSolverComponent', () => {
     expect(fixture.nativeElement.querySelector('.exam-state')).toBeNull();
   });
 
-  it('pide confirmación antes de entregar un examen y no deja reentregar', async () => {
+  it('pide confirmación y permite reentregar un examen mientras siga abierto', async () => {
     const current = component.exercise();
     component.exercise.set({
       ...current!,
@@ -268,12 +268,12 @@ describe('StudentExerciseSolverComponent', () => {
     expect(component.isExamProject()).toBe(true);
     expect(component.canSubmitProject()).toBe(true);
 
-    // Primer clic: solo avisa que el entorno queda en solo lectura.
+    // Primer clic: confirma, todavía no entrega.
     component.requestSubmitProject();
     expect(projectSubmitCalls.length).toBe(0);
     expect(component.examSubmitPending()).toBe(true);
 
-    // Segundo clic: entrega y el volumen queda cerrado para ese alumno.
+    // Segundo clic: registra la entrega como versión.
     component.requestSubmitProject();
     await new Promise(resolve => setTimeout(resolve, 0));
     fixture.detectChanges();
@@ -282,7 +282,15 @@ describe('StudentExerciseSolverComponent', () => {
     expect(projectSubmitPayloads).toEqual([{ exercise_id: 'ex-101' }]);
     expect(component.projectSubmission()?.submission_id).toBe('sub-exam');
     expect(component.examSubmitPending()).toBe(false);
-    expect(component.canSubmitProject()).toBe(false);
+
+    // El entorno sigue escribible: se puede volver a entregar.
+    expect(component.canSubmitProject()).toBe(true);
+    expect(fixture.nativeElement.textContent).not.toContain('congelado en solo lectura');
+
+    component.requestSubmitProject();
+    component.requestSubmitProject();
+    await new Promise(resolve => setTimeout(resolve, 0));
+    expect(projectSubmitCalls).toEqual(['ws-1', 'ws-1']);
   });
 
   it('abre el entorno de la práctica en un solo paso y sin exponer la URL', async () => {

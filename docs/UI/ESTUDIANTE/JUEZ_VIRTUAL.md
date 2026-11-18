@@ -136,7 +136,7 @@ graph LR
     Conf -- Confirmar --> Eval
 ```
 
-**Entrega de proyecto (IDE Persistente).** `[Entregar Proyecto]` guarda el snapshot del volumen de la práctica y lo envía a la revisión docente. Lo que se entrega es lo que el alumno tiene en el IDE; el solver no pide copiar archivos a un editor del navegador. Si el ejercicio es un examen, la entrega es final: el primer clic muestra la advertencia de que el entorno queda en solo lectura y el botón pasa a `[Confirmar entrega]`. Al confirmar, solo ese volumen se cierra; el resto de la clase sigue trabajando y el docente puede reabrir a un alumno con un motivo (ADR-005 §5.2). Después de entregar, el botón queda deshabilitado y una segunda entrega responde `409`.
+**Entrega de proyecto (IDE Persistente).** `[Entregar Proyecto]` guarda el snapshot del volumen de la práctica y lo envía a la revisión docente. Lo que se entrega es lo que el alumno tiene en el IDE; el solver no pide copiar archivos a un editor del navegador. Si el ejercicio es un examen, el primer clic muestra la advertencia y el botón pasa a `[Confirmar entrega]`: entregar registra una versión con el código y el entorno sigue escribible, así que el alumno puede corregir y volver a entregar mientras el examen esté abierto. Se califica la última entrega anterior al cierre. El solo lectura llega cuando el docente pausa el examen en vivo o lo cierra (ADR-005 §5.2); sobre un volumen ya en solo lectura, una entrega responde `409`.
 
 ---
 

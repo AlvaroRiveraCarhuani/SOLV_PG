@@ -77,6 +77,7 @@ Al entrar no se crea nada: si el entorno ya existe se reanuda, y si no, el alumn
 - **Entorno detenido:** la cabecera ofrece abrirlo; el editor explica que está en pausa.
 - **Entorno fallido u OOM:** mensaje humano y `[Reintentar]`; nunca se muestra el código de salida ni el id del contenedor.
 - **Aula congelada:** sin `[Abrir entorno]`, sin enlace al editor y sin aplicar avances nuevos.
+- **Examen pausado por el docente:** el aula y el Companion muestran el aviso con la hora de la pausa; el volumen está en solo lectura y el editor no guarda hasta que se reanude (ADR-005 §5.2).
 - **Aviso de otra práctica:** no se muestra; el filtro es por `exercise_id`.
 - **Fallo de red del aviso:** el aviso no se pierde; se reintenta en el siguiente ciclo.
 
@@ -84,7 +85,7 @@ Al entrar no se crea nada: si el entorno ya existe se reanuda, y si no, el alumn
 
 ## 5. Verificación
 
-- `student-exercise-solver.component.spec.ts`: arranque del entorno, franja de avance, confirmación y examen congelado.
+- `student-exercise-solver.component.spec.ts`: arranque del entorno, franja de avance, confirmación de entrega y reentrega con el examen abierto.
 - `class-advance-notice.service.spec.ts`: consulta, archivos, aplicación y descarte.
 - `advance-confirm-modal`: listas de reemplazo y agregado.
 - Integración `TestClassAdvance*` y `TestStudentAulas*` contra Postgres; E2E de Docker para emisión y congelación.

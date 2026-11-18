@@ -89,10 +89,11 @@ Para proyectos en entorno de desarrollo (`IDE_PERSISTENTE`):
 Para ejercicios de tipo examen (`purpose === 'exam'`):
 - **Entorno de Evaluación (`JUEZ_EFIMERO`):** Si el examen fue entregado, se inhabilitan y ocultan los botones "Reiniciar" y "Enviar a Evaluación", bloqueando el editor de código y mostrando el banner de examen entregado con enlace a la entrega.
 - **Entorno de Desarrollo (`IDE_PERSISTENTE`):**
-  - Si el examen fue entregado, el botón **"Abrir entorno"** queda inhabilitado o bloqueado con el estado "Examen entregado" (evitando modificaciones sobre el volumen congelado).
-  - El botón **"Entregar Proyecto"** queda inhabilitado con el estado "Examen entregado".
-  - Se muestra el banner informativo: *"Has entregado este examen. Tu entorno de desarrollo ha quedado congelado en solo lectura para la evaluación por rúbrica."*
+  - Entregar registra una versión del volumen y no lo cierra: el botón **"Abrir entorno"** sigue disponible y el entorno sigue escribible.
+  - El botón **"Entregar Proyecto"** sigue habilitado: se puede corregir y volver a entregar mientras el examen esté abierto (ADR-005 §5.2).
+  - Se muestra la píldora `Entrega registrada` y el banner *"Entrega registrada. Podés seguir editando y volver a entregar mientras el examen siga abierto."*
   - Se provee el botón de acceso directo `[ Ver entrega enviada ]` hacia `/student/history/:submissionId`.
+  - El solo lectura llega cuando el docente pausa el examen en vivo o lo cierra; ahí `[Abrir entorno]` y `[Entregar Proyecto]` quedan bloqueados.
 
 ---
 

@@ -12,7 +12,7 @@
 | :--- | :--- | :--- | :--- | :--- |
 | **EST-3.1** | Fácil | Abrir el entorno y conservar un archivo | El entorno abre en otra pestaña y el cambio persiste al reconectar | `PENDIENTE` |
 | **EST-3.2** | Medio | Entregar el proyecto | Snapshot registrado y visible en el historial | `PENDIENTE` |
-| **EST-3.3** | Difícil | Entregar un examen y quedar en solo lectura | Confirmación explícita, bloqueo de edición y rechazo de una segunda entrega | `PENDIENTE` |
+| **EST-3.3** | Difícil | Entregar un examen y ver el solo lectura al pausar | Confirmación, versión registrada, reentrega y aviso de pausa | `PENDIENTE` |
 
 ---
 
@@ -83,9 +83,9 @@
 
 ---
 
-## EST-3.3 (Difícil): Entregar un examen y quedar en solo lectura
+## EST-3.3 (Difícil): Entregar un examen y ver el solo lectura al pausar
 
-**Objetivo:** comprobar que la entrega de un examen exige confirmación, congela el entorno y rechaza una segunda entrega.
+**Objetivo:** comprobar que la entrega de un examen exige confirmación, registra una versión y deja seguir editando; que el solo lectura llega con la pausa del docente y que, con el examen cerrado, no se aceptan más entregas.
 
 **Precondiciones:** práctica con propósito `Examen / Calificado`; sesión de examen abierta; EST-3.2 aprobado.
 
@@ -95,22 +95,25 @@
 
 | # | Acción | Resultado esperado |
 | :--- | :--- | :--- |
-| 1 | Abrir la práctica de examen y verificar la marca `Examen`. | La consigna y el entorno están disponibles, con la advertencia de entrega definitiva. |
-| 2 | Hacer clic en `Entregar Proyecto`. | El botón cambia a `Confirmar entrega` y aparece la advertencia de solo lectura. |
+| 1 | Abrir la práctica de examen y verificar la marca `Examen`. | La consigna y el entorno están disponibles, con la advertencia de entrega por versiones. |
+| 2 | Hacer clic en `Entregar Proyecto`. | El botón cambia a `Confirmar entrega` y aparece la advertencia de versión registrada. |
 | 3 | Hacer clic en `Cancelar`. | No se registra ninguna entrega y el entorno sigue editable. |
-| 4 | Volver a hacer clic en `Entregar Proyecto` y luego en `Confirmar entrega`. | Se registra la entrega y el entorno pasa a solo lectura. |
-| 5 | Intentar editar un archivo del entorno. | La edición se rechaza o el editor está en solo lectura; se muestra el motivo. |
-| 6 | Intentar una segunda entrega. | El botón está deshabilitado o la API responde `409`; no se crea otra entrega. |
-| 7 | Como docente, reabrir al estudiante con un motivo. | Solo ese estudiante recupera la edición; la acción queda auditada. |
+| 4 | Volver a hacer clic en `Entregar Proyecto` y luego en `Confirmar entrega`. | Se registra la entrega y el entorno sigue escribible. |
+| 5 | Editar un archivo del entorno. | La edición se guarda; el entorno no quedó en solo lectura. |
+| 6 | Volver a entregar. | Se registra una nueva versión sobre la anterior; la anterior no se pierde del historial. |
+| 7 | Como docente, pulsar `Pausar examen`. | Los entornos pasan a solo lectura y el alumno ve el aviso de examen pausado. |
+| 8 | Con la pausa activa, intentar editar y volver a entregar. | La escritura falla y la entrega se rechaza. |
+| 9 | Como docente, pulsar `Reanudar examen`. | El alumno recupera la escritura y puede volver a entregar. |
+| 10 | Como docente, pulsar `Cerrar examen`. | El entorno queda en solo lectura de forma definitiva y una entrega responde `409`. |
 
 ### Evidencia y cierre
 
 | Campo | Registro |
 | :--- | :--- |
 | **Estado** | `PENDIENTE` |
-| **Evidencia** | Captura de la advertencia, de `Entrega registrada`, del entorno bloqueado y del rechazo de la segunda entrega |
+| **Evidencia** | Captura de la advertencia, de `Entrega registrada`, de una reentrega, del aviso de examen pausado y del rechazo tras el cierre |
 | **Ejecutado por** | — |
 | **Fecha y hora** | — |
 | **Observaciones** | — |
 
-**Falla si:** se entrega sin confirmación, el entorno sigue editable, o una segunda entrega reemplaza la primera.
+**Falla si:** se entrega sin confirmación, entregar bloquea la edición, la reentrega no queda registrada, la pausa no deja el entorno en solo lectura, o el cierre permite seguir editando.

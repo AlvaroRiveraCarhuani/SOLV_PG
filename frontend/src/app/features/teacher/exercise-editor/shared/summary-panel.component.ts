@@ -50,7 +50,7 @@ import { ExerciseEditorStore } from '../exercise-editor.store';
           <span class="row-label">Propósito:</span>
           <span class="row-value">{{ store.metadata().purpose === 'exam' ? 'Examen' : 'Clase regular' }}</span>
         </div>
-        @if (store.metadata().per_student_seed) {
+        @if (store.metadata().purpose === 'exam' && store.metadata().environment_type === 'JUEZ_EFIMERO' && store.metadata().per_student_seed) {
           <div class="summary-row highlight">
             <span class="row-label">Anti-copia (variantes):</span>
             <span class="row-value seed-badge">Activada</span>

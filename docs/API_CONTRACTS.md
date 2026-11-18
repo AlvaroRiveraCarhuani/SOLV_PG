@@ -2204,27 +2204,27 @@ Cola real de corrección agrupada por práctica. Parámetro opcional `subject_id
 
 ## Avances del docente en el aula (ADR-058)
 
-Durante el aula, el docente congela la clase cuando empieza un examen y decide cuánto tiempo más queda disponible un avance después de cerrar la sesión. Los tres endpoints siguientes responden con la sesión resultante.
+Durante el aula, el docente pausa un examen en curso (ADR-005 §5.2) y decide cuánto tiempo más queda disponible un avance después de cerrar la sesión. Los tres endpoints siguientes responden con la sesión resultante.
 
 ### `PATCH /api/v1/teacher/sessions/{id}/freeze`
 
-Sin cuerpo. Devuelve `200` con la sesión y `frozen_at` con la hora de la congelación. Congelar dos veces conserva la hora de la primera; congela la emisión de avances nuevos, no el editor del alumno.
+Sin cuerpo. Pausa en vivo un examen abierto: los entornos de los alumnos pasan a solo lectura (`:ro`) y la sesión sigue abierta. Devuelve `200` con la sesión y `frozen_at` con la hora de la pausa. Pausar dos veces conserva la hora de la primera. Solo aplica a prácticas con `purpose = exam`.
 
 ```json
-{ "data": { "id": "uuid", "status": "open", "frozen_at": "2026-10-31T15:04:05Z" }, "error": "", "message": "Clase congelada" }
+{ "data": { "id": "uuid", "status": "open", "frozen_at": "2026-10-31T15:04:05Z" }, "error": "", "message": "Examen pausado" }
 ```
+
+- `409` si el aula es de una clase: una clase no se pausa.
+- `409` si el aula ya está cerrada: el cierre es el que deja los volúmenes en solo lectura.
+- `503` si no se pudo dejar en solo lectura ningún entorno; en ese caso la sesión no queda marcada como pausada.
 
 ### `PATCH /api/v1/teacher/sessions/{id}/unfreeze`
 
-Sin cuerpo. Devuelve `200` con la sesión y `frozen_at` en `null`.
+Sin cuerpo. Reanuda el examen pausado: los volúmenes vuelven a `:rw` y `frozen_at` queda en `null`. Los alumnos siguen donde estaban y el aula nunca se cerró.
 
 ### `PATCH /api/v1/teacher/sessions/{id}/grace`
 
-Ajusta la ventana de disponibilidad de un aula cerrada. El cuerpo lleva exactamente una acción:
-
-```json
-{ "add_minutes": 20 }
-```
+Ajusta la ventana de disponibilidad de un aula cerrada. El cuerpo lleva exactamente una acción con la hora final:
 
 ```json
 { "until": "2026-11-02T23:00:00Z" }
@@ -2235,8 +2235,8 @@ Ajusta la ventana de disponibilidad de un aula cerrada. El cuerpo lleva exactame
 ```
 
 - Al cerrar el aula —a mano o al vencer `ends_at`— el servidor fija `grace_until = cierre + 30 minutos`. No hay que pulsar nada.
-- `add_minutes` va de 1 a 480 y suma al final vigente. Si la ventana ya venció, cuenta desde ahora.
-- `until` es una fecha futura que reemplaza el final vigente. El máximo es de 7 días desde el cierre de la clase.
+- `until` es la hora en que termina la ventana y reemplaza la vigente. Debe ser futura y no superar los 7 días desde el cierre de la clase.
+- Viaja la hora final, no una cantidad de minutos: repetir la misma petición —un doble clic, un reintento— deja la ventana igual y no agrega otra fila al historial. El aula calcula esa hora sumando los minutos elegidos al final vigente (o a ahora, si la ventana venció).
 - `close` fija el final en el momento.
 - Solo aplica con el aula cerrada. Con la sesión abierta responde `409`.
 - Al reabrir la ventana, los destinatarios `expired` vuelven a `pending`; al cerrarla, los `pending` pasan a `expired`. `applied`, `dismissed` y `failed` no se revierten.
@@ -2253,8 +2253,8 @@ Ajusta la ventana de disponibilidad de un aula cerrada. El cuerpo lleva exactame
 | `403` | Rol estudiante en cualquiera de las tres rutas. |
 | `404` | La sesión no existe, es de otra institución o pertenece a otro docente. |
 | `409` | La ventana se intenta ajustar con el aula abierta. |
-| `400` | Cuerpo JSON inválido, más de una acción o `add_minutes` fuera de 1–480. |
-| `422` | La fecha límite no es futura o la ventana supera los 7 días desde el cierre. |
+| `400` | Cuerpo JSON inválido, más de una acción o falta `until`. |
+| `422` | La hora final no es futura o supera los 7 días desde el cierre de la clase. |
 
 ### Rutas relacionadas
 
@@ -2279,10 +2279,10 @@ Emisiones del aula con el estado de cada destinatario: quién aplicó, quién de
 Historial de la clase: emisiones, congelaciones, cambios de ventana y decisiones de los alumnos, del más nuevo al más viejo. El alumno no lo ve.
 
 ```json
-{ "data": [ { "id": "uuid", "action": "CLASS_ADVANCE_GRACE_EXTENDED", "actor_id": "uuid", "actor_name": "Prof. García", "actor_email": "garcia@solv.test", "actor_role": "teacher", "created_at": "2026-10-31T15:42:00Z", "advance_id": "uuid", "exercise_id": "uuid", "minutes": 20, "previous_until": "2026-10-31T16:30:00Z", "until": "2026-10-31T16:50:00Z" } ], "error": "", "message": "Historial de la clase obtenido" }
+{ "data": [ { "id": "uuid", "action": "CLASS_ADVANCE_GRACE_SET", "actor_id": "uuid", "actor_name": "Prof. García", "actor_email": "garcia@solv.test", "actor_role": "teacher", "created_at": "2026-10-31T15:42:00Z", "advance_id": "uuid", "exercise_id": "uuid", "previous_until": "2026-10-31T16:30:00Z", "until": "2026-10-31T16:50:00Z" } ], "error": "", "message": "Historial de la clase obtenido" }
 ```
 
-- `action` es una de `CLASS_ADVANCE_EMITTED`, `CLASS_FROZEN`, `CLASS_UNFROZEN`, `CLASS_ADVANCE_GRACE_EXTENDED`, `CLASS_ADVANCE_GRACE_DEADLINE_SET`, `CLASS_ADVANCE_GRACE_CLOSED`, `CLASS_ADVANCE_APPLIED` o `CLASS_ADVANCE_DISMISSED`.
+- `action` es una de `CLASS_ADVANCE_EMITTED`, `CLASS_FROZEN`, `CLASS_UNFROZEN`, `CLASS_ADVANCE_GRACE_SET`, `CLASS_ADVANCE_GRACE_CLOSED`, `CLASS_ADVANCE_APPLIED`, `CLASS_ADVANCE_DISMISSED` o `CLASS_ADVANCE_ROLLBACK`. Las clases registradas antes del 2026-11-18 conservan `CLASS_ADVANCE_GRACE_EXTENDED` y `CLASS_ADVANCE_GRACE_DEADLINE_SET`.
 - `actor_name`, `actor_email` y `actor_role` vienen resueltos de la misma consulta. En emitir, aplicar y descartar se agrega el `advance_id`; en emitir, `recipients` y `file_count`; en aplicar, `files_written`; en los cambios de ventana, `minutes`, `previous_until` y `until`.
 - El historial no guarda el código del avance, solo sus datos y los cambios de la ventana. Devuelve hasta 200 movimientos; el registro completo queda en `/api/v1/admin/audit-logs`.
 - `403` para el rol estudiante; `404` si el aula no existe o pertenece a otro docente. El administrador puede leer cualquier aula de su institución.
@@ -2405,7 +2405,7 @@ El dashboard del alumno incluye `status: "frozen"` y `frozen_at`. Al intentar `P
 
 ### Aula abierta del alumno
 
-`GET /api/v1/student/sessions/active` devuelve las aulas abiertas de las materias del alumno con `subject_code`, `subject_name`, `exercise_id`, `exercise_title`, `purpose`, `status`, `opens_at`, `ends_at`, `enrolled` y `present`. La vista `/student/aula` muestra la clase y la práctica de la sesión; con `exercise_id` ofrece abrir la práctica y sin él avisa que no se emiten avances.
+`GET /api/v1/student/sessions/active` devuelve las aulas abiertas de las materias del alumno con `subject_code`, `subject_name`, `exercise_id`, `exercise_title`, `purpose`, `status`, `opens_at`, `ends_at`, `frozen_at`, `enrolled` y `present`. La vista `/student/aula` muestra la clase y la práctica de la sesión; con `exercise_id` ofrece abrir la práctica y sin él avisa que no se emiten avances. Con `frozen_at` no nulo, el aula muestra que el docente pausó el examen y que el entorno está en solo lectura (ADR-005 §5.2); el Companion del alumno lee el mismo campo para avisar en el editor.
 
 `POST /api/v1/student/sessions/{id}/heartbeat` registra la presencia. El layout del alumno lo envía cada minuto mientras la pestaña está visible; un aula cerrada responde `409` y el cliente deja de insistir.
 

@@ -26,7 +26,7 @@ Los comandos de entrega y de emisión se declaran con `when` sobre esas claves, 
 - **Barra de actividades:** contenedor `SOLV` con el isotipo vectorial y la vista `Aula` (webview).
 - **Panel lateral:** cabecera de materia y docente, estado de la entrega, avances del aula, observaciones y la consigna como extracto. Es el modo de acción.
 - **Checklist de avances:** `Nuevo` (verde, marcado por defecto, con `Ver contenido`), `Modificado` (ámbar, marcado, con `Ver diferencias`) y `Sin cambios` (neutro, desmarcado). Un archivo nuevo no tiene versión anterior, así que no se ofrece un diff.
-- **Pestaña completa:** `SOLV: Abrir práctica en pestaña` crea un `WebviewPanel` en la columna contigua con el documento de la práctica y su índice, para leer consignas largas o trabajar en pantalla dividida. El docente conserva ahí la tarjeta `Aula` con emitir, congelar y cerrar.
+- **Pestaña completa:** `SOLV: Abrir práctica en pestaña` crea un `WebviewPanel` en la columna contigua con el documento de la práctica y su índice, para leer consignas largas o trabajar en pantalla dividida. El docente conserva ahí la tarjeta `Aula` con emitir y cerrar, más pausar el examen cuando la práctica es un examen.
 - **Barra de estado:** `$(mortar-board) SOLV: SIS-420` y `$(cloud-upload) Entregar Práctica` para el alumno; `$(mortar-board) SOLV: SIS-420 · Docente`, `$(broadcast) Emitir Avance` y `$(organization) N alumnos` para el docente.
 
 El HTML y el CSS son nativos y usan solo variables `--vscode-*`: se adaptan a tema claro, oscuro y alto contraste sin librerías externas. Los iconos de la webview son SVG en línea con `currentColor`; la barra de estado usa codicons nativos de VS Code. No hay emojis en la interfaz.
@@ -47,7 +47,7 @@ El extracto sale de `excerptText` (`panel-state.ts`): saca las marcas de markdow
 
 **Pestaña (documento).** El documento es la consigna completa, la rúbrica y las observaciones. A partir de 900 px de ancho aparece un índice de anclas fijo (`Consigna`, `Rúbrica`, `Observaciones`): cada entrada salta con scroll suave y un `IntersectionObserver` resalta la sección visible. Por debajo de 900 px el índice se oculta y el contenido sigue siendo una sola columna. Las anclas no reemplazan contenido, así que la consigna se lee completa de arriba abajo.
 
-Para el docente el documento abre con el `Aula` (métricas, presencia, `Emitir avance a la clase`, congelar y cerrar) y el índice suma `Aula` como primera entrada. Esa tarjeta no compite con el lateral: son los mismos controles sobre el mismo estado, y sin ella la pestaña dejaba al docente sin poder operar el aula mientras leía la consigna.
+Para el docente el documento abre con el `Aula` (métricas, presencia, `Emitir avance a la clase` y cerrar; en examen, `Pausar examen`) y el índice suma `Aula` como primera entrada. Esa tarjeta no compite con el lateral: son los mismos controles sobre el mismo estado, y sin ella la pestaña dejaba al docente sin poder operar el aula mientras leía la consigna.
 
 La rúbrica arranca plegada (`<details>` sin `open`) y deja el total en el resumen; su apertura se conserva entre refrescos con `host.setState`. Si hay un avance pendiente, la pestaña muestra una franja con `Revisar en el panel lateral` (`focus-panel`): el checklist y sus botones existen en un solo lugar, para no aplicar dos veces lo mismo.
 
@@ -98,14 +98,18 @@ La copia arma un contenedor efímero sobre el volumen del alumno y tarda alreded
 
 `SOLV: Entregar práctica` evalúa `vscode.languages.getDiagnostics()`. Si hay errores de severidad `Error`, muestra una advertencia con dos salidas: `Revisar errores` (abre el archivo y posiciona el cursor en el primer error) o `Entregar igualmente`. Después pide confirmación, guarda todas las pestañas y entrega con `POST /api/v1/environments/{id}/submit`; la práctica se resuelve por `solv.environmentId` o consultando el entorno de la materia.
 
+## Aviso de examen pausado (alumno)
+
+El ciclo del alumno consulta `GET /api/v1/student/sessions/active` una vez por vuelta del temporizador, en la misma llamada que el latido. Si el aula trae `frozen_at`, el Companion avisa una sola vez por pausa y el panel muestra la tarjeta **Examen en pausa** con la hora, mientras la barra de estado dice `Examen en pausa`. El entorno está montado en solo lectura: el aviso explica por qué el editor no guarda. Al reanudarse, avisa que la escritura volvió. Cerrar el examen no se anuncia como reanudación: sin aula abierta, el aviso se limpia en silencio.
+
 ## Emisión y Gestión del Aula por el Docente
 
 - `SOLV: Iniciar clase`: Despliega un QuickPick nativo con duraciones estándar (60, 90, 120, 180 min) y opción `Personalizado...` (15 a 480 min). Ejecuta `POST /api/v1/teacher/sessions` con la duración elegida y la práctica del entorno (`SOLV_EXERCISE_ID`): un aula sin práctica no admite avances.
 - `SOLV: Cerrar clase`: Disponible cuando el aula está abierta; pide confirmación y ejecuta `PATCH /api/v1/teacher/sessions/{id}/close`.
 - **Autodescubrimiento del aula**: Si el docente abrió el aula desde la web o se reinició el contenedor, la extensión autodescubre la sesión activa con `GET /api/v1/teacher/sessions/open` y sincroniza métricas y presencia.
 - `SOLV: Emitir avance a la clase`: Pide el título con `showInputBox`, el alcance con QuickPick (`Toda la clase` o `Seleccionados`), los alumnos con `canPickMany` cuando el alcance es por alumno y, al final, qué compartir: `Todo el proyecto` o `Elegir archivos…`, que abre un QuickPick múltiple con las rutas del entorno y viaja como `selected_files`. Así se comparte una parte del trabajo y el resto queda como actividad. Llama a `POST /api/v1/teacher/sessions/{id}/advances`.
-- `SOLV: Pausar o reanudar la clase`: Alterna el estado de emisión mediante `PATCH /api/v1/teacher/sessions/{id}/freeze` y `unfreeze`.
-- **Aula recordada en el editor**: al iniciar la clase desde el panel, el identificador del aula queda en la configuración de la sesión del editor; si el aula se abrió desde la web, el autodescubrimiento hace lo mismo. Emitir un avance y congelar la clase leen ese identificador y, si quedó vacío, caen al aula del tablero. Al cerrar la clase el identificador se borra y el panel vuelve a ofrecer iniciar la clase.
+- `SOLV: Pausar o reanudar el examen`: pausa en vivo un examen abierto con `PATCH /api/v1/teacher/sessions/{id}/freeze` y lo reanuda con `unfreeze`. Los entornos de los alumnos pasan a solo lectura y vuelven a escritura. No aplica a clases.
+- **Aula recordada en el editor**: al iniciar la clase desde el panel, el identificador del aula queda en la configuración de la sesión del editor; si el aula se abrió desde la web, el autodescubrimiento hace lo mismo. Emitir un avance y pausar el examen leen ese identificador y, si quedó vacío, caen al aula del tablero. Al cerrar la clase el identificador se borra y el panel vuelve a ofrecer iniciar la clase.
 - **Aula sin alumnos**: emitir un avance en un aula sin alumnos matriculados avisa y no emite. Con alcance `Seleccionados` y una lista vacía lo dice en vez de pedir una selección.
 
 ## Consigna Renderizada

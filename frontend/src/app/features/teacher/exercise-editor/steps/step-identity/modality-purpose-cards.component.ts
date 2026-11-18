@@ -87,8 +87,8 @@ import { EnvironmentLabelPipe } from '@shared/pipes/environment-label.pipe';
         </div>
       </div>
 
-      <!-- Chip Contextual Anti-Copia (Solo revelado en Examen, sin carteles molestos) -->
-      @if (store.metadata().purpose === 'exam') {
+      <!-- Chip Contextual Anti-Copia (Solo en Examen y Entorno de Evaluación) -->
+      @if (store.metadata().purpose === 'exam' && store.metadata().environment_type === 'JUEZ_EFIMERO') {
         <div
           id="student-seed-toggle"
           class="anticopia-chip"
@@ -165,7 +165,7 @@ export class ModalityPurposeCardsComponent {
     if (modality === 'judge') {
       this.store.updateMetadata({ modality, environment_type: 'JUEZ_EFIMERO' });
     } else {
-      this.store.updateMetadata({ modality, environment_type: 'IDE_PERSISTENTE' });
+      this.store.updateMetadata({ modality, environment_type: 'IDE_PERSISTENTE', per_student_seed: false });
     }
   }
 

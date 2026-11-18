@@ -128,8 +128,9 @@ export class StudentExerciseSolverComponent implements OnInit {
   readonly projectSubmission = signal<PracticeEnvironmentProjectSubmissionDTO | null>(null);
   readonly projectSubmittedAt = signal<Date | null>(null);
   /**
-   * Entrega de un examen: el primer clic pide confirmación porque el volumen
-   * queda en solo lectura y no se puede seguir editando (ADR-005 §5.2).
+   * Entrega de un examen: el primer clic pide confirmación porque la entrega
+   * queda registrada como una versión. El entorno sigue escribible y se puede
+   * volver a entregar mientras el examen esté abierto (ADR-005 §5.2).
    */
   readonly examSubmitPending = signal<boolean>(false);
 
@@ -288,20 +289,28 @@ export class StudentExerciseSolverComponent implements OnInit {
 
   readonly isExamProject = computed<boolean>(() => (this.exercise()?.purpose ?? 'class') === 'exam');
 
+  /**
+   * Entrega de examen en el Entorno de Evaluación: ahí el código se envía una
+   * vez. El proyecto del IDE es otro camino y admite reentregas.
+   */
   readonly isExamSubmitted = computed<boolean>(() => {
-    return this.isExamProject() && !!this.lastSubmissionId();
+    return this.isExamProject() && !this.isIdeExercise() && !!this.lastSubmissionId();
   });
 
+  /** Identificador de la entrega del proyecto, para abrir su historial. */
+  readonly projectSubmissionId = computed<string>(() => {
+    return this.projectSubmission()?.submission_id ?? this.lastSubmissionId();
+  });
+
+  readonly hasProjectSubmission = computed<boolean>(() => this.projectSubmissionId() !== '');
+
   readonly canSubmitProject = computed<boolean>(() => {
-    if (this.isExamSubmitted()) {
-      return false;
-    }
     if (!this.environmentIsRunning() || this.isSubmittingProject()) {
       return false;
     }
-    // En un examen la entrega es final: el volumen queda en solo lectura, así
-    // que no hay segunda entrega aunque el ejercicio la permita.
-    if (this.projectSubmission() && (this.isExamProject() || !this.canResubmitProject())) {
+    // En un examen se puede reentregar mientras el aula siga abierta: el cierre
+    // es el que deja el volumen en solo lectura, no la entrega (ADR-005 §5.2).
+    if (this.projectSubmission() && !this.isExamProject() && !this.canResubmitProject()) {
       return false;
     }
     return true;
@@ -515,7 +524,7 @@ export class StudentExerciseSolverComponent implements OnInit {
 
   /**
    * Entrada del botón de entrega. En un examen no entrega al primer clic: pide
-   * una confirmación porque el entorno se cierra para ese alumno.
+   * una confirmación porque la entrega queda registrada como versión.
    */
   requestSubmitProject(): void {
     if (!this.canSubmitProject()) {

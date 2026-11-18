@@ -165,7 +165,8 @@
               }
               <li>
                 @if (isExamProject()) {
-                  Al entregar, tu entorno queda en solo lectura. El docente puede reabrirte con un motivo.
+                  Al entregar se registra una versión con tu código. Podés seguir editando y volver a
+                  entregar mientras el examen siga abierto; al cerrarlo, el entorno queda en solo lectura.
                 } @else if (canResubmitProject()) {
                   Podés volver a entregar mientras el docente lo permita.
                 } @else {
@@ -187,34 +188,33 @@
                 <span class="file-label">Entorno de la práctica</span>
               </div>
               <div class="toolbar-actions">
-                @if (isExamSubmitted()) {
-                  <span class="exam-locked-pill">Examen entregado</span>
+                @if (hasProjectSubmission()) {
+                  <span class="exam-locked-pill">Entrega registrada</span>
                 }
               </div>
             </div>
 
             <div class="editor-body rail-body">
-              @if (isExamSubmitted()) {
-                <a [routerLink]="['/student/history', lastSubmissionId()]" class="btn-outline rail-action">
+              @if (hasProjectSubmission()) {
+                <a [routerLink]="['/student/history', projectSubmissionId()]" class="btn-outline rail-action">
                   Ver entrega enviada
                 </a>
-              } @else {
-                <button
-                  type="button"
-                  class="btn-primary rail-action"
-                  data-testid="btn-start-ide"
-                  [disabled]="isStartingEnvironment()"
-                  (click)="openEnvironment()"
-                >
-                  @if (isStartingEnvironment()) {
-                    <svg lucideRefreshCw class="btn-icon motion-spin" aria-hidden="true"></svg>
-                    <span>Abriendo entorno…</span>
-                  } @else {
-                    <svg lucideExternalLink class="btn-icon" aria-hidden="true"></svg>
-                    <span>Abrir entorno</span>
-                  }
-                </button>
               }
+              <button
+                type="button"
+                class="btn-primary rail-action"
+                data-testid="btn-start-ide"
+                [disabled]="isStartingEnvironment()"
+                (click)="openEnvironment()"
+              >
+                @if (isStartingEnvironment()) {
+                  <svg lucideRefreshCw class="btn-icon motion-spin" aria-hidden="true"></svg>
+                  <span>Abriendo entorno…</span>
+                } @else {
+                  <svg lucideExternalLink class="btn-icon" aria-hidden="true"></svg>
+                  <span>Abrir entorno</span>
+                }
+              </button>
 
               <p class="rail-note">
                 Se abre en una pestaña nueva y conserva tus archivos entre sesiones.
@@ -277,14 +277,14 @@
                   }
                   @case ('ready') {
                     <p class="empty-note exam-state" role="status">
-                      Estás rindiendo el examen. Al entregar, el espacio queda en solo lectura y no se
-                      puede seguir editando.
+                      Estás rindiendo el examen. Podés entregar y seguir editando hasta que el docente lo
+                      cierre: al cerrar, el espacio queda en solo lectura.
                     </p>
                   }
                   @case ('closed') {
                     <p class="empty-note exam-state" role="status">
-                      Examen cerrado: tu espacio quedó en solo lectura. El docente puede reabrirte con un
-                      motivo.
+                      Tu espacio está en solo lectura. Si el docente pausó el examen, vuelve a escribir
+                      cuando lo reanude; si ya terminó, puede reabrirte con un motivo.
                     </p>
                   }
                   @default {
@@ -311,45 +311,48 @@
                 <span class="file-label">Entrega del proyecto</span>
               </div>
               <div class="toolbar-actions">
-                @if (isExamSubmitted()) {
-                  <span class="exam-locked-pill">Examen entregado</span>
+                @if (hasProjectSubmission()) {
+                  <span class="exam-locked-pill">Entrega registrada</span>
                 }
               </div>
             </div>
 
             <div class="editor-body rail-body">
-              @if (!isExamSubmitted()) {
-                <button
-                  type="button"
-                  class="btn-primary rail-action"
-                  data-testid="btn-submit-project"
-                  [disabled]="!canSubmitProject()"
-                  (click)="requestSubmitProject()"
-                >
-                  @if (isSubmittingProject()) {
-                    <svg lucideLoader2 class="btn-icon motion-spin"></svg>
-                    <span>Entregando…</span>
-                  } @else if (examSubmitPending()) {
-                    <svg lucidePlay class="btn-icon"></svg>
-                    <span>Confirmar entrega</span>
-                  } @else {
-                    <svg lucidePlay class="btn-icon"></svg>
-                    <span>Entregar proyecto</span>
-                  }
-                </button>
-              }
+              <button
+                type="button"
+                class="btn-primary rail-action"
+                data-testid="btn-submit-project"
+                [disabled]="!canSubmitProject()"
+                (click)="requestSubmitProject()"
+              >
+                @if (isSubmittingProject()) {
+                  <svg lucideLoader2 class="btn-icon motion-spin"></svg>
+                  <span>Entregando…</span>
+                } @else if (examSubmitPending()) {
+                  <svg lucidePlay class="btn-icon"></svg>
+                  <span>Confirmar entrega</span>
+                } @else {
+                  <svg lucidePlay class="btn-icon"></svg>
+                  <span>Entregar proyecto</span>
+                }
+              </button>
 
-              @if (isExamSubmitted()) {
+              @if (hasProjectSubmission()) {
                 <div class="exam-locked-banner" role="status">
                   <svg lucideCheckCircle2 class="locked-icon"></svg>
-                  <span>Has entregado este examen. Tu entorno de desarrollo ha quedado congelado en solo lectura para la evaluación por rúbrica.</span>
+                  @if (isExamProject()) {
+                    <span>Entrega registrada. Podés seguir editando y volver a entregar mientras el examen siga abierto.</span>
+                  } @else {
+                    <span>Entrega registrada. Tu entorno sigue disponible.</span>
+                  }
                 </div>
               }
               @if (examSubmitPending()) {
                 <div class="exam-submit-warning" role="alert">
                   <p class="exam-submit-text">
-                    Al entregar el examen, tu entorno queda en solo lectura y no vas a poder seguir
-                    editando. El docente puede reabrirte con un motivo.
+                    Al entregar, tu código queda registrado como una versión. Podés seguir editando y
+                    volver a entregar mientras el examen siga abierto; al cerrarlo, el entorno queda en
+                    solo lectura.
                   </p>
                   <button type="button" class="btn-outline" (click)="cancelExamSubmit()">
                     Cancelar
@@ -373,7 +376,7 @@
                   }
                 </div>
                 @if (isExamProject()) {
-                  <p class="empty-note">Entregaste el examen: tu entorno quedó en solo lectura.</p>
+                  <p class="empty-note">Entregaste el examen: podés corregir y volver a entregar mientras siga abierto.</p>
                 } @else if (canResubmitProject()) {
                   <p class="empty-note">Podés reemplazar la entrega con los archivos actuales.</p>
                 } @else {
