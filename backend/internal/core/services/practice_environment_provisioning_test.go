@@ -81,6 +81,21 @@ func (m *mockPracticeEnvironmentRepo) UpdateStatus(ctx context.Context, id strin
 	return nil
 }
 
+func (m *mockPracticeEnvironmentRepo) SetPracticeEnvironmentFrozen(ctx context.Context, tenantID, environmentID string, frozen bool, at time.Time) error {
+	ws, ok := m.environments[environmentID]
+	if !ok {
+		return domain.ErrNotFound
+	}
+	if frozen {
+		ws.FrozenAt = &at
+		ws.Status = domain.PracticeEnvironmentStatusFrozen
+		return nil
+	}
+	ws.FrozenAt = nil
+	ws.Status = domain.PracticeEnvironmentStatusRunning
+	return nil
+}
+
 func (m *mockPracticeEnvironmentRepo) UpdateMemoryLimit(ctx context.Context, id string, newLimitMB int64) error {
 	if ws, ok := m.environments[id]; ok {
 		ws.MemoryLimitMB = newLimitMB

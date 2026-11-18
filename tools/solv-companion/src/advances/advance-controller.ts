@@ -225,7 +225,7 @@ export class AdvanceController implements vscode.Disposable {
     }
   }
 
-  /** Congela o descongela la emisión del aula. */
+  /** Deja los entornos del aula en solo lectura o les devuelve la escritura. */
   async toggleFreeze(): Promise<boolean> {
     const sessionId = this.settings.sessionId || this.board?.session.id;
     if (!sessionId) {

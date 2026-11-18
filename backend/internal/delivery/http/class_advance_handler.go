@@ -25,9 +25,9 @@ func NewClassAdvanceHandler(service *services.ClassAdvanceService) *ClassAdvance
 // emitAdvanceRequest no lleva la práctica: el avance pertenece a la práctica del
 // aula y el servidor la resuelve desde la sesión.
 type emitAdvanceRequest struct {
-	Title         string   `json:"title"`
-	Scope         string   `json:"scope"`
-	StudentIDs    []string `json:"student_ids"`
+	Title      string   `json:"title"`
+	Scope      string   `json:"scope"`
+	StudentIDs []string `json:"student_ids"`
 	// SelectedFiles acota el avance a esas rutas del entorno del docente. Sin
 	// lista se emite el entorno completo.
 	SelectedFiles []string `json:"selected_files"`
@@ -48,9 +48,9 @@ func (h *ClassAdvanceHandler) PostAdvance(w http.ResponseWriter, r *http.Request
 	}
 	teacherID := resolveRequestStudentID(r)
 	advance, recipients, err := h.service.Emit(r.Context(), services.EmitAdvanceInput{
-		TenantID:   getTenantFromCtx(r),
-		TeacherID:  teacherID,
-		Role:       requestRole(r),
+		TenantID:      getTenantFromCtx(r),
+		TeacherID:     teacherID,
+		Role:          requestRole(r),
 		SessionID:     r.PathValue("id"),
 		Title:         req.Title,
 		Scope:         req.Scope,
@@ -244,7 +244,7 @@ func (h *ClassAdvanceHandler) FreezeSession(w http.ResponseWriter, r *http.Reque
 	h.setFrozen(w, r, true)
 }
 
-// UnfreezeSession reanuda el examen pausado y devuelve la escritura.
+// UnfreezeSession reanuda el aula pausada y devuelve la escritura.
 func (h *ClassAdvanceHandler) UnfreezeSession(w http.ResponseWriter, r *http.Request) {
 	h.setFrozen(w, r, false)
 }
@@ -275,10 +275,20 @@ func (h *ClassAdvanceHandler) setFrozen(w http.ResponseWriter, r *http.Request, 
 	}
 
 	if frozen {
-		SendJSON(w, http.StatusOK, session, "Examen pausado")
+		SendJSON(w, http.StatusOK, session, frozenMessage(session, "Examen pausado", "Clase pausada"))
 		return
 	}
-	SendJSON(w, http.StatusOK, session, "Examen reanudado")
+	SendJSON(w, http.StatusOK, session, frozenMessage(session, "Examen reanudado", "Clase reanudada"))
+}
+
+// frozenMessage elige el mensaje según el propósito del aula: la pausa vale
+// para una clase y para un examen, y la respuesta lo dice con la palabra que el
+// docente usó en pantalla.
+func frozenMessage(session *domain.ClassSession, examMessage, classMessage string) string {
+	if session != nil && session.Purpose == string(domain.ExercisePurposeExam) {
+		return examMessage
+	}
+	return classMessage
 }
 
 type graceAdvanceRequest struct {
@@ -380,8 +390,6 @@ func (h *ClassAdvanceHandler) writeAdvanceError(w http.ResponseWriter, err error
 		SendError(w, http.StatusConflict, err.Error(), "Cerrá el aula para extender la ventana de rezago")
 	case errors.Is(err, domain.ErrAdvancePracticeEnvironmentStopped):
 		SendError(w, http.StatusConflict, err.Error(), "Abre tu laboratorio para aplicar el avance")
-	case errors.Is(err, domain.ErrExamPauseNotAllowed):
-		SendError(w, http.StatusConflict, err.Error(), "La pausa en vivo es solo para un examen en curso")
 	case errors.Is(err, domain.ErrExamPauseFailed):
 		SendError(w, http.StatusServiceUnavailable, err.Error(), "No se pudo dejar en solo lectura el entorno de los alumnos")
 	case errors.Is(err, domain.ErrAdvanceSnapshotTooLarge):

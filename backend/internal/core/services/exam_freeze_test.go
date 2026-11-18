@@ -316,18 +316,56 @@ func TestPauseSession_RejectsClosedSession(t *testing.T) {
 	}
 }
 
-func TestPauseSession_RejectsClassSession(t *testing.T) {
+// La pausa dejó de ser exclusiva del examen: en una clase también deja los
+// volúmenes en :ro y el aula sigue abierta (ADR-005 §5.2).
+func TestPauseSession_MountsReadOnlyForAnOpenClass(t *testing.T) {
 	service, store, mounts, _ := newExamFreezeFixture(t)
 	session := service.sessions.(*fakeExamSessions).session
 	session.Status = domain.ClassSessionStatusOpen
 	store.isExam = false
 
-	_, err := service.PauseSession(context.Background(), "tenant-1", "teacher-1", "teacher", session.ID)
-	if !errors.Is(err, domain.ErrExamPauseNotAllowed) {
-		t.Fatalf("se esperaba ErrExamPauseNotAllowed, fue: %v", err)
+	report, err := service.PauseSession(context.Background(), "tenant-1", "teacher-1", "teacher", session.ID)
+	if err != nil {
+		t.Fatalf("pausar una clase no debía fallar: %v", err)
 	}
-	if len(mounts.calls) != 0 {
-		t.Fatal("una clase no debía tocar ningún volumen")
+	if report.Frozen != 2 || report.Failed != 0 {
+		t.Fatalf("conteo inesperado: %+v", report)
+	}
+	if len(mounts.calls) != 2 {
+		t.Fatalf("los dos laboratorios debían montarse en solo lectura: %+v", mounts.calls)
+	}
+	for _, call := range mounts.calls {
+		if !call.readOnly {
+			t.Fatalf("el montaje debía ser de solo lectura: %+v", call)
+		}
+	}
+	if !store.frozenMarks["ws-a"] || !store.frozenMarks["ws-b"] {
+		t.Fatalf("los laboratorios debían quedar marcados: %v", store.frozenMarks)
+	}
+}
+
+// Reanudar una clase pausada devuelve los volúmenes a escritura sin cerrarla.
+func TestResumeSession_ReturnsAClassToWritable(t *testing.T) {
+	service, store, mounts, _ := newExamFreezeFixture(t)
+	session := service.sessions.(*fakeExamSessions).session
+	session.Status = domain.ClassSessionStatusOpen
+	store.isExam = false
+	frozenAt := time.Date(2026, 10, 31, 18, 0, 0, 0, time.UTC)
+	store.participants[0].FrozenAt = &frozenAt
+	store.participants[0].Status = domain.PracticeEnvironmentStatusFrozen
+
+	report, err := service.ResumeSession(context.Background(), "tenant-1", "teacher-1", "teacher", session.ID)
+	if err != nil {
+		t.Fatalf("reanudar una clase no debía fallar: %v", err)
+	}
+	if report.Frozen != 1 || report.Skipped != 1 || report.Failed != 0 {
+		t.Fatalf("conteo inesperado: %+v", report)
+	}
+	if len(mounts.calls) != 1 || mounts.calls[0].environmentID != "ws-a" || mounts.calls[0].readOnly {
+		t.Fatalf("se esperaba un solo montaje en escritura de ws-a: %+v", mounts.calls)
+	}
+	if store.frozenMarks["ws-a"] {
+		t.Fatal("ws-a debía quedar sin marca de congelado")
 	}
 }
 

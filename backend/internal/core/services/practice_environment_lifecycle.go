@@ -17,12 +17,22 @@ func (s *PracticeEnvironmentService) reactivatePracticeEnvironment(ctx context.C
 		return nil, domain.ErrPracticeEnvironmentFrozen
 	}
 
+	// La pausa del aula se lee antes de decidir cómo despertar: un entorno que
+	// vuelve con la clase pausada se reconstruye con el volumen en solo lectura
+	// y no se despausa en escritura.
+	exerciseIDStr := ""
+	if instance.ExerciseID != nil {
+		exerciseIDStr = *instance.ExerciseID
+	}
+	aulaPaused := s.aulaPausedForStart(ctx, linkSession, instance.TenantID, instance.StudentID, instance.SubjectID, exerciseIDStr)
+
 	// Optimización ADR / Memory Governance: intentar despausar el contenedor congelado (instantáneo <50ms)
 	//
 	// El adapter no considera error que el contenedor ya no exista, así que la
 	// comprobación de existencia va antes: sin contenedor en el daemon no hay
-	// nada que despausar y el entorno se reconstruye con una URL viva.
-	if instance.ContainerID != nil && *instance.ContainerID != "" && s.containerAlive(ctx, instance.ContainerID) {
+	// nada que despausar y el entorno se reconstruye con una URL viva. Con el
+	// aula pausada se salta el atajo: despausar devolvería la escritura.
+	if !aulaPaused && instance.ContainerID != nil && *instance.ContainerID != "" && s.containerAlive(ctx, instance.ContainerID) {
 		if err := s.docker.UnpauseContainer(ctx, *instance.ContainerID); err == nil {
 			_ = s.repo.UpdateStatus(ctx, instance.ID, domain.PracticeEnvironmentStatusRunning)
 			_ = s.repo.RecordHeartbeat(ctx, instance.ID)
@@ -105,10 +115,6 @@ func (s *PracticeEnvironmentService) reactivatePracticeEnvironment(ctx context.C
 	envVars := []string{
 		"DONT_PROMPT_WSL_INSTALL=true",
 	}
-	exerciseIDStr := ""
-	if instance.ExerciseID != nil {
-		exerciseIDStr = *instance.ExerciseID
-	}
 	envVars = append(envVars, s.buildCompanionEnvVars(ctx, instance.TenantID, instance.SubjectID, exerciseIDStr, instance.StudentID)...)
 	// Un entorno reanudado también tiene que encontrar el almacén preparado: sin
 	// estas variables la herramienta vuelve a su ruta por defecto.
@@ -130,6 +136,8 @@ func (s *PracticeEnvironmentService) reactivatePracticeEnvironment(ctx context.C
 		HostPort:            hostPort,
 		AttachSatellitesNet: provision.UsesManagedContainer,
 		ExamNoEgress:        instance.EnvironmentProfile.IsExam() && s.examNetworkPolicyFor(ctx, instance.TenantID, instance.ExerciseID) == domain.ExamNetworkNone,
+		// Si la clase está pausada, el entorno despierta en solo lectura.
+		ReadOnly: aulaPaused,
 	}
 
 	containerID, err := s.docker.StartPracticeEnvironmentContainer(ctx, config)
@@ -156,6 +164,9 @@ func (s *PracticeEnvironmentService) reactivatePracticeEnvironment(ctx context.C
 	instance.CPUMillis = runtimePolicies.EffectivePracticeCPUMillis()
 	if linkSession {
 		s.linkSessionToAula(ctx, instance)
+	}
+	if aulaPaused {
+		s.freezeEnvironmentForPausedAula(ctx, instance)
 	}
 	// Un entorno que vuelve de la hibernación tarda lo mismo que uno nuevo en
 	// servir el editor: se espera antes de entregar la URL para no mandar la

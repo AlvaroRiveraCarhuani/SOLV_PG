@@ -72,7 +72,7 @@ export interface TeacherView {
 }
 
 export interface StudentView {
-  /** El docente pausó el examen: el entorno quedó en solo lectura. */
+  /** El docente pausó el aula: el entorno quedó en solo lectura. */
   paused: boolean;
   pausedSince?: string;
 }

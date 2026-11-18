@@ -128,12 +128,12 @@ func (s *ExamFreezeService) FreezeSession(ctx context.Context, tenantID, teacher
 	return s.freezeParticipants(ctx, tenantID, sessionID, actor)
 }
 
-// PauseSession pone en solo lectura los laboratorios de un examen que sigue en
-// curso: el aula no se cierra, el cronómetro no se detiene y nadie pierde el
-// trabajo. Es la pausa en vivo del docente (ADR-005 §5.2).
+// PauseSession pone en solo lectura los laboratorios de un aula que sigue en
+// curso, sea clase o examen: el aula no se cierra, el cronómetro no se detiene
+// y nadie pierde el trabajo. Es la pausa en vivo del docente (ADR-005 §5.2).
 func (s *ExamFreezeService) PauseSession(ctx context.Context, tenantID, teacherID, role, sessionID string) (FreezeReport, error) {
 	var report FreezeReport
-	session, err := s.openExamSession(ctx, tenantID, teacherID, role, sessionID)
+	session, err := s.openSessionForPause(ctx, tenantID, teacherID, role, sessionID)
 	if err != nil {
 		return report, err
 	}
@@ -144,12 +144,11 @@ func (s *ExamFreezeService) PauseSession(ctx context.Context, tenantID, teacherI
 	return s.freezeParticipants(ctx, tenantID, sessionID, actor)
 }
 
-// ResumeSession devuelve la escritura a los laboratorios del examen pausado.
-// No cierra la sesión ni reabre excepciones: cada alumno vuelve a :rw donde
-// estaba.
+// ResumeSession devuelve la escritura a los laboratorios del aula pausada. No
+// cierra la sesión ni reabre excepciones: cada alumno vuelve a :rw donde estaba.
 func (s *ExamFreezeService) ResumeSession(ctx context.Context, tenantID, teacherID, role, sessionID string) (FreezeReport, error) {
 	var report FreezeReport
-	session, err := s.openExamSession(ctx, tenantID, teacherID, role, sessionID)
+	session, err := s.openSessionForPause(ctx, tenantID, teacherID, role, sessionID)
 	if err != nil {
 		return report, err
 	}
@@ -160,9 +159,10 @@ func (s *ExamFreezeService) ResumeSession(ctx context.Context, tenantID, teacher
 	return s.resumeParticipants(ctx, tenantID, sessionID, actor)
 }
 
-// openExamSession valida lo que comparten pausar y reanudar: la sesión es del
-// docente, la práctica es de examen y el aula sigue abierta.
-func (s *ExamFreezeService) openExamSession(ctx context.Context, tenantID, teacherID, role, sessionID string) (*domain.ClassSession, error) {
+// openSessionForPause valida lo que comparten pausar y reanudar: la sesión es
+// del docente y el aula sigue abierta. La pausa vale tanto para una clase como
+// para un examen: en los dos casos deja los volúmenes de los alumnos en :ro.
+func (s *ExamFreezeService) openSessionForPause(ctx context.Context, tenantID, teacherID, role, sessionID string) (*domain.ClassSession, error) {
 	if strings.TrimSpace(tenantID) == "" {
 		return nil, domain.ErrInvalidTenant
 	}
@@ -172,13 +172,6 @@ func (s *ExamFreezeService) openExamSession(ctx context.Context, tenantID, teach
 	session, err := s.sessions.GetSession(ctx, tenantID, teacherScope(role, teacherID), sessionID)
 	if err != nil {
 		return nil, err
-	}
-	isExam, err := s.store.SessionIsExam(ctx, tenantID, sessionID)
-	if err != nil {
-		return nil, err
-	}
-	if !isExam {
-		return nil, domain.ErrExamPauseNotAllowed
 	}
 	if session == nil || session.Status != domain.ClassSessionStatusOpen {
 		return nil, domain.ErrSessionNotOpen

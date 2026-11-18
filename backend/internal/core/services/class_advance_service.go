@@ -87,7 +87,7 @@ func (s *ClassAdvanceService) SetRetentionStore(retention domain.AdvanceSnapshot
 }
 
 // WithPauseStore engancha la pausa en vivo: el docente detiene la escritura de
-// los alumnos sin cerrar el examen (ADR-005 §5.2).
+// los alumnos sin cerrar el aula, sea clase o examen (ADR-005 §5.2).
 func (s *ClassAdvanceService) WithPauseStore(pause SessionPauseStore) *ClassAdvanceService {
 	s.pause = pause
 	return s
@@ -230,18 +230,18 @@ func resolveRecipients(scope string, selected, participants []string) ([]string,
 	}
 }
 
-// Freeze pausa un examen en curso: pone en solo lectura los laboratorios de los
-// alumnos y deja la sesión abierta. Una clase no se pausa.
+// Freeze pausa un aula en curso, sea clase o examen: pone en solo lectura los
+// laboratorios de los alumnos y deja la sesión abierta.
 func (s *ClassAdvanceService) Freeze(ctx context.Context, tenantID, teacherID, role, sessionID string) (*domain.ClassSession, error) {
 	return s.setFrozen(ctx, tenantID, teacherID, role, sessionID, true)
 }
 
-// Unfreeze reanuda el examen pausado: los laboratorios vuelven a escritura.
+// Unfreeze reanuda el aula pausada: los laboratorios vuelven a escritura.
 func (s *ClassAdvanceService) Unfreeze(ctx context.Context, tenantID, teacherID, role, sessionID string) (*domain.ClassSession, error) {
 	return s.setFrozen(ctx, tenantID, teacherID, role, sessionID, false)
 }
 
-// setFrozen pausa o reanuda un examen. Primero se toca el montaje y después la
+// setFrozen pausa o reanuda un aula. Primero se toca el montaje y después la
 // fila de la sesión: el alumno nunca ve "pausado" mientras todavía puede
 // escribir. Reanudar hace lo inverso por la misma razón.
 func (s *ClassAdvanceService) setFrozen(ctx context.Context, tenantID, teacherID, role, sessionID string, frozen bool) (*domain.ClassSession, error) {
@@ -257,9 +257,6 @@ func (s *ClassAdvanceService) setFrozen(ctx context.Context, tenantID, teacherID
 	}
 	if !session.IsOpen() {
 		return nil, domain.ErrSessionNotOpen
-	}
-	if session.Purpose != string(domain.ExercisePurposeExam) {
-		return nil, domain.ErrExamPauseNotAllowed
 	}
 
 	if s.pause != nil {

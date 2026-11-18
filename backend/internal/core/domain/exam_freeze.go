@@ -21,10 +21,6 @@ var (
 	// ErrFreezeStudentNotInSession: el alumno no participó del examen, así que no
 	// tiene un laboratorio que reabrir en esa sesión.
 	ErrFreezeStudentNotInSession = errors.New("el alumno no participó de ese examen")
-	// ErrExamPauseNotAllowed: la pausa en vivo es solo de exámenes en curso. Una
-	// clase no se pausa: si el docente necesita frenar la escritura, cierra el
-	// examen (ADR-005 §5.2).
-	ErrExamPauseNotAllowed = errors.New("solo se pausa un examen en curso")
 	// ErrExamPauseFailed: no se pudo poner en solo lectura ningún laboratorio, así
 	// que la sesión no se marca como pausada para no prometer un bloqueo que no
 	// existe.

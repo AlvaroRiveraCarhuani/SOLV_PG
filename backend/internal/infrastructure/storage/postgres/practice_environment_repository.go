@@ -477,3 +477,24 @@ func (r *PostgresPracticeEnvironmentRepository) SaveSemgrepAudit(ctx context.Con
 	}
 	return nil
 }
+
+// SetPracticeEnvironmentFrozen marca o limpia la pausa del laboratorio. El alta
+// y la reactivación la usan cuando el aula ya está pausada: el entorno nace en
+// solo lectura y la reanudación del aula lo reconoce por esta marca.
+func (r *PostgresPracticeEnvironmentRepository) SetPracticeEnvironmentFrozen(ctx context.Context, tenantID, environmentID string, frozen bool, at time.Time) error {
+	status := domain.PracticeEnvironmentStatusRunning
+	if frozen {
+		status = domain.PracticeEnvironmentStatusFrozen
+	}
+	query := `
+		UPDATE environments
+		SET frozen_at = CASE WHEN $3::boolean THEN $4::timestamptz ELSE NULL END,
+		    status = $5,
+		    updated_at = NOW()
+		WHERE id = $1::uuid AND tenant_id = $2
+	`
+	if _, err := r.db.ExecContext(ctx, query, environmentID, tenantID, frozen, at, status); err != nil {
+		return fmt.Errorf("failed to set frozen state for environment %s: %w", environmentID, err)
+	}
+	return nil
+}

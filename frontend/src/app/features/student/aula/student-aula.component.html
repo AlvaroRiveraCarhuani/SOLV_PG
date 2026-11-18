@@ -39,11 +39,11 @@
           <span class="status-pill" [class]="'status-' + statusTone(clase.status)">{{ statusLabel(clase.status) }}</span>
         </div>
 
-        @if (clase.frozen_at && clase.purpose === 'exam') {
+        @if (clase.frozen_at) {
           <div class="paused-note" role="status">
             <svg lucidePause></svg>
             <span>
-              El docente pausó el examen. Tu entorno quedó en solo lectura desde
+              El docente pausó {{ clase.purpose === 'exam' ? 'el examen' : 'la clase' }}. Tu entorno quedó en solo lectura desde
               <time [attr.datetime]="clase.frozen_at">{{ clase.frozen_at | dateText:'time' }}</time>
               y vuelve a escribir cuando lo reanude.
             </span>

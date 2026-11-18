@@ -344,6 +344,9 @@ function renderTeacher(state: PanelState): string {
                 }</button>
                  <button class="btn btn-ghost" data-action="close-aula">Cerrar examen</button>`
               : `<button class="btn btn-primary" data-action="broadcast">${icon('broadcast')}Emitir avance a la clase</button>
+                 <button class="btn btn-secondary" data-action="toggle-pause">${
+                   teacher.frozen ? `${icon('play')}Reanudar clase` : `${icon('pause')}Pausar clase`
+                 }</button>
                  <button class="btn btn-ghost" data-action="close-aula">Cerrar clase</button>`
             : `<button class="btn btn-primary" data-action="open-aula" style="width: 100%; justify-content: center;">${icon('users')}Iniciar clase</button>`
         }
@@ -535,7 +538,7 @@ function renderSidebar(state: PanelState): string {
 }
 
 /**
- * Aviso de examen pausado en el panel del alumno. El entorno ya está en solo
+ * Aviso de aula pausada en el panel del alumno. El entorno ya está en solo
  * lectura: esto explica por qué el editor no guarda, sin ofrecer una acción que
  * el alumno no puede tomar.
  */
@@ -543,14 +546,15 @@ function renderPauseNotice(state: PanelState): string {
   if (state.role !== 'student' || !state.student?.paused) {
     return '';
   }
+  const isExam = state.assignment?.purpose === 'exam';
   const since = state.student.pausedSince;
   return `
     <section class="section" aria-labelledby="pause-title" role="status">
       <div class="section-head">
-        <h2 id="pause-title">Examen en pausa</h2>
+        <h2 id="pause-title">${isExam ? 'Examen en pausa' : 'Clase en pausa'}</h2>
         <span class="badge badge-stuck">Solo lectura</span>
       </div>
-      <p class="notice notice-warning">${icon('pause')}El docente pausó el examen. Tu entorno no acepta escritura hasta que lo reanude.</p>
+      <p class="notice notice-warning">${icon('pause')}El docente pausó ${isExam ? 'el examen' : 'la clase'}. Tu entorno no acepta escritura hasta que lo reanude.</p>
       ${
         since
           ? `<p class="muted">Pausado desde <time datetime="${escapeHtml(since)}">${escapeHtml(formatTimestamp(since))}</time>.</p>`

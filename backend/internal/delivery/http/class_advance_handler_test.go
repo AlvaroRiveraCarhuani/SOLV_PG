@@ -262,16 +262,22 @@ func TestClassAdvanceHandler_FreezeAndUnfreezeSession(t *testing.T) {
 	}
 }
 
-func TestClassAdvanceHandler_FreezeRejectsClassSession(t *testing.T) {
+// Pausar una clase es una acción válida: la sesión sigue abierta y queda
+// marcada para que los alumnos vean el aviso de solo lectura (ADR-005 §5.2).
+func TestClassAdvanceHandler_FreezeClassSession(t *testing.T) {
 	handler, store := newAdvanceHandlerForHTTP(openClassSessionForHTTP())
 
 	recorder := httptest.NewRecorder()
 	handler.FreezeSession(recorder, advanceSessionRequest(http.MethodPatch, "teacher", advanceHTTPSessionID, ""))
-	if recorder.Code != http.StatusConflict {
-		t.Fatalf("una clase no se pausa: esperado 409, hubo %d: %s", recorder.Code, recorder.Body.String())
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("pausar una clase: esperado 200, hubo %d: %s", recorder.Code, recorder.Body.String())
 	}
-	if len(store.frozenCalls) != 0 {
-		t.Fatalf("la sesión de clase no debía marcarse: %v", store.frozenCalls)
+	frozen := decodeSessionResponse(t, recorder)
+	if frozen.FrozenAt == nil {
+		t.Fatal("la clase pausada debía traer frozen_at")
+	}
+	if len(store.frozenCalls) != 1 || !store.frozenCalls[0] {
+		t.Fatalf("la clase debía marcarse como pausada: %v", store.frozenCalls)
 	}
 }
 

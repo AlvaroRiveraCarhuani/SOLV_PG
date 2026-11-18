@@ -97,24 +97,27 @@
             Emitir avance
           </button>
         }
-        @if (isExamSession()) {
-          <button
-            type="button"
-            class="btn btn-secondary"
-            (click)="togglePauseClick()"
-            [disabled]="isChangingFreeze()"
-            [title]="aula.frozen_at
+        <!-- La pausa deja de verdad los entornos en solo lectura, en clase y en examen. -->
+        <button
+          type="button"
+          class="btn btn-secondary"
+          (click)="togglePauseClick()"
+          [disabled]="isChangingFreeze()"
+          [title]="aula.frozen_at
+            ? (isExamSession()
               ? 'Reanudar el examen: los alumnos vuelven a escribir'
-              : 'Pausar el examen: los entornos quedan en solo lectura'">
-            @if (aula.frozen_at) {
-              <svg lucidePlay class="btn-icon"></svg>
-              Reanudar examen
-            } @else {
-              <svg lucidePause class="btn-icon"></svg>
-              Pausar examen
-            }
-          </button>
-        }
+              : 'Reanudar la clase: los alumnos vuelven a escribir')
+            : (isExamSession()
+              ? 'Pausar el examen: los entornos quedan en solo lectura'
+              : 'Pausar la clase: los entornos quedan en solo lectura')">
+          @if (aula.frozen_at) {
+            <svg lucidePlay class="btn-icon"></svg>
+            {{ isExamSession() ? 'Reanudar examen' : 'Reanudar clase' }}
+          } @else {
+            <svg lucidePause class="btn-icon"></svg>
+            {{ isExamSession() ? 'Pausar examen' : 'Pausar clase' }}
+          }
+        </button>
 
         <!-- Fin de la clase: la acción que no se usa en caliente vive en el menú. -->
         <div class="header-menu" dismissible (dismiss)="isMenuOpen.set(false)">
@@ -153,11 +156,11 @@
       </div>
     }
 
-    @if (aula.frozen_at && isExamSession()) {
+    @if (aula.frozen_at) {
       <div class="frozen-note motion-rise" role="status">
         <svg lucidePause class="summary-icon"></svg>
         <span>
-          Examen en pausa desde
+          {{ isExamSession() ? 'Examen en pausa desde' : 'Clase en pausa desde' }}
           <time class="frozen-time">{{ aula.frozen_at | dateText:'time' }}</time>.
           La edición está suspendida para todos los alumnos hasta que reanudes.
         </span>
@@ -633,9 +636,11 @@
 
   @if (isPauseConfirmOpen()) {
     <confirm-modal
-      title="¿Pausar examen temporalmente?"
-      message="Los entornos de todos los alumnos pasarán a solo lectura durante la pausa y el examen seguirá abierto. Podrás reanudarlo con un clic. ¿Deseas pausar ahora?"
-      confirmText="Pausar examen"
+      [title]="isExamSession() ? '¿Pausar examen temporalmente?' : '¿Pausar la clase temporalmente?'"
+      [message]="isExamSession()
+        ? 'Los entornos de todos los alumnos pasarán a solo lectura durante la pausa y el examen seguirá abierto. Podrás reanudarlo con un clic. ¿Deseas pausar ahora?'
+        : 'Los entornos de todos los alumnos pasarán a solo lectura durante la pausa y el aula seguirá abierta. Podrás reanudarla con un clic. ¿Deseas pausar ahora?'"
+      [confirmText]="isExamSession() ? 'Pausar examen' : 'Pausar clase'"
       cancelText="Cancelar"
       type="primary"
       [isLoading]="isChangingFreeze()"

@@ -15,7 +15,7 @@ Decisión de referencia: [ADR-058](../../docs/ARQUITECTURA/ADR/ADR-058-avance-vo
 - **Aplicar con respaldo.** Antes de copiar se guarda el estado previo en `.solv_backups/<avance_id>/`. El contenedor no se pausa ni se reinicia, pero debe estar en ejecución.
 - **Aviso por consulta cada minuto.** Sin WebSocket ni SSE. Va en el mismo ciclo que el latido de ADR-056.
 - **Examen bloquea emisión.** `purpose = exam`: no se emite ni se aplica. El alumno programa durante el examen; al cerrarlo, su volumen pasa a solo lectura (ADR-005 §5).
-- **La pausa es del examen, no de la clase.** No tiene temporizador. En un examen abierto pone los volúmenes de los alumnos en solo lectura y se reanuda con el mismo servicio (ADR-005 §5.2). Una clase no se pausa: el alumno sigue editando.
+- **La pausa vale para clase y examen.** No tiene temporizador. En un aula abierta pone los volúmenes de los alumnos en solo lectura y se reanuda con el mismo servicio (ADR-005 §5.2). Mientras dura la pausa no se emiten avances.
 - **Ventana de disponibilidad única por clase.** Al cerrar (a mano o por `ends_at`), los avances ya emitidos quedan aplicables durante 30 minutos por defecto. El valor por materia queda para una iteración posterior. Es una sola ventana para todos los avances de la sesión.
 - **Suma, fecha límite y cierre.** El docente suma minutos al final vigente, fija una fecha límite para una tarea o cierra la ventana antes. No hay botones fijos: el campo admite de 1 a 480 minutos por suma. El máximo es de 7 días desde el cierre.
 - **Modo tarea sin mecanismo aparte.** Es la misma ventana con una fecha límite larga. No mantiene la clase abierta, no enciende el entorno del docente y no cambia el acceso al laboratorio del alumno.

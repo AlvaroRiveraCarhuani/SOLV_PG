@@ -2204,23 +2204,25 @@ Cola real de corrección agrupada por práctica. Parámetro opcional `subject_id
 
 ## Avances del docente en el aula (ADR-058)
 
-Durante el aula, el docente pausa un examen en curso (ADR-005 §5.2) y decide cuánto tiempo más queda disponible un avance después de cerrar la sesión. Los tres endpoints siguientes responden con la sesión resultante.
+Durante el aula, el docente pausa la sesión en curso, sea clase o examen (ADR-005 §5.2), y decide cuánto tiempo más queda disponible un avance después de cerrar la sesión. Los tres endpoints siguientes responden con la sesión resultante.
 
 ### `PATCH /api/v1/teacher/sessions/{id}/freeze`
 
-Sin cuerpo. Pausa en vivo un examen abierto: los entornos de los alumnos pasan a solo lectura (`:ro`) y la sesión sigue abierta. Devuelve `200` con la sesión y `frozen_at` con la hora de la pausa. Pausar dos veces conserva la hora de la primera. Solo aplica a prácticas con `purpose = exam`.
+Sin cuerpo. Pausa en vivo un aula abierta, con `purpose = class` o `purpose = exam`: los entornos de los alumnos pasan a solo lectura (`:ro`) y la sesión sigue abierta. Devuelve `200` con la sesión y `frozen_at` con la hora de la pausa. Pausar dos veces conserva la hora de la primera. Mientras dura la pausa no se emiten avances nuevos.
 
 ```json
-{ "data": { "id": "uuid", "status": "open", "frozen_at": "2026-10-31T15:04:05Z" }, "error": "", "message": "Examen pausado" }
+{ "data": { "id": "uuid", "status": "open", "frozen_at": "2026-10-31T15:04:05Z" }, "error": "", "message": "Clase pausada" }
 ```
 
-- `409` si el aula es de una clase: una clase no se pausa.
-- `409` si el aula ya está cerrada: el cierre es el que deja los volúmenes en solo lectura.
+El mensaje es `Examen pausado` cuando la sesión es de examen y `Clase pausada` cuando es de clase.
+
+- `409` si el aula ya está cerrada: el cierre deja los volúmenes en solo lectura y no hay pausa que hacer.
 - `503` si no se pudo dejar en solo lectura ningún entorno; en ese caso la sesión no queda marcada como pausada.
+- Alcanza a los entornos que se abran o reactiven durante la pausa: nacen con el volumen en `:ro` y quedan en estado `frozen` hasta el `unfreeze`.
 
 ### `PATCH /api/v1/teacher/sessions/{id}/unfreeze`
 
-Sin cuerpo. Reanuda el examen pausado: los volúmenes vuelven a `:rw` y `frozen_at` queda en `null`. Los alumnos siguen donde estaban y el aula nunca se cerró.
+Sin cuerpo. Reanuda el aula pausada: los volúmenes vuelven a `:rw` y `frozen_at` queda en `null`. Los alumnos siguen donde estaban y el aula nunca se cerró.
 
 ### `PATCH /api/v1/teacher/sessions/{id}/grace`
 
@@ -2405,7 +2407,7 @@ El dashboard del alumno incluye `status: "frozen"` y `frozen_at`. Al intentar `P
 
 ### Aula abierta del alumno
 
-`GET /api/v1/student/sessions/active` devuelve las aulas abiertas de las materias del alumno con `subject_code`, `subject_name`, `exercise_id`, `exercise_title`, `purpose`, `status`, `opens_at`, `ends_at`, `frozen_at`, `enrolled` y `present`. La vista `/student/aula` muestra la clase y la práctica de la sesión; con `exercise_id` ofrece abrir la práctica y sin él avisa que no se emiten avances. Con `frozen_at` no nulo, el aula muestra que el docente pausó el examen y que el entorno está en solo lectura (ADR-005 §5.2); el Companion del alumno lee el mismo campo para avisar en el editor.
+`GET /api/v1/student/sessions/active` devuelve las aulas abiertas de las materias del alumno con `subject_code`, `subject_name`, `exercise_id`, `exercise_title`, `purpose`, `status`, `opens_at`, `ends_at`, `frozen_at`, `enrolled` y `present`. La vista `/student/aula` muestra la clase y la práctica de la sesión; con `exercise_id` ofrece abrir la práctica y sin él avisa que no se emiten avances. Con `frozen_at` no nulo, el aula muestra que el docente pausó la clase o el examen y que el entorno está en solo lectura (ADR-005 §5.2); el Companion del alumno lee el mismo campo para avisar en el editor.
 
 `POST /api/v1/student/sessions/{id}/heartbeat` registra la presencia. El layout del alumno lo envía cada minuto mientras la pestaña está visible; un aula cerrada responde `409` y el cliente deja de insistir.
 

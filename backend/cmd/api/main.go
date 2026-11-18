@@ -362,7 +362,7 @@ func main() {
 	classAdvanceRepo := postgres.NewPostgresClassAdvanceRepository(db.GetDB(), classSessionRepo)
 	classAdvanceService := services.NewClassAdvanceService(classAdvanceRepo, classSessionRepo)
 	classAdvanceService.SetAuditRepository(auditLogRepo)
-	// Pausa en vivo del examen (ADR-005 §5.2): el docente detiene la escritura de
+	// Pausa en vivo del aula (ADR-005 §5.2): el docente detiene la escritura de
 	// los alumnos sin cerrar la sesión y la reanuda con el mismo servicio.
 	classAdvanceService.WithPauseStore(examFreezeService)
 	classAdvanceService.SetHistoryStore(classAdvanceRepo)

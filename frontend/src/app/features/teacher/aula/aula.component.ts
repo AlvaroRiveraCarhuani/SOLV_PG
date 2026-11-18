@@ -373,8 +373,9 @@ export class AulaComponent implements OnInit, OnDestroy {
 
   togglePauseClick(): void {
     const aula = this.session();
-    // La pausa en vivo es solo del examen: una clase no se pausa.
-    if (!aula || !this.isExamSession()) {
+    // La pausa en vivo vale para cualquier aula abierta: deja los entornos de
+    // los alumnos en solo lectura hasta que se reanude.
+    if (!aula) {
       return;
     }
     if (aula.frozen_at) {

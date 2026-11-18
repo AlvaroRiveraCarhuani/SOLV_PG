@@ -63,7 +63,7 @@ func (r *PostgresClassSessionRepository) expireSessions(ctx context.Context, ten
 			SET status = 'closed',
 			    closes_at = ends_at,
 			    grace_until = COALESCE(grace_until, ends_at + make_interval(mins => $2)),
-			    -- La pausa en vivo solo vive mientras el examen está abierto.
+			    -- La pausa en vivo solo vive mientras el aula está abierta.
 			    frozen_at = NULL,
 			    updated_at = NOW()
 			WHERE tenant_id = $1
@@ -490,6 +490,36 @@ func (r *PostgresClassSessionRepository) OpenSessionsForStudent(ctx context.Cont
 		return nil, fmt.Errorf("failed to load student open sessions: %w", err)
 	}
 	return sessions, nil
+}
+
+// StudentSessionPaused dice si el alumno tiene un aula abierta y pausada para
+// esa materia y práctica. El alta y la reactivación del entorno la consultan
+// para nacer en solo lectura cuando el docente pausó la clase (ADR-005 §5.2).
+func (r *PostgresClassSessionRepository) StudentSessionPaused(ctx context.Context, tenantID, studentID, subjectID, exerciseID string) (bool, error) {
+	if err := r.expireSessions(ctx, tenantID); err != nil {
+		return false, err
+	}
+
+	var paused bool
+	err := r.db.GetContext(ctx, &paused, `
+		SELECT EXISTS (
+			SELECT 1
+			FROM class_sessions cs
+			JOIN enrollments en
+			  ON en.subject_id = cs.subject_id
+			 AND en.tenant_id = cs.tenant_id
+			 AND en.student_id = $2::uuid
+			WHERE cs.tenant_id = $1
+			  AND cs.subject_id = $3::uuid
+			  AND cs.status = 'open'
+			  AND cs.frozen_at IS NOT NULL
+			  AND (cs.exercise_id IS NULL OR cs.exercise_id = NULLIF($4, '')::uuid)
+		)
+	`, tenantID, studentID, subjectID, exerciseID)
+	if err != nil {
+		return false, fmt.Errorf("failed to read paused session for student %s: %w", studentID, err)
+	}
+	return paused, nil
 }
 
 // TouchParticipant registra o refresca la presencia del alumno. Un aula cerrada

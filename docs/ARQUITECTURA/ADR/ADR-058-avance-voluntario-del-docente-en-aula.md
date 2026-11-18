@@ -50,7 +50,7 @@ Un alumno que no participa de la sesión no recibe avisos, aunque esté matricul
 
 **Examen (`purpose = exam`).** No se emiten ni aplican avances. Durante el examen el alumno programa; el docente puede pausar el examen en vivo y los volúmenes pasan a solo lectura hasta que lo reanude, y al cerrar quedan en solo lectura de forma definitiva (ADR-005 §5.2). No hay ventana de disponibilidad en examen.
 
-**No hay pausa de clase.** Una clase no se pausa: el docente emite avances cuando quiere y los alumnos siguen programando. La única pausa con efecto sobre la escritura es la del examen, y vive en ADR-005 §5.2. `class_sessions.frozen_at` sigue siendo la marca de esa pausa, pero no bloquea la emisión por sí sola: en examen la emisión ya está bloqueada.
+**Pausa de la clase.** El docente puede pausar el aula en vivo, sea clase o examen: los volúmenes de los alumnos pasan a `:ro` y la sesión sigue abierta. Mientras dura la pausa no se emiten avances nuevos y `Reanudar clase` devuelve la escritura a los mismos entornos. Un entorno que se abre o reactiva durante la pausa nace en solo lectura y queda en la misma marca que los demás. El mecanismo y su efecto viven en ADR-005 §5.2; `class_sessions.frozen_at` es la marca de esa pausa y el bloqueo real lo aplica el montaje del volumen.
 
 **Cierre de la sesión.** Al cerrar el aula (a mano o al vencer `ends_at`, ADR-056) se bloquean las emisiones nuevas. Los avances ya emitidos quedan aplicables durante la ventana de disponibilidad de la sesión, que arranca en 30 minutos después del cierre. El valor es de 30 minutos para todas las materias; el valor por materia queda para una iteración posterior.
 
@@ -136,7 +136,7 @@ El aviso aparece en la pantalla donde el alumno trabaja: el solver de la prácti
 
 | Campo | Tipo | Nota |
 | --- | --- | --- |
-| `frozen_at` | timestamptz, nullable | Momento de la pausa en vivo de un examen; nulo si el examen no está pausado. Al cerrar el aula vuelve a nulo |
+| `frozen_at` | timestamptz, nullable | Momento de la pausa en vivo del aula, sea clase o examen; nulo si no está pausada. Al cerrar el aula vuelve a nulo |
 | `grace_until` | timestamptz, nullable | Fin de la ventana de disponibilidad de los avances de la sesión; se fija al cerrar con 30 minutos y puede sumarse, fijarse con fecha límite o cerrarse antes |
 
 **Nueva tabla `class_advances`:**
@@ -177,7 +177,7 @@ Clave primaria compuesta `(advance_id, student_id)`. Las migraciones viven en `b
 | `GET` | `/api/v1/teacher/sessions/{id}/advances` | docente | Emisiones del aula con el estado de cada destinatario |
 | `GET` | `/api/v1/teacher/sessions/{id}/history` | docente | Historial de la clase: emisiones, congelaciones, ventana y decisiones de los alumnos |
 | `PATCH` | `/api/v1/teacher/sessions/{id}/freeze` | docente | Pausa un examen en curso: los volúmenes pasan a `:ro`; responde con la sesión y su `frozen_at`. Un aula de clase responde 409 |
-| `PATCH` | `/api/v1/teacher/sessions/{id}/unfreeze` | docente | Reanuda el examen pausado: los volúmenes vuelven a `:rw` y `frozen_at` queda nulo |
+| `PATCH` | `/api/v1/teacher/sessions/{id}/unfreeze` | docente | Reanuda el aula pausada: los volúmenes vuelven a `:rw` y `frozen_at` queda nulo |
 | `PATCH` | `/api/v1/teacher/sessions/{id}/grace` | docente | Ajusta la ventana con el aula cerrada: `{"until": "2026-11-01T22:00:00Z"}` fija la hora final y `{"close": true}` la cierra en el momento |
 | `GET` | `/api/v1/class-advances/pending` | alumno | Avances pendientes para el alumno autenticado |
 | `GET` | `/api/v1/class-advances/{id}/files` | alumno | Archivos del aviso: los que se agregan y los que se reemplazan, sin escribir |

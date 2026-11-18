@@ -46,7 +46,7 @@ Intervalos: `solv.comments.refreshSeconds` (60) y `solv.advances.refreshSeconds`
 | `SOLV: Actualizar panel` | Ambos | Vuelve a leer avances, aula y comentarios |
 | `SOLV: Entregar práctica` | Estudiante | Revisa diagnósticos, confirma y entrega el proyecto |
 | `SOLV: Compartir avance con la clase` | Docente | Pide título y alcance, y emite el snapshot |
-| `SOLV: Pausar o reanudar la clase` | Docente | Pausa o reanuda la emisión de avances |
+| `SOLV: Pausar o reanudar la clase` | Docente | Deja en solo lectura los entornos de los alumnos y les devuelve la escritura |
 | `SOLV: Ver presencia del aula` | Docente | Lista los alumnos del aula con su presencia |
 | `SOLV: Abrir evaluación en el navegador` | Docente | Abre la evaluación en el navegador |
 | `SOLV: Configurar conexión` | Ambos | URL, entrega y token |

@@ -65,6 +65,12 @@ El mecanismo se llama congelar en el contrato (`CLASS_FROZEN`, ADR-005) y en la 
 
 Los avisos de pausa, examen y emisión conservan su tinte: son estados excepcionales y ahí la densidad está justificada. Tampoco cambian el sondeo de cinco segundos, la lista de excepciones de la conclusión, el historial plegado ni la ventana de los avances.
 
+## Actualización: la pausa vuelve a la cabecera (2026-11-18)
+
+La pausa dejó de ser exclusiva del examen. `[Pausar clase]` / `[Reanudar clase]` es un botón secundario de la cabecera de cualquier aula abierta y deja los entornos de los alumnos en solo lectura de verdad, igual que la pausa de examen: el bloqueo lo aplica el montaje del volumen y `[Reanudar clase]` los devuelve a escritura (ADR-005 §5.2). El cierre sigue en el menú `⋯`, junto al botón de pausa.
+
+Esta actualización reemplaza la frase «En un examen, la pausa ocupa el lugar de la emisión» de §1 y la mención de la pausa de §10: la pausa existe en clase y en examen, y el examen conserva `[Pausar examen]` en el mismo lugar. La razón es de producto: sin pausa, el docente solo podía frenar la escritura cerrando el aula, lo que además corta la sesión y arranca la ventana de los avances.
+
 ## Alternativas descartadas
 
 | Alternativa | Motivo del descarte |

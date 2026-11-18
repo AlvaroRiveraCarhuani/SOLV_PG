@@ -28,7 +28,7 @@ const MAX_ADVANCE_FILES = 2000;
 /** Último avance que ya se avisó al alumno, para no repetirlo en cada ciclo. */
 const ADVANCE_NOTICE_KEY = 'solv.notifiedAdvance';
 
-/** Última pausa de examen avisada, para no repetir el aviso en cada ciclo. */
+/** Última pausa de aula avisada, para no repetir el aviso en cada ciclo. */
 const PAUSED_EXAM_KEY = 'solv.pausedExam';
 
 export async function activate(context: vscode.ExtensionContext): Promise<void> {
@@ -99,8 +99,8 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     vscode.commands.registerCommand('solv.refreshPanel', () => refreshAll(true)),
     vscode.commands.registerCommand('solv.submit', () => submitPractice()),
     vscode.commands.registerCommand('solv.broadcastAdvance', () => broadcastAdvance()),
-    vscode.commands.registerCommand('solv.togglePause', () => togglePauseExam()),
-    vscode.commands.registerCommand('solv.toggleFreeze', () => togglePauseExam()),
+    vscode.commands.registerCommand('solv.togglePause', () => togglePauseAula()),
+    vscode.commands.registerCommand('solv.toggleFreeze', () => togglePauseAula()),
     vscode.commands.registerCommand('solv.showPresence', () => showPresence()),
     vscode.commands.registerCommand('solv.openSpeedGrader', () => openSpeedGrader()),
     vscode.commands.registerCommand('solv.configure', async () => {
@@ -247,7 +247,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
         return;
       case 'toggle-pause':
       case 'freeze':
-        await togglePauseExam();
+        await togglePauseAula();
         return;
       case 'submit':
         await submitPractice();
@@ -358,23 +358,20 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
   }
 
   /**
-   * Pausa en vivo del examen: los volúmenes de los alumnos pasan a solo lectura
-   * y la sesión sigue abierta. Una clase no se pausa, así que el comando solo
-   * aplica a exámenes.
+   * Pausa en vivo del aula: los volúmenes de los alumnos pasan a solo lectura y
+   * la sesión sigue abierta. Aplica a una clase y a un examen.
    */
-  async function togglePauseExam(): Promise<void> {
+  async function togglePauseAula(): Promise<void> {
     const isExam = settings.exercisePurpose === 'exam' || progress?.purpose === 'exam';
-    if (!isExam) {
-      warn('La pausa en vivo es solo para exámenes.');
-      return;
-    }
 
     const board = advances.snapshot().board;
     const isFrozen = Boolean(board?.session.frozen_at);
     if (!isFrozen) {
-      const actionLabel = 'Pausar examen';
+      const actionLabel = isExam ? 'Pausar examen' : 'Pausar clase';
       const confirm = await vscode.window.showWarningMessage(
-        '¿Pausar el examen? Los entornos de todos los alumnos quedan en solo lectura y el examen sigue abierto. Podés reanudarlo cuando quieras.',
+        isExam
+          ? '¿Pausar el examen? Los entornos de todos los alumnos quedan en solo lectura y el examen sigue abierto. Podés reanudarlo cuando quieras.'
+          : '¿Pausar la clase? Los entornos de todos los alumnos quedan en solo lectura y el aula sigue abierta. Podés reanudarla cuando quieras.',
         { modal: true },
         actionLabel
       );
@@ -387,8 +384,10 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
       const frozen = await advances.toggleFreeze();
       info(
         frozen
-          ? 'Examen pausado: los alumnos no pueden editar hasta que lo reanudes.'
-          : 'Examen reanudado: los alumnos recuperan la escritura.'
+          ? (isExam ? 'Examen pausado' : 'Clase pausada') +
+            ': los alumnos no pueden editar hasta que lo reanudes.'
+          : (isExam ? 'Examen reanudado' : 'Clase reanudada') +
+            ': los alumnos recuperan la escritura.'
       );
       await refreshAll(false);
     } catch (error) {
@@ -767,7 +766,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
       studentPause = next;
       if (previousKey !== key) {
         void context.workspaceState.update(PAUSED_EXAM_KEY, key);
-        warn('El docente pausó el examen. Tu entorno quedó en solo lectura hasta que lo reanude.');
+        warn('El docente pausó el aula. Tu entorno quedó en solo lectura hasta que lo reanude.');
       }
       return;
     }

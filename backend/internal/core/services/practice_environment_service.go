@@ -37,6 +37,20 @@ type examAttemptOpener interface {
 	LatestExamSessionOpen(ctx context.Context, tenantID, subjectID, exerciseID string) (time.Time, bool, error)
 }
 
+// pausedAulaReader es la capacidad opcional del enlace con el aula: dice si la
+// sesión abierta del alumno está pausada. El alta y la reactivación la usan
+// para que un entorno que nace durante la pausa arranque en solo lectura, en
+// vez de esperar a que el docente vuelva a pausar (ADR-005 §5.2).
+type pausedAulaReader interface {
+	StudentSessionPaused(ctx context.Context, tenantID, studentID, subjectID, exerciseID string) (bool, error)
+}
+
+// practiceEnvironmentFrozenMarker es la capacidad opcional del repositorio que
+// marca el laboratorio como congelado en la misma fila que su estado.
+type practiceEnvironmentFrozenMarker interface {
+	SetPracticeEnvironmentFrozen(ctx context.Context, tenantID, environmentID string, frozen bool, at time.Time) error
+}
+
 // examAttemptRestarter es una capacidad opcional del repositorio: deja la fila
 // de la práctica lista para un intento nuevo, con su volumen y su siembra. La
 // fila es una sola por práctica, así que el recuperatorio avanza el número en
@@ -189,6 +203,47 @@ func (s *PracticeEnvironmentService) WithClassSessions(linker domain.ClassSessio
 // linkSessionToAula registra el entorno en el aula abierta de la materia y marca
 // la presencia del alumno. Sin aula abierta no hace nada: el trabajo fuera de
 // clase no pertenece a ninguna sesión.
+// aulaPausedForStart responde si el aula abierta del alumno está pausada para
+// esta práctica. Un fallo de lectura devuelve false: el aula no debe impedir
+// que el entorno abra por un error de consulta.
+func (s *PracticeEnvironmentService) aulaPausedForStart(ctx context.Context, linkSession bool, tenantID, studentID, subjectID, exerciseID string) bool {
+	if !linkSession || s.sessionLinker == nil {
+		return false
+	}
+	reader, ok := s.sessionLinker.(pausedAulaReader)
+	if !ok {
+		return false
+	}
+	paused, err := reader.StudentSessionPaused(ctx, tenantID, studentID, subjectID, exerciseID)
+	if err != nil {
+		log.Printf("[PracticeEnvironment] no se pudo leer la pausa del aula de %s en %s: %v", studentID, subjectID, err)
+		return false
+	}
+	return paused
+}
+
+// freezeEnvironmentForPausedAula marca el laboratorio que acaba de arrancar en
+// solo lectura. El montaje ya se hizo con ReadOnly; la marca es la que permite
+// que la reanudación del aula lo devuelva a escritura y que el alumno vea el
+// aviso de pausa.
+func (s *PracticeEnvironmentService) freezeEnvironmentForPausedAula(ctx context.Context, instance *domain.PracticeEnvironment) {
+	if instance == nil {
+		return
+	}
+	marker, ok := s.repo.(practiceEnvironmentFrozenMarker)
+	if !ok {
+		log.Printf("[PracticeEnvironment] WARNING: el repositorio no puede marcar el entorno %s como congelado", instance.ID)
+		return
+	}
+	at := time.Now()
+	if err := marker.SetPracticeEnvironmentFrozen(ctx, instance.TenantID, instance.ID, true, at); err != nil {
+		log.Printf("[PracticeEnvironment] WARNING: el entorno %s quedó en solo lectura pero no se pudo marcar: %v", instance.ID, err)
+		return
+	}
+	instance.FrozenAt = &at
+	instance.Status = domain.PracticeEnvironmentStatusFrozen
+}
+
 func (s *PracticeEnvironmentService) linkSessionToAula(ctx context.Context, instance *domain.PracticeEnvironment) {
 	if s.sessionLinker == nil || instance == nil {
 		return
@@ -250,7 +305,6 @@ func buildPracticeEnvironmentAccessURL(environmentID, hostPort string) string {
 	}
 	return ""
 }
-
 
 // hostTotalMB lee la RAM física total del host. El segundo valor dice si la
 // medición salió bien: quien decide admisión no puede inventar una capacidad
@@ -738,6 +792,9 @@ func (s *PracticeEnvironmentService) startPracticeEnvironment(ctx context.Contex
 	if !ok {
 		return nil, errors.New("el repositorio de entornos no soporta entornos por práctica")
 	}
+	// La pausa del aula manda sobre el arranque: si la clase está pausada, el
+	// entorno nace con el volumen en solo lectura (ADR-005 §5.2).
+	aulaPaused := s.aulaPausedForStart(ctx, linkSession, tenantID, userID, subjectID, trimmedExerciseID)
 	existing, err := repo.GetByStudentSubjectExercise(ctx, userID, subjectID, trimmedExerciseID)
 	if err == nil && existing != nil {
 		// Un examen cerrado no se reabre por recargar la página: el volumen quedó
@@ -769,8 +826,9 @@ func (s *PracticeEnvironmentService) startPracticeEnvironment(ctx context.Contex
 				// El registro puede sobrevivir al contenedor (limpieza de Docker,
 				// reinicio del nodo). Antes de devolver la URL se comprueba que el
 				// contenedor siga en el daemon; si ya no está, se reconstruye en vez
-				// de entregar un enlace que no carga.
-				if s.containerAlive(ctx, existing.ContainerID) {
+				// de entregar un enlace que no carga. Con el aula pausada no se
+				// devuelve el contenedor vivo: se reconstruye en solo lectura.
+				if s.containerAlive(ctx, existing.ContainerID) && !aulaPaused {
 					return existing, nil
 				}
 				return s.reactivatePracticeEnvironment(ctx, existing, provision, linkSession)
@@ -961,6 +1019,9 @@ func (s *PracticeEnvironmentService) startPracticeEnvironment(ctx context.Contex
 		// Un examen sin excepción no tiene salida: el contenedor va a la red
 		// interna y el editor se publica por proxy.
 		ExamNoEgress: profile.IsExam() && exercise != nil && domain.NormalizeExamNetwork(exercise.ExamNetwork) == domain.ExamNetworkNone,
+		// Con la clase pausada el volumen nace en solo lectura: el alumno puede
+		// entrar a leer su trabajo, pero no escribir hasta que se reanude.
+		ReadOnly: aulaPaused,
 	}
 
 	// 10. Instanciación e inicio del contenedor OpenVSCode Server
@@ -978,7 +1039,6 @@ func (s *PracticeEnvironmentService) startPracticeEnvironment(ctx context.Contex
 		return nil, fmt.Errorf("failed to update environment status: %w", err)
 	}
 
-
 	// 12. El setup_script ya no se lanza como goroutine legacy: el shell de
 	// arranque del contenedor lo ejecuta una sola vez por volumen, sellado con
 	// .solv_initialized, por lo que una reactivación no lo duplica.
@@ -991,6 +1051,9 @@ func (s *PracticeEnvironmentService) startPracticeEnvironment(ctx context.Contex
 	// el del alumno sí entra, porque ese tablero es de alumnos.
 	if linkSession {
 		s.linkSessionToAula(ctx, instance)
+	}
+	if aulaPaused {
+		s.freezeEnvironmentForPausedAula(ctx, instance)
 	}
 	// La URL se entrega cuando el editor ya responde: la pestaña del docente o
 	// del alumno entra por Traefik, que no reintenta y devuelve 504 mientras el

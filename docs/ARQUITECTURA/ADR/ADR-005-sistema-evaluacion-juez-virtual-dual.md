@@ -84,9 +84,11 @@ La pantalla del alumno deja de ofrecer el editor y muestra el motivo. El bloqueo
 | Se vence `ends_at` | Mismo cierre, sin que el docente tenga que pulsar nada. |
 | El alumno entrega antes | Se registra una entrega con su hora y el volumen sigue en `:rw`. Puede corregir y volver a entregar hasta el cierre; se califica la última entrega. |
 | El docente reabre a un alumno | Vuelve a `:rw` con un motivo escrito y queda en auditoría. Es la "excepción individual" de §4. |
-| Es una clase, no un examen | No se pausa ni se congela nunca. |
+| Es una clase, no un examen | Se pausa y se reanuda igual que un examen: los volúmenes pasan a `:ro` mientras dura la pausa y vuelven a `:rw` al reanudar. El cierre de una clase no congela: corta la sesión y las emisiones. |
 
-Solo aplica a prácticas con `purpose = exam`. La pausa en vivo usa `class_sessions.frozen_at`, pero su efecto no vive ahí: el bloqueo lo aplica el montaje del volumen. La emisión de avances ya está bloqueada en examen por ADR-058.
+La pausa en vivo aplica a cualquier aula abierta, sea `purpose = class` o `purpose = exam`. El cierre congelante y su barrido siguen siendo exclusivos de `purpose = exam`. La pausa usa `class_sessions.frozen_at`, pero su efecto no vive ahí: el bloqueo lo aplica el montaje del volumen. En una clase, además, la pausa corta la emisión de avances mientras dure.
+
+**Entornos que nacen durante la pausa.** El alta y la reactivación consultan la pausa del aula antes de montar el volumen: si la clase o el examen está pausado, el contenedor arranca con el volumen en `:ro` y la fila queda `frozen`. `Reanudar` lo devuelve a `:rw` como a los entornos que ya existían. Un entorno hibernado se reconstruye en solo lectura; no se despausa en escritura. El alumno ve el aviso de pausa en el aula y en el Companion, y su editor no guarda hasta la reanudación.
 
 ### 5.3 Alternativas comparadas
 
@@ -155,7 +157,7 @@ Implementado el 31/10/2026.
 - **Pantalla del docente.** La sesión de aula trae `purpose` (`class` o `exam`), así que `/teacher/aula` marca el examen y cambia `[Cerrar aula]` por `[Cerrar examen]`, con el aviso de que el cierre deja los entornos en solo lectura. Ya cerrada, muestra el conteo de volúmenes en solo lectura, el resultado del cierre o del reintento, y la lista de alumnos con entorno para reabrir uno con motivo.
 
 - **Entrega anticipada.** Entregar un examen desde el IDE registra una versión con su código y su hora, y el volumen sigue escribible: el alumno puede corregir y volver a entregar mientras el examen esté abierto. Se califica la última entrega anterior al cierre. El congelamiento ocurre al cerrar el aula, no al entregar.
-- **Pausa en vivo.** `PATCH /teacher/sessions/{id}/freeze` pone en `:ro` los laboratorios de los participantes y deja la sesión abierta; `/unfreeze` los devuelve a `:rw`. Solo aplica a exámenes: un aula de clase responde `409`. Si ningún laboratorio pudo congelarse, la sesión no se marca como pausada y la respuesta es `503`. La pantalla del docente lo pide con confirmación, y el alumno ve el aviso de examen pausado y su entorno en solo lectura.
+- **Pausa en vivo.** `PATCH /teacher/sessions/{id}/freeze` pone en `:ro` los laboratorios de los participantes y deja la sesión abierta; `/unfreeze` los devuelve a `:rw`. Aplica a un aula de clase y a un examen. Si ningún laboratorio pudo congelarse, la sesión no se marca como pausada y la respuesta es `503`. La pantalla del docente lo pide con confirmación, y el alumno ve el aviso de aula pausada y su entorno en solo lectura.
 
 Todos los puntos de §5.6 quedaron implementados.
 

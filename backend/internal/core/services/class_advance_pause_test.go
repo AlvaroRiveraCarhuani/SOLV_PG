@@ -47,19 +47,20 @@ func TestPauseExam_SendsTheSessionToTheVolumeFreezer(t *testing.T) {
 	}
 }
 
-func TestPauseExam_RejectsClassSessions(t *testing.T) {
+// La pausa dejó de ser exclusiva del examen: una clase también puede dejar a
+// los alumnos en solo lectura sin cerrar la sesión (ADR-005 §5.2).
+func TestPauseClass_FreezesStudentVolumes(t *testing.T) {
 	session := newOpenSession()
 	session.Purpose = string(domain.ExercisePurposeClass)
-	pause := &fakeSessionPause{}
+	pause := &fakeSessionPause{report: services.FreezeReport{Frozen: 1}}
 	svc := services.NewClassAdvanceService(&fakeAdvanceStore{}, &fakeAdvanceSessions{session: session}).
 		WithPauseStore(pause)
 
-	_, err := svc.Freeze(context.Background(), advanceTenantID, advanceTeacherID, "teacher", session.ID)
-	if !errors.Is(err, domain.ErrExamPauseNotAllowed) {
-		t.Fatalf("una clase debía rechazarse con ErrExamPauseNotAllowed: %v", err)
+	if _, err := svc.Freeze(context.Background(), advanceTenantID, advanceTeacherID, "teacher", session.ID); err != nil {
+		t.Fatalf("pausar una clase no debía fallar: %v", err)
 	}
-	if pause.pauseCalls != 0 {
-		t.Fatalf("una clase no debía tocar ningún volumen: %d", pause.pauseCalls)
+	if pause.pauseCalls != 1 {
+		t.Fatalf("la pausa debía llegar al sistema de archivos: %d", pause.pauseCalls)
 	}
 }
 
@@ -72,6 +73,21 @@ func TestPauseExam_KeepsTheSessionEditableWhenNoVolumeCouldBeFrozen(t *testing.T
 	_, err := svc.Freeze(context.Background(), advanceTenantID, advanceTeacherID, "teacher", session.ID)
 	if !errors.Is(err, domain.ErrExamPauseFailed) {
 		t.Fatalf("sin volúmenes congelados la sesión no debía marcarse: %v", err)
+	}
+}
+
+func TestResumeClass_ReturnsTheVolumesToWritable(t *testing.T) {
+	session := newOpenSession()
+	session.Purpose = string(domain.ExercisePurposeClass)
+	pause := &fakeSessionPause{}
+	svc := services.NewClassAdvanceService(&fakeAdvanceStore{}, &fakeAdvanceSessions{session: session}).
+		WithPauseStore(pause)
+
+	if _, err := svc.Unfreeze(context.Background(), advanceTenantID, advanceTeacherID, "teacher", session.ID); err != nil {
+		t.Fatalf("reanudar una clase no debía fallar: %v", err)
+	}
+	if pause.resumeCalls != 1 {
+		t.Fatalf("se esperaba una reanudación: %d", pause.resumeCalls)
 	}
 }
 
