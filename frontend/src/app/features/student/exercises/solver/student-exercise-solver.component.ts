@@ -176,6 +176,13 @@ export class StudentExerciseSolverComponent implements OnInit {
   readonly environmentIsRunning = computed<boolean>(() => this.environment()?.status === 'running');
   /** URL de la aplicación del alumno, cuando la práctica declara app_port. */
   readonly appUrl = computed<string | null>(() => this.environment()?.app_url ?? null);
+  /** URL del IDE, para cuando no hay pestaña nueva donde abrirlo. */
+  readonly ideUrl = computed<string | null>(() => this.environment()?.access_url ?? null);
+  /**
+   * El navegador no permitió abrir la pestaña del entorno. En ese caso la
+   * página deja los enlaces a la vista en lugar de intentar abrirla de nuevo.
+   */
+  readonly popupBlocked = signal<boolean>(false);
 
   /**
    * Estado que ve el alumno. Sale del campo calculado por el servidor; si no
@@ -485,6 +492,10 @@ export class StudentExerciseSolverComponent implements OnInit {
       tab.opener = null;
     }
 
+    // Sin pestaña nueva no hay dónde seguir el arranque: la página muestra los
+    // enlaces al IDE y a la aplicación, que no dependen de una ventana abierta.
+    this.popupBlocked.set(!tab);
+
     this.isStartingEnvironment.set(true);
     this.environmentError.set(null);
     this.examClosed.set(false);
@@ -500,11 +511,10 @@ export class StudentExerciseSolverComponent implements OnInit {
         return;
       }
 
-      if (tab) {
-        tab.location.href = url;
-      } else {
-        window.open(url, '_blank');
+      if (!tab) {
+        return;
       }
+      tab.location.href = url;
     } catch (error) {
       tab?.close();
       const body = (error as { error?: { message?: unknown; error?: { code?: unknown } } } | null)?.error;

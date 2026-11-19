@@ -220,6 +220,24 @@
                 Se abre en una pestaña nueva y conserva tus archivos entre sesiones.
               </p>
 
+              @if (popupBlocked()) {
+                @if (ideUrl(); as url) {
+                  <p class="rail-note" data-testid="popup-blocked-notice">
+                    Tu navegador no abrió la pestaña nueva. Abrí el entorno desde este enlace.
+                  </p>
+                  <a
+                    class="btn-outline rail-action"
+                    data-testid="link-open-ide"
+                    [href]="url"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    <svg lucideExternalLink class="btn-icon" aria-hidden="true"></svg>
+                    <span>Abrir el IDE</span>
+                  </a>
+                }
+              }
+
               @if (environmentIsRunning()) {
                 <p class="ide-ready">
                   <svg lucideCheckCircle2 class="ide-ready-icon" aria-hidden="true"></svg>
