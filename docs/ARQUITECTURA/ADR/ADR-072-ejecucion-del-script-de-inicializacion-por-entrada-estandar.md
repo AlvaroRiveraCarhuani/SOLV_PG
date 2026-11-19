@@ -46,7 +46,14 @@ cambia.
 Las sentencias de control (rol, base, sellado, verificación) siguen usando `ExecInManagedSatellite`:
 son cortas y construidas en Go, no llevan el contenido del docente.
 
-### 3. MongoDB queda fuera con su motivo
+### 3. El cliente SQL fija `utf8mb4`
+
+`mysqlAdminArgs` y `mysqlDatabaseArgs` agregan `--default-character-set=utf8mb4` a todas las
+invocaciones, incluidas las sentencias de control y el script del ejercicio. Sin el flag, un script con
+acentos se insertaba doblemente codificado (`Rodríguez` quedaba `RodrÃ­guez`), el script no fallaba y
+el sello se escribía igual: el daño solo se veía al consultar los datos.
+
+### 4. MongoDB queda fuera con su motivo
 
 El init de MongoDB es JavaScript y se evalúa con `mongosh --eval`, que también recibe el script como
 argumento. Pasarlo por entrada requeriría un archivo temporal dentro de un contenedor compartido por
@@ -63,8 +70,11 @@ tope sigue aplicando solo a ese camino.
   `exercise_db_init_scripts` (ADR-073). El techo de ejecución y el de almacenamiento quedan resueltos.
 - El error de un script se reporta con el stderr del cliente, igual que antes. Un fallo sigue
   abortando el arranque sin dejar un entorno a medio inicializar.
+- Un archivo en UTF-16 sigue siendo responsabilidad del docente: la interfaz acepta texto plano y no
+  convierte codificaciones.
 - La verificación con tests cubre que el script llegue por entrada estándar y no como argumento en
-  PostgreSQL, MySQL y MariaDB. No se ejecutó contra contenedores reales en este cambio.
+  PostgreSQL, MySQL y MariaDB. El charset se probó contra un MySQL 8.4 real, antes y después del
+  ajuste.
 
 ## Verificación
 

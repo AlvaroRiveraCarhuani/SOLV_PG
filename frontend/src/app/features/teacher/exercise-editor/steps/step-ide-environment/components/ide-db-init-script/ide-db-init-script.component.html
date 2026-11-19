@@ -14,7 +14,7 @@
             type="button"
             class="btn-ghost-action"
             (click)="fileInput.click()"
-            title="Cargar otro archivo .sql para reemplazar el actual"
+            title="Cargar uno o varios .sql para reemplazar el actual"
           >
             <svg lucideFileUp class="btn-icon"></svg>
             <span>Reemplazar</span>
@@ -57,6 +57,7 @@
       type="file"
       class="hidden-file-input"
       accept=".sql,.txt,.js"
+      multiple
       (change)="onFileSelected($event)"
     />
 
@@ -78,8 +79,8 @@
       <div class="dropzone-left">
         <svg lucideUploadCloud class="dropzone-icon"></svg>
         <div class="dropzone-texts">
-          <span class="dropzone-label">Cargar archivo .sql de la práctica</span>
-          <span class="dropzone-sub">Arrastrá tu archivo aquí o seleccionalo desde tu equipo (hasta 2 MiB recomendados)</span>
+          <span class="dropzone-label">Cargar archivos .sql de la práctica</span>
+          <span class="dropzone-sub">Arrastrá uno o varios archivos o seleccionalos desde tu equipo. Se concatenan en el orden elegido (hasta 2 MiB recomendados)</span>
         </div>
       </div>
       <button
@@ -88,7 +89,7 @@
         (click)="fileInput.click()"
       >
         <svg lucideFileUp class="btn-icon"></svg>
-        <span>Seleccionar archivo .sql</span>
+        <span>Seleccionar archivos</span>
       </button>
     </div>
 
@@ -97,9 +98,15 @@
       <div class="script-meta-bar">
         <div class="script-identity">
           <svg lucideFileCode class="script-file-icon"></svg>
-          <span class="script-filename font-mono" machineData>{{ fileName() || 'script_personalizado.sql' }}</span>
+          <span class="script-filename font-mono" machineData [title]="fileNamesTitle()">{{ fileName() || 'script_personalizado.sql' }}</span>
         </div>
         <div class="script-chips-row">
+          @if (fileCount() > 1) {
+            <span class="meta-chip">
+              <span class="chip-label">Archivos:</span>
+              <strong class="font-mono" machineData>{{ fileCount() }}</strong>
+            </span>
+          }
           <span class="meta-chip">
             <span class="chip-label">Tamaño:</span>
             <strong class="font-mono" machineData>{{ formattedSize() }}</strong>
@@ -142,7 +149,7 @@
         (ngModelChange)="onTextareaChange($event)"
       ></textarea>
       <span class="field-hint">
-        Sentencias separadas por punto y coma (;). El contenido de este script pertenece únicamente a este ejercicio.
+        Sentencias separadas por punto y coma (;). Si cargás varios archivos, se unen en el orden seleccionado. El contenido de este script pertenece únicamente a este ejercicio.
       </span>
     </div>
   </section>

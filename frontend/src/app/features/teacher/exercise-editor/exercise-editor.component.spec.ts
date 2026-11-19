@@ -60,6 +60,32 @@ describe('ExerciseEditorComponent', () => {
     expect(fixture.componentInstance).toBeTruthy();
   });
 
+  it('muestra «Republicar entorno» cuando la plantilla cambió respecto del snapshot publicado', () => {
+    mount({ courseId: 'course-1' }, {});
+    store.status.set('published');
+    store.publishedTemplateId.set('tpl-viejo');
+    store.metadata.update(m => ({ ...m, template_id: 'tpl-nuevo' }));
+    fixture.detectChanges();
+
+    const texts = (Array.from(fixture.nativeElement.querySelectorAll('button')) as HTMLButtonElement[]).map(
+      button => button.textContent || ''
+    );
+    expect(texts.some(text => text.includes('Republicar entorno'))).toBe(true);
+  });
+
+  it('no muestra republicar si la plantilla coincide con la publicada', () => {
+    mount({ courseId: 'course-1' }, {});
+    store.status.set('published');
+    store.publishedTemplateId.set('tpl-igual');
+    store.metadata.update(m => ({ ...m, template_id: 'tpl-igual' }));
+    fixture.detectChanges();
+
+    const texts = (Array.from(fixture.nativeElement.querySelectorAll('button')) as HTMLButtonElement[]).map(
+      button => button.textContent || ''
+    );
+    expect(texts.some(text => text.includes('Republicar entorno'))).toBe(false);
+  });
+
   it('preselecciona la plantilla y el tipo de entorno desde los query params al crear un ejercicio nuevo', () => {
     mount(
       { courseId: 'course-1' },

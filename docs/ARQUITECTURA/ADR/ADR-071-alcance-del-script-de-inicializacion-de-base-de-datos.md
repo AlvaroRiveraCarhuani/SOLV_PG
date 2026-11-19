@@ -106,8 +106,7 @@ techo de `ARG_MAX` no es un motivo para diferirlo.
 
 ## Consecuencias
 
-- El componente acepta archivos `.sql`, `.txt` y `.js`, muestra nombre, tamaño, líneas y sentencias
-  estimadas, y permite descargar o limpiar el contenido.
+- El componente acepta uno o varios archivos `.sql`, `.txt` y `.js`, los concatena en el orden de carga y muestra cantidad de archivos, nombre(s), tamaño, líneas y sentencias estimadas; permite descargar o limpiar el contenido.
 - El texto de la sección declara que el script pertenece a la práctica, así que un docente no puede
   confundirlo con la configuración de la materia.
 - El aviso de tamaño no bloquea el guardado. La validación de tamaño en el servidor queda pendiente

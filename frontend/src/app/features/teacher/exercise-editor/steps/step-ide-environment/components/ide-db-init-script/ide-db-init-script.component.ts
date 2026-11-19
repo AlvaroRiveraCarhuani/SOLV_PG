@@ -42,8 +42,12 @@ export class IdeDbInitScriptComponent {
 
   readonly isDragging = signal<boolean>(false);
   readonly fileName = signal<string | null>(null);
+  readonly fileNames = signal<string[]>([]);
   readonly fileSize = signal<number | null>(null);
   readonly errorMessage = signal<string | null>(null);
+
+  readonly fileCount = computed(() => this.fileNames().length);
+  readonly fileNamesTitle = computed(() => this.fileNames().join(' + '));
 
   readonly currentScript = computed(() => this.dbInitScript() || '');
   readonly hasContent = computed(() => this.currentScript().trim().length > 0);
@@ -116,51 +120,73 @@ export class IdeDbInitScriptComponent {
     event.stopPropagation();
     this.isDragging.set(false);
 
-    const file = event.dataTransfer?.files?.[0];
-    if (file) {
-      this.processFile(file);
+    const files = Array.from(event.dataTransfer?.files ?? []);
+    if (files.length) {
+      void this.processFiles(files);
     }
   }
 
   onFileSelected(event: Event): void {
     const input = event.target as HTMLInputElement;
-    const file = input?.files?.[0];
-    if (file) {
-      this.processFile(file);
+    const files = Array.from(input?.files ?? []);
+    if (files.length) {
+      void this.processFiles(files);
     }
     input.value = '';
   }
 
   processFile(file: File): void {
+    void this.processFiles([file]);
+  }
+
+  /**
+   * Concatena los archivos en el orden en que se seleccionaron. Cada archivo
+   * conserva su contenido; entre uno y otro queda una línea en blanco.
+   */
+  async processFiles(files: File[]): Promise<void> {
+    if (!files.length) {
+      return;
+    }
     this.errorMessage.set(null);
     const validExtensions = ['.sql', '.txt', '.js'];
-    const lower = file.name.toLowerCase();
-    const hasValidExt = validExtensions.some(ext => lower.endsWith(ext));
-
-    if (!hasValidExt) {
-      this.errorMessage.set('Formato de archivo no habitual. Se recomienda utilizar un archivo .sql o de texto plano.');
+    const invalid = files.filter(file =>
+      !validExtensions.some(ext => file.name.toLowerCase().endsWith(ext))
+    );
+    if (invalid.length) {
+      const names = invalid.map(file => file.name).join(', ');
+      this.errorMessage.set(`Formato de archivo no habitual en ${names}. Se recomienda .sql o texto plano.`);
     }
 
-    const reader = new FileReader();
-    reader.onload = () => {
-      const text = typeof reader.result === 'string' ? reader.result : '';
-      this.fileName.set(file.name);
-      this.fileSize.set(file.size);
-      this.initScriptChange.emit(text);
-    };
-    reader.onerror = () => {
-      this.errorMessage.set('Error al leer el archivo. Asegúrese de que sea texto plano codificado en UTF-8.');
-    };
-    reader.readAsText(file);
+    try {
+      const texts = await Promise.all(files.map(file => this.readFileText(file)));
+      const script = texts.map(text => text.replace(/\s+$/, '')).join('\n\n');
+      this.fileNames.set(files.map(file => file.name));
+      this.fileName.set(files.length === 1 ? files[0].name : `${files.length} archivos`);
+      this.fileSize.set(files.reduce((total, file) => total + file.size, 0));
+      this.initScriptChange.emit(script);
+    } catch {
+      this.errorMessage.set('Error al leer un archivo. Asegúrese de que sea texto plano codificado en UTF-8.');
+    }
+  }
+
+  private readFileText(file: File): Promise<string> {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(typeof reader.result === 'string' ? reader.result : '');
+      reader.onerror = () => reject(reader.error ?? new Error('read error'));
+      reader.readAsText(file);
+    });
   }
 
   onTextareaChange(newText: string): void {
     this.fileSize.set(null);
+    this.fileNames.set([]);
     this.initScriptChange.emit(newText);
   }
 
   clearScript(): void {
     this.fileName.set(null);
+    this.fileNames.set([]);
     this.fileSize.set(null);
     this.errorMessage.set(null);
     this.initScriptChange.emit('');

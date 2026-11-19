@@ -65,7 +65,14 @@ export interface ApprovedTemplate {
       </section>
 
       <!-- 3. Script de Base de Datos Satélite (si aplica) -->
-      @if (hasDatabaseService()) {
+      @if (!hasDatabaseService() && store.metadata().db_init_script.trim()) {
+        <section class="form-section">
+          <p class="script-published-note">
+            La plantilla elegida no incluye base de datos y la práctica conserva un script SQL. Mientras siga ahí no se puede publicar: limpialo abajo o elegí una plantilla con base.
+          </p>
+        </section>
+      }
+      @if (hasDatabaseService() || store.metadata().db_init_script.trim()) {
         <section class="form-section">
           <ide-db-init-script
             [dbInitScript]="store.metadata().db_init_script || ''"

@@ -326,6 +326,13 @@ type environmentAccessURLUpdater interface {
 	UpdateAccessURL(ctx context.Context, id, accessURL string) error
 }
 
+// environmentTemplateUpdater persiste la plantilla con la que se reconstruyó el
+// laboratorio. Sin esto el registro queda apuntando a la plantilla anterior a
+// una republicación, aunque el contenedor ya use la nueva.
+type environmentTemplateUpdater interface {
+	UpdateTemplateID(ctx context.Context, id, templateID string) error
+}
+
 func sanitizeIDForDB(id string) string {
 	cleaned := strings.ToLower(strings.ReplaceAll(id, "-", ""))
 	if len(cleaned) > 8 {

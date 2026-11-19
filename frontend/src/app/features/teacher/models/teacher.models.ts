@@ -805,6 +805,7 @@ export interface ExerciseDetailDTO {
   type?: string;
   environment_type?: string;
   template_id?: string | null;
+  environment_snapshot?: { template_id?: string | null } | null;
   difficulty?: 'easy' | 'medium' | 'hard' | string | null;
   tags?: string[];
   purpose?: string;

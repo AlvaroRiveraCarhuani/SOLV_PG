@@ -48,6 +48,18 @@ func (s *PracticeEnvironmentService) reactivatePracticeEnvironment(ctx context.C
 	// práctica abierta antes de un cambio de plantilla no se reconstruye con la
 	// imagen de otra práctica de la materia.
 	template := s.resolveTemplateForInstance(ctx, instance)
+	if template != nil && strings.TrimSpace(template.ID) != "" {
+		if instance.TemplateID == nil || *instance.TemplateID != template.ID {
+			if updater, ok := s.repo.(environmentTemplateUpdater); ok {
+				if err := updater.UpdateTemplateID(ctx, instance.ID, template.ID); err != nil {
+					log.Printf("[PracticeEnvironment] WARNING: no se pudo persistir template_id de %s: %v", instance.ID, err)
+				} else {
+					templateID := template.ID
+					instance.TemplateID = &templateID
+				}
+			}
+		}
+	}
 
 	// La cuota al despertar se decide otra vez: el préstamo no sobrevive a la
 	// hibernación. La base la fijan la política y la plantilla; el hueco del

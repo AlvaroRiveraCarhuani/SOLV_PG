@@ -76,6 +76,8 @@ export class ExerciseEditorStore {
   readonly moduleId = signal<string | null>(null);
   readonly exerciseId = signal<string | null>(null);
   readonly status = signal<'draft' | 'published'>('draft');
+  /** Plantilla que quedó fijada en el environment_snapshot al publicar. */
+  readonly publishedTemplateId = signal<string | null>(null);
   readonly isSaving = signal<boolean>(false);
   readonly isPublishing = signal<boolean>(false);
   readonly showPublishConfirmModal = signal<boolean>(false);
@@ -91,6 +93,17 @@ export class ExerciseEditorStore {
 
   readonly rubric = signal<RubricDTO | null>(null);
   readonly isIde = computed(() => this.metadata().environment_type === 'IDE_PERSISTENTE' || this.metadata().modality === 'environment');
+
+  /**
+   * El arranque del entorno usa la plantilla fijada al publicar. Si el docente
+   * cambia la plantilla y no republica, los alumnos nuevos siguen recibiendo la
+   * anterior, así que el editor ofrece republicar en ese caso.
+   */
+  readonly templateChangedSincePublish = computed(() =>
+    this.status() === 'published' &&
+    !!this.publishedTemplateId() &&
+    this.metadata().template_id !== this.publishedTemplateId()
+  );
 
   // Paso 1: Identidad y Pedagogía
   readonly metadata = signal<ExerciseMetadata>({
@@ -410,6 +423,18 @@ export class ExerciseEditorStore {
     };
   });
 
+  private templateHasDatabaseService(): boolean {
+    const config = this.metadata().template?.services_config as {
+      database?: { enabled?: boolean };
+      services?: Array<{ category?: string; engine?: string }>;
+    } | null | undefined;
+    if (!config) return false;
+    if (config.database?.enabled) return true;
+    return (config.services || []).some(
+      service => service.category === 'database' && !!service.engine && service.engine !== 'none'
+    );
+  }
+
   readonly missingPublishRequirements = computed<string[]>(() => {
     const list: string[] = [];
     const m = this.metadata();
@@ -423,6 +448,8 @@ export class ExerciseEditorStore {
     if (m.environment_type === 'IDE_PERSISTENTE') {
       if (!m.template_id) {
         list.push('Seleccionar un entorno tecnológico (stack) para el laboratorio.');
+      } else if ((m.db_init_script || '').trim() && !this.templateHasDatabaseService()) {
+        list.push('Quitar el script SQL o elegir una plantilla con base de datos.');
       }
       // La rúbrica es opcional: sin criterios se califica a mano. No bloquea publicar.
     } else {
@@ -717,11 +744,6 @@ export class ExerciseEditorStore {
           return isJudgeCompatible && isApproved;
         });
         this.runnerTemplates.set(runners);
-
-        const currentLang = this.metadata().language;
-        if (currentLang) {
-          this.syncLanguageWithTemplate(currentLang, runners);
-        }
       },
       error: () => {}
     });
@@ -738,9 +760,8 @@ export class ExerciseEditorStore {
     }
   }
 
-  private syncLanguageWithTemplate(lang: string, list?: ExerciseTemplateSummary[]): void {
-    const templates = list || this.runnerTemplates();
-    const match = templates.find(r => this.deriveLanguageCode(r) === lang);
+  private syncLanguageWithTemplate(lang: string): void {
+    const match = this.runnerTemplates().find(r => this.deriveLanguageCode(r) === lang);
     if (match) {
       const baseRam = match.base_ram_mb || 128;
       const isDual = (match.target_environment || match.environment_type) === 'AMBOS';
@@ -873,6 +894,7 @@ export class ExerciseEditorStore {
       next: (ex: ExerciseDetailDTO) => {
         if (ex) {
           this.status.set(ex.status === 'published' ? 'published' : 'draft');
+          this.publishedTemplateId.set(ex.environment_snapshot?.template_id ?? null);
           const isIDE = ex.environment_type === 'IDE_PERSISTENTE' || ex.type === 'environment' || ex.type === 'project';
           this.metadata.set({
             title: ex.title || '',
@@ -1085,6 +1107,7 @@ export class ExerciseEditorStore {
 
       this.isPublishing.set(false);
       this.status.set('published');
+      this.publishedTemplateId.set(this.metadata().template_id || null);
       this.publishSuccess.set(true);
       this.showPublishConfirmModal.set(false);
       this.initialSnapshot.set(this.serializeState());

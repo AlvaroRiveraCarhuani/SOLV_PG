@@ -128,6 +128,21 @@ describe('IdeDbInitScriptComponent', () => {
     expect(emitSpy).toHaveBeenCalledWith('CREATE TABLE x (id INT);');
   });
 
+  it('debe concatenar varios archivos en el orden seleccionado', async () => {
+    const schema = new File(['CREATE TABLE a (id INT);'], 'a_schema.sql', { type: 'text/plain' });
+    const datos = new File(['INSERT INTO a VALUES (1);'], 'b_datos.sql', { type: 'text/plain' });
+    const emitSpy = vi.fn();
+    component.initScriptChange.subscribe(emitSpy);
+
+    await component.processFiles([schema, datos]);
+
+    expect(component.fileCount()).toBe(2);
+    expect(component.fileName()).toBe('2 archivos');
+    expect(component.fileNamesTitle()).toBe('a_schema.sql + b_datos.sql');
+    expect(component.fileSize()).toBe(schema.size + datos.size);
+    expect(emitSpy).toHaveBeenCalledWith('CREATE TABLE a (id INT);\n\nINSERT INTO a VALUES (1);');
+  });
+
   it('debe advertir si se carga un archivo con extensión no habitual', () => {
     const file = new File(['test'], 'datos.csv', { type: 'text/csv' });
     component.processFile(file);

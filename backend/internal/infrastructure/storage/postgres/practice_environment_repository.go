@@ -214,6 +214,23 @@ func (r *PostgresPracticeEnvironmentRepository) UpdateContainerID(ctx context.Co
 	return nil
 }
 
+func (r *PostgresPracticeEnvironmentRepository) UpdateTemplateID(ctx context.Context, id, templateID string) error {
+	tenantID := domain.GetTenantID(ctx)
+	if tenantID == "" {
+		tenantID = domain.DefaultTenantID
+	}
+	query := `
+		UPDATE environments
+		SET template_id = $2, updated_at = $3
+		WHERE id = $1 AND tenant_id = $4
+	`
+	_, err := r.db.ExecContext(ctx, query, id, templateID, time.Now(), tenantID)
+	if err != nil {
+		return fmt.Errorf("failed to update template_id for environment %s: %w", id, err)
+	}
+	return nil
+}
+
 func (r *PostgresPracticeEnvironmentRepository) UpdateStatus(ctx context.Context, id string, status string) error {
 	tenantID := domain.GetTenantID(ctx)
 	if tenantID == "" {

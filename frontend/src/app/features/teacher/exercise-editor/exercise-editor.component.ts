@@ -138,10 +138,28 @@ import { Subscription, catchError, of } from 'rxjs';
           </button>
 
           @if (store.status() === 'published') {
-            <div class="published-pill">
-              <svg lucideCheck class="btn-icon"></svg>
-              <span>Publicada</span>
-            </div>
+            @if (store.templateChangedSincePublish()) {
+              <button
+                type="button"
+                class="btn-primary btn-publish-step"
+                [disabled]="store.isPublishing()"
+                (click)="onPublishClick()"
+                title="La plantilla del entorno cambió: republicá para que los alumnos nuevos la reciban"
+              >
+                @if (store.isPublishing()) {
+                  <svg lucideLoader2 class="btn-icon motion-spin"></svg>
+                  <span>Republicando...</span>
+                } @else {
+                  <svg lucideGlobe class="btn-icon"></svg>
+                  <span>Republicar entorno</span>
+                }
+              </button>
+            } @else {
+              <div class="published-pill">
+                <svg lucideCheck class="btn-icon"></svg>
+                <span>Publicada</span>
+              </div>
+            }
           } @else {
             <button
               type="button"
@@ -165,7 +183,10 @@ import { Subscription, catchError, of } from 'rxjs';
       @if (store.status() === 'published') {
         <div class="published-edit-banner" role="status">
           <svg lucideGlobe class="banner-icon"></svg>
-          <span>Esta práctica está publicada: cada cambio que guardes se aplica a los alumnos al instante.</span>
+          <span>
+            Esta práctica está publicada: consigna y rúbrica se aplican al guardar. Si cambiás la
+            plantilla del entorno, usá «Republicar entorno» para que los alumnos nuevos la reciban.
+          </span>
         </div>
       }
 
