@@ -487,7 +487,12 @@ export class StudentExerciseSolverComponent implements OnInit {
       return;
     }
 
-    const tab = typeof window !== 'undefined' ? window.open('/entorno.html', '_blank') : null;
+    // La pestaña de preparación lleva la ruta del ejercicio: si el arranque no
+    // responde, su aviso puede volver acá en vez de girar sin fin.
+    const preparacion = typeof window !== 'undefined'
+      ? `/entorno.html?volver=${encodeURIComponent(window.location.pathname + window.location.search)}`
+      : '/entorno.html';
+    const tab = typeof window !== 'undefined' ? window.open(preparacion, '_blank') : null;
     if (tab) {
       tab.opener = null;
     }

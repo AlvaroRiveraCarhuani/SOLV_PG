@@ -42,6 +42,14 @@
       }
       h1 { margin: 0; font-size: 20px; font-weight: 600; }
       p { margin: 0; font-size: 14px; line-height: 1.55; color: var(--tenue); }
+    .volver a {
+      color: var(--acento);
+      font-size: 14px;
+      font-weight: 600;
+      text-decoration: none;
+    }
+    .volver a:hover,
+    .volver a:focus-visible { text-decoration: underline; }
       @keyframes girar { to { transform: rotate(360deg); } }
       @media (prefers-reduced-motion: reduce) {
         .rueda { animation-duration: 2.4s; }
@@ -50,12 +58,16 @@
   </head>
   <body>
     <main>
-      <div class="rueda" role="progressbar" aria-label="Preparando el entorno"></div>
-      <h1>Preparando tu entorno</h1>
-      <p>
+      <div class="rueda" id="rueda" role="progressbar" aria-label="Preparando el entorno"></div>
+      <h1 id="titulo">Preparando tu entorno</h1>
+      <p id="detalle">
         El editor se está iniciando. Esta pestaña te lleva sola en cuanto esté
         listo; si tarda, volvé a la pestaña anterior y elegí abrir el IDE otra vez.
       </p>
+      <p class="volver" id="volver" hidden>
+        <a id="volver-enlace" href="/student">Volver a la página del ejercicio</a>
+      </p>
     </main>
+    <script src="/entorno.js"></script>
   </body>
 </html>
