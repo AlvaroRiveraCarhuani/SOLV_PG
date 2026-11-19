@@ -77,6 +77,9 @@ services:
       # daemon de Docker, así que la ruta debe ser la del host (no /app). Vacía
       # desactiva el montaje y el entorno arranca sin la extensión.
       SOLV_COMPANION_HOST_PATH: ${SOLV_COMPANION_HOST_PATH:-}
+      # Plantillas de herramienta que reciben el socket de Docker en solo
+      # lectura (ids separados por coma). Vacía: ningún entorno lo monta.
+      SOLV_DOCKER_SOCKET_TEMPLATE_IDS: ${SOLV_DOCKER_SOCKET_TEMPLATE_IDS:-}
     ports:
       - "127.0.0.1:3000:3000"
     volumes:

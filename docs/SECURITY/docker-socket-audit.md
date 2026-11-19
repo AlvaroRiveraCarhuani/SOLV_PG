@@ -18,6 +18,7 @@ The SOLV platform orchestrates dynamic virtual lab containers and code evaluatio
 1. **No Docker Socket Mounting in Runner Containers:**
    - Ephemeral student evaluation containers and OpenVSCode environment containers are strictly **forbidden** from having `/var/run/docker.sock` mounted into their filesystems.
    - Container breakout attempts inside student/environment containers cannot access the Docker daemon API.
+   - **Excepción declarada:** una plantilla de herramienta puede pedir el socket en solo lectura si su id figura en `SOLV_DOCKER_SOCKET_TEMPLATE_IDS`. El modo `:ro` impide reemplazar el archivo del socket, no limitar las llamadas a la API: esa plantilla otorga al alumno el mismo acceso de lectura al daemon que tiene el backend, y por eso la lista debe quedar acotada a laboratorios de inspección.
 
 2. **Backend API Scope Isolation:**
    - Only the trusted backend API daemon interacts with the Docker SDK (`github.com/docker/docker/client`).

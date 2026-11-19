@@ -38,6 +38,11 @@ const (
 	// extensión queda marcada como no instalada.
 	practiceEnvironmentBuiltinExtensionsDir = "/home/.openvscode-server/extensions"
 
+	// dockerSocketReadOnlyBind es el montaje con el que una plantilla de
+	// herramienta lee el daemon. El modo :ro impide crear o reemplazar el archivo
+	// del socket, no limita las llamadas a la API.
+	dockerSocketReadOnlyBind = "/var/run/docker.sock:/var/run/docker.sock:ro"
+
 	// defaultWorkspaceSettingsScript siembra preferencias visuales y de autoguardado iniciales
 	// en el workspace para la comodidad del alumno si aún no existe settings.json.
 	defaultWorkspaceSettingsScript = `if [ ! -f /home/workspace/.vscode/settings.json ]; then printf '{\n  "workbench.colorTheme": "Default Dark Modern",\n  "editor.fontSize": 14,\n  "editor.tabSize": 4,\n  "editor.formatOnSave": true,\n  "editor.minimap.enabled": false,\n  "workbench.startupEditor": "none",\n  "files.autoSave": "afterDelay",\n  "files.autoSaveDelay": 1000\n}\n' > /home/workspace/.vscode/settings.json; fi`
@@ -227,6 +232,13 @@ func (c *Client) StartPracticeEnvironmentContainer(ctx context.Context, config d
 
 	if companionMount := resolveCompanionExtensionMount(); companionMount != "" {
 		hostConfig.Binds = append(hostConfig.Binds, companionMount)
+	}
+
+	// Una plantilla de herramienta declara el socket para que su TUI pueda leer
+	// el estado de los contenedores del nodo. El montaje es por contenedor y de
+	// solo lectura; el resto de los laboratorios no lo recibe.
+	if config.MountDockerSocket {
+		hostConfig.Binds = append(hostConfig.Binds, dockerSocketReadOnlyBind)
 	}
 
 	shipsOpenVSCode := imageShipsOpenVSCode(config.Image)

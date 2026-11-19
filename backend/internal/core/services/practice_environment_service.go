@@ -484,6 +484,26 @@ func (s *PracticeEnvironmentService) ensureExerciseSatelliteDB(ctx context.Conte
 	return merged, nil
 }
 
+// dockerSocketMountForTemplate decide si el laboratorio recibe el socket del
+// daemon. La lista de plantillas habilitadas vive en
+// SOLV_DOCKER_SOCKET_TEMPLATE_IDS: sin variable, ningún entorno lo monta, que es
+// el comportamiento por defecto de la plataforma (ADR-043).
+func dockerSocketMountForTemplate(template *domain.Template) bool {
+	if template == nil {
+		return false
+	}
+	templateID := strings.TrimSpace(template.ID)
+	if templateID == "" {
+		return false
+	}
+	for _, candidate := range strings.Split(os.Getenv("SOLV_DOCKER_SOCKET_TEMPLATE_IDS"), ",") {
+		if strings.EqualFold(strings.TrimSpace(candidate), templateID) {
+			return true
+		}
+	}
+	return false
+}
+
 // sanitizePracticeEnvironmentSetupScript devuelve el script de arranque de la plantilla
 // sin espacios sobrantes; una plantilla sin script no arranca con "".
 func sanitizePracticeEnvironmentSetupScript(template *domain.Template) string {
@@ -1028,7 +1048,8 @@ func (s *PracticeEnvironmentService) startPracticeEnvironment(ctx context.Contex
 		ExamNoEgress: profile.IsExam() && exercise != nil && domain.NormalizeExamNetwork(exercise.ExamNetwork) == domain.ExamNetworkNone,
 		// Con la clase pausada el volumen nace en solo lectura: el alumno puede
 		// entrar a leer su trabajo, pero no escribir hasta que se reanude.
-		ReadOnly: aulaPaused,
+		ReadOnly:          aulaPaused,
+		MountDockerSocket: dockerSocketMountForTemplate(template),
 	}
 
 	// 10. Instanciación e inicio del contenedor OpenVSCode Server

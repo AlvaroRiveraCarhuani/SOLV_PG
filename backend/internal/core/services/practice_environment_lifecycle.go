@@ -149,7 +149,8 @@ func (s *PracticeEnvironmentService) reactivatePracticeEnvironment(ctx context.C
 		AttachSatellitesNet: provision.UsesManagedContainer,
 		ExamNoEgress:        instance.EnvironmentProfile.IsExam() && s.examNetworkPolicyFor(ctx, instance.TenantID, instance.ExerciseID) == domain.ExamNetworkNone,
 		// Si la clase está pausada, el entorno despierta en solo lectura.
-		ReadOnly: aulaPaused,
+		ReadOnly:          aulaPaused,
+		MountDockerSocket: dockerSocketMountForTemplate(template),
 	}
 
 	containerID, err := s.docker.StartPracticeEnvironmentContainer(ctx, config)

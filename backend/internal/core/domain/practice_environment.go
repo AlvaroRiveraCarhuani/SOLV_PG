@@ -236,6 +236,10 @@ type PracticeEnvironmentContainerConfig struct {
 	// cerrar un examen: el bloqueo lo aplica el sistema de archivos, no la
 	// pantalla (ADR-005 §5).
 	ReadOnly bool
+	// MountDockerSocket monta el socket del daemon en solo lectura. Solo lo pide
+	// una plantilla declarada en SOLV_DOCKER_SOCKET_TEMPLATE_IDS: el resto de los
+	// laboratorios sigue sin acceso al daemon (ADR-043).
+	MountDockerSocket bool
 }
 
 // PracticeEnvironmentVolumeFile es un archivo leído del volumen de un environment.
