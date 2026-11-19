@@ -19,7 +19,14 @@ func NewPostgresTemplateRepository(db *sqlx.DB) *PostgresTemplateRepository {
 }
 
 func (r *PostgresTemplateRepository) GetTemplateByID(ctx context.Context, id string) (*domain.Template, error) {
+	// Las tareas de background (por ejemplo, el apagado de motores ociosos) leen
+	// sin tenant en el contexto. La columna es uuid: mandar cadena vacía hace
+	// fallar la consulta y la plantilla queda ilegible, así que sin tenant se usa
+	// el del nodo, igual que el resto de los repositorios.
 	tenantID := domain.GetTenantID(ctx)
+	if tenantID == "" {
+		tenantID = domain.DefaultTenantID
+	}
 	query := `
 		SELECT 
 			id, name, docker_image, base_ram_mb,
