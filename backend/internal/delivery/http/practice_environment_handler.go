@@ -224,6 +224,7 @@ func (h *PracticeEnvironmentHandler) OpenPracticeIDE(w http.ResponseWriter, r *h
 		"template_id":    instance.TemplateID,
 		"status":         instance.Status,
 		"access_url":     instance.AccessURL,
+		"app_url":        instance.AppURL,
 		"volume_name":    instance.VolumeName(),
 		// La vista del docente muestra los tres números de la cuota con el
 		// mismo criterio que la ficha del alumno.

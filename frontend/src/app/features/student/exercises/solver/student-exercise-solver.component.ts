@@ -174,6 +174,8 @@ export class StudentExerciseSolverComponent implements OnInit {
   });
 
   readonly environmentIsRunning = computed<boolean>(() => this.environment()?.status === 'running');
+  /** URL de la aplicación del alumno, cuando la práctica declara app_port. */
+  readonly appUrl = computed<string | null>(() => this.environment()?.app_url ?? null);
 
   /**
    * Estado que ve el alumno. Sale del campo calculado por el servidor; si no

@@ -295,6 +295,58 @@ func reservePracticeEnvironmentHostPort() (string, error) {
 	return strconv.Itoa(addr.Port), nil
 }
 
+// attachPracticeAppURL completa la URL de la aplicación cuando el laboratorio ya
+// estaba en marcha: el puerto lo publicó su arranque anterior y se lee del
+// contenedor en lugar de reservar otro.
+func (s *PracticeEnvironmentService) attachPracticeAppURL(ctx context.Context, instance *domain.PracticeEnvironment) {
+	if instance == nil || instance.AppURL != "" || instance.ContainerID == nil || *instance.ContainerID == "" {
+		return
+	}
+	exerciseID := ""
+	if instance.ExerciseID != nil {
+		exerciseID = *instance.ExerciseID
+	}
+	appPort := practiceAppPort(s.resolveExercise(ctx, exerciseID, instance.TenantID))
+	if appPort <= 0 {
+		return
+	}
+	lookup, ok := s.docker.(domain.PracticeEnvironmentPortLookup)
+	if !ok {
+		return
+	}
+	hostPort, err := lookup.PublishedHostPort(ctx, *instance.ContainerID, appPort)
+	if err != nil || hostPort == "" {
+		return
+	}
+	instance.AppURL = buildPracticeAppAccessURL(instance.ID, hostPort)
+}
+
+// practiceAppPort devuelve el puerto donde la práctica espera su aplicación.
+// Cero desactiva la publicación: sin receta no se abre nada al navegador. El
+// 3000 queda fuera porque dentro de ese contenedor lo ocupa el editor.
+func practiceAppPort(exercise *domain.Exercise) int {
+	if exercise == nil || exercise.Config.IDE == nil {
+		return 0
+	}
+	port := exercise.Config.IDE.AppPort
+	if port < 1 || port > 65535 || port == 3000 {
+		return 0
+	}
+	return port
+}
+
+// buildPracticeAppAccessURL resuelve el acceso a la aplicación del alumno: host
+// propio cuando hay dominio público, y el puerto local del nodo cuando no.
+func buildPracticeAppAccessURL(environmentID, hostPort string) string {
+	if baseDomain := getBaseDomain(); baseDomain != "" {
+		return fmt.Sprintf("https://%s-app.%s", environmentID, baseDomain)
+	}
+	if hostPort != "" {
+		return fmt.Sprintf("http://localhost:%s", hostPort)
+	}
+	return ""
+}
+
 // buildPracticeEnvironmentAccessURL resuelve el acceso al environment publicado en el host.
 func buildPracticeEnvironmentAccessURL(environmentID, hostPort string) string {
 	if baseDomain := getBaseDomain(); baseDomain != "" {
@@ -856,6 +908,9 @@ func (s *PracticeEnvironmentService) startPracticeEnvironment(ctx context.Contex
 				// de entregar un enlace que no carga. Con el aula pausada no se
 				// devuelve el contenedor vivo: se reconstruye en solo lectura.
 				if s.containerAlive(ctx, existing.ContainerID) && !aulaPaused {
+					// El contenedor sigue en marcha: se devuelve tal cual, con la URL
+					// de la aplicación recuperada de sus puertos publicados.
+					s.attachPracticeAppURL(ctx, existing)
 					return existing, nil
 				}
 				return s.reactivatePracticeEnvironment(ctx, existing, provision, linkSession)
@@ -1050,6 +1105,33 @@ func (s *PracticeEnvironmentService) startPracticeEnvironment(ctx context.Contex
 		// entrar a leer su trabajo, pero no escribir hasta que se reanude.
 		ReadOnly:          aulaPaused,
 		MountDockerSocket: dockerSocketMountForTemplate(template),
+	}
+
+	// 9.b. Publicación de la aplicación del alumno. La receta es la misma que usa
+	// el docente al revisar una entrega: app_port en la práctica. Sin app_port el
+	// laboratorio queda como estaba, con el editor como único servicio.
+	if appPort := practiceAppPort(exercise); appPort > 0 && !config.ExamNoEgress {
+		if appHostPort, portErr := reservePracticeEnvironmentHostPort(); portErr == nil {
+			config.AppPort = appPort
+			config.AppHostPort = appHostPort
+			instance.AppURL = buildPracticeAppAccessURL(instance.ID, appHostPort)
+			if baseDomain != "" {
+				router := "app-" + instance.ID
+				// Dos routers sobre el mismo contenedor: se declara a qué servicio
+				// pertenece cada uno, porque Traefik no los vincula solo.
+				labels[fmt.Sprintf("traefik.http.routers.%s.service", instance.ID)] = instance.ID
+				labels[fmt.Sprintf("traefik.http.routers.%s.service", router)] = router
+				labels[fmt.Sprintf("traefik.http.routers.%s.rule", router)] = fmt.Sprintf("Host(`%s-app.%s`)", instance.ID, baseDomain)
+				labels[fmt.Sprintf("traefik.http.routers.%s.tls", router)] = "true"
+				labels[fmt.Sprintf("traefik.http.routers.%s.tls.certresolver", router)] = "letsencrypt"
+				labels[fmt.Sprintf("traefik.http.services.%s.loadbalancer.server.port", router)] = strconv.Itoa(appPort)
+				// El servidor de desarrollo del proyecto rechaza hosts que no
+				// conoce (Vite y Angular responden 403). Se entrega la petición sin
+				// el host del cliente: el servicio queda como `ip:puerto`, que los
+				// servidores de desarrollo aceptan.
+				labels[fmt.Sprintf("traefik.http.services.%s.loadbalancer.passhostheader", router)] = "false"
+			}
+		}
 	}
 
 	// 10. Instanciación e inicio del contenedor OpenVSCode Server

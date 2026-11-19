@@ -19,6 +19,14 @@ type LabContainerConfig struct {
 	Labels        map[string]string
 }
 
+// PracticeEnvironmentPortLookup resuelve en qué puerto de 127.0.0.1 quedó
+// publicado un puerto del contenedor. Es una capacidad opcional: sirve para
+// reconstruir la URL de la aplicación cuando el laboratorio ya estaba en marcha
+// y no hace falta volver a crearlo.
+type PracticeEnvironmentPortLookup interface {
+	PublishedHostPort(ctx context.Context, containerID string, containerPort int) (string, error)
+}
+
 type ContainerOrchestrator interface {
 	EnsureVolumeExists(ctx context.Context, volumeName string) error
 	ExecuteDryRun(ctx context.Context, image string) (int64, error)

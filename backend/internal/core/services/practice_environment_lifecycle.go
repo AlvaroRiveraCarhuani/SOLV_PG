@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"strconv"
 	"strings"
 
 	"solv-backend/internal/core/domain"
@@ -34,6 +35,9 @@ func (s *PracticeEnvironmentService) reactivatePracticeEnvironment(ctx context.C
 	// aula pausada se salta el atajo: despausar devolvería la escritura.
 	if !aulaPaused && instance.ContainerID != nil && *instance.ContainerID != "" && s.containerAlive(ctx, instance.ContainerID) {
 		if err := s.docker.UnpauseContainer(ctx, *instance.ContainerID); err == nil {
+			// El contenedor ya estaba en marcha y conserva sus puertos: la URL de la
+			// aplicación se recupera del propio contenedor.
+			s.attachPracticeAppURL(ctx, instance)
 			_ = s.repo.UpdateStatus(ctx, instance.ID, domain.PracticeEnvironmentStatusRunning)
 			_ = s.repo.RecordHeartbeat(ctx, instance.ID)
 			instance.Status = domain.PracticeEnvironmentStatusRunning
@@ -133,6 +137,13 @@ func (s *PracticeEnvironmentService) reactivatePracticeEnvironment(ctx context.C
 	envVars = append(envVars, s.workspaceDependencyEnvVars(ctx, instance.TenantID, exerciseIDStr)...)
 	envVars = append(envVars, provision.Env...)
 
+	// La aplicación del alumno se vuelve a publicar al despertar: el puerto local
+	// lo reserva el nodo y no sobrevive a la recreación del contenedor.
+	var appExercise *domain.Exercise
+	if exerciseIDStr != "" {
+		appExercise = s.resolveExercise(ctx, exerciseIDStr, instance.TenantID)
+	}
+
 	runtimePolicies := s.effectivePolicies(ctx, instance.TenantID)
 	config := domain.PracticeEnvironmentContainerConfig{
 		Image:               imageName,
@@ -151,6 +162,28 @@ func (s *PracticeEnvironmentService) reactivatePracticeEnvironment(ctx context.C
 		// Si la clase está pausada, el entorno despierta en solo lectura.
 		ReadOnly:          aulaPaused,
 		MountDockerSocket: dockerSocketMountForTemplate(template),
+	}
+
+	if appPort := practiceAppPort(appExercise); appPort > 0 && !config.ExamNoEgress {
+		if appHostPort, portErr := reservePracticeEnvironmentHostPort(); portErr == nil {
+			config.AppPort = appPort
+			config.AppHostPort = appHostPort
+			instance.AppURL = buildPracticeAppAccessURL(instance.ID, appHostPort)
+			if baseDomain != "" {
+				router := "app-" + instance.ID
+				// Dos routers sobre el mismo contenedor: se declara a qué servicio
+				// pertenece cada uno, porque Traefik no los vincula solo.
+				labels[fmt.Sprintf("traefik.http.routers.%s.service", instance.ID)] = instance.ID
+				labels[fmt.Sprintf("traefik.http.routers.%s.service", router)] = router
+				labels[fmt.Sprintf("traefik.http.routers.%s.rule", router)] = fmt.Sprintf("Host(`%s-app.%s`)", instance.ID, baseDomain)
+				labels[fmt.Sprintf("traefik.http.routers.%s.tls", router)] = "true"
+				labels[fmt.Sprintf("traefik.http.routers.%s.tls.certresolver", router)] = "letsencrypt"
+				labels[fmt.Sprintf("traefik.http.services.%s.loadbalancer.server.port", router)] = strconv.Itoa(appPort)
+				// El servidor de desarrollo del proyecto rechaza hosts que no conoce;
+				// sin el host del cliente el servicio queda como `ip:puerto`.
+				labels[fmt.Sprintf("traefik.http.services.%s.loadbalancer.passhostheader", router)] = "false"
+			}
+		}
 	}
 
 	containerID, err := s.docker.StartPracticeEnvironmentContainer(ctx, config)

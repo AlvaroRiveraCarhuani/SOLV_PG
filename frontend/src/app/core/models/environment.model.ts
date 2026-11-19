@@ -33,6 +33,9 @@ export interface Environment {
   subdomain?: string;
   url?: string;
   access_url?: string;
+  /** URL de la aplicación del alumno publicada en su propio puerto. Solo existe
+   * cuando la práctica declara app_port. */
+  app_url?: string;
   type?: string;
   memory_limit_mb: number;
   /** Perfil que declaró la plantilla antes del préstamo de memoria del nodo. */

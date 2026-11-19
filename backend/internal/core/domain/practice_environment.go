@@ -102,14 +102,18 @@ func ProfileSpecFor(profile EnvironmentProfile) EnvironmentProfileSpec {
 }
 
 type PracticeEnvironment struct {
-	ID            string  `db:"id" json:"environment_id"`
-	StudentID     string  `db:"student_id" json:"student_id"`
-	SubjectID     string  `db:"subject_id" json:"subject_id"`
-	Type          string  `db:"type" json:"type"`
-	ContainerID   *string `db:"container_id" json:"-"`
-	Status        string  `db:"status" json:"status"`
-	AccessURL     string  `db:"access_url" json:"access_url"`
-	MemoryLimitMB int64   `db:"memory_limit_mb" json:"memory_limit_mb"`
+	ID          string  `db:"id" json:"environment_id"`
+	StudentID   string  `db:"student_id" json:"student_id"`
+	SubjectID   string  `db:"subject_id" json:"subject_id"`
+	Type        string  `db:"type" json:"type"`
+	ContainerID *string `db:"container_id" json:"-"`
+	Status      string  `db:"status" json:"status"`
+	AccessURL   string  `db:"access_url" json:"access_url"`
+	// AppURL es la URL de la aplicación del alumno publicada en su propio
+	// puerto. Se arma en cada arranque y no se persiste: el puerto lo reserva el
+	// nodo cuando recrea el contenedor.
+	AppURL        string `db:"-" json:"app_url,omitempty"`
+	MemoryLimitMB int64  `db:"memory_limit_mb" json:"memory_limit_mb"`
 	// MemoryProfileMB es lo que declaró la plantilla (o la política) antes del
 	// préstamo de memoria del nodo. Con MemoryLimitMB se explica la diferencia
 	// entre lo pedido y lo concedido.
@@ -236,6 +240,11 @@ type PracticeEnvironmentContainerConfig struct {
 	// cerrar un examen: el bloqueo lo aplica el sistema de archivos, no la
 	// pantalla (ADR-005 §5).
 	ReadOnly bool
+	// AppPort es el puerto donde la práctica espera su aplicación dentro del
+	// contenedor. Cero no publica nada.
+	AppPort int
+	// AppHostPort es el puerto de 127.0.0.1 donde se publica AppPort.
+	AppHostPort string
 	// MountDockerSocket monta el socket del daemon en solo lectura. Solo lo pide
 	// una plantilla declarada en SOLV_DOCKER_SOCKET_TEMPLATE_IDS: el resto de los
 	// laboratorios sigue sin acceso al daemon (ADR-043).

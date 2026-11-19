@@ -227,6 +227,19 @@
                 </p>
               }
 
+              @if (appUrl(); as url) {
+                <a
+                  class="btn-outline rail-action"
+                  data-testid="btn-open-app"
+                  [href]="url"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  <svg lucideExternalLink class="btn-icon" aria-hidden="true"></svg>
+                  <span>Abrir mi aplicación</span>
+                </a>
+              }
+
               @if (resourceQuota(); as quota) {
                 <dl class="quota-summary">
                   <div class="quota-item">

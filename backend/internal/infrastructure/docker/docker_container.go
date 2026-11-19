@@ -241,6 +241,19 @@ func (c *Client) StartPracticeEnvironmentContainer(ctx context.Context, config d
 		hostConfig.Binds = append(hostConfig.Binds, dockerSocketReadOnlyBind)
 	}
 
+	// La aplicación del alumno se publica en 127.0.0.1, igual que el editor: la
+	// plataforma nunca expone un puerto directo a la red.
+	exposedPorts := nat.PortSet{nat.Port(environmentServerPort): struct{}{}}
+	if config.AppPort > 0 {
+		appPort := nat.Port(fmt.Sprintf("%d/tcp", config.AppPort))
+		hostPort := strings.TrimSpace(config.AppHostPort)
+		if hostPort == "" {
+			hostPort = "0"
+		}
+		hostConfig.PortBindings[appPort] = []nat.PortBinding{{HostIP: "127.0.0.1", HostPort: hostPort}}
+		exposedPorts[appPort] = struct{}{}
+	}
+
 	shipsOpenVSCode := imageShipsOpenVSCode(config.Image)
 
 	// Inyección de variables de entorno del environment.
@@ -278,7 +291,7 @@ func (c *Client) StartPracticeEnvironmentContainer(ctx context.Context, config d
 		Image:        config.Image,
 		Labels:       mergeTestRunLabels(labels),
 		Env:          envList,
-		ExposedPorts: nat.PortSet{nat.Port(environmentServerPort): struct{}{}},
+		ExposedPorts: exposedPorts,
 	}
 
 	if shipsOpenVSCode {
@@ -555,6 +568,50 @@ func (c *Client) HibernateContainer(ctx context.Context, containerID string) err
 	}
 
 	return nil
+}
+
+// PublishedHostPort devuelve el puerto de 127.0.0.1 donde el contenedor publicó
+// el puerto interno indicado. Cadena vacía cuando no hay publicación.
+func (c *Client) PublishedHostPort(ctx context.Context, containerID string, containerPort int) (string, error) {
+	info, err := c.cli.ContainerInspect(ctx, containerID)
+	if err != nil {
+		if errdefs.IsNotFound(err) {
+			return "", nil
+		}
+		return "", fmt.Errorf("failed to inspect container %q: %w", containerID, err)
+	}
+	if info.NetworkSettings == nil {
+		return "", nil
+	}
+	for _, binding := range info.NetworkSettings.Ports[nat.Port(fmt.Sprintf("%d/tcp", containerPort))] {
+		if hostPort := strings.TrimSpace(binding.HostPort); hostPort != "" {
+			return hostPort, nil
+		}
+	}
+	return "", nil
+}
+
+// ReadCompanionEnv devuelve las variables SOLV_* del contenedor. Al
+// reconstruirlo por una pausa hay que conservarlas: el contexto del docente no
+// sirve para regenerar el token ni el rol del alumno.
+func (c *Client) ReadCompanionEnv(ctx context.Context, containerID string) ([]string, error) {
+	info, err := c.cli.ContainerInspect(ctx, containerID)
+	if err != nil {
+		if errdefs.IsNotFound(err) {
+			return nil, nil
+		}
+		return nil, fmt.Errorf("failed to inspect container %q: %w", containerID, err)
+	}
+	if info.Config == nil {
+		return nil, nil
+	}
+	env := make([]string, 0, len(info.Config.Env))
+	for _, item := range info.Config.Env {
+		if strings.HasPrefix(item, "SOLV_") {
+			env = append(env, item)
+		}
+	}
+	return env, nil
 }
 
 // StopAndRemoveContainer detiene y elimina el contenedor respetando estrictamente el volumen persistente.

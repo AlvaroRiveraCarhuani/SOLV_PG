@@ -268,6 +268,16 @@ Cuando es IDE:
 - No invoca `/api/v1/evaluations` ni muestra el panel del juez.
 - Inicia/reconecta el entorno con `startEnvironment(subject_id, exercise_id)` y muestra `status`,
   `access_url` y `last_activity_at`; botón para abrir el IDE en otra pestaña.
+- Si la práctica declara `config.ide.app_port`, el contenedor publica también ese puerto en
+  `127.0.0.1` y la respuesta trae `app_url`; el solver muestra «Abrir mi aplicación». El puerto
+  3000 no se publica como aplicación porque lo ocupa el editor, y un examen sin salida no publica
+  puertos extra. El comando de arranque (`app_run_command`) lo ejecuta el alumno en la terminal del
+  editor: la plataforma publica el puerto, no la aplicación.
+- La URL pública de la aplicación lleva host propio (`<entorno>-app.<dominio>`) y la resuelve
+  Traefik contra el puerto publicado sin reenviar el host del cliente (`passhostheader: false`):
+  así atienden los servidores de desarrollo que rechazan hosts desconocidos, como Vite o el
+  servidor de Angular, que responderían 403. Sin dominio configurado la URL es
+  `http://localhost:<puerto>`.
 - La entrega es el volumen de la práctica: el alumno trabaja en el IDE y el solver no le pide
   copiar archivos en el navegador. `POST /environments/{id}/submit` fotografía el volumen tal como
   está; `files` sigue siendo opcional en la API para herramientas, pero el solver no lo envía.
