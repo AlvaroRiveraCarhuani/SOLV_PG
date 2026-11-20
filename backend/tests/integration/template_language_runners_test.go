@@ -163,6 +163,73 @@ func TestTemplateLanguageRunnersPersistence(t *testing.T) {
 		}
 	})
 
+	// El reemplazo de ejecutores es atómico: si uno no pasa las restricciones de
+	// la tabla, el entorno conserva los lenguajes que tenía.
+	t.Run("una sustitución fallida conserva los ejecutores anteriores", func(t *testing.T) {
+		_, errUpdate := repo.UpdateOfficialTemplate(ctx, tenantID, created.ID, adminID, domain.UpdateOfficialTemplateDTO{
+			Name:              templateName,
+			DockerImage:       "python:3.12-slim-bookworm",
+			BaseRamMB:         256,
+			TargetEnvironment: "JUEZ_EFIMERO",
+			Entrypoint:        "python3 solution.py",
+			LanguageRunners: []domain.LanguageRunner{
+				{Language: "cpp", Entrypoint: "g++ -O3 solution.cpp -o solution && ./solution"},
+				{Language: "java", Entrypoint: "javac Solution.java && java Solution", TimeoutMS: 90000},
+			},
+		})
+		if errUpdate == nil {
+			t.Fatal("la base debía rechazar el ejecutor con timeout fuera de rango")
+		}
+
+		got, errGet := repo.GetTemplateByID(ctx, created.ID)
+		if errGet != nil {
+			t.Fatalf("no se pudo releer la plantilla: %v", errGet)
+		}
+		if len(got.LanguageRunners) != 2 {
+			t.Fatalf("la sustitución fallida dejó %d ejecutores, esperaba los 2 anteriores", len(got.LanguageRunners))
+		}
+		if got.LanguageRunners[0].Language != "python" || got.LanguageRunners[1].Language != "cpp" {
+			t.Fatalf("la sustitución fallida cambió los lenguajes: %q, %q", got.LanguageRunners[0].Language, got.LanguageRunners[1].Language)
+		}
+		if got.LanguageRunners[1].Entrypoint != "g++ -O2 solution.cpp -o solution && ./solution" {
+			t.Errorf("el comando anterior de cpp no se conservó: %q", got.LanguageRunners[1].Entrypoint)
+		}
+		if got.LanguageRunners[1].TimeoutMS != 4000 || got.LanguageRunners[1].MemoryLimitMB != 128 {
+			t.Errorf("los límites anteriores de cpp no se conservaron: timeout=%d memoria=%d", got.LanguageRunners[1].TimeoutMS, got.LanguageRunners[1].MemoryLimitMB)
+		}
+	})
+
+	t.Run("una sustitución válida reemplaza el conjunto", func(t *testing.T) {
+		_, errUpdate := repo.UpdateOfficialTemplate(ctx, tenantID, created.ID, adminID, domain.UpdateOfficialTemplateDTO{
+			Name:              templateName,
+			DockerImage:       "python:3.12-slim-bookworm",
+			BaseRamMB:         256,
+			TargetEnvironment: "JUEZ_EFIMERO",
+			Entrypoint:        "python3 solution.py",
+			LanguageRunners: []domain.LanguageRunner{
+				{Language: "python", Entrypoint: "python3 solution.py", TimeoutMS: 3000},
+				{Language: "cpp", Entrypoint: "g++ -O2 solution.cpp -o solution && ./solution", TimeoutMS: 5000, MemoryLimitMB: 128},
+			},
+		})
+		if errUpdate != nil {
+			t.Fatalf("la sustitución válida fue rechazada: %v", errUpdate)
+		}
+
+		got, errGet := repo.GetTemplateByID(ctx, created.ID)
+		if errGet != nil {
+			t.Fatalf("no se pudo releer la plantilla: %v", errGet)
+		}
+		if len(got.LanguageRunners) != 2 {
+			t.Fatalf("la sustitución dejó %d ejecutores, esperaba 2", len(got.LanguageRunners))
+		}
+		if got.LanguageRunners[0].Language != "python" || got.LanguageRunners[0].TimeoutMS != 3000 {
+			t.Errorf("python no se actualizó: lenguaje=%q timeout=%d", got.LanguageRunners[0].Language, got.LanguageRunners[0].TimeoutMS)
+		}
+		if got.LanguageRunners[1].Language != "cpp" || got.LanguageRunners[1].TimeoutMS != 5000 {
+			t.Errorf("cpp no se actualizó: lenguaje=%q timeout=%d", got.LanguageRunners[1].Language, got.LanguageRunners[1].TimeoutMS)
+		}
+	})
+
 	t.Run("la base rechaza un ejecutor fuera de los límites", func(t *testing.T) {
 		_, errInsert := db.GetDB().Exec(`
 			INSERT INTO template_language_runners (template_id, language, entrypoint, timeout_ms)

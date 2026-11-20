@@ -560,7 +560,7 @@ func (r *PostgresAdminGovernanceRepository) CreateOfficialTemplate(
 
 	created := row.toDomain()
 	if len(dto.LanguageRunners) > 0 {
-		if err := r.insertTemplateLanguageRunners(ctx, created.ID, dto.LanguageRunners); err != nil {
+		if err := r.insertTemplateLanguageRunners(ctx, r.db, created.ID, dto.LanguageRunners); err != nil {
 			// La plantilla sin sus ejecutores no es un entorno válido: se deshace
 			// el alta en lugar de dejar un entorno a medias.
 			_, _ = r.db.ExecContext(ctx, `DELETE FROM lab_templates WHERE id = $1`, created.ID)

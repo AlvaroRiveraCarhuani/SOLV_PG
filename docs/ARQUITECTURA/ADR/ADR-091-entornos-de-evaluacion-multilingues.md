@@ -70,6 +70,7 @@ El editor del docente toma los lenguajes del entorno al elegir la plantilla y pe
 - El docente elige el lenguaje del ejercicio dentro del catálogo real del entorno.
 - El catálogo de lenguajes queda en un solo lugar consultable; `GetTemplateForLanguage` puede preferir plantillas que declaran el lenguaje.
 - Duplicar una plantilla conserva sus lenguajes.
+- El reemplazo del conjunto de ejecutores es transaccional: si un lenguaje no pasa las restricciones de la tabla, la plantilla conserva los que tenía en lugar de quedar con una lista incompleta.
 - Un lenguaje propio (Julia, Lua, Ruby) se agrega con su imagen y su comando, sin tocar el motor.
 
 **Costos y límites**

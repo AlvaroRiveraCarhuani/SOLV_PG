@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/jmoiron/sqlx"
 	"github.com/lib/pq"
 	"solv-backend/internal/core/domain"
 )
@@ -32,25 +33,40 @@ func (row languageRunnerRow) toDomain() domain.LanguageRunner {
 }
 
 // replaceTemplateLanguageRunners deja el conjunto de ejecutores exactamente como
-// lo recibió. Una lista vacía borra los ejecutores del entorno.
+// lo recibió. Una lista vacía borra los ejecutores del entorno. El borrado y las
+// altas van en una transacción: si un ejecutor no pasa las restricciones de la
+// tabla, el entorno conserva los lenguajes que tenía en lugar de quedar a medias.
 func (r *PostgresAdminGovernanceRepository) replaceTemplateLanguageRunners(
 	ctx context.Context,
 	templateID string,
 	runners []domain.LanguageRunner,
 ) error {
-	if _, err := r.db.ExecContext(ctx, `DELETE FROM template_language_runners WHERE template_id = $1`, templateID); err != nil {
+	tx, err := r.db.BeginTxx(ctx, nil)
+	if err != nil {
+		return fmt.Errorf("error abriendo la transacción de ejecutores de lenguaje: %w", err)
+	}
+	defer func() { _ = tx.Rollback() }()
+
+	if _, err := tx.ExecContext(ctx, `DELETE FROM template_language_runners WHERE template_id = $1`, templateID); err != nil {
 		return fmt.Errorf("error limpiando ejecutores de lenguaje: %w", err)
 	}
-	return r.insertTemplateLanguageRunners(ctx, templateID, runners)
+	if err := r.insertTemplateLanguageRunners(ctx, tx, templateID, runners); err != nil {
+		return err
+	}
+	if err := tx.Commit(); err != nil {
+		return fmt.Errorf("error confirmando ejecutores de lenguaje: %w", err)
+	}
+	return nil
 }
 
 func (r *PostgresAdminGovernanceRepository) insertTemplateLanguageRunners(
 	ctx context.Context,
+	exec sqlx.ExtContext,
 	templateID string,
 	runners []domain.LanguageRunner,
 ) error {
 	for _, runner := range runners {
-		_, err := r.db.ExecContext(ctx, `
+		_, err := exec.ExecContext(ctx, `
 			INSERT INTO template_language_runners (
 				template_id, language, entrypoint, docker_image, timeout_ms, memory_limit_mb
 			) VALUES ($1, $2, $3, $4, $5, $6)
