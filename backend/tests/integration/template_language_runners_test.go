@@ -94,7 +94,7 @@ func TestTemplateLanguageRunnersPersistence(t *testing.T) {
 		t.Fatalf("el alta devolvió %d ejecutores, esperaba 2", len(created.LanguageRunners))
 	}
 
-	t.Run("el alta persiste y la lectura devuelve los ejecutores ordenados", func(t *testing.T) {
+	t.Run("el alta persiste y la lectura devuelve los ejecutores en el orden del catálogo", func(t *testing.T) {
 		got, errGet := repo.GetTemplateByID(ctx, created.ID)
 		if errGet != nil {
 			t.Fatalf("no se pudo releer la plantilla: %v", errGet)
@@ -102,10 +102,10 @@ func TestTemplateLanguageRunnersPersistence(t *testing.T) {
 		if len(got.LanguageRunners) != 2 {
 			t.Fatalf("la lectura devolvió %d ejecutores, esperaba 2", len(got.LanguageRunners))
 		}
-		if got.LanguageRunners[0].Language != "cpp" || got.LanguageRunners[1].Language != "python" {
+		if got.LanguageRunners[0].Language != "python" || got.LanguageRunners[1].Language != "cpp" {
 			t.Fatalf("orden inesperado de lenguajes: %q, %q", got.LanguageRunners[0].Language, got.LanguageRunners[1].Language)
 		}
-		cpp := got.LanguageRunners[0]
+		cpp := got.LanguageRunners[1]
 		if cpp.Entrypoint != "g++ -O2 solution.cpp -o solution && ./solution" {
 			t.Errorf("comando de cpp inesperado: %q", cpp.Entrypoint)
 		}
@@ -152,14 +152,14 @@ func TestTemplateLanguageRunnersPersistence(t *testing.T) {
 		if len(got.LanguageRunners) != 2 {
 			t.Fatalf("la copia tiene %d ejecutores, esperaba 2", len(got.LanguageRunners))
 		}
-		if got.LanguageRunners[0].Language != "cpp" || got.LanguageRunners[1].Language != "python" {
+		if got.LanguageRunners[0].Language != "python" || got.LanguageRunners[1].Language != "cpp" {
 			t.Fatalf("la copia no conservó los lenguajes: %q, %q", got.LanguageRunners[0].Language, got.LanguageRunners[1].Language)
 		}
-		if got.LanguageRunners[0].Entrypoint != "g++ -O2 solution.cpp -o solution && ./solution" {
-			t.Errorf("la copia no conservó el comando de cpp: %q", got.LanguageRunners[0].Entrypoint)
+		if got.LanguageRunners[0].Entrypoint != "python3 solution.py" {
+			t.Errorf("la copia no conservó el comando de python: %q", got.LanguageRunners[0].Entrypoint)
 		}
-		if got.LanguageRunners[1].Entrypoint != "python3 solution.py" {
-			t.Errorf("la copia no conservó el comando de python: %q", got.LanguageRunners[1].Entrypoint)
+		if got.LanguageRunners[1].Entrypoint != "g++ -O2 solution.cpp -o solution && ./solution" {
+			t.Errorf("la copia no conservó el comando de cpp: %q", got.LanguageRunners[1].Entrypoint)
 		}
 	})
 
