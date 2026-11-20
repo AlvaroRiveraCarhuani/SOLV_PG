@@ -7,6 +7,7 @@ import {
   AdminTemplateItem,
   ComponentLayer,
   CreateOfficialTemplateDTO,
+  LanguageRunner,
   RuntimeCapabilities,
   ServiceRequirement,
   StackConfig,
@@ -67,6 +68,11 @@ import {
   filterAndPrioritizeAddonItems,
   filterAndPrioritizeRuntimeItems,
   fnv1aHex,
+  canonicalJudgeLanguage,
+  judgeCatalogEntrypoint,
+  judgeLanguageForComponent,
+  JudgeLanguageSelection,
+  resolveDefaultJudgeEntrypointForRuntime,
   getComponentRoleBadge,
   importBrowserTextFile,
   isFrameworkAddon,
@@ -194,6 +200,17 @@ export class TemplateStudioComponent implements OnInit, OnDestroy {
   readonly techComponents = signal<TemplateComponent[]>([]);
   readonly selectedRuntimeId = signal<string | null>(null);
   readonly selectedWebPlatformId = signal<string | null>(null);
+  // Un entorno de evaluación declara uno o más lenguajes. Cada lenguaje guarda
+  // su propio comando de ejecución; el primero define imagen y smoke del entorno.
+  readonly judgeLanguageIds = signal<string[]>([]);
+  readonly judgeEntrypoints = signal<Record<string, string>>({});
+  // Lenguajes guardados que no tienen un componente equivalente en el catálogo
+  // (por ejemplo, un runtime propio ya retirado). Se conservan al editar para
+  // que guardar no borre un ejecutor que el administrador no ve en la grilla.
+  readonly detachedJudgeRunners = signal<LanguageRunner[]>([]);
+  readonly isJudgeTarget = computed<boolean>(
+    () => this.targetEnvironment() === 'JUEZ_EFIMERO' || this.targetEnvironment() === 'AMBOS'
+  );
   readonly selectedAddonIds = signal<string[]>([]);
   readonly selectedDatabaseId = signal<string>('db-none');
   readonly selectedAuxiliaryId = signal<string | null>(null);
@@ -361,7 +378,45 @@ export class TemplateStudioComponent implements OnInit, OnDestroy {
     buildStudioDatabaseOptions(this.runtimeCapabilities(), this.techComponents())
   );
 
+  readonly judgeLanguageSelections = computed<JudgeLanguageSelection[]>(() => {
+    const explicit = this.judgeLanguageIds();
+    const primaryId = this.selectedRuntimeId();
+    const ids = explicit.length > 0 ? explicit : primaryId ? [primaryId] : [];
+    if (ids.length === 0) return [];
+
+    const entrypoints = this.judgeEntrypoints();
+    const seen = new Set<string>();
+    const selections: JudgeLanguageSelection[] = [];
+    for (const [index, id] of ids.entries()) {
+      const component = this.techComponents().find(c => c.id === id || c.slug === id);
+      if (!component) continue;
+      const language = judgeLanguageForComponent(component);
+      if (!language || seen.has(language)) continue;
+      seen.add(language);
+      // El comando del lenguaje primario vive en `entrypoint`, que es la señal
+      // que usan la comprobación de arranque y el bloqueo de publicación. Los
+      // demás lenguajes guardan el suyo en el mapa.
+      let entrypoint: string;
+      if (index === 0) {
+        entrypoint = this.entrypoint();
+      } else if (entrypoints[language] !== undefined) {
+        // Una clave presente manda aunque esté vacía: un comando borrado
+        // bloquea la publicación en lugar de reaparecer con el sugerido.
+        entrypoint = entrypoints[language];
+      } else {
+        entrypoint =
+          resolveDefaultJudgeEntrypointForRuntime(component) || judgeCatalogEntrypoint(language);
+      }
+      selections.push({ component, language, entrypoint });
+    }
+    return selections;
+  });
+
   readonly selectedRuntimeComponent = computed<TemplateComponent | null>(() => {
+    if (this.isJudgeTarget()) {
+      const primary = this.judgeLanguageSelections()[0];
+      if (primary) return primary.component;
+    }
     const id = this.selectedRuntimeId();
     if (!id) return null;
     return this.techComponents().find(i => i.id === id || i.slug === id) || null;
@@ -534,11 +589,20 @@ export class TemplateStudioComponent implements OnInit, OnDestroy {
       return { reason: 'Indique una imagen Docker base válida en el Paso 2.', tone: 'warning' };
     }
 
-    if ((this.targetEnvironment() === 'JUEZ_EFIMERO' || this.targetEnvironment() === 'AMBOS') && !this.entrypoint().trim()) {
-      return {
-        reason: 'Indique el comando de compilación y ejecución del entorno de evaluación.',
-        tone: 'warning'
-      };
+    	if (this.isJudgeTarget()) {
+      const selections = this.judgeLanguageSelections();
+      if (selections.length === 0) {
+        return {
+          reason: 'Seleccione al menos un lenguaje del evaluador en la Columna 1.',
+          tone: 'neutral'
+        };
+      }
+      if (selections.some(sel => !sel.entrypoint.trim())) {
+        return {
+          reason: 'Indique el comando de compilación y ejecución del entorno de evaluación.',
+          tone: 'warning'
+        };
+      }
     }
 
     if (this.isRamBelowFloor() || this.isRamExceedingHost()) {
@@ -839,6 +903,19 @@ export class TemplateStudioComponent implements OnInit, OnDestroy {
       this.isRamManuallyEdited.set(true);
       this.baseRamMB.set(tpl.base_ram_mb);
     }
+
+    if (this.isJudgeTarget()) {
+      if (tpl.language_runners?.length) {
+        this.applyJudgeLanguageRunners(tpl.language_runners);
+        this.recalculateFromVisualSelection();
+      } else if (tpl.entrypoint) {
+        const primaryLanguage = this.judgeLanguageSelections()[0];
+        if (primaryLanguage) {
+          this.judgeEntrypoints.update(map => ({ ...map, [primaryLanguage.language]: tpl.entrypoint as string }));
+          this.entrypoint.set(tpl.entrypoint);
+        }
+      }
+    }
   }
 
   setTargetEnvironment(env: TargetEnvironment): void {
@@ -847,6 +924,15 @@ export class TemplateStudioComponent implements OnInit, OnDestroy {
       this.selectedWebPlatformId.set(null);
       this.selectedDatabaseId.set('db-none');
       this.selectedAuxiliaryId.set(null);
+      // El lenguaje ya elegido para el laboratorio pasa a ser el primero del
+      // evaluador: el administrador no vuelve a elegirlo.
+      if (this.judgeLanguageIds().length === 0 && this.selectedRuntimeId()) {
+        this.judgeLanguageIds.set([this.selectedRuntimeId() as string]);
+      }
+    } else {
+      this.judgeLanguageIds.set([]);
+      this.judgeEntrypoints.set({});
+      this.detachedJudgeRunners.set([]);
     }
     this.isRamManuallyEdited.set(false);
     this.recalculateFromVisualSelection();
@@ -857,6 +943,10 @@ export class TemplateStudioComponent implements OnInit, OnDestroy {
   }
 
   selectRuntime(id: string): void {
+    if (this.isJudgeTarget()) {
+      this.toggleJudgeLanguage(id);
+      return;
+    }
     this.hasCustomDockerfile.set(false);
     this.col2SearchQuery.set('');
     this.col2CategoryFilter.set('all');
@@ -994,6 +1084,111 @@ export class TemplateStudioComponent implements OnInit, OnDestroy {
       }
     }
     this.recalculateFromVisualSelection();
+  }
+
+  /** Selecciona o quita un lenguaje del entorno de evaluación. */
+  toggleJudgeLanguage(id: string): void {
+    const component = this.techComponents().find(c => c.id === id || c.slug === id);
+    if (!component) return;
+
+    this.hasCustomDockerfile.set(false);
+    this.isRamManuallyEdited.set(false);
+
+    const current = this.judgeLanguageIds();
+    const isSelected = this.isJudgeLanguageSelected(id);
+    const next = isSelected
+      ? current.filter(item => item !== id && item !== component.id && item !== component.slug)
+      : [...current, component.id];
+
+    const previousPrimaryId = this.selectedRuntimeId();
+    this.judgeLanguageIds.set(next);
+
+    // Cada lenguaje recién agregado arranca con su comando sugerido, no vacío.
+    const suggestions: Record<string, string> = {};
+    for (const selectedId of next) {
+      const selected = this.techComponents().find(c => c.id === selectedId || c.slug === selectedId);
+      const language = judgeLanguageForComponent(selected ?? null);
+      if (!selected || !language || this.judgeEntrypoints()[language]) continue;
+      suggestions[language] =
+        resolveDefaultJudgeEntrypointForRuntime(selected) || judgeCatalogEntrypoint(language);
+    }
+    if (Object.keys(suggestions).length > 0) {
+      this.judgeEntrypoints.update(map => ({ ...suggestions, ...map }));
+    }
+    // Un lenguaje que vuelve al catálogo deja de estar «suelto».
+    this.detachedJudgeRunners.update(list =>
+      list.filter(runner =>
+        !next.some(id => {
+          const comp = this.techComponents().find(c => c.id === id || c.slug === id);
+          return judgeLanguageForComponent(comp ?? null) === canonicalJudgeLanguage(runner.language);
+        })
+      )
+    );
+
+    // El primer lenguaje es el primario: define imagen, nombre sugerido y smoke.
+    const primary = this.judgeLanguageSelections()[0];
+    this.selectedRuntimeId.set(primary?.component.id ?? null);
+    if (primary && (primary.component.id !== previousPrimaryId || !this.entrypoint().trim())) {
+      this.entrypoint.set(
+        resolveDefaultJudgeEntrypointForRuntime(primary.component) ||
+          judgeCatalogEntrypoint(primary.language)
+      );
+    }
+    if (!primary) {
+      this.entrypoint.set('');
+    }
+
+    const validIds = new Set(this.compatibleAddons().map(a => a.id));
+    const validSlugs = new Set(this.compatibleAddons().map(a => a.slug));
+    this.selectedAddonIds.update(curr => curr.filter(x => validIds.has(x) || validSlugs.has(x)));
+
+    this.recalculateFromVisualSelection();
+  }
+
+  isJudgeLanguageSelected(id: string): boolean {
+    const component = this.techComponents().find(c => c.id === id || c.slug === id);
+    const ids = this.judgeLanguageIds();
+    if (component) {
+      return ids.includes(component.id) || ids.includes(component.slug);
+    }
+    return ids.includes(id);
+  }
+
+  /** Edita el comando de un lenguaje del entorno de evaluación. */
+  updateJudgeEntrypoint(language: string, value: string): void {
+    const key = canonicalJudgeLanguage(language);
+    this.judgeEntrypoints.update(map => ({ ...map, [key]: value }));
+    if (this.judgeLanguageSelections()[0]?.language === key) {
+      this.entrypoint.set(value);
+    }
+  }
+
+  private applyJudgeLanguageRunners(runners: LanguageRunner[]): void {
+    const entrypoints: Record<string, string> = {};
+    const ids: string[] = [];
+    const detached: LanguageRunner[] = [];
+    for (const runner of runners) {
+      const language = canonicalJudgeLanguage(runner.language);
+      entrypoints[language] = runner.entrypoint;
+      const component = this.techComponents().find(c => judgeLanguageForComponent(c) === language);
+      if (component) {
+        ids.push(component.id);
+      } else {
+        detached.push({ ...runner, language });
+      }
+    }
+    this.detachedJudgeRunners.set(detached);
+    this.judgeEntrypoints.set(entrypoints);
+    this.judgeLanguageIds.set(ids);
+    this.selectedRuntimeId.set(ids[0] ?? this.selectedRuntimeId());
+    this.entrypoint.set(runners[0]?.entrypoint ?? this.entrypoint());
+  }
+
+  removeDetachedJudgeRunner(language: string): void {
+    const key = canonicalJudgeLanguage(language);
+    this.detachedJudgeRunners.update(list =>
+      list.filter(runner => canonicalJudgeLanguage(runner.language) !== key)
+    );
   }
 
   isAddonSelected(id: string): boolean {
@@ -1142,7 +1337,20 @@ export class TemplateStudioComponent implements OnInit, OnDestroy {
 
     this.toolsDeclared.set(synthesized.toolsDeclared);
     this.setupScript.set(synthesized.setupScript);
-    this.entrypoint.set(synthesized.entrypoint);
+    // En un entorno multilingüe el comando primario es el del primer lenguaje
+    // declarado: se conserva el que escribió el administrador y, si está vacío,
+    // se propone el del catálogo.
+    const primaryJudgeLanguage = this.isJudgeTarget() ? this.judgeLanguageSelections()[0] : null;
+    if (primaryJudgeLanguage) {
+      const currentEntrypoint = this.entrypoint().trim();
+      this.entrypoint.set(
+        currentEntrypoint ||
+          resolveDefaultJudgeEntrypointForRuntime(primaryJudgeLanguage.component) ||
+          judgeCatalogEntrypoint(primaryJudgeLanguage.language)
+      );
+    } else {
+      this.entrypoint.set(synthesized.entrypoint);
+    }
 
     if (!this.isRamManuallyEdited() || this.baseRamMB() < this.minimumFloorMB()) {
       this.baseRamMB.set(this.recommendedRamMB());
@@ -1424,6 +1632,31 @@ export class TemplateStudioComponent implements OnInit, OnDestroy {
     const maxMB = this.baseRamMB();
     const highMB = Math.max(minMB, Math.floor(maxMB * 0.85));
 
+    // Lenguajes del entorno de evaluación. El primero hereda la imagen del
+    // entorno; el resto delega en la imagen de catálogo de su lenguaje.
+    const judgeSelections = this.isJudgeTarget() ? this.judgeLanguageSelections() : [];
+    const selectedRunners: LanguageRunner[] = judgeSelections.map((sel, index) => ({
+      language: sel.language,
+      entrypoint: sel.entrypoint.trim(),
+      ...(index === 0 && this.dockerImage().trim() ? { docker_image: this.dockerImage().trim() } : {})
+    }));
+    const detachedRunners: LanguageRunner[] = judgeSelections.length > 0
+      ? this.detachedJudgeRunners()
+          .filter(
+            runner =>
+              !selectedRunners.some(
+                sel => canonicalJudgeLanguage(sel.language) === canonicalJudgeLanguage(runner.language)
+              )
+          )
+          .map(runner => ({
+            language: canonicalJudgeLanguage(runner.language),
+            entrypoint: runner.entrypoint.trim(),
+            ...(runner.docker_image ? { docker_image: runner.docker_image } : {})
+          }))
+      : [];
+    const languageRunners: LanguageRunner[] | undefined =
+      selectedRunners.length > 0 ? [...selectedRunners, ...detachedRunners] : undefined;
+
     return {
       name: this.name().trim(),
       docker_image: this.dockerImage().trim(),
@@ -1431,13 +1664,14 @@ export class TemplateStudioComponent implements OnInit, OnDestroy {
       description: this.description().trim(),
       target_environment: this.targetEnvironment(),
       category_id: this.selectedCategoryId() || undefined,
-      entrypoint: this.entrypoint().trim() || undefined,
+      entrypoint: (languageRunners?.[0]?.entrypoint ?? this.entrypoint().trim()) || undefined,
       timeout_ms: this.timeoutMS(),
       sample_input: this.sampleInput() || undefined,
       services_config: { services },
       resource_profile: { min_mb: minMB, high_mb: highMB, max_mb: maxMB },
       setup_script: this.setupScript().trim(),
       tools_declared: this.toolsList(),
+      language_runners: languageRunners,
       stack_config: stackConfig,
       verification_job_id: this.needsLocalBuild() || this.dockerImage().startsWith('solv-local/stack:')
         ? this.activeEnvTestJob()?.id

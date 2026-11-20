@@ -365,6 +365,8 @@ export interface CreateExerciseRequestDTO {
   exam_network_reason?: string;
   per_student_seed?: boolean;
   language?: string;
+  allowed_languages?: string[];
+  boilerplates?: Record<string, string>;
   boilerplate?: string;
   template_id?: string;
   time_limit_ms?: number;
@@ -389,6 +391,8 @@ export interface UpdateExerciseRequestDTO {
   exam_network_reason?: string;
   per_student_seed?: boolean;
   language?: string;
+  allowed_languages?: string[];
+  boilerplates?: Record<string, string>;
   boilerplate?: string;
   template_id?: string;
   time_limit_ms?: number;
@@ -759,11 +763,15 @@ export interface ExerciseTemplateSummary {
   status?: string;
   slug?: string;
   language?: string;
+  // Ejecutores declarados por un entorno de evaluación multilingüe.
+  language_runners?: { language: string; entrypoint?: string; docker_image?: string }[];
   stack_config?: ResolvableStackConfig | Record<string, unknown> | null;
   services_config?: Record<string, unknown>;
 }
 
 export interface ExerciseAlgorithmConfigDTO {
+  allowed_languages?: string[];
+  boilerplates?: Record<string, string>;
   test_cases?: TestCaseDTO[];
   ast_rules?: ASTRulesDTO;
   comparator?: ComparatorDTO;
@@ -791,6 +799,8 @@ export interface ExerciseIDEConfigDTO {
 }
 
 export interface ExerciseConfigDTO {
+  allowed_languages?: string[];
+  boilerplates?: Record<string, string>;
   algorithm?: ExerciseAlgorithmConfigDTO;
   database?: ExerciseDatabaseConfigDTO;
   ide?: ExerciseIDEConfigDTO;

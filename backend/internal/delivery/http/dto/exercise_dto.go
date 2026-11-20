@@ -21,18 +21,22 @@ type ExercisePublicResponse struct {
 	Purpose         string   `json:"purpose,omitempty"`
 	// ExamNetwork explica al alumno las condiciones del examen: sin salida a
 	// internet por defecto, o con la excepción que declaró el docente.
-	ExamNetwork       string           `json:"exam_network,omitempty"`
-	ExamNetworkReason string           `json:"exam_network_reason,omitempty"`
-	PerStudentSeed    bool             `json:"per_student_seed,omitempty"`
-	Language          string           `json:"language,omitempty"`
-	Boilerplate       string           `json:"boilerplate,omitempty"`
-	TimeLimitMs       int              `json:"time_limit_ms,omitempty"`
-	MemoryMB          int              `json:"memory_mb,omitempty"`
-	MemoryLimitMB     int              `json:"memory_limit_mb,omitempty"`
-	Constraints       []string         `json:"constraints,omitempty"`
-	PublicTestCases   []PublicTestCase `json:"public_test_cases,omitempty"`
-	AllowResubmit     bool             `json:"allow_resubmit,omitempty"`
-	AutoCheckpoint    bool             `json:"auto_checkpoint,omitempty"`
+	ExamNetwork       string `json:"exam_network,omitempty"`
+	ExamNetworkReason string `json:"exam_network_reason,omitempty"`
+	PerStudentSeed    bool   `json:"per_student_seed,omitempty"`
+	Language          string `json:"language,omitempty"`
+	Boilerplate       string `json:"boilerplate,omitempty"`
+	// Un entorno multilingüe ordena qué lenguajes puede elegir el alumno y con
+	// qué código de partida arranca cada uno.
+	AllowedLanguages []string          `json:"allowed_languages,omitempty"`
+	Boilerplates     map[string]string `json:"boilerplates,omitempty"`
+	TimeLimitMs      int               `json:"time_limit_ms,omitempty"`
+	MemoryMB         int               `json:"memory_mb,omitempty"`
+	MemoryLimitMB    int               `json:"memory_limit_mb,omitempty"`
+	Constraints      []string          `json:"constraints,omitempty"`
+	PublicTestCases  []PublicTestCase  `json:"public_test_cases,omitempty"`
+	AllowResubmit    bool              `json:"allow_resubmit,omitempty"`
+	AutoCheckpoint   bool              `json:"auto_checkpoint,omitempty"`
 }
 
 func ToExercisePublicResponse(ex *domain.Exercise) *ExercisePublicResponse {
@@ -55,6 +59,8 @@ func ToExercisePublicResponse(ex *domain.Exercise) *ExercisePublicResponse {
 		PerStudentSeed:    ex.PerStudentSeed,
 		Language:          ex.Language,
 		Boilerplate:       ex.Boilerplate,
+		AllowedLanguages:  ex.Config.AllowedLanguages,
+		Boilerplates:      ex.Config.Boilerplates,
 		TimeLimitMs:       ex.TimeLimitMS,
 		MemoryMB:          ex.MemoryLimitMB,
 		MemoryLimitMB:     ex.MemoryLimitMB,

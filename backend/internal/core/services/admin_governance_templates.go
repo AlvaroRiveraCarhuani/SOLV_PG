@@ -145,6 +145,23 @@ func verificationConfigForUpdate(dto domain.UpdateOfficialTemplateDTO) domain.En
 	}
 }
 
+// validateLanguageRunnerLimits acota la memoria declarada por cada ejecutor al
+// techo del host. El tiempo y el rango de memoria ya se validaron en el dominio.
+func (s *AdminGovernanceService) validateLanguageRunnerLimits(ctx context.Context, runners []domain.LanguageRunner) error {
+	if len(runners) == 0 {
+		return nil
+	}
+	maxAllowedRAM := domain.CalculateHostMaxAllowedRAM(s.getHostTotalRAM(ctx))
+	for _, runner := range runners {
+		if runner.MemoryLimitMB > 0 {
+			if err := domain.ValidateRamAgainstHost(runner.MemoryLimitMB, maxAllowedRAM); err != nil {
+				return fmt.Errorf("%s: %w", runner.Language, err)
+			}
+		}
+	}
+	return nil
+}
+
 func (s *AdminGovernanceService) CreateOfficialTemplate(
 	ctx context.Context,
 	tenantID, adminID string,
@@ -181,13 +198,34 @@ func (s *AdminGovernanceService) CreateOfficialTemplate(
 	if dto.TimeoutMS <= 0 {
 		dto.TimeoutMS = 5000
 	}
+
+	// Un entorno de evaluación declara uno o más ejecutores de lenguaje. La
+	// modalidad que no evalúa no los admite: no tendrían quién los ejecute.
+	if !domain.IsJudgeEnvironment(dto.TargetEnvironment) {
+		dto.LanguageRunners = nil
+	} else {
+		runners, err := domain.NormalizeLanguageRunners(dto.LanguageRunners)
+		if err != nil {
+			return nil, err
+		}
+		dto.LanguageRunners = runners
+		if err := s.validateLanguageRunnerLimits(ctx, runners); err != nil {
+			return nil, err
+		}
+		// El entrypoint de la plantilla sigue siendo el del smoke test; con un
+		// solo lenguaje se deriva del ejecutor para no pedirlo dos veces.
+		if strings.TrimSpace(dto.Entrypoint) == "" && len(runners) > 0 {
+			dto.Entrypoint = runners[0].Entrypoint
+		}
+	}
+
 	if domain.IsBuiltStackImageTag(dto.DockerImage) {
 		if err := validateTemplateVerification(ctx, s.envTestJobs, tenantID, dto.VerificationJobID, verificationConfigForCreate(dto), true); err != nil {
 			return nil, err
 		}
 	}
 
-	if dto.TargetEnvironment == "JUEZ_EFIMERO" || dto.TargetEnvironment == "JUEZ_VIRTUAL" || dto.TargetEnvironment == "AMBOS" {
+	if domain.IsJudgeEnvironment(dto.TargetEnvironment) {
 		dto.ServicesConfig = &domain.ServicesConfig{
 			Services: []domain.ServiceRequirement{},
 		}

@@ -273,6 +273,14 @@ type ExerciseConfig struct {
 	Database    *DatabaseConfig  `json:"database,omitempty"`
 	IDE         *IDEConfig       `json:"ide,omitempty"`
 	InputFormat json.RawMessage  `json:"input_format,omitempty"`
+	// AllowedLanguages son los lenguajes que el alumno puede elegir para
+	// resolver la práctica. Vacía conserva el contrato anterior: `language` es
+	// el único lenguaje admitido.
+	AllowedLanguages []string `json:"allowed_languages,omitempty"`
+	// Boilerplates guarda el esqueleto inicial por lenguaje, para que el alumno
+	// reciba el código de partida correcto al cambiar de lenguaje. Las claves
+	// están canonizadas y solo existen para lenguajes admitidos.
+	Boilerplates map[string]string `json:"boilerplates,omitempty"`
 }
 
 // Value persiste el config sin los scripts de inicialización. Desde ADR-073 el texto
@@ -360,6 +368,26 @@ type TemplateSummary struct {
 	BaseRamMB         int            `json:"base_ram_mb"`
 	TargetEnvironment string         `json:"target_environment"`
 	ServicesConfig    ServicesConfig `json:"services_config"`
+	// LanguageRunners son los lenguajes que el entorno sabe ejecutar. Cuando la
+	// lista está vacía se usa la pareja DockerImage/Entrypoint del entorno.
+	LanguageRunners []LanguageRunner `json:"language_runners,omitempty"`
+}
+
+// SupportsLanguage indica si el entorno declara el lenguaje de una entrega.
+func (t *TemplateSummary) SupportsLanguage(language string) bool {
+	if t == nil {
+		return false
+	}
+	_, ok := ResolveLanguageRunner(t.LanguageRunners, language)
+	return ok
+}
+
+// ResolveRunner devuelve el ejecutor del lenguaje de la entrega.
+func (t *TemplateSummary) ResolveRunner(language string) (LanguageRunner, bool) {
+	if t == nil {
+		return LanguageRunner{}, false
+	}
+	return ResolveLanguageRunner(t.LanguageRunners, language)
 }
 
 // EnvironmentSnapshotBinding es un binding de servicio resuelto al publicar.
@@ -396,6 +424,7 @@ type EnvironmentSnapshot struct {
 	Bindings                []EnvironmentSnapshotBinding `json:"bindings"`
 	InitContract            []EnvironmentInitContract    `json:"init_contract"`
 	SetupScript             string                       `json:"setup_script,omitempty"`
+	LanguageRunners         []LanguageRunner             `json:"language_runners,omitempty"`
 	VerificationFingerprint string                       `json:"verification_fingerprint"`
 }
 
@@ -425,6 +454,7 @@ func (s *EnvironmentSnapshot) AsTemplateSummary() *TemplateSummary {
 		BaseRamMB:         s.BaseRAMMB,
 		TargetEnvironment: s.TargetEnvironment,
 		ServicesConfig:    ServicesConfig{Services: services},
+		LanguageRunners:   s.LanguageRunners,
 	}
 }
 

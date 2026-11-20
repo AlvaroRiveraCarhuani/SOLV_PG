@@ -70,6 +70,10 @@ func (h *EvaluationHandler) Evaluate(w http.ResponseWriter, r *http.Request) {
 			SendError(w, http.StatusUnprocessableEntity, "evaluation_requires_judge", "La evaluación automática solo aplica a ejercicios de juez virtual; un proyecto se corrige con rúbrica")
 			return
 		}
+		if errors.Is(err, domain.ErrLanguageNotSupportedByEnvironment) {
+			SendError(w, http.StatusUnprocessableEntity, "language_not_supported", err.Error())
+			return
+		}
 		if h.wsHub != nil && userID != "" {
 			h.wsHub.EmitToUserInTenant(tenantID, userID, WebSocketMessage{
 				Event: "EVALUATION_PROGRESS",
@@ -192,6 +196,10 @@ func (h *EvaluationHandler) CreateExercise(w http.ResponseWriter, r *http.Reques
 			SendError(w, http.StatusNotFound, "Subject not found", "La materia no existe o no pertenece al docente")
 			return
 		}
+		if errors.Is(err, domain.ErrLanguageNotSupportedByEnvironment) {
+			SendError(w, http.StatusUnprocessableEntity, "language_not_supported", err.Error())
+			return
+		}
 		if isValidationError(err) {
 			SendError(w, http.StatusUnprocessableEntity, err.Error(), err.Error())
 			return
@@ -274,6 +282,10 @@ func (h *EvaluationHandler) UpdateExercise(w http.ResponseWriter, r *http.Reques
 	}); err != nil {
 		if errors.Is(err, domain.ErrNotFound) {
 			SendError(w, http.StatusNotFound, "Exercise not found", "El ejercicio no existe o su materia no pertenece al docente")
+			return
+		}
+		if errors.Is(err, domain.ErrLanguageNotSupportedByEnvironment) {
+			SendError(w, http.StatusUnprocessableEntity, "language_not_supported", err.Error())
 			return
 		}
 		if errors.Is(err, services.ErrExercisePurposeChangeBlocked) || errors.Is(err, services.ErrExercisePurposeChangeConfirmationNeeded) {

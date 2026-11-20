@@ -62,6 +62,9 @@ func (s *EvaluationService) StartDryRun(ctx context.Context, exerciseID, tenantI
 
 	// Ejecución asíncrona del Dry-Run con progreso por caso
 	s.attachTemplateSummary(ctx, ex)
+	if ex.Template != nil && len(ex.Template.LanguageRunners) > 0 && !ex.Template.SupportsLanguage(ex.Language) {
+		return nil, fmt.Errorf("%w: %s (disponibles: %s)", domain.ErrLanguageNotSupportedByEnvironment, ex.Language, strings.Join(domain.LanguageRunnerLanguages(ex.Template.LanguageRunners), ", "))
+	}
 	// Dry-run asincrono desacoplado del ctx del request para evitar cancelacion prematura.
 	//nolint:gosec
 	go func(jID, eID, tID string, exerciseCopy domain.Exercise) {
@@ -71,8 +74,13 @@ func (s *EvaluationService) StartDryRun(ctx context.Context, exerciseID, tenantI
 		}
 		var tplImage, tplEntrypoint string
 		if exerciseCopy.Template != nil {
-			tplImage = exerciseCopy.Template.DockerImage
-			tplEntrypoint = exerciseCopy.Template.Entrypoint
+			if runner, ok := exerciseCopy.Template.ResolveRunner(exerciseCopy.Language); ok && len(exerciseCopy.Template.LanguageRunners) > 0 {
+				tplImage = runner.DockerImage
+				tplEntrypoint = runner.Entrypoint
+			} else {
+				tplImage = exerciseCopy.Template.DockerImage
+				tplEntrypoint = exerciseCopy.Template.Entrypoint
+			}
 		}
 		_ = s.exerciseRepo.UpdateDryRunJobProgress(bgCtx, jID, domain.DryRunJobStatusRunning, 0, totalCases, nil, "")
 

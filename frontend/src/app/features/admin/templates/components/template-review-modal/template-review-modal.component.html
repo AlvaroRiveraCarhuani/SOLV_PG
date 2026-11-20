@@ -18,6 +18,12 @@
       <span class="summary-label">Propósito:</span>
       <span class="summary-value">{{ purposeBadge().label }}</span>
     </div>
+    @if (template.language_runners?.length) {
+      <div class="summary-row languages-row">
+        <span class="summary-label">Lenguajes:</span>
+        <judge-language-list [runners]="template.language_runners ?? []" />
+      </div>
+    }
     @if (template.requested_by_name) {
       <div class="summary-row">
         <span class="summary-label">Creada por:</span>

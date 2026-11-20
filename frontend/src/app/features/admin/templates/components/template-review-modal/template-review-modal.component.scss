@@ -22,6 +22,15 @@
   font-weight: 500;
 }
 
+.languages-row {
+  align-items: flex-start;
+
+  .summary-label {
+    flex-shrink: 0;
+    padding-top: 2px;
+  }
+}
+
 .summary-value {
   color: var(--text-primary);
   font-weight: 600;

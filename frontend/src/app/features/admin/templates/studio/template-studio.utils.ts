@@ -612,6 +612,102 @@ export function isResidentAddonComponent(addon: TemplateComponent): boolean {
   return (addon.ram_delta_mb || 0) >= 256;
 }
 
+// --- Entornos de evaluación multilingües -------------------------------------
+// Un entorno puede declarar varios lenguajes. Cada lenguaje aporta su comando de
+// ejecución; la imagen es opcional y, si falta, el juez usa la del catálogo.
+
+export interface JudgeLanguageSelection {
+  component: TemplateComponent;
+  language: string;
+  entrypoint: string;
+}
+
+const JUDGE_LANGUAGE_ALIASES: Record<string, string> = {
+  py: 'python',
+  python3: 'python',
+  js: 'javascript',
+  node: 'javascript',
+  nodejs: 'javascript',
+  typescript: 'javascript',
+  ts: 'javascript',
+  'c++': 'cpp',
+  cplusplus: 'cpp',
+  cc: 'cpp',
+  'c#': 'csharp',
+  cs: 'csharp',
+  dotnet: 'csharp',
+  golang: 'go',
+  rs: 'rust'
+};
+
+const JUDGE_CATALOG_LANGUAGES = ['python', 'javascript', 'cpp', 'c', 'csharp', 'java', 'go', 'rust', 'php'];
+
+/** Normaliza un alias a la clave canónica del juez (c++ -> cpp, js -> javascript). */
+export function canonicalJudgeLanguage(value: string | null | undefined): string {
+  const cleaned = (value || '').trim().toLowerCase();
+  return JUDGE_LANGUAGE_ALIASES[cleaned] || cleaned;
+}
+
+/**
+ * Resuelve el lenguaje de un componente del catálogo. Prioriza sus runtimes
+ * compatibles (declarados por el catálogo) y cae al icono, al nombre y al
+ * comando por defecto del evaluador.
+ */
+export function judgeLanguageForComponent(comp: TemplateComponent | null): string | null {
+  if (!comp) return null;
+
+  const byRuntime = (comp.compatible_runtimes || [])
+    .map(runtime => canonicalJudgeLanguage(runtime))
+    .find(language => JUDGE_CATALOG_LANGUAGES.includes(language));
+  if (byRuntime) return byRuntime;
+
+  const byIcon = canonicalJudgeLanguage(comp.icon_key);
+  if (JUDGE_CATALOG_LANGUAGES.includes(byIcon)) return byIcon;
+
+  const entrypoint = (comp.judge_entrypoint || '').toLowerCase();
+  if (/\.py\b/.test(entrypoint)) return 'python';
+  if (/javac|\.java\b/.test(entrypoint)) return 'java';
+  if (/node\s|\.js\b/.test(entrypoint)) return 'javascript';
+  if (/go\s+run|\.go\b/.test(entrypoint)) return 'go';
+  if (/rustc|\.rs\b/.test(entrypoint)) return 'rust';
+  if (/\.cpp\b|g\+\+/.test(entrypoint)) return 'cpp';
+  if (/\.c\b|gcc/.test(entrypoint)) return 'c';
+  if (/mcs|\.cs\b/.test(entrypoint)) return 'csharp';
+  if (/\.php\b/.test(entrypoint)) return 'php';
+
+  // Un runtime propio (Julia, Lua, Ruby…) se identifica por su slug: el juez lo
+  // ejecuta con la imagen que declare el entorno.
+  const slug = (comp.slug || '').trim().toLowerCase();
+  if (slug && /^[a-z][a-z0-9+#.-]*$/.test(slug)) return canonicalJudgeLanguage(slug.split('-')[0]);
+  return null;
+}
+
+/** Comando de ejecución sugerido para un lenguaje del catálogo del juez. */
+export function judgeCatalogEntrypoint(language: string): string {
+  switch (canonicalJudgeLanguage(language)) {
+    case 'python':
+      return 'python3 solution.py';
+    case 'javascript':
+      return 'node solution.js';
+    case 'cpp':
+      return 'g++ -O2 solution.cpp -o solution && ./solution';
+    case 'c':
+      return 'gcc -O2 solution.c -o solution && ./solution';
+    case 'java':
+      return 'javac Solution.java && java -Xmx256m Solution';
+    case 'csharp':
+      return 'mcs solution.cs -out:solution.exe && mono solution.exe';
+    case 'go':
+      return 'go run main.go';
+    case 'rust':
+      return 'rustc -O solution.rs -o solution && ./solution';
+    case 'php':
+      return 'php solution.php';
+    default:
+      return 'sh solution.sh';
+  }
+}
+
 export function resolveDefaultJudgeEntrypointForRuntime(rt: TemplateComponent | null): string {
   if (!rt) return '';
   const entry = (rt.judge_entrypoint || '').trim();

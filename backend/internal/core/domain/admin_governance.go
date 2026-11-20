@@ -54,7 +54,22 @@ const (
 	TargetEnvironmentIDEPersistente = "IDE_PERSISTENTE"
 	TargetEnvironmentJuezEfimero    = "JUEZ_EFIMERO"
 	TargetEnvironmentAmbos          = "AMBOS"
+	// TargetEnvironmentJuezVirtual es el identificador heredado de una
+	// modalidad de evaluación anterior. Se conserva porque hay plantillas
+	// guardadas con ese valor; el nombre vigente es JUEZ_EFIMERO.
+	TargetEnvironmentJuezVirtual = "JUEZ_VIRTUAL"
 )
+
+// IsJudgeEnvironment indica si la modalidad ejecuta soluciones con el juez
+// automático (y por lo tanto admite ejecutores por lenguaje).
+func IsJudgeEnvironment(environment string) bool {
+	switch strings.TrimSpace(environment) {
+	case TargetEnvironmentJuezEfimero, TargetEnvironmentJuezVirtual, TargetEnvironmentAmbos:
+		return true
+	default:
+		return false
+	}
+}
 
 // TemplateSupportsEnvironment verifica si la plantilla puede satisfacer el entorno solicitado
 func TemplateSupportsEnvironment(templateTargetEnv, requestedEnv string) bool {
@@ -468,6 +483,10 @@ type CreateOfficialTemplateDTO struct {
 	ToolsDeclared     []string                 `json:"tools_declared,omitempty"`
 	StackConfig       *StackConfig             `json:"stack_config,omitempty"`
 	VerificationJobID string                   `json:"verification_job_id,omitempty"`
+	// LanguageRunners declara los lenguajes que el entorno de evaluación sabe
+	// ejecutar. Un entorno de juez con un solo lenguaje lo declara con un único
+	// ejecutor; sin ejecutores se conserva el contrato anterior (entrypoint único).
+	LanguageRunners []LanguageRunner `json:"language_runners,omitempty"`
 }
 
 // UpdateOfficialTemplateDTO DTO para actualizar una plantilla existente con versionado sin corte
@@ -486,6 +505,9 @@ type UpdateOfficialTemplateDTO struct {
 	ToolsDeclared     []string        `json:"tools_declared,omitempty"`
 	StackConfig       *StackConfig    `json:"stack_config,omitempty"`
 	VerificationJobID string          `json:"verification_job_id,omitempty"`
+	// LanguageRunners reemplaza el conjunto de lenguajes del entorno. Vacío
+	// conserva los ejecutores ya guardados.
+	LanguageRunners []LanguageRunner `json:"language_runners,omitempty"`
 }
 
 // AdminTemplateReviewItem modelo para listar y gestionar plantillas Docker institucionales (ADR-030)
@@ -513,6 +535,7 @@ type AdminTemplateReviewItem struct {
 	ResourceProfile     TemplateResourceProfile `db:"resource_profile" json:"resource_profile"`
 	SetupScript         string                  `db:"setup_script" json:"setup_script"`
 	ToolsDeclared       []string                `db:"-" json:"tools_declared"`
+	LanguageRunners     []LanguageRunner        `db:"-" json:"language_runners"`
 	StackConfig         StackConfig             `db:"stack_config" json:"stack_config"`
 	SmokeTestStatus     string                  `db:"smoke_test_status" json:"smoke_test_status"`
 	SmokeTestOutput     string                  `db:"smoke_test_output" json:"smoke_test_output"`

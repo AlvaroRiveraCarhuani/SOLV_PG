@@ -750,6 +750,26 @@ export class ExerciseEditorStore {
   }
 
   setLanguageAndSyncTemplate(language: string): void {
+    const match = language ? this.runnerTemplates().find(r => this.deriveLanguageCode(r) === language) : undefined;
+    const runnerLanguages = (match?.language_runners ?? [])
+      .map(runner => (runner.language || '').trim().toLowerCase())
+      .filter(Boolean);
+    if (match && runnerLanguages.length > 1) {
+      // El entorno declara varios ejecutores: la práctica ofrece todos y el
+      // lenguaje elegido en el editor queda como predeterminado del alumno.
+      const primary = runnerLanguages.includes(language) ? language : runnerLanguages[0];
+      const baseRam = match.base_ram_mb || 128;
+      const isDual = (match.target_environment || match.environment_type) === 'AMBOS';
+      this.updateMetadata({
+        language: primary,
+        allowed_languages: [primary, ...runnerLanguages.filter(l => l !== primary)],
+        template_id: match.id,
+        template: match,
+        memory_limit_mb: isDual ? (baseRam <= 384 ? 128 : 256) : baseRam
+      });
+      return;
+    }
+
     this.updateMetadata({
       language,
       allowed_languages: language ? [language] : []
@@ -916,7 +936,9 @@ export class ExerciseEditorStore {
             exam_offline_output: ex.exam_offline_output || '',
             per_student_seed: !!ex.per_student_seed,
             language: ex.language || '',
-            allowed_languages: ex.language ? [ex.language] : [],
+            allowed_languages: ex.config?.allowed_languages?.length
+              ? ex.config.allowed_languages
+              : (ex.language ? [ex.language] : []),
             time_limit_ms: ex.time_limit_ms || 1000,
             memory_limit_mb: ex.template?.base_ram_mb || ex.memory_limit_mb || 128,
             due_date: ex.due_date ? ex.due_date.substring(0, 16) : '',
@@ -932,6 +954,7 @@ export class ExerciseEditorStore {
 
           this.referenceSolution.set(ex.reference_solution || '');
           this.boilerplate.set(ex.boilerplate || '');
+          this.boilerplates.set({ ...(ex.config?.boilerplates || {}) });
 
           if (ex.config?.algorithm) {
             this.astRules.set(ex.config.algorithm.ast_rules || {
@@ -1003,6 +1026,10 @@ export class ExerciseEditorStore {
       payload.reference_solution = this.referenceSolution();
       payload.input_format = this.contract() || undefined;
       payload.test_cases = this.cases();
+      // Un entorno multilingüe viaja con su lista de lenguajes y el código de
+      // partida de cada uno, para que el alumno elija entre ellos.
+      payload.allowed_languages = meta.allowed_languages?.length ? meta.allowed_languages : undefined;
+      payload.boilerplates = Object.keys(this.boilerplates()).length > 0 ? this.boilerplates() : undefined;
     }
 
     return payload;

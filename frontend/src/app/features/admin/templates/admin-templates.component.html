@@ -215,6 +215,13 @@
                 }
               </div>
 
+              @if (item.language_runners?.length) {
+                <div class="judge-languages-inline">
+                  <span class="judge-languages-caption">Lenguajes:</span>
+                  <judge-language-list [runners]="item.language_runners ?? []" />
+                </div>
+              }
+
 
               <div class="card-meta">
                 <div class="meta-row">
@@ -317,6 +324,12 @@
                             </span>
                           }
                         </div>
+                        @if (item.language_runners?.length) {
+                          <div class="judge-languages-inline">
+                            <span class="judge-languages-caption">Lenguajes:</span>
+                            <judge-language-list [runners]="item.language_runners ?? []" />
+                          </div>
+                        }
                         @if ((item.target_environment === 'JUEZ_EFIMERO' || item.target_environment === 'AMBOS') && item.entrypoint) {
                           <div class="judge-entrypoint-subtle">
                             <span class="judge-label">{{ 'JUEZ_EFIMERO' | environmentLabel }}:</span>
@@ -457,6 +470,13 @@
                 }
               </div>
 
+              @if (item.language_runners?.length) {
+                <div class="judge-languages-inline">
+                  <span class="judge-languages-caption">Lenguajes:</span>
+                  <judge-language-list [runners]="item.language_runners ?? []" />
+                </div>
+              }
+
 
               @if (templateDescription(item); as description) {
                 <p class="card-description">{{ description }}</p>
@@ -500,6 +520,12 @@
                     <div class="tech-detail-row">
                       <span class="tech-detail-label">Comando del evaluador</span>
                       <code class="judge-entrypoint-tag" machineData>{{ item.entrypoint }}</code>
+                    </div>
+                  }
+                  @if (item.language_runners?.length) {
+                    <div class="tech-detail-row">
+                      <span class="tech-detail-label">Lenguajes del evaluador</span>
+                      <judge-language-list [runners]="item.language_runners ?? []" [showCommands]="true" />
                     </div>
                   }
                   @if (item.tools_declared?.length) {
@@ -639,6 +665,12 @@
                             </span>
                           }
                         </div>
+                        @if (item.language_runners?.length) {
+                          <div class="judge-languages-inline">
+                            <span class="judge-languages-caption">Lenguajes:</span>
+                            <judge-language-list [runners]="item.language_runners ?? []" />
+                          </div>
+                        }
                         @if ((item.target_environment === 'JUEZ_EFIMERO' || item.target_environment === 'AMBOS') && item.entrypoint) {
                           <div class="judge-entrypoint-subtle">
                             <span class="judge-label">{{ 'JUEZ_EFIMERO' | environmentLabel }}:</span>
@@ -871,6 +903,13 @@
                 }
               </div>
 
+              @if (item.language_runners?.length) {
+                <div class="judge-languages-inline">
+                  <span class="judge-languages-caption">Lenguajes:</span>
+                  <judge-language-list [runners]="item.language_runners ?? []" />
+                </div>
+              }
+
 
               <div class="card-meta">
                 <div class="meta-row">
@@ -954,6 +993,12 @@
                             </span>
                           }
                         </div>
+                        @if (item.language_runners?.length) {
+                          <div class="judge-languages-inline">
+                            <span class="judge-languages-caption">Lenguajes:</span>
+                            <judge-language-list [runners]="item.language_runners ?? []" />
+                          </div>
+                        }
                         @if ((item.target_environment === 'JUEZ_EFIMERO' || item.target_environment === 'AMBOS') && item.entrypoint) {
                           <div class="judge-entrypoint-subtle">
                             <span class="judge-label">{{ 'JUEZ_EFIMERO' | environmentLabel }}:</span>

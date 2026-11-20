@@ -893,6 +893,46 @@ Permite a los administradores y docentes inspeccionar el catálogo de plantillas
 }
 ```
 
+#### 8.1 Entornos de evaluación multilingües (`language_runners`)
+
+Un entorno con evaluación automática (`JUEZ_EFIMERO`, `AMBOS`) declara uno o más ejecutores de lenguaje. El juez elige el ejecutor que corresponde al lenguaje de la entrega; `docker_image` vacía delega en la imagen de catálogo de ese lenguaje. El alta y la edición aceptan el campo; las plantillas sin ejecutores conservan el contrato anterior (imagen y `entrypoint` únicos).
+
+```json
+{
+  "name": "Evaluador Python + C++",
+  "target_environment": "JUEZ_EFIMERO",
+  "docker_image": "python:3.12-slim-bookworm",
+  "entrypoint": "python3 solution.py",
+  "language_runners": [
+    { "language": "python", "entrypoint": "python3 solution.py", "docker_image": "python:3.12-slim-bookworm" },
+    { "language": "cpp", "entrypoint": "g++ -O2 solution.cpp -o solution && ./solution" }
+  ]
+}
+```
+
+- **Claves canónicas:** `python`, `javascript`, `cpp`, `c`, `csharp`, `java`, `go`, `rust`, `php`. Los alias (`c++`, `c#`, `js`, `py`, `golang`, `rs`) se canonizan al guardar.
+- **Rechazos (422 `language_runners_invalid`):** lenguaje repetido, ejecutor sin comando, lenguaje fuera del catálogo sin imagen, `:latest`, tiempo fuera de 100–60000 ms, memoria fuera de 64–4096 MB o más de 12 lenguajes.
+- **Orden:** el primero es el lenguaje primario; su comando alimenta `entrypoint` y la prueba de arranque.
+- **Evaluación:** una entrega con un lenguaje que el entorno no declara responde `422 language_not_supported`. Al crear o editar el ejercicio, un `exercise.language` que no figure en los ejecutores del entorno responde el mismo código.
+- **Publicación:** los ejecutores se congelan en el `environment_snapshot` del ejercicio.
+
+El ejercicio acota ese catálogo por práctica. `POST /api/v1/exercises` y `PUT /api/v1/exercises/{id}` aceptan `allowed_languages` (subconjunto canónico del entorno) y `boilerplates` (código de partida por lenguaje); ambos se guardan en `config` y `GET /api/v1/exercises/{id}` los devuelve al alumno.
+
+```json
+{
+  "language": "python",
+  "allowed_languages": ["python", "cpp"],
+  "boilerplates": {
+    "python": "a, b = map(int, input().split())\nprint(a + b)\n",
+    "cpp": "#include <iostream>\nint main() {}\n"
+  }
+}
+```
+
+- Sin `allowed_languages` la práctica admite solo `language` (contrato anterior).
+- Un `boilerplate` de un lenguaje no admitido se descarta al guardar.
+- Una entrega con un lenguaje fuera de la lista responde `422 language_not_supported` con los lenguajes admitidos en el mensaje.
+
 ---
 
 ### 9. Aprobación o Rechazo de Plantillas Docker (`PUT /api/v1/admin/templates/{id}/review`)

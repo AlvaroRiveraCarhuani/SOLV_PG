@@ -22,6 +22,7 @@ import { TemplateRejectModalComponent } from './components/template-reject-modal
 import { TemplateEditModalComponent } from './components/template-edit-modal/template-edit-modal.component';
 import { TemplateStatusModalComponent } from './components/template-status-modal/template-status-modal.component';
 import { TemplatePromoteModalComponent } from './components/template-promote-modal/template-promote-modal.component';
+import { JudgeLanguageListComponent } from './components/judge-language-list/judge-language-list.component';
 import {
   LucideBox,
   LucideRefreshCw,
@@ -85,6 +86,7 @@ import { EnvironmentLabelPipe } from '@shared/pipes/environment-label.pipe';
     TemplateEditModalComponent,
     TemplateStatusModalComponent,
     TemplatePromoteModalComponent,
+    JudgeLanguageListComponent,
     TechLogoComponent,
     SearchBarComponent,
     PaginationBarComponent,

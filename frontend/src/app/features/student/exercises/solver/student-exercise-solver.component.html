@@ -15,7 +15,7 @@
     </div>
 
     <div class="topbar-right">
-      @if (!isIdeExercise()) {
+      @if (exercise() && !isIdeExercise()) {
         <div class="lang-selector-group">
           <span class="lang-label">Lenguaje:</span>
           <combobox

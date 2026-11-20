@@ -22,6 +22,19 @@ export interface ServicesConfig {
   services: ServiceRequirement[];
 }
 
+/**
+ * Ejecutor de un lenguaje dentro de un entorno de evaluación. Un entorno
+ * multilingüe declara uno por lenguaje; `docker_image` vacía significa que el
+ * juez usa la imagen de catálogo para ese lenguaje.
+ */
+export interface LanguageRunner {
+  language: string;
+  entrypoint: string;
+  docker_image?: string;
+  timeout_ms?: number;
+  memory_limit_mb?: number;
+}
+
 export interface TemplateResourceProfile {
   min_mb: number;
   high_mb: number;
@@ -124,6 +137,7 @@ export interface AdminTemplateItem {
   description?: string;
   target_environment?: string;
   entrypoint?: string;
+  language_runners?: LanguageRunner[];
   timeout_ms?: number;
   services_config?: ServicesConfig;
   resource_profile?: TemplateResourceProfile;
@@ -373,6 +387,7 @@ export interface CreateOfficialTemplateDTO {
   sample_input?: string;
   stack_config?: StackConfig;
   verification_job_id?: string;
+  language_runners?: LanguageRunner[];
 }
 
 export interface TemplateCategory {

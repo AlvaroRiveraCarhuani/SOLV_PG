@@ -97,6 +97,7 @@ func (row *adminTemplateRow) toDomain() *domain.AdminTemplateReviewItem {
 		CreatedAt:              row.CreatedAt,
 		PublishedExerciseCount: row.PublishedExerciseCount,
 		ToolsDeclared:          []string{},
+		LanguageRunners:        []domain.LanguageRunner{},
 	}
 	if len(row.ServicesConfig) > 0 {
 		_ = json.Unmarshal(row.ServicesConfig, &item.ServicesConfig)
@@ -194,6 +195,9 @@ func (r *PostgresAdminGovernanceRepository) ListTemplates(
 	list := make([]*domain.AdminTemplateReviewItem, len(rows))
 	for i := range rows {
 		list[i] = rows[i].toDomain()
+	}
+	if err := r.attachTemplateLanguageRunners(ctx, list); err != nil {
+		return nil, err
 	}
 	return list, nil
 }
@@ -546,7 +550,17 @@ func (r *PostgresAdminGovernanceRepository) CreateOfficialTemplate(
 		return nil, fmt.Errorf("error creating official template: %w", err)
 	}
 
-	return row.toDomain(), nil
+	created := row.toDomain()
+	if len(dto.LanguageRunners) > 0 {
+		if err := r.insertTemplateLanguageRunners(ctx, created.ID, dto.LanguageRunners); err != nil {
+			// La plantilla sin sus ejecutores no es un entorno válido: se deshace
+			// el alta en lugar de dejar un entorno a medias.
+			_, _ = r.db.ExecContext(ctx, `DELETE FROM lab_templates WHERE id = $1`, created.ID)
+			return nil, err
+		}
+		created.LanguageRunners = dto.LanguageRunners
+	}
+	return created, nil
 }
 
 func (r *PostgresAdminGovernanceRepository) ListPendingAuditTemplates(ctx context.Context) ([]*domain.AdminTemplateReviewItem, error) {
@@ -602,6 +616,9 @@ func (r *PostgresAdminGovernanceRepository) ListPendingAuditTemplates(ctx contex
 	list := make([]*domain.AdminTemplateReviewItem, len(rows))
 	for i := range rows {
 		list[i] = rows[i].toDomain()
+	}
+	if err := r.attachTemplateLanguageRunners(ctx, list); err != nil {
+		return nil, err
 	}
 	return list, nil
 }

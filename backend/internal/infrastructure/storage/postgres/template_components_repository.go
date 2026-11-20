@@ -645,5 +645,12 @@ func (r *PostgresAdminGovernanceRepository) UpdateOfficialTemplate(
 	if rows == 0 {
 		return nil, fmt.Errorf("template not found")
 	}
+	// nil conserva los ejecutores guardados; una lista (incluso vacía) los
+	// reemplaza. El servicio ya normalizó y validó el contrato.
+	if dto.LanguageRunners != nil {
+		if err := r.replaceTemplateLanguageRunners(ctx, templateID, dto.LanguageRunners); err != nil {
+			return nil, err
+		}
+	}
 	return r.GetTemplateByID(ctx, templateID)
 }

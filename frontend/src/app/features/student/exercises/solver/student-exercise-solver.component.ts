@@ -141,15 +141,27 @@ export class StudentExerciseSolverComponent implements OnInit {
   readonly selectedAdvance = signal<PendingClassAdvance | null>(null);
   readonly isDismissingAdvance = signal<boolean>(false);
 
-  readonly languageOptions = computed<ComboboxOption[]>(() => {
-    const baseLang = (this.exercise()?.language || 'python').toLowerCase();
-    const candidates = Array.from(new Set([baseLang, 'python', 'cpp', 'c', 'java', 'javascript']));
-    return candidates.map((lang) => ({
+  /**
+   * Lenguajes que el entorno declaró para esta práctica. Sin declaración se
+   * conserva el contrato anterior: solo el lenguaje del ejercicio.
+   */
+  readonly allowedLanguages = computed<string[]>(() => {
+    const ex = this.exercise();
+    const base = (ex?.language || 'python').toLowerCase();
+    const declared = (ex?.allowed_languages ?? [])
+      .map(lang => (lang || '').toLowerCase())
+      .filter(Boolean);
+    if (declared.length === 0) return [base];
+    return Array.from(new Set([base, ...declared]));
+  });
+
+  readonly languageOptions = computed<ComboboxOption[]>(() =>
+    this.allowedLanguages().map((lang) => ({
       id: lang,
       label: lang.toUpperCase(),
       value: lang
-    }));
-  });
+    }))
+  );
 
   readonly renderedDescription = computed<string>(() => {
     return renderStatementMarkdown(this.exercise()?.description || '');
@@ -415,15 +427,33 @@ export class StudentExerciseSolverComponent implements OnInit {
     }
 
     const lang = (data.language || 'python').toLowerCase();
-    this.selectedLanguage.set(lang);
+    const allowed = (data.allowed_languages ?? [])
+      .map(candidate => (candidate || '').toLowerCase())
+      .filter(Boolean);
+    const preferred = allowed.includes(lang) ? lang : (allowed[0] || lang);
+    this.selectedLanguage.set(preferred);
     if (!prevSub?.code) {
-      this.sourceCode.set(data.boilerplate || '');
+      this.sourceCode.set(data.boilerplates?.[preferred] ?? (preferred === lang ? data.boilerplate || '' : ''));
     }
   }
 
   onLanguageChange(lang: string): void {
     if (!lang) return;
-    this.selectedLanguage.set(lang.toLowerCase());
+    const next = lang.toLowerCase();
+    const previous = this.selectedLanguage();
+    if (previous === next) return;
+
+    // El alumno recibe el código de partida del lenguaje elegido; si ya escribió
+    // su solución, cambiar de lenguaje no la borra.
+    const base = (this.exercise()?.language || '').toLowerCase();
+    const starters = this.exercise()?.boilerplates ?? {};
+    const starterFor = (language: string): string =>
+      starters[language] ?? (language === base ? this.exercise()?.boilerplate ?? '' : '');
+    const current = this.sourceCode();
+    if (!current.trim() || current === starterFor(previous)) {
+      this.sourceCode.set(starterFor(next));
+    }
+    this.selectedLanguage.set(next);
   }
 
   onCodeChange(nextCode: string): void {

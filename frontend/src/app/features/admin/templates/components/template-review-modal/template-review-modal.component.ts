@@ -5,6 +5,7 @@ import { MachineDataDirective } from '@shared/directives/machine-data.directive'
 import { AdminTemplateItem, AdminTemplatesService, RamPresetSuggestion, RuntimeCapabilities } from '../../../services/admin-templates.service';
 import { ModalShellComponent } from '@shared/components/modal-shell/modal-shell.component';
 import { EnvironmentLabelPipe } from '@shared/pipes/environment-label.pipe';
+import { JudgeLanguageListComponent } from '../judge-language-list/judge-language-list.component';
 import { environmentBadge, isEnvironmentType } from '@shared/constants/environment-types.constants';
 import {
   LucideHardDrive,
@@ -23,6 +24,7 @@ import {
     MachineDataDirective,
     ModalShellComponent,
     EnvironmentLabelPipe,
+    JudgeLanguageListComponent,
     LucideHardDrive,
     LucideCheckCircle2,
     LucideLayers,

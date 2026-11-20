@@ -3,6 +3,7 @@ package httpdelivery
 import (
 	"encoding/json"
 	"errors"
+	"slices"
 	"strings"
 
 	"solv-backend/internal/core/domain"
@@ -66,9 +67,47 @@ func normalizeExerciseConfig(body []byte, ex *domain.Exercise) {
 		AutoCheckpoint bool                     `json:"auto_checkpoint"`
 		AppRunCommand  *string                  `json:"app_run_command"`
 		AppPort        *int                     `json:"app_port"`
+		// Los lenguajes elegibles y sus códigos de partida viven en config:
+		// el alumno los recibe con el ejercicio, nunca el enunciado oculto.
+		AllowedLanguages *[]string         `json:"allowed_languages"`
+		Boilerplates     map[string]string `json:"boilerplates"`
 	}
 	if err := json.Unmarshal(body, &raw); err != nil {
 		return
+	}
+	if raw.AllowedLanguages != nil {
+		allowed := make([]string, 0, len(*raw.AllowedLanguages))
+		seen := make(map[string]bool, len(*raw.AllowedLanguages))
+		for _, lang := range *raw.AllowedLanguages {
+			canonical := domain.CanonicalJudgeLanguage(lang)
+			if canonical == "" || seen[canonical] {
+				continue
+			}
+			seen[canonical] = true
+			allowed = append(allowed, canonical)
+		}
+		ex.Config.AllowedLanguages = allowed
+		if len(allowed) > 0 && !slices.Contains(allowed, domain.CanonicalJudgeLanguage(ex.Language)) {
+			// El lenguaje por defecto debe estar entre los ofrecidos: el primero
+			// de la lista es el que se muestra al alumno al abrir la práctica.
+			ex.Language = allowed[0]
+		}
+	}
+	if raw.Boilerplates != nil {
+		normalized := make(map[string]string, len(raw.Boilerplates))
+		for lang, code := range raw.Boilerplates {
+			canonical := domain.CanonicalJudgeLanguage(lang)
+			if canonical == "" || strings.TrimSpace(code) == "" {
+				continue
+			}
+			if len(ex.Config.AllowedLanguages) > 0 && !slices.Contains(ex.Config.AllowedLanguages, canonical) {
+				continue
+			}
+			normalized[canonical] = code
+		}
+		if len(normalized) > 0 {
+			ex.Config.Boilerplates = normalized
+		}
 	}
 	if ex.EnvironmentType == string(domain.EnvironmentTypeIDEPersistente) || raw.DBInitScript != "" || raw.AllowResubmit || raw.AutoCheckpoint || raw.AppRunCommand != nil || raw.AppPort != nil {
 		if ex.Config.IDE == nil {

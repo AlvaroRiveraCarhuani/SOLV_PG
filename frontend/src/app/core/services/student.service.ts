@@ -143,6 +143,10 @@ export interface StudentPublicExerciseDTO {
   exam_network_reason?: string;
   per_student_seed?: boolean;
   language?: string;
+  /** Lenguajes que el entorno declara para esta práctica; el alumno elige uno. */
+  allowed_languages?: string[];
+  /** Código de partida por lenguaje, con claves canónicas. */
+  boilerplates?: Record<string, string>;
   boilerplate?: string;
   time_limit_ms?: number;
   memory_mb?: number;

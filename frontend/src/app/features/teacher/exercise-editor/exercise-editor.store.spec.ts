@@ -83,4 +83,32 @@ describe('ExerciseEditorStore', () => {
     expect(store.runnerTemplates().length).toBe(1);
     expect(store.metadata().template_id).toBe('tpl-ide-mysql');
   });
+
+  it('un entorno con varios ejecutores habilita todos sus lenguajes en la práctica', () => {
+    store.loadRunnerTemplates();
+    http.expectOne(request => request.url.startsWith('/api/v1/templates')).flush({
+      data: {
+        data: [
+          {
+            id: 'tpl-multi',
+            name: 'Python y C++',
+            target_environment: 'JUEZ_EFIMERO',
+            status: 'APROBADA',
+            docker_image: 'python:3.12-slim-bookworm',
+            base_ram_mb: 256,
+            language_runners: [
+              { language: 'python', entrypoint: 'python3 solution.py' },
+              { language: 'cpp', entrypoint: 'g++ solution.cpp -o solution' }
+            ]
+          }
+        ]
+      }
+    });
+
+    store.setLanguageAndSyncTemplate('python');
+
+    expect(store.metadata().template_id).toBe('tpl-multi');
+    expect(store.metadata().language).toBe('python');
+    expect(store.metadata().allowed_languages).toEqual(['python', 'cpp']);
+  });
 });

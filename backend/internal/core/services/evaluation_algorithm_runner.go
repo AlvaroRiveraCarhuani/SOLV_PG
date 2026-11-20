@@ -126,23 +126,58 @@ func GenerateStudentSeed(exerciseID, studentID string) int64 {
 // permitiría al rol student reconstruirla (GOB-SEGURO-01).
 const hiddenCaseDetailPlaceholder = "[CASO DE EVALUACIÓN OCULTO]"
 
+// languageAdmittedByExercise aplica la lista de lenguajes declarada por la
+// práctica. Sin lista se admite cualquier lenguaje del entorno; devuelve el
+// lenguaje canonizado para que el llamador lo use en el mensaje de rechazo.
+func languageAdmittedByExercise(exercise *domain.Exercise, language string) (string, bool) {
+	canonical := CanonicalLanguage(language)
+	allowed := exercise.Config.AllowedLanguages
+	if len(allowed) == 0 {
+		return canonical, true
+	}
+	for _, candidate := range allowed {
+		if candidate == canonical {
+			return canonical, true
+		}
+	}
+	return canonical, false
+}
+
 func (s *EvaluationService) evaluateAlgorithm(ctx context.Context, exercise *domain.Exercise, language string, sourceCode string) (*domain.EvaluationResult, error) {
 	cfg := exercise.Config.Algorithm
 	if cfg == nil {
 		return nil, fmt.Errorf("configuración de algoritmia faltante para el ejercicio %s", exercise.ID)
 	}
+	// La práctica puede ofrecer solo un subconjunto de los lenguajes del
+	// entorno: una entrega fuera de esa lista se rechaza aunque el contenedor
+	// sepa compilarla.
+	if canonical, admitted := languageAdmittedByExercise(exercise, language); !admitted {
+		return nil, fmt.Errorf("%w: %s (la práctica admite: %s)", domain.ErrLanguageNotSupportedByEnvironment, canonical, strings.Join(exercise.Config.AllowedLanguages, ", "))
+	}
 	if exercise.Template == nil {
 		s.attachTemplateSummary(ctx, exercise)
 	}
 	var tplImage, tplEntrypoint string
-	if exercise.Template != nil && (exercise.Language == "" || strings.EqualFold(language, exercise.Language)) {
+	if exercise.Template != nil {
 		// Un template de IDE no ejecuta la solución: su imagen arranca el
 		// servidor del editor, que no termina nunca y el juez corta por
 		// timeout. Solo una plantilla declarada para juez (o para ambos
-		// entornos) aporta imagen y entrypoint al runner; en el resto manda
-		// el perfil de lenguaje.
+		// entornos) aporta ejecutor al runner; en el resto manda el perfil de
+		// lenguaje.
 		target := strings.TrimSpace(exercise.Template.TargetEnvironment)
-		if target == "" || target == domain.TargetEnvironmentJuezEfimero || target == domain.TargetEnvironmentAmbos {
+		judgeTemplate := target == "" || domain.IsJudgeEnvironment(target)
+		switch {
+		case judgeTemplate && len(exercise.Template.LanguageRunners) > 0:
+			// Entorno multilingüe: manda el ejecutor del lenguaje entregado. Su
+			// imagen vacía delega en la imagen del catálogo para ese lenguaje.
+			runner, ok := exercise.Template.ResolveRunner(language)
+			if !ok {
+				return nil, fmt.Errorf("%w: %s (disponibles: %s)", domain.ErrLanguageNotSupportedByEnvironment, CanonicalLanguage(language), strings.Join(domain.LanguageRunnerLanguages(exercise.Template.LanguageRunners), ", "))
+			}
+			tplImage = runner.DockerImage
+			tplEntrypoint = runner.Entrypoint
+		case judgeTemplate && (exercise.Language == "" || strings.EqualFold(language, exercise.Language)):
+			// Entorno de un solo lenguaje: se conserva el contrato anterior.
 			tplImage = exercise.Template.DockerImage
 			tplEntrypoint = exercise.Template.Entrypoint
 		}

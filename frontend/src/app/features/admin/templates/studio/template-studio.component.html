@@ -151,7 +151,7 @@
               <div class="column-header">
                 <div>
                   <span class="column-step">Columna 1 · Principal</span>
-                  <h3 class="column-title">{{ targetEnvironment() === 'IDE_PERSISTENTE' ? 'Lenguaje y Web' : 'Lenguaje Principal' }}</h3>
+                  <h3 class="column-title">{{ targetEnvironment() === 'IDE_PERSISTENTE' ? 'Lenguaje y Web' : 'Lenguajes del Evaluador' }}</h3>
                 </div>
               </div>
 
@@ -169,7 +169,7 @@
 
               <div class="column-body">
                 <div class="sub-group-header">
-                  <span class="sub-group-label">Lenguaje Principal (Elija 1)</span>
+                  <span class="sub-group-label">{{ isJudgeTarget() ? 'Lenguajes del Evaluador (Elija 1 o más)' : 'Lenguaje Principal (Elija 1)' }}</span>
                   <button
                     type="button"
                     class="btn-inline-new"
@@ -184,8 +184,8 @@
                       <button
                         type="button"
                         class="tech-component-card runtime-card"
-                        [class.selected]="selectedRuntimeComponent()?.id === rt.id"
-                        [attr.aria-pressed]="selectedRuntimeComponent()?.id === rt.id"
+                        [class.selected]="isJudgeTarget() ? isJudgeLanguageSelected(rt.id) : selectedRuntimeComponent()?.id === rt.id"
+                        [attr.aria-pressed]="isJudgeTarget() ? isJudgeLanguageSelected(rt.id) : selectedRuntimeComponent()?.id === rt.id"
                         [title]="rt.description || rt.name"
                         (click)="selectRuntime(rt.id)"
                       >
@@ -670,20 +670,58 @@
             }
           </div>
 
-          @if ((targetEnvironment() === 'JUEZ_EFIMERO' || targetEnvironment() === 'AMBOS') && selectedRuntimeComponent()) {
-            <div class="judge-visual-config-bar">
+          @if (isJudgeTarget() && (judgeLanguageSelections().length > 0 || detachedJudgeRunners().length > 0)) {
+            <div class="judge-visual-config-bar judge-languages-bar">
               <div class="field-group">
-                <label class="form-label" for="visual-judge-entrypoint">
-                  Comando de compilación y ejecución del Evaluador *
-                </label>
-                <input
-                  id="visual-judge-entrypoint"
-                  type="text"
-                  class="form-input font-mono"
-                  placeholder="Ej: python3 solution.py o g++ -O2 solution.cpp -o solution && ./solution"
-                  [ngModel]="entrypoint()"
-                  (ngModelChange)="entrypoint.set($event)"
-                />
+                <label class="form-label">Comandos de compilación y ejecución por lenguaje *</label>
+                <p class="field-hint">
+                  Cada lenguaje declara su propio comando. El primero define la imagen del entorno y la comprobación de arranque; los demás usan la imagen de catálogo de su lenguaje.
+                </p>
+                @for (selection of judgeLanguageSelections(); track selection.language; let first = $first) {
+                  <div class="judge-language-row">
+                    <div class="judge-language-chip">
+                      <tech-logo [iconType]="selection.component.icon_key" [size]="18" />
+                      <span class="font-mono">{{ selection.language }}</span>
+                      @if (first) {
+                        <span class="judge-language-primary">principal</span>
+                      }
+                    </div>
+                    <input
+                      type="text"
+                      class="form-input font-mono"
+                      [id]="first ? 'visual-judge-entrypoint' : 'judge-entrypoint-' + selection.language"
+                      [attr.aria-label]="'Comando de ejecución para ' + selection.language"
+                      placeholder="Ej: python3 solution.py o g++ -O2 solution.cpp -o solution && ./solution"
+                      [ngModel]="selection.entrypoint"
+                      (ngModelChange)="updateJudgeEntrypoint(selection.language, $event)"
+                    />
+                    <button
+                      type="button"
+                      class="btn-link-danger"
+                      [attr.aria-label]="'Quitar ' + selection.language + ' del entorno'"
+                      (click)="toggleJudgeLanguage(selection.component.id)"
+                    >
+                      Quitar
+                    </button>
+                  </div>
+                }
+                @for (runner of detachedJudgeRunners(); track runner.language) {
+                  <div class="judge-language-row">
+                    <div class="judge-language-chip">
+                      <span class="font-mono">{{ runner.language }}</span>
+                      <span class="judge-language-primary">fuera del catálogo</span>
+                    </div>
+                    <span class="form-input font-mono judge-language-frozen" machineData>{{ runner.entrypoint }}</span>
+                    <button
+                      type="button"
+                      class="btn-link-danger"
+                      [attr.aria-label]="'Quitar ' + runner.language + ' del entorno'"
+                      (click)="removeDetachedJudgeRunner(runner.language)"
+                    >
+                      Quitar
+                    </button>
+                  </div>
+                }
               </div>
             </div>
           }

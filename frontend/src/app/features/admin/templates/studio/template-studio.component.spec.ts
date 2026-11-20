@@ -1588,6 +1588,48 @@ describe('TemplateStudioComponent', () => {
     expect(component.setupScript()).toBe('echo "export PYTHONUNBUFFERED=1" >> ~/.bashrc');
   });
 
+  it('declara varios lenguajes en un entorno de evaluación y los envía como ejecutores', () => {
+    component.setTargetEnvironment('JUEZ_EFIMERO');
+    component.selectRuntime('rt-python-312');
+    component.selectRuntime('rt-cpp-13');
+
+    const selections = component.judgeLanguageSelections();
+    expect(selections.map(sel => sel.language)).toEqual(['python', 'cpp']);
+    expect(selections.map(sel => sel.entrypoint)).toEqual([
+      'python3 solution.py',
+      'gcc -O2 solution.c -o solution && ./solution'
+    ]);
+
+    component.name.set('Evaluador Python y C++');
+    const payload = component.buildCreatePayload();
+    expect(payload.language_runners).toEqual([
+      {
+        language: 'python',
+        entrypoint: 'python3 solution.py',
+        docker_image: 'python:3.12-slim-bookworm'
+      },
+      {
+        language: 'cpp',
+        entrypoint: 'gcc -O2 solution.c -o solution && ./solution'
+      }
+    ]);
+  });
+
+  it('bloquea la publicación si un lenguaje del evaluador queda sin comando', () => {
+    component.setTargetEnvironment('JUEZ_EFIMERO');
+    component.selectRuntime('rt-python-312');
+    component.selectRuntime('rt-cpp-13');
+    component.name.set('Evaluador Incompleto');
+
+    component.updateJudgeEntrypoint('cpp', '   ');
+    expect(component.verificationBlocker()?.reason).toBe(
+      'Indique el comando de compilación y ejecución del entorno de evaluación.'
+    );
+
+    component.updateJudgeEntrypoint('cpp', 'g++ -O2 solution.cpp -o solution && ./solution');
+    expect(component.verificationBlocker()).toBeNull();
+  });
+
   it('should require selectedRuntimeComponent and entrypoint for AMBOS in verificationBlocker', () => {
     component.selectedRuntimeId.set(null);
     component.setTargetEnvironment('AMBOS');
@@ -1802,7 +1844,9 @@ describe('TemplateStudioComponent', () => {
       component.selectRuntime('rt-lua');
       expect(component.recommendedRamMB()).toBe(128);
 
-      // Julia en Juez -> 512 MB
+      // Julia en Juez -> 512 MB. En un entorno de evaluación la selección es
+      // múltiple, así que se quita Lua para que Julia sea el lenguaje primario.
+      component.toggleJudgeLanguage('rt-lua');
       component.selectRuntime('rt-julia');
       expect(component.recommendedRamMB()).toBe(512);
 

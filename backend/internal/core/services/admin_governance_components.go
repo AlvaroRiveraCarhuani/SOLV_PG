@@ -370,17 +370,36 @@ func (s *AdminGovernanceService) UpdateOfficialTemplate(
 	if dto.TimeoutMS <= 0 {
 		dto.TimeoutMS = 5000
 	}
+
+	// nil conserva los ejecutores guardados; una lista vacía los quita. La
+	// modalidad sin juez no admite ejecutores.
+	if !domain.IsJudgeEnvironment(dto.TargetEnvironment) {
+		dto.LanguageRunners = nil
+	} else if dto.LanguageRunners != nil {
+		runners, err := domain.NormalizeLanguageRunners(dto.LanguageRunners)
+		if err != nil {
+			return nil, err
+		}
+		dto.LanguageRunners = runners
+		if err := s.validateLanguageRunnerLimits(ctx, runners); err != nil {
+			return nil, err
+		}
+		if strings.TrimSpace(dto.Entrypoint) == "" && len(runners) > 0 {
+			dto.Entrypoint = runners[0].Entrypoint
+		}
+	}
+
 	if domain.IsBuiltStackImageTag(dto.DockerImage) {
 		if err := validateTemplateVerification(ctx, s.envTestJobs, tenantID, dto.VerificationJobID, verificationConfigForUpdate(dto), true); err != nil {
 			return nil, err
 		}
 	}
 
-	if dto.TargetEnvironment == "JUEZ_EFIMERO" || dto.TargetEnvironment == "JUEZ_VIRTUAL" || dto.TargetEnvironment == "AMBOS" {
+	if domain.IsJudgeEnvironment(dto.TargetEnvironment) {
 		dto.ServicesConfig = &domain.ServicesConfig{
 			Services: []domain.ServiceRequirement{},
 		}
-		if strings.TrimSpace(dto.Entrypoint) == "" {
+		if strings.TrimSpace(dto.Entrypoint) == "" && dto.LanguageRunners == nil {
 			return nil, errors.New("el comando de ejecución (entrypoint) es obligatorio para entornos con evaluador automático")
 		}
 	} else if dto.ServicesConfig == nil {

@@ -1,0 +1,12 @@
+@if (runners().length > 0) {
+  <ul class="language-list" [class.with-commands]="showCommands()">
+    @for (runner of runners(); track runner.language) {
+      <li class="language-item">
+        <span class="language-chip font-mono">{{ runner.language }}</span>
+        @if (showCommands()) {
+          <code class="language-command" machineData>{{ runner.entrypoint }}</code>
+        }
+      </li>
+    }
+  </ul>
+}

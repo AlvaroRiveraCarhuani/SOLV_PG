@@ -412,4 +412,73 @@ describe('StudentExerciseSolverComponent', () => {
     const text = (fixture.nativeElement as HTMLElement).textContent;
     expect(text).toContain('Este examen tiene acceso a internet por una excepción declarada por el docente');
   });
+
+  it('no muestra el selector de lenguaje mientras carga ni para entornos de desarrollo (IDE persistente)', () => {
+    // 1. Mientras carga (exercise es null) no debe mostrar el selector en la topbar
+    component.exercise.set(null);
+    fixture.detectChanges();
+    const host = fixture.nativeElement as HTMLElement;
+    expect(host.querySelector('.lang-selector-group')).toBeNull();
+
+    // 2. Si el ejercicio es IDE persistente tampoco debe mostrar el selector
+    component.exercise.set({
+      ...component.exercise()!,
+      id: 'ex-ide',
+      type: 'project',
+      environment_type: 'IDE_PERSISTENTE',
+      language: 'javascript'
+    });
+    fixture.detectChanges();
+    expect(host.querySelector('.lang-selector-group')).toBeNull();
+  });
+
+  it('muestra el selector de lenguaje cuando el ejercicio es del Entorno de Evaluación', () => {
+    component.exercise.set({
+      ...component.exercise()!,
+      id: 'ex-judge',
+      type: 'algorithm',
+      environment_type: 'JUEZ_EFIMERO',
+      language: 'python'
+    });
+    fixture.detectChanges();
+    const host = fixture.nativeElement as HTMLElement;
+    expect(host.querySelector('.lang-selector-group')).not.toBeNull();
+  });
+
+  it('ofrece solo los lenguajes declarados por el entorno de la práctica', () => {
+    component.exercise.set({
+      ...component.exercise()!,
+      id: 'ex-multi',
+      type: 'algorithm',
+      environment_type: 'JUEZ_EFIMERO',
+      language: 'python',
+      allowed_languages: ['cpp', 'python', 'java']
+    });
+
+    expect(component.languageOptions().map(option => option.value)).toEqual(['python', 'cpp', 'java']);
+  });
+
+  it('al cambiar de lenguaje carga su código de partida y no borra una solución escrita', () => {
+    component.exercise.set({
+      ...component.exercise()!,
+      id: 'ex-multi',
+      type: 'algorithm',
+      environment_type: 'JUEZ_EFIMERO',
+      language: 'python',
+      allowed_languages: ['python', 'cpp'],
+      boilerplates: {
+        python: 'a, b = map(int, input().split())\n',
+        cpp: '#include <iostream>\nint main() {}\n'
+      }
+    });
+    component.sourceCode.set('a, b = map(int, input().split())\n');
+
+    component.onLanguageChange('cpp');
+    expect(component.selectedLanguage()).toBe('cpp');
+    expect(component.sourceCode()).toContain('#include <iostream>');
+
+    component.onCodeChange('int main() { return 0; }');
+    component.onLanguageChange('python');
+    expect(component.sourceCode()).toBe('int main() { return 0; }');
+  });
 });

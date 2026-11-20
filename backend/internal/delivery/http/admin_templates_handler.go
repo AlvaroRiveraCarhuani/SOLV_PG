@@ -171,6 +171,10 @@ func (h *AdminAcademicHandler) CreateTemplate(w http.ResponseWriter, r *http.Req
 			SendError(w, http.StatusUnprocessableEntity, "verification_required", err.Error())
 			return
 		}
+		if domain.IsLanguageRunnerValidationError(err) {
+			SendError(w, http.StatusUnprocessableEntity, "language_runners_invalid", err.Error())
+			return
+		}
 		status := http.StatusInternalServerError
 		if errors.Is(err, services.ErrInvalidDockerImage) || errors.Is(err, services.ErrLatestTagForbidden) || strings.Contains(err.Error(), "requerido") {
 			status = http.StatusUnprocessableEntity

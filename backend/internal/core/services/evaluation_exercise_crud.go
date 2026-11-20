@@ -115,6 +115,14 @@ func (s *EvaluationService) resolveAndApplyTemplate(ctx context.Context, ex *dom
 		if !domain.TemplateSupportsEnvironment(template.TargetEnvironment, ex.EnvironmentType) {
 			return nil, domain.ErrTemplateEnvironmentMismatch
 		}
+		// Un entorno multilingüe solo recibe ejercicios de un lenguaje que
+		// declara. La comprobación vive en el alta: el juez no descubre el
+		// desajuste en la primera entrega del estudiante.
+		if ex.Type != domain.ExerciseTypeDatabase && domain.IsJudgeEnvironment(ex.EnvironmentType) && len(template.LanguageRunners) > 0 {
+			if _, ok := domain.ResolveLanguageRunner(template.LanguageRunners, ex.Language); !ok {
+				return nil, fmt.Errorf("%w: %s (disponibles: %s)", domain.ErrLanguageNotSupportedByEnvironment, ex.Language, strings.Join(domain.LanguageRunnerLanguages(template.LanguageRunners), ", "))
+			}
+		}
 		if err := validateExerciseDBInitScript(ex, template); err != nil {
 			return nil, err
 		}
@@ -137,6 +145,7 @@ func (s *EvaluationService) resolveAndApplyTemplate(ctx context.Context, ex *dom
 			BaseRamMB:         template.BaseRamMB,
 			TargetEnvironment: template.TargetEnvironment,
 			ServicesConfig:    template.ServicesConfig,
+			LanguageRunners:   template.LanguageRunners,
 		}
 	}
 	return template, nil
@@ -171,6 +180,7 @@ func (s *EvaluationService) attachTemplateSummary(ctx context.Context, ex *domai
 			BaseRamMB:         tpl.BaseRamMB,
 			TargetEnvironment: tpl.TargetEnvironment,
 			ServicesConfig:    tpl.ServicesConfig,
+			LanguageRunners:   tpl.LanguageRunners,
 		}
 	}
 }
@@ -608,6 +618,7 @@ func buildEnvironmentSnapshot(template *domain.AdminTemplateReviewItem) *domain.
 		BaseRAMMB:         template.BaseRamMB,
 		TargetEnvironment: template.TargetEnvironment,
 		SetupScript:       template.SetupScript,
+		LanguageRunners:   template.LanguageRunners,
 	}
 	bindings := templateServiceBindings(&domain.Template{ServicesConfig: template.ServicesConfig})
 	snapshot.Bindings = make([]domain.EnvironmentSnapshotBinding, 0, len(bindings))

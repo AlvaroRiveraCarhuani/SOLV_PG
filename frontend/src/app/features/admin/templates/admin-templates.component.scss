@@ -308,6 +308,20 @@
   gap: var(--space-1);
 }
 
+// Lenguajes que el entorno de evaluación declara ejecutar.
+.judge-languages-inline {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+  margin-top: var(--space-1);
+}
+
+.judge-languages-caption {
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+}
+
 .stack-chip {
   display: inline-flex;
   align-items: center;

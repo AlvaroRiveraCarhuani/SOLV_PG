@@ -203,7 +203,14 @@ Permite supervisar los entornos en producción y desactivar versiones obsoletas:
      - Requiere justificación técnica obligatoria de al menos 10 caracteres, visible para el docente.
    - Transición `SUSPENDIDA` -> `APROBADA` (Reactivación):
      - Requiere pasar obligatoriamente por la verificación técnica completa: ejecución satisfactoria de prueba de entorno (prueba de arranque) y auditoría CVE sin vulnerabilidades críticas.
-6. **Cómputo de Uso Institucional de Imágenes OCI:**
+6. **Entornos de Evaluación Multilingües (ADR-091):**
+   - Un entorno con evaluación automática (`JUEZ_EFIMERO`, `AMBOS`) declara uno o más ejecutores en `language_runners`: `language`, `entrypoint` obligatorio y, opcionalmente, `docker_image`, `timeout_ms` y `memory_limit_mb`.
+   - Las claves de lenguaje se canonizan antes de guardar (`c++` → `cpp`, `c#` → `csharp`, `js` → `javascript`, `py` → `python`, `golang` → `go`, `rs` → `rust`). Un lenguaje se declara una sola vez por entorno.
+   - **Lenguaje primario:** el primero de la lista. Su comando alimenta el `entrypoint` de la plantilla y la prueba de arranque del worker de auditoría.
+   - **Imagen vacía:** el ejecutor usa la imagen del catálogo del juez para su lenguaje. Un lenguaje fuera del catálogo (`julia`, `ruby`, `lua`) exige `docker_image` con tag fijo o digest; `:latest` sigue prohibido.
+   - **Límites:** hasta 12 lenguajes, `timeout_ms` entre 100 y 60000, `memory_limit_mb` entre 64 y 4096 y por debajo del techo del host.
+   - Al publicar un ejercicio, los ejecutores se congelan en el `environment_snapshot`; cambiar la plantilla después no altera lo ya publicado.
+7. **Cómputo de Uso Institucional de Imágenes OCI:**
    - Para evitar métricas distorsionadas, el conteo de uso de una imagen (`usage_count` y `usage_map`) considera únicamente plantillas que fueron efectivamente válidas u operativas.
    - **Exclusión explícita:** Las plantillas con estado `RECHAZADA` nunca llegaron a desplegar un laboratorio ni environment docente, por lo que quedan estrictamente excluidas del conteo (`WHERE status != 'RECHAZADA'`).
    - **Inclusión de suspendidas:** Las plantillas en estado `SUSPENDIDA` (o `paused`) sí se contabilizan, puesto que existieron, fueron aprobadas y operaron activamente en el entorno institucional antes de su deprecación preventiva.
@@ -218,7 +225,7 @@ Permite supervisar los entornos en producción y desactivar versiones obsoletas:
 | :--- | :--- | :--- | :--- |
 | `GET` | `/api/v1/admin/templates` | `?status=...&search=...` | Lista plantillas con filtro por estado v2 y búsqueda de texto. |
 | `GET` | `/api/v1/admin/templates/capabilities` | — | Retorna presets dinámicos de RAM y CPU según hardware del host. |
-| `POST` | `/api/v1/admin/templates` | `CreateTemplateDTO` | Registra plantilla oficial derivando perfil cgroups v2. |
+| `POST` | `/api/v1/admin/templates` | `CreateTemplateDTO` (incluye `language_runners` para entornos de evaluación) | Registra plantilla oficial derivando perfil cgroups v2. |
 | `PUT` | `/api/v1/admin/templates/{id}/review` | `{ "status": "APROBADA"\|"RECHAZADA"\|"SUSPENDIDA", "rejection_reason": "...", "base_ram_mb": 1024 }` | Dictamen de revisión. Si se actualiza RAM, regenera `resource_profile`. Rechazo y suspensión exigen motivo >= 10 caracteres. |
 | `POST` | `/api/v1/admin/templates/{id}/duplicate` | `{ "name": "..." }` | Clona plantilla institucional derivando perfil cgroups v2 del nuevo registro. |
 | `POST` | `/api/v1/admin/templates/{id}/promote-to-model` | `{ "name": "...", "category_id": "...", "description": "..." }` | Promueve plantilla aprobada a modelo institucional reusable. |

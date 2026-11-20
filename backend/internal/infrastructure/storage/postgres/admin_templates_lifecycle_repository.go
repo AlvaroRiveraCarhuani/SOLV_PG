@@ -172,7 +172,25 @@ func (r *PostgresAdminGovernanceRepository) DuplicateTemplate(
 		return nil, fmt.Errorf("error duplicando plantilla: %w", err)
 	}
 
-	return row.toDomain(), nil
+	// La copia hereda los ejecutores de lenguaje del original: un entorno
+	// multilingüe duplicado no pierde sus lenguajes.
+	if _, err := r.db.ExecContext(ctx, `
+		INSERT INTO template_language_runners (template_id, language, entrypoint, docker_image, timeout_ms, memory_limit_mb)
+		SELECT $1, language, entrypoint, docker_image, timeout_ms, memory_limit_mb
+		FROM template_language_runners
+		WHERE template_id = $2
+		ON CONFLICT (template_id, language) DO NOTHING
+	`, row.ID, templateID); err != nil {
+		return nil, fmt.Errorf("error copiando ejecutores de lenguaje: %w", err)
+	}
+
+	created := row.toDomain()
+	runners, errRunners := r.loadTemplateLanguageRunners(ctx, created.ID)
+	if errRunners != nil {
+		return nil, errRunners
+	}
+	created.LanguageRunners = runners
+	return created, nil
 }
 
 func (r *PostgresAdminGovernanceRepository) UpdateEOLStatus(
