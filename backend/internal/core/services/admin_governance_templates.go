@@ -40,8 +40,17 @@ func (s *AdminGovernanceService) ReviewTemplate(
 		return nil, ErrRejectionReasonRequired
 	}
 
+	// La columna guarda el estado canónico en mayúsculas; el DTO habla en
+	// minúsculas. Guardar el valor del DTO dejaba la plantilla en un estado que
+	// la publicación no reconoce como aprobado.
 	dbStatus := dto.Status
 	switch status {
+	case "approved":
+		dbStatus = "APROBADA"
+	case "rejected":
+		dbStatus = "RECHAZADA"
+	case "paused":
+		dbStatus = "PAUSADA"
 	case "suspended":
 		dbStatus = "SUSPENDIDA"
 	case "pending_audit":

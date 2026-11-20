@@ -589,7 +589,7 @@ export class TemplateStudioComponent implements OnInit, OnDestroy {
       return { reason: 'Indique una imagen Docker base válida en el Paso 2.', tone: 'warning' };
     }
 
-    	if (this.isJudgeTarget()) {
+    if (this.isJudgeTarget()) {
       const selections = this.judgeLanguageSelections();
       if (selections.length === 0) {
         return {
@@ -906,7 +906,7 @@ export class TemplateStudioComponent implements OnInit, OnDestroy {
 
     if (this.isJudgeTarget()) {
       if (tpl.language_runners?.length) {
-        this.applyJudgeLanguageRunners(tpl.language_runners);
+        this.applyJudgeLanguageRunners(tpl.language_runners, tpl.entrypoint);
         this.recalculateFromVisualSelection();
       } else if (tpl.entrypoint) {
         const primaryLanguage = this.judgeLanguageSelections()[0];
@@ -1163,11 +1163,20 @@ export class TemplateStudioComponent implements OnInit, OnDestroy {
     }
   }
 
-  private applyJudgeLanguageRunners(runners: LanguageRunner[]): void {
+  private applyJudgeLanguageRunners(runners: LanguageRunner[], templateEntrypoint?: string): void {
+    // La lista llega en el orden del catálogo. El lenguaje cuyo comando quedó
+    // como entrypoint de la plantilla se muestra primero, para que abrir y
+    // guardar no cambie de lenguaje primario.
+    const primaryIndex = templateEntrypoint
+      ? runners.findIndex(runner => runner.entrypoint.trim() === templateEntrypoint.trim())
+      : -1;
+    const ordered = primaryIndex > 0
+      ? [runners[primaryIndex], ...runners.filter((_, index) => index !== primaryIndex)]
+      : runners;
     const entrypoints: Record<string, string> = {};
     const ids: string[] = [];
     const detached: LanguageRunner[] = [];
-    for (const runner of runners) {
+    for (const runner of ordered) {
       const language = canonicalJudgeLanguage(runner.language);
       entrypoints[language] = runner.entrypoint;
       const component = this.techComponents().find(c => judgeLanguageForComponent(c) === language);
@@ -1181,7 +1190,7 @@ export class TemplateStudioComponent implements OnInit, OnDestroy {
     this.judgeEntrypoints.set(entrypoints);
     this.judgeLanguageIds.set(ids);
     this.selectedRuntimeId.set(ids[0] ?? this.selectedRuntimeId());
-    this.entrypoint.set(runners[0]?.entrypoint ?? this.entrypoint());
+    this.entrypoint.set(ordered[0]?.entrypoint ?? this.entrypoint());
   }
 
   removeDetachedJudgeRunner(language: string): void {

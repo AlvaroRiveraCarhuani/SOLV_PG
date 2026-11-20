@@ -30,7 +30,7 @@ Los ejecutores viven en `template_language_runners` (migración `00070`), con cl
 Reglas del contrato, aplicadas en el dominio (`NormalizeLanguageRunners`) y no en la entrega HTTP:
 
 1. Los alias se canonizan antes de guardar (`c++` → `cpp`, `c#`/`cs` → `csharp`, `js`/`node` → `javascript`, `py`/`python3` → `python`, `golang` → `go`, `rs` → `rust`).
-2. Un lenguaje se declara una sola vez por entorno y el orden es determinista: el primero es el lenguaje primario.
+2. Un lenguaje se declara una sola vez por entorno y la lista se devuelve en el orden del catálogo del juez (`python`, `javascript`, `cpp`, …), con los lenguajes propios detrás en orden alfabético. El lenguaje primario es el que aporta el `entrypoint` de la plantilla; el constructor lo elige al crear el entorno y lo conserva al reeditarlo.
 3. Un lenguaje fuera del catálogo del juez exige `docker_image`; sin ella el motor no tendría cómo ejecutarlo.
 4. `:latest` sigue prohibido, igual que en la imagen del entorno.
 5. El tiempo se acota a 100–60000 ms y la memoria a 64–4096 MB, además del techo del host.
@@ -60,7 +60,7 @@ El catálogo del entorno no obliga a ofrecer todos sus lenguajes en cada prácti
 - `allowed_languages`: subconjunto de lenguajes del entorno que el alumno puede elegir. Vacío conserva el contrato anterior (solo `language`).
 - `boilerplates`: código de partida por lenguaje, con claves canónicas y limitado a los lenguajes admitidos.
 
-El editor del docente toma los lenguajes del entorno al elegir la plantilla y permite escribir un esqueleto por lenguaje. La API pública del ejercicio (`GET /api/v1/exercises/{id}`) devuelve ambas listas al alumno, que elige con un selector y recibe el código de partida correspondiente. Al entregar, el servidor comprueba que el lenguaje esté en `allowed_languages` antes de resolver el ejecutor; si no lo está responde `422 language_not_supported` y nombra los lenguajes admitidos. El navegador nunca decide qué imagen ni qué comando se ejecuta.
+El editor del docente toma los lenguajes del entorno al elegir la plantilla y permite escribir un esqueleto por lenguaje. Al guardar, el servidor rechaza con `422 language_not_supported` una lista que ofrezca un lenguaje que el entorno no ejecuta, igual que rechaza un lenguaje base fuera del catálogo. La API pública del ejercicio (`GET /api/v1/exercises/{id}`) devuelve ambas listas al alumno, que elige con un selector y recibe el código de partida correspondiente. Al entregar, el servidor comprueba que el lenguaje esté en `allowed_languages` antes de resolver el ejecutor; si no lo está responde `422 language_not_supported` y nombra los lenguajes admitidos. El navegador nunca decide qué imagen ni qué comando se ejecuta.
 
 ## Consecuencias
 

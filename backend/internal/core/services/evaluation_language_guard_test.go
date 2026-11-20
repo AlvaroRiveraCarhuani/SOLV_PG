@@ -38,3 +38,13 @@ func TestLanguageAdmittedByExercise_SinListaAdmiteElLenguajeDelEntorno(t *testin
 		t.Fatal("sin lista declarada la práctica no debe limitar lenguajes")
 	}
 }
+
+func TestLanguageAdmittedByExercise_AdmiteElAliasCortoDelCatalogo(t *testing.T) {
+	canonical, admitted := languageAdmittedByExercise(exerciseWithLanguages("python", "javascript"), "node")
+	if !admitted {
+		t.Fatal("el alias node del lenguaje admitido fue rechazado")
+	}
+	if canonical != "javascript" {
+		t.Fatalf("el alias no se canonizó: %q", canonical)
+	}
+}

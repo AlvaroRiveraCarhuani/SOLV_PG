@@ -349,7 +349,15 @@ func (r *PostgresAdminGovernanceRepository) ReviewTemplate(
 		return nil, fmt.Errorf("error reviewing template: %w", err)
 	}
 
-	return row.toDomain(), nil
+	item := row.toDomain()
+	// La revisión devuelve la plantilla completa: sin sus ejecutores el catálogo
+	// perdería los lenguajes hasta la siguiente lectura.
+	runners, err := r.loadTemplateLanguageRunners(ctx, row.ID)
+	if err != nil {
+		return nil, err
+	}
+	item.LanguageRunners = runners
+	return item, nil
 }
 
 // UpdateTemplateQuota ajusta memoria y descripción sin tocar la imagen. No pide

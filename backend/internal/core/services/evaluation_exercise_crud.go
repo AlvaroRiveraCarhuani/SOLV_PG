@@ -122,6 +122,11 @@ func (s *EvaluationService) resolveAndApplyTemplate(ctx context.Context, ex *dom
 			if _, ok := domain.ResolveLanguageRunner(template.LanguageRunners, ex.Language); !ok {
 				return nil, fmt.Errorf("%w: %s (disponibles: %s)", domain.ErrLanguageNotSupportedByEnvironment, ex.Language, strings.Join(domain.LanguageRunnerLanguages(template.LanguageRunners), ", "))
 			}
+			// Tampoco puede ofrecer al alumno un lenguaje que el entorno no
+			// ejecuta: el desajuste se descubre acá, no en la entrega.
+			if _, err := domain.ValidateExerciseLanguages(ex.Config.AllowedLanguages, template.LanguageRunners); err != nil {
+				return nil, err
+			}
 		}
 		if err := validateExerciseDBInitScript(ex, template); err != nil {
 			return nil, err

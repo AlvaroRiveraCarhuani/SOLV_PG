@@ -130,13 +130,15 @@ const hiddenCaseDetailPlaceholder = "[CASO DE EVALUACIÓN OCULTO]"
 // práctica. Sin lista se admite cualquier lenguaje del entorno; devuelve el
 // lenguaje canonizado para que el llamador lo use en el mensaje de rechazo.
 func languageAdmittedByExercise(exercise *domain.Exercise, language string) (string, bool) {
-	canonical := CanonicalLanguage(language)
+	// La misma canonicalización que usa el catálogo del entorno: una entrega
+	// con alias (py, node, golang) tiene que caer en la clave guardada.
+	canonical := domain.CanonicalJudgeLanguage(language)
 	allowed := exercise.Config.AllowedLanguages
 	if len(allowed) == 0 {
 		return canonical, true
 	}
 	for _, candidate := range allowed {
-		if candidate == canonical {
+		if domain.CanonicalJudgeLanguage(candidate) == canonical {
 			return canonical, true
 		}
 	}

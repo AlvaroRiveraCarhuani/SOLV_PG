@@ -912,7 +912,7 @@ Un entorno con evaluación automática (`JUEZ_EFIMERO`, `AMBOS`) declara uno o m
 
 - **Claves canónicas:** `python`, `javascript`, `cpp`, `c`, `csharp`, `java`, `go`, `rust`, `php`. Los alias (`c++`, `c#`, `js`, `py`, `golang`, `rs`) se canonizan al guardar.
 - **Rechazos (422 `language_runners_invalid`):** lenguaje repetido, ejecutor sin comando, lenguaje fuera del catálogo sin imagen, `:latest`, tiempo fuera de 100–60000 ms, memoria fuera de 64–4096 MB o más de 12 lenguajes.
-- **Orden:** el primero es el lenguaje primario; su comando alimenta `entrypoint` y la prueba de arranque.
+- **Orden:** la API devuelve los ejecutores en el orden del catálogo del juez (`python`, `javascript`, `cpp`, …) y los lenguajes propios detrás. El lenguaje primario es el que aporta el `entrypoint` de la plantilla y su comando alimenta la prueba de arranque.
 - **Evaluación:** una entrega con un lenguaje que el entorno no declara responde `422 language_not_supported`. Al crear o editar el ejercicio, un `exercise.language` que no figure en los ejecutores del entorno responde el mismo código.
 - **Publicación:** los ejecutores se congelan en el `environment_snapshot` del ejercicio.
 
@@ -961,6 +961,8 @@ Permite al administrador aprobar una plantilla solicitada (ajustando opcionalmen
   - `422 Unprocessable Entity`: Si el estado no es `approved`/`rejected`, o si es `rejected` sin `rejection_reason`.
   - `404 Not Found`: Si la plantilla no existe.
   - `403 Forbidden`: Si el rol no es `admin`.
+
+La revisión guarda el estado canónico en la base (`APROBADA`, `RECHAZADA`, `PAUSADA`, `SUSPENDIDA`, `PENDIENTE_AUDITORIA`); la publicación de ejercicios exige `APROBADA`. La respuesta incluye los `language_runners` de la plantilla, de modo que el catálogo conserva los lenguajes tras aprobar o rechazar.
 
 Si la plantilla estaba `RECHAZADA`/`rejected`, un `approved` no la publica de inmediato: la devuelve a `PENDIENTE_AUDITORIA`, limpia el motivo anterior y reinicia smoke y Trivy. Solo vuelve al catálogo si la auditoría pasa.
 
@@ -2423,7 +2425,7 @@ La entrega del proyecto de un examen cierra solo el volumen de ese alumno (ADR-0
 
 - `files` es opcional y queda para herramientas que necesiten escribir archivos en el volumen justo antes de la entrega. El solver del alumno no lo envía: entrega el volumen de la práctica tal como está en el IDE. Si se manda, esos archivos se escriben primero y reemplazan los que tengan el mismo nombre.
 - Si el ejercicio de la entrega tiene `purpose = exam`, después de registrar la entrega el servidor monta el volumen de ese alumno en solo lectura. El resto de la clase sigue escribiendo.
-- Una entrega posterior sobre un volumen congelado responde `409` con `El examen terminó: tu entorno quedó en solo lectura`: escribir por esta vía sería seguir editando después del cierre.
+- Una entrega posterior sobre un volumen congelado responde `409 environment_frozen` con `El examen terminó: tu entorno quedó en solo lectura`: escribir por esta vía sería seguir editando después del cierre. Si el congelado viene de una práctica con el aula pausada, el código es `environment_frozen_class` y el mensaje es `El docente pausó la clase: tu entorno quedó en solo lectura`.
 - `404` si el entorno no existe, y `403` si pertenece a otro alumno. Un entorno ausente no es un fallo del servidor: la entrega responde lo mismo que cualquier otro recurso que no está.
 - La respuesta de la entrega no cambia; el cierre se ve en el laboratorio (`status: "frozen"` y `frozen_at`).
 
@@ -2441,7 +2443,9 @@ Un aula de práctica no congela volúmenes y responde sin `freeze_report`.
 
 ### Estado del laboratorio
 
-El dashboard del alumno incluye `status: "frozen"` y `frozen_at`. Al intentar `POST /api/v1/environments/start` o `POST /api/v1/environments/{id}/restart` con el volumen congelado, la respuesta es `409` con `El examen terminó: tu entorno quedó en solo lectura`.
+El dashboard del alumno incluye `status: "frozen"` y `frozen_at`. Al intentar `POST /api/v1/environments/start` o `POST /api/v1/environments/{id}/restart` con el volumen de un examen cerrado, la respuesta es `409 environment_frozen` con `El examen terminó: tu entorno quedó en solo lectura`. Un examen con el aula pausada sigue abierto: responde `409 environment_frozen_exam_paused` con `El docente pausó el examen: tu entorno quedó en solo lectura`.
+
+Un entorno de práctica solo se congela cuando el docente pausa el aula, y esa pausa no cierra el laboratorio: `POST /api/v1/environments/start` responde `200` con `status: "frozen"` y `access_url`, así que el alumno entra a leer su trabajo. Mientras siga pausada, la entrega y la limpieza de archivos generados siguen bloqueadas; la escritura y ambas operaciones vuelven al reanudar el aula. Si la práctica está congelada y el aula ya no figura pausada, el arranque responde `409 environment_frozen_class` con `El docente pausó la clase: tu entorno quedó en solo lectura` hasta que el docente reanude.
 
 **Entorno por práctica del alumno.** `POST /api/v1/environments/start` exige `subject_id` y `exercise_id`: el entorno y el volumen se acotan siempre a `(alumno, materia, práctica)` y la respuesta incluye `exercise_id`. Abrir otra práctica no reutiliza ningún entorno ni escribe en su volumen; reabrir la misma devuelve el mismo entorno. El modelo por materia se retiró: ya no hay entorno sin práctica ni `GET /api/v1/environments`. La emisión y la aplicación de avances (ADR-058) usan el volumen de la práctica de la sesión.
 
@@ -2746,6 +2750,7 @@ Sin cuerpo. Devuelve el proyecto estable del ejercicio, su único borrador edita
 - `legacy` aparece solo cuando existe `workspace_legacy_project_references` y ya no hay proyecto versionado. No se reinterpreta como versión ni se enlaza a entregas.
 - `versions` viene del más nuevo al más antiguo (`version_number DESC`) e incluye `manifest` con la lista de archivos de cada versión.
 - `publishing_enabled` refleja `WORKSPACE_PROJECTS_PUBLISH_ENABLED`; no autoriza por sí mismo, solo evita ofrecer una acción que el backend rechazará.
+- `archive_enabled` refleja `WORKSPACE_PROJECT_ARCHIVE_ENABLED`: con `false` la interfaz no muestra la carga de proyecto grande (`tar.gz`) y el endpoint de archivo responde `403 project_archive_disabled`.
 
 ### `PUT /api/v1/teacher/exercises/{id}/project/draft`
 
@@ -2799,6 +2804,22 @@ Igual que la carpeta, pero recibe un único `archive` en `multipart/form-data` j
 - Se rechazan entradas cifradas, symlinks, entradas especiales, rutas con Zip Slip y tamaños declarados que no coinciden con el contenido. El extractor no escribe en el sistema de archivos.
 - Los topes finales son los del proyecto: 1 MiB, 300 archivos y 512 KiB por archivo. Devuelve `201` con el mismo cuerpo que la importación de carpeta.
 
+### `POST /api/v1/teacher/exercises/{id}/project/import/archive`
+
+Proyecto grande como artefacto (ADR-090). Recibe un único `archive` (`tar.gz`) en
+`multipart/form-data` junto a `expected_revision`.
+
+- Exige `WORKSPACE_PROJECT_ARCHIVE_ENABLED=true`; apagada responde `403 project_archive_disabled`. Sin depósito configurado responde `503 project_archive_store_unavailable`.
+- `tar.gz` máximo 32 MiB (cuerpo HTTP 33 MiB), 20.000 archivos, 128 MiB expandidos y 4 MiB por archivo.
+- Se rechazan symlinks, hardlinks, entradas especiales, rutas absolutas o sin normalizar, duplicados, colisiones archivo/directorio y el directorio `.solv_workspace`.
+- Guarda el objeto con clave `workspace-projects/<tenant>/<ejercicio>/<sha256>.tar.gz` y deja un borrador con `artifact_key`, `artifact_sha256`, `artifact_bytes` y `artifact_files`, sin `text_snapshot`. No publica.
+- Una entrega en un entorno sembrado con artefacto acepta hasta 128 MiB expandidos, 20.000 archivos y 4 MiB por archivo. Los proyectos de texto conservan 4 MiB, 800 archivos y 1 MiB por archivo.
+- La entrega grande no viaja en `code`: se guarda en el depósito (`submissions/<tenant>/<ejercicio>/<entrega>.tar.gz`) y la fila conserva `artifact_key`, `artifact_sha256`, `artifact_bytes` y `artifact_files` con `code` vacío. La revisión docente devuelve el árbol en `files` con `files_available: true`, igual que una entrega de texto.
+
+```json
+{ "data": { "draft": { "id": "uuid", "revision": 1, "text_snapshot": "", "artifact_key": "workspace-projects/.../hash.tar.gz", "artifact_sha256": "hash", "artifact_bytes": 1048576, "artifact_files": 900 }, "file_count": 900, "total_bytes": 7340032 }, "error": "", "message": "Archivo del proyecto importado al borrador" }
+```
+
 ### `POST /api/v1/teacher/exercises/{id}/project/publish`
 
 Sin cuerpo. Publica el borrador vigente como una versión inmutable y mueve el puntero del proyecto en la misma transacción.
@@ -2809,6 +2830,9 @@ Sin cuerpo. Publica el borrador vigente como una versión inmutable y mueve el p
 
 - Exige `WORKSPACE_PROJECTS_PUBLISH_ENABLED=true`; apagado responde `403 workspace_publishing_disabled` y la interfaz solo muestra el estado.
 - Requiere un borrador válido y consistente con el snapshot. La versión se numera de forma creciente y no se puede editar ni borrar después.
+- Un borrador con artefacto también se publica: la versión queda con `text_snapshot` vacío, `content_sha256` igual al hash del archivo, sus números en `file_count`/`total_bytes` y `manifest` con la lista de archivos extraída del `tar.gz` (ruta, tamaño y líneas). El espejo `exercises.boilerplate` queda vacío y atado a la versión nueva, que es lo que exige el trigger de 00053.
+- La revisión docente arma el diff por archivo con el árbol del depósito cuando la entrega apunta a una versión con artefacto: el espejo de texto está vacío por diseño.
+- Publicar un artefacto no encola la preparación de dependencias: el worker todavía lee el snapshot de texto. La versión se publica y el entorno instala al empezar.
 - No escribe en el volumen de ningún alumno: los entornos ya sembrados conservan su versión asignada y los nuevos reciben la publicada. `JUEZ_EFIMERO` no recorre este camino.
 
 ### Errores de la familia de proyecto
@@ -2820,6 +2844,9 @@ Sin cuerpo. Publica el borrador vigente como una versión inmutable y mueve el p
 | `403` | `teacher_role_required` | Rol `student` en cualquiera de las rutas. |
 | `403` | `workspace_project_forbidden` | El docente no tiene asignada la materia del ejercicio. |
 | `403` | `workspace_publishing_disabled` | Se intenta publicar con el flag apagado. |
+| `403` | `project_archive_disabled` | Se intenta cargar un proyecto grande con la bandera apagada. |
+| `413` | `project_archive_too_large` | El archivo supera el cuerpo HTTP o los topes del artefacto. |
+| `503` | `project_archive_store_unavailable` | La carga está encendida pero no hay depósito configurado. |
 | `404` | `project_not_found` | El ejercicio no existe, es de otro tenant o no hay proyecto para publicar. |
 | `409` | `draft_revision_conflict` | La revisión esperada no coincide con la vigente del borrador. |
 | `413` | `project_too_large` | El cuerpo del guardado supera 1 MiB más margen. |

@@ -86,7 +86,7 @@ func (r *PostgresAdminGovernanceRepository) loadTemplateLanguageRunners(
 	for _, row := range rows {
 		runners = append(runners, row.toDomain())
 	}
-	return runners, nil
+	return domain.SortLanguageRunners(runners), nil
 }
 
 // attachTemplateLanguageRunners completa una lista de plantillas con sus
@@ -128,7 +128,7 @@ func (r *PostgresAdminGovernanceRepository) attachTemplateLanguageRunners(
 			continue
 		}
 		if runners, ok := byTemplate[template.ID]; ok {
-			template.LanguageRunners = runners
+			template.LanguageRunners = domain.SortLanguageRunners(runners)
 		} else {
 			template.LanguageRunners = []domain.LanguageRunner{}
 		}

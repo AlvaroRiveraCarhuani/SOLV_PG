@@ -141,3 +141,38 @@ func TestTemplateSummarySupportsLanguage(t *testing.T) {
 		t.Error("un entorno ausente no declara lenguajes")
 	}
 }
+
+func TestSortLanguageRunners_UsaElOrdenDelCatalogo(t *testing.T) {
+	runners := SortLanguageRunners([]LanguageRunner{
+		{Language: "java", Entrypoint: "javac Solution.java && java Solution"},
+		{Language: "cpp", Entrypoint: "g++ solution.cpp -o solution && ./solution"},
+		{Language: "python", Entrypoint: "python3 solution.py"},
+	})
+	got := LanguageRunnerLanguages(runners)
+	want := []string{"python", "cpp", "java"}
+	if len(got) != len(want) {
+		t.Fatalf("esperaba %v, obtuve %v", want, got)
+	}
+	for i := range want {
+		if got[i] != want[i] {
+			t.Fatalf("esperaba %v, obtuve %v", want, got)
+		}
+	}
+}
+
+func TestValidateExerciseLanguages_RechazaLenguajeQueElEntornoNoEjecuta(t *testing.T) {
+	runners := []LanguageRunner{
+		{Language: "python", Entrypoint: "python3 solution.py"},
+		{Language: "cpp", Entrypoint: "g++ solution.cpp -o solution && ./solution"},
+	}
+	offending, err := ValidateExerciseLanguages([]string{"python", "java"}, runners)
+	if !errors.Is(err, ErrLanguageNotSupportedByEnvironment) {
+		t.Fatalf("esperaba ErrLanguageNotSupportedByEnvironment, obtuve %v", err)
+	}
+	if offending != "java" {
+		t.Fatalf("esperaba señalar java, obtuve %q", offending)
+	}
+	if _, err := ValidateExerciseLanguages([]string{"python", "c++"}, runners); err != nil {
+		t.Fatalf("el alias c++ de un lenguaje del entorno fue rechazado: %v", err)
+	}
+}

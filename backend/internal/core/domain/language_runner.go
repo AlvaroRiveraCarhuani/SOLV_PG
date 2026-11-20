@@ -164,10 +164,35 @@ func NormalizeLanguageRunners(runners []LanguageRunner) ([]LanguageRunner, error
 		})
 	}
 
-	sort.SliceStable(normalized, func(i, j int) bool {
-		return languageRank(normalized[i].Language) < languageRank(normalized[j].Language)
+	return SortLanguageRunners(normalized), nil
+}
+
+// SortLanguageRunners deja los ejecutores en el orden del catálogo del juez, con
+// los lenguajes propios detrás en orden alfabético. El orden no se guarda en la
+// tabla: la lectura lo vuelve a aplicar para que la lista no dependa de en qué
+// orden los insertó cada guardado.
+func SortLanguageRunners(runners []LanguageRunner) []LanguageRunner {
+	sorted := make([]LanguageRunner, len(runners))
+	copy(sorted, runners)
+	sort.SliceStable(sorted, func(i, j int) bool {
+		return languageRank(sorted[i].Language) < languageRank(sorted[j].Language)
 	})
-	return normalized, nil
+	return sorted
+}
+
+// ValidateExerciseLanguages comprueba que la práctica no ofrezca un lenguaje que
+// su entorno no declara. Sin ejecutores declarados no hay nada que validar: el
+// entorno conserva la pareja imagen/comando de siempre.
+func ValidateExerciseLanguages(allowed []string, runners []LanguageRunner) (string, error) {
+	if len(allowed) == 0 || len(runners) == 0 {
+		return "", nil
+	}
+	for _, language := range allowed {
+		if _, ok := ResolveLanguageRunner(runners, language); !ok {
+			return language, fmt.Errorf("%w: %s (disponibles: %s)", ErrLanguageNotSupportedByEnvironment, language, strings.Join(LanguageRunnerLanguages(runners), ", "))
+		}
+	}
+	return "", nil
 }
 
 func languageRank(language string) string {

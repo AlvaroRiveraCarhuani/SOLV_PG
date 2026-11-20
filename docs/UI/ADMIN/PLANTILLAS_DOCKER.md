@@ -206,7 +206,7 @@ Permite supervisar los entornos en producción y desactivar versiones obsoletas:
 6. **Entornos de Evaluación Multilingües (ADR-091):**
    - Un entorno con evaluación automática (`JUEZ_EFIMERO`, `AMBOS`) declara uno o más ejecutores en `language_runners`: `language`, `entrypoint` obligatorio y, opcionalmente, `docker_image`, `timeout_ms` y `memory_limit_mb`.
    - Las claves de lenguaje se canonizan antes de guardar (`c++` → `cpp`, `c#` → `csharp`, `js` → `javascript`, `py` → `python`, `golang` → `go`, `rs` → `rust`). Un lenguaje se declara una sola vez por entorno.
-   - **Lenguaje primario:** el primero de la lista. Su comando alimenta el `entrypoint` de la plantilla y la prueba de arranque del worker de auditoría.
+   - **Lenguaje primario:** el que aporta el `entrypoint` de la plantilla. La lista se lee en el orden del catálogo del juez; el constructor conserva como primario el lenguaje con el que se creó el entorno.
    - **Imagen vacía:** el ejecutor usa la imagen del catálogo del juez para su lenguaje. Un lenguaje fuera del catálogo (`julia`, `ruby`, `lua`) exige `docker_image` con tag fijo o digest; `:latest` sigue prohibido.
    - **Límites:** hasta 12 lenguajes, `timeout_ms` entre 100 y 60000, `memory_limit_mb` entre 64 y 4096 y por debajo del techo del host.
    - Al publicar un ejercicio, los ejecutores se congelan en el `environment_snapshot`; cambiar la plantilla después no altera lo ya publicado.
