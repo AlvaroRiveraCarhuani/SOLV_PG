@@ -163,13 +163,21 @@ func TestTemplateLanguageRunnersPersistence(t *testing.T) {
 		}
 	})
 
-	// El reemplazo de ejecutores es atómico: si uno no pasa las restricciones de
-	// la tabla, el entorno conserva los lenguajes que tenía.
-	t.Run("una sustitución fallida conserva los ejecutores anteriores", func(t *testing.T) {
+	// La edición completa es atómica: si un ejecutor no pasa las restricciones de
+	// la tabla, la plantilla conserva sus columnas y los lenguajes que tenía.
+	t.Run("una edición fallida no deja cambios a medias", func(t *testing.T) {
+		var statusBefore, smokeBefore string
+		if errRead := db.GetDB().QueryRowxContext(ctx, `
+			SELECT status, smoke_test_status FROM lab_templates WHERE id = $1
+		`, created.ID).Scan(&statusBefore, &smokeBefore); errRead != nil {
+			t.Fatalf("no se pudo leer el estado previo de la plantilla: %v", errRead)
+		}
+
 		_, errUpdate := repo.UpdateOfficialTemplate(ctx, tenantID, created.ID, adminID, domain.UpdateOfficialTemplateDTO{
-			Name:              templateName,
+			Name:              templateName + " renombrada",
 			DockerImage:       "python:3.12-slim-bookworm",
-			BaseRamMB:         256,
+			BaseRamMB:         512,
+			Description:       "descripción que no debe quedar guardada",
 			TargetEnvironment: "JUEZ_EFIMERO",
 			Entrypoint:        "python3 solution.py",
 			LanguageRunners: []domain.LanguageRunner{
@@ -184,6 +192,12 @@ func TestTemplateLanguageRunnersPersistence(t *testing.T) {
 		got, errGet := repo.GetTemplateByID(ctx, created.ID)
 		if errGet != nil {
 			t.Fatalf("no se pudo releer la plantilla: %v", errGet)
+		}
+		if got.Name != templateName || got.BaseRamMB != 256 || got.Description != "" {
+			t.Errorf("la edición fallida dejó columnas a medias: nombre=%q ram=%d descripción=%q", got.Name, got.BaseRamMB, got.Description)
+		}
+		if got.Status != statusBefore || got.SmokeTestStatus != smokeBefore {
+			t.Errorf("la edición fallida cambió el estado: %q/%q, esperaba %q/%q", got.Status, got.SmokeTestStatus, statusBefore, smokeBefore)
 		}
 		if len(got.LanguageRunners) != 2 {
 			t.Fatalf("la sustitución fallida dejó %d ejecutores, esperaba los 2 anteriores", len(got.LanguageRunners))

@@ -33,30 +33,20 @@ func (row languageRunnerRow) toDomain() domain.LanguageRunner {
 }
 
 // replaceTemplateLanguageRunners deja el conjunto de ejecutores exactamente como
-// lo recibió. Una lista vacía borra los ejecutores del entorno. El borrado y las
-// altas van en una transacción: si un ejecutor no pasa las restricciones de la
-// tabla, el entorno conserva los lenguajes que tenía en lugar de quedar a medias.
+// lo recibió. Una lista vacía borra los ejecutores del entorno. El llamador
+// aporta el ejecutor para que el borrado y las altas compartan la transacción de
+// la edición: si un ejecutor no pasa las restricciones de la tabla, la plantilla
+// conserva sus columnas y sus lenguajes en lugar de quedar a medias.
 func (r *PostgresAdminGovernanceRepository) replaceTemplateLanguageRunners(
 	ctx context.Context,
+	exec sqlx.ExtContext,
 	templateID string,
 	runners []domain.LanguageRunner,
 ) error {
-	tx, err := r.db.BeginTxx(ctx, nil)
-	if err != nil {
-		return fmt.Errorf("error abriendo la transacción de ejecutores de lenguaje: %w", err)
-	}
-	defer func() { _ = tx.Rollback() }()
-
-	if _, err := tx.ExecContext(ctx, `DELETE FROM template_language_runners WHERE template_id = $1`, templateID); err != nil {
+	if _, err := exec.ExecContext(ctx, `DELETE FROM template_language_runners WHERE template_id = $1`, templateID); err != nil {
 		return fmt.Errorf("error limpiando ejecutores de lenguaje: %w", err)
 	}
-	if err := r.insertTemplateLanguageRunners(ctx, tx, templateID, runners); err != nil {
-		return err
-	}
-	if err := tx.Commit(); err != nil {
-		return fmt.Errorf("error confirmando ejecutores de lenguaje: %w", err)
-	}
-	return nil
+	return r.insertTemplateLanguageRunners(ctx, exec, templateID, runners)
 }
 
 func (r *PostgresAdminGovernanceRepository) insertTemplateLanguageRunners(

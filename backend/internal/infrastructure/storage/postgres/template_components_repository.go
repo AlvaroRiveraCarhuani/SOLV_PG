@@ -618,7 +618,17 @@ func (r *PostgresAdminGovernanceRepository) UpdateOfficialTemplate(
 			updated_at = NOW()
 		WHERE id::text = $16 AND (tenant_id::text = $17 OR tenant_id IS NULL)
 	`, technicalChange, technicalChange, technicalChange, technicalChange)
-	res, err := r.db.ExecContext(
+
+	// La edición y su catálogo de lenguajes comparten transacción: una fila
+	// rechazada por la tabla de ejecutores devuelve la plantilla a su estado
+	// anterior, sin renombres ni cambios de cuota a medio aplicar.
+	tx, err := r.db.BeginTxx(ctx, nil)
+	if err != nil {
+		return nil, fmt.Errorf("error abriendo la transacción de la plantilla: %w", err)
+	}
+	defer func() { _ = tx.Rollback() }()
+
+	res, err := tx.ExecContext(
 		ctx, query,
 		strings.TrimSpace(dto.Name),
 		strings.TrimSpace(dto.DockerImage),
@@ -648,9 +658,12 @@ func (r *PostgresAdminGovernanceRepository) UpdateOfficialTemplate(
 	// nil conserva los ejecutores guardados; una lista (incluso vacía) los
 	// reemplaza. El servicio ya normalizó y validó el contrato.
 	if dto.LanguageRunners != nil {
-		if err := r.replaceTemplateLanguageRunners(ctx, templateID, dto.LanguageRunners); err != nil {
+		if err := r.replaceTemplateLanguageRunners(ctx, tx, templateID, dto.LanguageRunners); err != nil {
 			return nil, err
 		}
+	}
+	if err := tx.Commit(); err != nil {
+		return nil, fmt.Errorf("error confirmando la plantilla: %w", err)
 	}
 	return r.GetTemplateByID(ctx, templateID)
 }
