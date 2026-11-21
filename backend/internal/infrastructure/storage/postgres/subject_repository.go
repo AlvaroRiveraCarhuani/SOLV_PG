@@ -18,6 +18,14 @@ func NewPostgresSubjectRepository(db *sqlx.DB) *PostgresSubjectRepository {
 }
 
 func (r *PostgresSubjectRepository) Create(ctx context.Context, subject *domain.Subject) error {
+	// La entrada del catálogo y la materia comparten transacción: un alta
+	// fallida no deja una materia registrada en el plan sin curso que la dicte.
+	tx, err := r.db.BeginTxx(ctx, nil)
+	if err != nil {
+		return fmt.Errorf("failed to begin subject transaction: %w", err)
+	}
+	defer func() { _ = tx.Rollback() }()
+
 	// El curso hereda su identidad del catálogo y su código visible se compone con
 	// la sección: la materia "SIS-211" con sección "1" da el curso "SIS-211-1". El
 	// catálogo guarda siempre el código de la materia, sin sección, porque dos
@@ -28,7 +36,7 @@ func (r *PostgresSubjectRepository) Create(ctx context.Context, subject *domain.
 	// llamándose distinto.
 	if baseCode := strings.ToUpper(strings.TrimSpace(subject.Code)); baseCode != "" {
 		if subject.CatalogID == nil {
-			catalogID, canonicalName, err := r.resolveCatalog(ctx, subject.TenantID, baseCode, subject.Name)
+			catalogID, canonicalName, err := r.resolveCatalog(ctx, tx, subject.TenantID, baseCode, subject.Name)
 			if err != nil {
 				return err
 			}
@@ -47,9 +55,11 @@ func (r *PostgresSubjectRepository) Create(ctx context.Context, subject *domain.
 		INSERT INTO subjects (id, tenant_id, name, code, teacher_id, academic_period_id, classroom_course_id, template_id, subject_catalog_id, section, created_at, updated_at)
 		VALUES (:id, :tenant_id, :name, :code, :teacher_id, :academic_period_id, :classroom_course_id, :template_id, :subject_catalog_id, :section, NOW(), NOW())
 	`
-	_, err := r.db.NamedExecContext(ctx, query, subject)
-	if err != nil {
+	if _, err := tx.NamedExecContext(ctx, query, subject); err != nil {
 		return fmt.Errorf("failed to create subject: %w", err)
+	}
+	if err := tx.Commit(); err != nil {
+		return fmt.Errorf("failed to confirm subject creation: %w", err)
 	}
 	return nil
 }
@@ -57,8 +67,8 @@ func (r *PostgresSubjectRepository) Create(ctx context.Context, subject *domain.
 // resolveCatalog devuelve la materia del catálogo, creándola si es la primera vez
 // que se dicta. El código se guarda en mayúsculas porque es la forma en que se
 // muestra en toda la interfaz y la que usa el índice único del catálogo.
-func (r *PostgresSubjectRepository) resolveCatalog(ctx context.Context, tenantID, code, name string) (string, string, error) {
-	if _, err := r.db.ExecContext(ctx, `
+func (r *PostgresSubjectRepository) resolveCatalog(ctx context.Context, exec sqlx.ExtContext, tenantID, code, name string) (string, string, error) {
+	if _, err := exec.ExecContext(ctx, `
 		INSERT INTO subject_catalog (tenant_id, code, name)
 		VALUES ($1, upper($2), $3)
 		ON CONFLICT (tenant_id, upper(code)) DO NOTHING
@@ -70,7 +80,7 @@ func (r *PostgresSubjectRepository) resolveCatalog(ctx context.Context, tenantID
 		ID   string `db:"id"`
 		Name string `db:"name"`
 	}
-	if err := r.db.GetContext(ctx, &catalog, `
+	if err := sqlx.GetContext(ctx, exec, &catalog, `
 		SELECT id, name FROM subject_catalog
 		WHERE tenant_id = $1 AND upper(code) = upper($2)
 	`, tenantID, code); err != nil {

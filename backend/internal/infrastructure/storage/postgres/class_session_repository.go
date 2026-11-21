@@ -147,8 +147,16 @@ func (r *PostgresClassSessionRepository) OpenSession(ctx context.Context, tenant
 // CloseSession cierra el aula. Es idempotente: si ya estaba cerrada devuelve la
 // misma sesión, sin error, porque el docente pudo haber pulsado dos veces.
 func (r *PostgresClassSessionRepository) CloseSession(ctx context.Context, tenantID, teacherID, sessionID string) (*domain.ClassSession, error) {
+	// Cerrar el aula y sellar la salida de sus participantes van juntos: si el
+	// sellado falla, el reintento todavía encuentra el aula abierta y lo hace.
+	tx, err := r.db.BeginTxx(ctx, nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to begin close session transaction: %w", err)
+	}
+	defer func() { _ = tx.Rollback() }()
+
 	var closedID string
-	err := r.db.GetContext(ctx, &closedID, `
+	err = tx.GetContext(ctx, &closedID, `
 		UPDATE class_sessions cs
 		SET status = 'closed',
 		    closes_at = COALESCE(cs.closes_at, NOW()),
@@ -169,13 +177,16 @@ func (r *PostgresClassSessionRepository) CloseSession(ctx context.Context, tenan
 	}
 
 	if closedID != "" {
-		if _, err := r.db.ExecContext(ctx, `
+		if _, err := tx.ExecContext(ctx, `
 			UPDATE class_session_participants
 			SET left_at = COALESCE(left_at, NOW())
 			WHERE session_id = $1::uuid AND left_at IS NULL
 		`, sessionID); err != nil {
 			return nil, fmt.Errorf("failed to stamp session departure: %w", err)
 		}
+	}
+	if err := tx.Commit(); err != nil {
+		return nil, fmt.Errorf("failed to confirm close session: %w", err)
 	}
 
 	// Cerrar dos veces devuelve el mismo estado; una sesión ajena o inexistente
@@ -597,7 +608,15 @@ func (r *PostgresClassSessionRepository) AttachPracticeEnvironmentToOpenSession(
 		return fmt.Errorf("failed to resolve open session for environment: %w", err)
 	}
 
-	if _, err := r.db.ExecContext(ctx, `
+	// El vínculo del entorno y la presencia del alumno van juntos: un entorno
+	// apuntando a un aula donde el alumno no figura es una asistencia perdida.
+	tx, err := r.db.BeginTxx(ctx, nil)
+	if err != nil {
+		return fmt.Errorf("failed to begin session environment transaction: %w", err)
+	}
+	defer func() { _ = tx.Rollback() }()
+
+	if _, err := tx.ExecContext(ctx, `
 		UPDATE environments
 		SET session_id = $1::uuid
 		WHERE id = $2::uuid AND tenant_id = $3 AND session_id IS NULL
@@ -605,7 +624,7 @@ func (r *PostgresClassSessionRepository) AttachPracticeEnvironmentToOpenSession(
 		return fmt.Errorf("failed to link environment to session: %w", err)
 	}
 
-	if _, err := r.db.ExecContext(ctx, `
+	if _, err := tx.ExecContext(ctx, `
 		INSERT INTO class_session_participants (session_id, student_id, tenant_id, joined_at, last_seen_at, environment_id)
 		VALUES ($1::uuid, $2::uuid, $3, NOW(), NOW(), $4::uuid)
 		ON CONFLICT (session_id, student_id)
@@ -613,7 +632,7 @@ func (r *PostgresClassSessionRepository) AttachPracticeEnvironmentToOpenSession(
 	`, sessionID, studentID, tenantID, environmentID); err != nil {
 		return fmt.Errorf("failed to record session presence for environment: %w", err)
 	}
-	return nil
+	return tx.Commit()
 }
 
 // LatestExamSessionOpen devuelve la hora de apertura de la convocatoria más

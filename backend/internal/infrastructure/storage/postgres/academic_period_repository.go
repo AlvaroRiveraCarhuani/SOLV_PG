@@ -71,8 +71,18 @@ func (r *PostgresAcademicPeriodRepository) ListByTenant(ctx context.Context, ten
 }
 
 func (r *PostgresAcademicPeriodRepository) Update(ctx context.Context, period *domain.AcademicPeriod) error {
+	// Activar un periodo y desactivar el anterior van juntos: si la segunda
+	// sentencia falla, la institución no queda sin periodo activo.
+	tx, err := r.db.BeginTxx(ctx, nil)
+	if err != nil {
+		return fmt.Errorf("error beginning academic period transaction: %w", err)
+	}
+	defer func() { _ = tx.Rollback() }()
+
 	if period.IsActive {
-		_, _ = r.db.ExecContext(ctx, `UPDATE academic_periods SET is_active = false WHERE tenant_id = $1 AND id != $2 AND is_archived = false`, period.TenantID, period.ID)
+		if _, err := tx.ExecContext(ctx, `UPDATE academic_periods SET is_active = false WHERE tenant_id = $1 AND id != $2 AND is_archived = false`, period.TenantID, period.ID); err != nil {
+			return fmt.Errorf("error deactivating other academic periods: %w", err)
+		}
 	}
 
 	query := `
@@ -80,7 +90,7 @@ func (r *PostgresAcademicPeriodRepository) Update(ctx context.Context, period *d
 		SET name = $1, code = $2, start_date = $3, end_date = $4, is_active = $5
 		WHERE tenant_id = $6 AND id = $7 AND is_archived = FALSE
 	`
-	res, err := r.db.ExecContext(ctx, query,
+	res, err := tx.ExecContext(ctx, query,
 		period.Name,
 		period.Code,
 		period.StartDate,
@@ -96,7 +106,7 @@ func (r *PostgresAcademicPeriodRepository) Update(ctx context.Context, period *d
 	if err != nil || rows == 0 {
 		return fmt.Errorf("academic period not found or not updated")
 	}
-	return nil
+	return tx.Commit()
 }
 
 func (r *PostgresAcademicPeriodRepository) Delete(ctx context.Context, tenantID, id string) error {
@@ -129,12 +139,21 @@ func (r *PostgresAcademicPeriodRepository) Delete(ctx context.Context, tenantID,
 // periodos con end_date vencida, y los congela formalmente (is_archived=true).
 func (r *PostgresAcademicPeriodRepository) ArchiveExpiredPeriods(ctx context.Context) (int64, error) {
 	// 1. Desactivar y archivar formalmente periodos cuya end_date ya pasó
+	// El sellado de materias comparte transacción con el archivo: o queda el
+	// periodo cerrado con sus materias, o no se archiva nada y el job informa
+	// el fallo en lugar de darlo por bueno.
+	tx, err := r.db.BeginTxx(ctx, nil)
+	if err != nil {
+		return 0, fmt.Errorf("error beginning archive transaction: %w", err)
+	}
+	defer func() { _ = tx.Rollback() }()
+
 	queryPeriods := `
 		UPDATE academic_periods
 		SET is_active = false, is_archived = true, archived_at = COALESCE(archived_at, NOW())
 		WHERE end_date < CURRENT_DATE AND is_archived = false
 	`
-	res, err := r.db.ExecContext(ctx, queryPeriods)
+	res, err := tx.ExecContext(ctx, queryPeriods)
 	if err != nil {
 		return 0, fmt.Errorf("error archiving expired periods: %w", err)
 	}
@@ -150,7 +169,12 @@ func (r *PostgresAcademicPeriodRepository) ArchiveExpiredPeriods(ctx context.Con
 			WHERE is_archived = true OR end_date < CURRENT_DATE
 		) AND is_archived = false
 	`
-	_, _ = r.db.ExecContext(ctx, querySubjects)
+	if _, err := tx.ExecContext(ctx, querySubjects); err != nil {
+		return 0, fmt.Errorf("error sealing subjects of expired periods: %w", err)
+	}
+	if err := tx.Commit(); err != nil {
+		return 0, fmt.Errorf("error confirming expired period archive: %w", err)
+	}
 
 	return archivedPeriods, nil
 }

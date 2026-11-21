@@ -96,4 +96,6 @@ Este documento consolida todas las Decisiones de Arquitectura (ADRs) tomadas dur
 | 087 | [Identidad del Aula como Tablero de la Clase, sin Consola ni Telemetría](ADR-087-identidad-del-aula-tablero-de-la-clase.md) | Aceptado | Docencia |
 | 088 | [Remodelación Minimalista del Tablero del Aula](ADR-088-remodelacion-minimalista-del-tablero-del-aula.md) | Aceptado | Docencia |
 | 089 | [Perfiles de Cupo del Limitador Global por IP](ADR-089-perfiles-de-cupo-del-limitador-global.md) | Aceptado | Seguridad |
+| 090 | [Proyecto Inicial de Árbol Grande como Artefacto Versionado](ADR-090-proyecto-inicial-en-almacen-de-objetos.md) | Propuesto | Docencia |
 | 091 | [Entornos de Evaluación Multilingües](ADR-091-entornos-de-evaluacion-multilingues.md) | Aceptado | Core |
+| 092 | [Atomicidad de las Escrituras que Tocan Varias Tablas](ADR-092-atomicidad-de-escrituras-multi-tabla.md) | Aceptado | Core |
