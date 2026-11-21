@@ -492,8 +492,16 @@ func (r *PostgresAdminGovernanceRepository) CreateOfficialTemplate(
 			created_at
 	`
 
+	// El alta y sus ejecutores comparten transacción: si un lenguaje no pasa
+	// las restricciones de la tabla, no queda una plantilla sin lenguajes.
+	tx, err := r.db.BeginTxx(ctx, nil)
+	if err != nil {
+		return nil, fmt.Errorf("error abriendo la transacción del alta de plantilla: %w", err)
+	}
+	defer func() { _ = tx.Rollback() }()
+
 	var row adminTemplateRow
-	err = r.db.QueryRowContext(
+	err = tx.QueryRowContext(
 		ctx,
 		query,
 		tenantID,
@@ -560,13 +568,13 @@ func (r *PostgresAdminGovernanceRepository) CreateOfficialTemplate(
 
 	created := row.toDomain()
 	if len(dto.LanguageRunners) > 0 {
-		if err := r.insertTemplateLanguageRunners(ctx, r.db, created.ID, dto.LanguageRunners); err != nil {
-			// La plantilla sin sus ejecutores no es un entorno válido: se deshace
-			// el alta en lugar de dejar un entorno a medias.
-			_, _ = r.db.ExecContext(ctx, `DELETE FROM lab_templates WHERE id = $1`, created.ID)
+		if err := r.insertTemplateLanguageRunners(ctx, tx, created.ID, dto.LanguageRunners); err != nil {
 			return nil, err
 		}
 		created.LanguageRunners = dto.LanguageRunners
+	}
+	if err := tx.Commit(); err != nil {
+		return nil, fmt.Errorf("error confirmando el alta de plantilla: %w", err)
 	}
 	return created, nil
 }

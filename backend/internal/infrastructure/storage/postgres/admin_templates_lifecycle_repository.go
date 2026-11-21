@@ -99,7 +99,14 @@ func (r *PostgresAdminGovernanceRepository) DuplicateTemplate(
 		}
 	}
 
-	// 3. Insertar la copia
+	// 3. Insertar la copia y sus ejecutores en una misma transacción: una copia
+	// sin lenguajes no es un entorno válido.
+	tx, err := r.db.BeginTxx(ctx, nil)
+	if err != nil {
+		return nil, fmt.Errorf("error abriendo la transacción del duplicado: %w", err)
+	}
+	defer func() { _ = tx.Rollback() }()
+
 	insertQuery := `
 		INSERT INTO lab_templates (
 			id, tenant_id, name, docker_image, base_ram_mb, status, description, 
@@ -151,7 +158,7 @@ func (r *PostgresAdminGovernanceRepository) DuplicateTemplate(
 		modParam = *modelID
 	}
 
-	err = r.db.QueryRowContext(
+	err = tx.QueryRowContext(
 		ctx, insertQuery,
 		tenantID, candidateName, dockerImg, baseRam, desc,
 		targetEnv, entrypoint, timeoutMS, sampleInput, catParam, modParam,
@@ -174,7 +181,7 @@ func (r *PostgresAdminGovernanceRepository) DuplicateTemplate(
 
 	// La copia hereda los ejecutores de lenguaje del original: un entorno
 	// multilingüe duplicado no pierde sus lenguajes.
-	if _, err := r.db.ExecContext(ctx, `
+	if _, err := tx.ExecContext(ctx, `
 		INSERT INTO template_language_runners (template_id, language, entrypoint, docker_image, timeout_ms, memory_limit_mb)
 		SELECT $1, language, entrypoint, docker_image, timeout_ms, memory_limit_mb
 		FROM template_language_runners
@@ -182,6 +189,9 @@ func (r *PostgresAdminGovernanceRepository) DuplicateTemplate(
 		ON CONFLICT (template_id, language) DO NOTHING
 	`, row.ID, templateID); err != nil {
 		return nil, fmt.Errorf("error copiando ejecutores de lenguaje: %w", err)
+	}
+	if err := tx.Commit(); err != nil {
+		return nil, fmt.Errorf("error confirmando el duplicado: %w", err)
 	}
 
 	created := row.toDomain()

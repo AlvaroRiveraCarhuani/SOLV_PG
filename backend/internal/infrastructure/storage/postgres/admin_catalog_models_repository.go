@@ -313,7 +313,14 @@ func (r *PostgresAdminGovernanceRepository) PromoteTemplateToModel(
 		modelDesc = desc
 	}
 
-	// 4. Insertar en template_models
+	// 4. Insertar en template_models y vincular la plantilla en una misma
+	// transacción: un modelo sin su plantilla de origen no sirve como modelo.
+	tx, err := r.db.BeginTxx(ctx, nil)
+	if err != nil {
+		return nil, fmt.Errorf("error abriendo la transacción de la promoción: %w", err)
+	}
+	defer func() { _ = tx.Rollback() }()
+
 	insertModelQuery := `
 		INSERT INTO template_models (
 			id, tenant_id, category_id, source_template_id, title, description, docker_image,
@@ -327,7 +334,7 @@ func (r *PostgresAdminGovernanceRepository) PromoteTemplateToModel(
 	`
 	var newID string
 	var createdAt time.Time
-	err = r.db.QueryRowContext(
+	err = tx.QueryRowContext(
 		ctx, insertModelQuery,
 		tenantID, dto.CategoryID, templateID, title, modelDesc, dockerImg,
 		baseRam, toolsJSON, targetEnv, entrypoint, timeoutMS, sampleInput,
@@ -340,7 +347,16 @@ func (r *PostgresAdminGovernanceRepository) PromoteTemplateToModel(
 	}
 
 	// 5. Vincular la plantilla al modelo recién creado
-	_, _ = r.db.ExecContext(ctx, `UPDATE lab_templates SET model_id = $1, category_id = $2 WHERE id = $3`, newID, dto.CategoryID, templateID)
+	res, errLink := tx.ExecContext(ctx, `UPDATE lab_templates SET model_id = $1, category_id = $2 WHERE id = $3`, newID, dto.CategoryID, templateID)
+	if errLink != nil {
+		return nil, fmt.Errorf("error vinculando la plantilla al modelo: %w", errLink)
+	}
+	if rows, _ := res.RowsAffected(); rows == 0 {
+		return nil, fmt.Errorf("plantilla no encontrada al vincular el modelo")
+	}
+	if err := tx.Commit(); err != nil {
+		return nil, fmt.Errorf("error confirmando la promoción: %w", err)
+	}
 
 	var toolsList []string
 	if len(toolsJSON) > 0 {

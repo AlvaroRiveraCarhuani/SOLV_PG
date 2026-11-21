@@ -71,6 +71,7 @@ El editor del docente toma los lenguajes del entorno al elegir la plantilla y pe
 - El catálogo de lenguajes queda en un solo lugar consultable; `GetTemplateForLanguage` puede preferir plantillas que declaran el lenguaje.
 - Duplicar una plantilla conserva sus lenguajes.
 - La edición de una plantilla guarda sus columnas y su conjunto de ejecutores en una misma transacción: si un lenguaje no pasa las restricciones de la tabla, la plantilla conserva nombre, cuota, estado y lenguajes anteriores en lugar de quedar a medias.
+- El alta, el duplicado y la promoción a modelo también son transaccionales: no quedan plantillas sin ejecutores ni modelos sin su plantilla de origen.
 - Un lenguaje propio (Julia, Lua, Ruby) se agrega con su imagen y su comando, sin tocar el motor.
 
 **Costos y límites**
