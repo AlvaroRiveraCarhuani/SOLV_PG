@@ -1,4 +1,13 @@
-import { ChangeDetectionStrategy, Component, input, output, signal } from '@angular/core';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  ElementRef,
+  HostListener,
+  input,
+  output,
+  signal,
+  viewChild
+} from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { LucideSlidersHorizontal } from '@lucide/angular';
 import { DismissibleDirective } from '@shared/directives/dismissible.directive';
@@ -6,10 +15,17 @@ import { MachineDataDirective } from '@shared/directives/machine-data.directive'
 
 let nextFilterPopoverId = 0;
 
+const VIEWPORT_MARGIN = 12;
+const FALLBACK_WIDTH = 440;
+
 /**
  * Disparador y panel del popover de filtros. Las columnas de opciones viven en
  * el contenido proyectado; el componente aporta la cabecera, el contador de
- * filtros activos y el cierre por clic fuera o Escape.
+ * filtros activos, el cierre por clic fuera o Escape y la alineación del panel.
+ *
+ * El panel se abre alineado a la izquierda del botón. Si no cabe hacia la
+ * derecha, se alinea a la derecha; si tampoco cabe, se desplaza lo justo para
+ * quedar dentro del viewport. Así no lo recorta el sidebar ni el borde derecho.
  */
 @Component({
   selector: 'filter-popover',
@@ -27,10 +43,19 @@ export class FilterPopoverComponent {
   readonly cleared = output<void>();
 
   readonly open = signal(false);
+  readonly panelLeft = signal(0);
+  readonly panelWidth = signal(FALLBACK_WIDTH);
   readonly panelId = `filter-popover-${nextFilterPopoverId++}`;
 
+  private readonly trigger = viewChild.required<ElementRef<HTMLButtonElement>>('trigger');
+
   toggle(): void {
-    this.open.update((isOpen) => !isOpen);
+    if (this.open()) {
+      this.close();
+      return;
+    }
+    this.positionPanel();
+    this.open.set(true);
   }
 
   close(): void {
@@ -39,5 +64,32 @@ export class FilterPopoverComponent {
 
   clear(): void {
     this.cleared.emit();
+  }
+
+  @HostListener('window:resize')
+  onViewportResize(): void {
+    if (this.open()) {
+      this.positionPanel();
+    }
+  }
+
+  private positionPanel(): void {
+    const rect = this.trigger().nativeElement.getBoundingClientRect();
+    const viewport = window.innerWidth || document.documentElement.clientWidth;
+    const requested = Number.parseFloat(this.width());
+    const panelWidth = Math.max(
+      0,
+      Math.min(Number.isFinite(requested) ? requested : FALLBACK_WIDTH, viewport - VIEWPORT_MARGIN * 2)
+    );
+    const rightSpace = viewport - rect.left - VIEWPORT_MARGIN;
+    const leftSpace = rect.right - VIEWPORT_MARGIN;
+
+    let left = 0;
+    if (rightSpace < panelWidth) {
+      left = leftSpace >= panelWidth ? rect.width - panelWidth : VIEWPORT_MARGIN - rect.left;
+    }
+
+    this.panelWidth.set(panelWidth);
+    this.panelLeft.set(Math.round(left));
   }
 }

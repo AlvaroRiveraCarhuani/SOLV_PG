@@ -20,7 +20,8 @@
       [id]="panelId"
       role="dialog"
       [attr.aria-label]="buttonLabel()"
-      [style.width]="width()"
+      [style.width.px]="panelWidth()"
+      [style.left.px]="panelLeft()"
       dismissible
       [dismissExclude]="trigger"
       (dismiss)="close()">
