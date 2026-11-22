@@ -27,9 +27,8 @@
 
   &.active {
     background-color: var(--bg-surface);
-    border-color: var(--border-subtle);
+    border-color: var(--border-strong);
     color: var(--text-primary);
-    box-shadow: var(--shadow-card);
   }
 }
 

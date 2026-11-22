@@ -165,7 +165,7 @@ export class AdminConfigPeriodosService {
       return 'No se puede activar un período académico cuya fecha ya finalizó.';
     }
     if (code === 'conflict_associated_subjects') {
-      return 'No se puede eliminar un período con materias asociadas. Desasócialas primero.';
+      return 'No se puede eliminar un período con materias asociadas. Desasócielas primero.';
     }
     if (code === 'period_archived') {
       return 'El período está archivado y es inmutable.';
@@ -173,6 +173,6 @@ export class AdminConfigPeriodosService {
     if (code === 'confirmation_failed') {
       return 'El código de confirmación no coincide con el código del período.';
     }
-    return e?.message || 'Ocurrió un error inesperado. Intenta nuevamente.';
+    return e?.message || 'Ocurrió un error inesperado. Intente nuevamente.';
   }
 }

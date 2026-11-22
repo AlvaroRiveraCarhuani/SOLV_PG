@@ -103,7 +103,7 @@ export class AdminEnvironmentRequestsComponent implements OnInit, OnDestroy {
       },
       tutorial: {
         label: 'Tutorial guiado',
-        hint: 'Abre una solicitud y comprueba la plantilla antes de continuar.',
+        hint: 'Abra una solicitud y compruebe la plantilla antes de continuar.',
         run: () => this.startRequestsTutorial()
       }
     });
@@ -177,7 +177,7 @@ export class AdminEnvironmentRequestsComponent implements OnInit, OnDestroy {
 
   approve(): void {
     if (!this.selectedTemplateId()) {
-      this.error.set('Elige la plantilla que resuelve esta solicitud.');
+      this.error.set('Elija la plantilla que resuelve esta solicitud.');
       return;
     }
     this.submit({

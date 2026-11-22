@@ -69,7 +69,7 @@ describe('AdminConfigIdentidadComponent', () => {
         }
         if (!/^#([A-Fa-f0-9]{6})$/.test(payload.tenant_primary_color.trim())) {
           result.valid = false;
-          result.colorError = 'Formato inválido. Usa el formato #RRGGBB (ej. #2563EB).';
+          result.colorError = 'Formato inválido. Use el formato #RRGGBB (ej. #2563EB).';
         }
         const logo = payload.logo_url.trim();
         if (logo && !/^https:\/\/.+/.test(logo) && !logo.startsWith('/')) {
@@ -312,7 +312,7 @@ describe('AdminConfigIdentidadComponent', () => {
     const hint: HTMLElement | null = fixture.nativeElement.querySelector('.typography-hint');
     expect(hint).not.toBeNull();
     expect(hint?.textContent).toContain('Aplicar');
-    expect(hint?.textContent).toContain('Guardar Marca');
+    expect(hint?.textContent).toContain('Guardar marca');
   });
 
   it('successful save applies fonts to the session without reload', async () => {

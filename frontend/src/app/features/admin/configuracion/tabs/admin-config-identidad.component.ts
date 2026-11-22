@@ -351,7 +351,7 @@ export class AdminConfigIdentidadComponent implements OnInit, OnDestroy {
     }
     const allowed = ['image/png', 'image/svg+xml', 'image/jpeg', 'image/webp'];
     if (!allowed.includes(file.type)) {
-      this.showToast('Formato no permitido. Usa PNG, SVG, JPG o WEBP.', 'error');
+      this.showToast('Formato no permitido. Use PNG, SVG, JPG o WEBP.', 'error');
       input.value = '';
       return;
     }
@@ -361,7 +361,7 @@ export class AdminConfigIdentidadComponent implements OnInit, OnDestroy {
       next: (res) => {
         if (!res?.logo_url) {
           this.isUploadingLogo.set(false);
-          this.showToast('El servidor no devolvió la URL del logo. Intenta nuevamente.', 'error');
+          this.showToast('El servidor no devolvió la URL del logo. Intente nuevamente.', 'error');
           return;
         }
         // Cache-buster: el backend sirve la misma URL determinística con

@@ -770,7 +770,7 @@ export class ComponentFormModalComponent implements OnInit {
     if (this.layer() !== 'runtime' || !form.enabled) return null;
     if (form.materialize === 'none') return null;
     if (splitProfileList(form.detect).length === 0) {
-      return 'Indicá al menos un archivo que delate que el proyecto usa esta familia.';
+      return 'Indique al menos un archivo que delate que el proyecto usa esta familia.';
     }
     if (!form.install.trim()) {
       return 'Falta el comando de instalación del perfil de dependencias.';

@@ -464,9 +464,9 @@ export class AdminConfigIaComponent implements OnInit, OnDestroy {
   readonly apiKeyPlaceholder = computed(() => {
     const mode = this.formMode();
     if (mode === 'lan') {
-      return 'Opcional: dejá vacío si el servidor local no requiere clave';
+      return 'Opcional: deje vacío si el servidor local no requiere clave';
     }
-    return 'Ingresa la API Key (obligatoria para este proveedor)';
+    return 'Ingrese la API Key (obligatoria para este proveedor)';
   });
 
   /** Elementos completos de la grilla: 5 base + customs + tarjeta de acción. */
@@ -717,7 +717,7 @@ export class AdminConfigIaComponent implements OnInit, OnDestroy {
       this.providerCatalog.find((p) => (this.providerProfiles()[p.id]?.model ?? '') !== '')?.id ??
       'gemini';
     this.selectProvider(fallback);
-    this.showToast('success', 'Proveedor quitado de la lista. Guardá la configuración para aplicar el cambio.');
+    this.showToast('success', 'Proveedor quitado de la lista. Guarde la configuración para aplicar el cambio.');
   }
 
   selectCatalogModel(m: AIModelItemDTO): void {

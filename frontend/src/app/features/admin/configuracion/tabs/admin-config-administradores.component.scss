@@ -15,7 +15,7 @@
   background: var(--color-success);
   color: var(--text-inverse);
   border-radius: var(--radius-md);
-  box-shadow: var(--shadow-card);
+  box-shadow: var(--shadow-dropdown);
   font-family: var(--font-sans);
   font-size: var(--text-sm);
   z-index: 1000;
@@ -41,7 +41,7 @@
   padding: var(--space-8, var(--space-6));
   background: var(--bg-surface);
   border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-lg);
+  border-radius: var(--radius-md);
   color: var(--text-muted);
   font-family: var(--font-sans);
   font-size: var(--text-sm);
@@ -66,8 +66,7 @@
 .admin-card {
   background: var(--bg-surface);
   border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-card);
+  border-radius: var(--radius-md);
   padding: var(--space-5);
   display: flex;
   flex-direction: column;

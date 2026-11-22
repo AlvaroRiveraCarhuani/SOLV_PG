@@ -1,18 +1,18 @@
 .students-page {
   display: flex;
   flex-direction: column;
-  gap: 1.5rem;
-  max-width: 1400px;
-  margin: 0 auto;
+  gap: var(--space-4);
+  min-width: 0;
 }
 
 // Header (mismo patrón que Gestión de Docentes)
 .page-header {
   display: flex;
   justify-content: space-between;
-  align-items: center;
-  flex-wrap: nowrap;
+  align-items: flex-end;
+  flex-wrap: wrap;
   gap: var(--space-4, 16px);
+  padding-bottom: 14px;
 }
 
 .header-left {
@@ -26,9 +26,13 @@
 .header-actions {
   display: flex;
   align-items: center;
-  gap: 0.75rem;
+  gap: 8px;
   margin-left: auto;
   flex-shrink: 0;
+
+  .btn-sm {
+    height: 32px;
+  }
 
   .btn-icon {
     width: 16px;

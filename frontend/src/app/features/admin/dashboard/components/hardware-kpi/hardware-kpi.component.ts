@@ -9,92 +9,95 @@ import { LucideCpu, LucideDatabase, LucideHardDrive, LucideBoxes } from '@lucide
   standalone: true,
   imports: [CommonModule, MachineDataDirective, LucideCpu, LucideDatabase, LucideHardDrive, LucideBoxes],
   template: `
-    <div class="kpi-grid">
-      <!-- 1. RAM KPI -->
-      <div class="kpi-card" [class.danger]="ramPercentComputed() > 85" [class.warning]="ramPercentComputed() >= 70 && ramPercentComputed() <= 85">
-        <div class="kpi-header">
-          <span class="kpi-title">MEMORIA RAM (HOST)</span>
+    <div class="kpi-strip">
+      <div class="kpi-cell">
+        <div class="kpi-label-row">
+          <span class="kpi-label">MEMORIA RAM (HOST)</span>
           <svg lucideDatabase class="kpi-icon"></svg>
         </div>
-        <div class="kpi-body">
-          <div class="kpi-value-row">
-            <span class="kpi-mono-val" machineData>{{ ramUsedGB() }} / {{ ramTotalGB() }} GB</span>
-            <span class="kpi-badge" [class.badge-danger]="ramPercentComputed() > 85" [class.badge-warning]="ramPercentComputed() >= 70 && ramPercentComputed() <= 85">
-              <span machineData>{{ ramPercentComputed() }}%</span>
-            </span>
-          </div>
-          <div class="meter-track">
-            <div class="meter-bar" [style.width.%]="ramPercentComputed()" [class.bar-danger]="ramPercentComputed() > 85" [class.bar-warning]="ramPercentComputed() >= 70 && ramPercentComputed() <= 85"></div>
-          </div>
+        <div class="kpi-value-row">
+          <span class="kpi-value" machineData>{{ ramUsedGB() }} / {{ ramTotalGB() }} GB</span>
+          <span
+            class="kpi-percent"
+            [class.is-warning]="ramPercentComputed() >= 75 && ramPercentComputed() <= 85"
+            [class.is-danger]="ramPercentComputed() > 85">
+            <span machineData>{{ ramPercentComputed() }}%</span>
+          </span>
+        </div>
+        <div class="meter-track">
+          <div
+            class="meter-fill"
+            [style.width.%]="ramPercentComputed()"
+            [class.bar-warning]="ramPercentComputed() >= 75 && ramPercentComputed() <= 85"
+            [class.bar-danger]="ramPercentComputed() > 85"></div>
+          <span class="meter-threshold" aria-hidden="true"></span>
         </div>
         <div class="kpi-footer">
-          <span>Umbral de seguridad: <span machineData>{{ metrics().host_safety_ceiling_pct ?? 85 }}%</span> &bull; Servidor Físico</span>
+          <span>Umbral QoS: <span machineData>{{ metrics().host_safety_ceiling_pct ?? 85 }}%</span></span>
+          <span machineData>{{ ramFreeGB() }} GB libres</span>
         </div>
       </div>
 
-      <!-- 2. CPU KPI -->
-      <div class="kpi-card" [class.danger]="metrics().cpu_percent > 85" [class.warning]="metrics().cpu_percent >= 70 && metrics().cpu_percent <= 85">
-        <div class="kpi-header">
-          <span class="kpi-title">PROCESAMIENTO CPU</span>
+      <div class="kpi-cell">
+        <div class="kpi-label-row">
+          <span class="kpi-label">PROCESAMIENTO CPU</span>
           <svg lucideCpu class="kpi-icon"></svg>
         </div>
-        <div class="kpi-body">
-          <div class="kpi-value-row">
-            <span class="kpi-mono-val"><span machineData>{{ metrics().cpu_cores }}</span> vCPUs</span>
-            <span class="kpi-badge" [class.badge-danger]="metrics().cpu_percent > 85" [class.badge-warning]="metrics().cpu_percent >= 70 && metrics().cpu_percent <= 85">
-              <span machineData>{{ metrics().cpu_percent }}%</span>
-            </span>
-          </div>
-          <div class="meter-track">
-            <div class="meter-bar" [style.width.%]="metrics().cpu_percent" [class.bar-danger]="metrics().cpu_percent > 85" [class.bar-warning]="metrics().cpu_percent >= 70 && metrics().cpu_percent <= 85"></div>
-          </div>
+        <div class="kpi-value-row">
+          <span class="kpi-value"><span machineData>{{ metrics().cpu_cores }}</span> vCPU</span>
+          <span
+            class="kpi-percent"
+            [class.is-warning]="metrics().cpu_percent >= 75 && metrics().cpu_percent <= 85"
+            [class.is-danger]="metrics().cpu_percent > 85">
+            <span machineData>{{ metrics().cpu_percent }}%</span>
+          </span>
+        </div>
+        <div class="meter-track">
+          <div
+            class="meter-fill"
+            [style.width.%]="metrics().cpu_percent"
+            [class.bar-warning]="metrics().cpu_percent >= 75 && metrics().cpu_percent <= 85"
+            [class.bar-danger]="metrics().cpu_percent > 85"></div>
         </div>
         <div class="kpi-footer">
-          <span>Carga media del host</span>
+          <span>Carga media</span>
+          <span machineData>{{ metrics().cpu_cores }} vCPU</span>
         </div>
       </div>
 
-      <!-- 3. NVMe Storage KPI -->
-      <div class="kpi-card">
-        <div class="kpi-header">
-          <span class="kpi-title">ALMACENAMIENTO NVMe</span>
+      <div class="kpi-cell">
+        <div class="kpi-label-row">
+          <span class="kpi-label">ALMACENAMIENTO NVMe</span>
           <svg lucideHardDrive class="kpi-icon"></svg>
         </div>
-        <div class="kpi-body">
-          <div class="kpi-value-row">
-            <span class="kpi-mono-val" machineData>{{ diskUsedGB() }} / {{ diskTotalGB() }} GB</span>
-            <span class="kpi-badge badge-neutral">
-              <span machineData>{{ metrics().disk_percent }}%</span>
-            </span>
-          </div>
-          <div class="meter-track">
-            <div class="meter-bar" [style.width.%]="metrics().disk_percent"></div>
-          </div>
+        <div class="kpi-value-row">
+          <span class="kpi-value" machineData>{{ diskUsedGB() }} / {{ diskTotalGB() }} GB</span>
+          <span class="kpi-percent is-neutral"><span machineData>{{ metrics().disk_percent }}%</span></span>
+        </div>
+        <div class="meter-track">
+          <div class="meter-fill" [style.width.%]="metrics().disk_percent"></div>
         </div>
         <div class="kpi-footer">
-          <span><span machineData>{{ metrics().disk_path || '—' }}</span> &bull; Servidor Físico</span>
+          <span machineData>{{ metrics().disk_path || '—' }}</span>
+          <span machineData>{{ diskTotalGB() }} GB total</span>
         </div>
       </div>
 
-      <!-- 4. Contenedores KPI -->
-      <div class="kpi-card">
-        <div class="kpi-header">
-          <span class="kpi-title">CONCURRENCIA</span>
+      <div class="kpi-cell">
+        <div class="kpi-label-row">
+          <span class="kpi-label">CONCURRENCIA</span>
           <svg lucideBoxes class="kpi-icon"></svg>
         </div>
-        <div class="kpi-body">
-          <div class="kpi-value-row">
-            <span class="kpi-mono-val"><span machineData>{{ metrics().containers_active }} / {{ concurrencyMax() }}</span> Activos</span>
-            <span class="kpi-badge badge-success">
-              <span machineData>{{ concurrencyPercent() }}%</span>
-            </span>
-          </div>
-          <div class="meter-track">
-            <div class="meter-bar bar-primary" [style.width.%]="concurrencyPercent()"></div>
-          </div>
+        <div class="kpi-value-row">
+          <span class="kpi-value"><span machineData>{{ metrics().containers_active }} / {{ concurrencyMax() }}</span></span>
+          <span class="kpi-percent is-neutral"><span machineData>{{ concurrencyPercent() }}%</span></span>
+        </div>
+        <div class="meter-track">
+          <div class="meter-fill" [style.width.%]="concurrencyPercent()"></div>
         </div>
         <div class="kpi-footer">
-          <span>{{ capacityBasisLabel() }} &bull; <span machineData>{{ metrics().containers_hibernated }}</span> hibernados</span>
+          <span>{{ capacityBasisLabel() }}</span>
+          <span><span machineData>{{ metrics().containers_hibernated }}</span> hibernados</span>
         </div>
       </div>
     </div>
@@ -106,6 +109,10 @@ export class HardwareKpiComponent {
 
   ramUsedGB = computed(() => (this.metrics().ram_used_bytes / (1024 * 1024 * 1024)).toFixed(1));
   ramTotalGB = computed(() => (this.metrics().ram_total_bytes / (1024 * 1024 * 1024)).toFixed(1));
+  ramFreeGB = computed(() => {
+    const free = Math.max(0, this.metrics().ram_total_bytes - this.metrics().ram_used_bytes);
+    return (free / (1024 * 1024 * 1024)).toFixed(1);
+  });
   ramPercentComputed = computed(() => {
     if (this.metrics().ram_total_bytes > 0) {
       return Math.min(100, Math.round((this.metrics().ram_used_bytes / this.metrics().ram_total_bytes) * 100));

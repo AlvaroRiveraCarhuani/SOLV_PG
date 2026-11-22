@@ -44,7 +44,7 @@
   } @else if (visible().length === 0) {
     <div class="empty-state">
       <svg lucideInbox class="empty-icon"></svg>
-      <h3>{{ filter() === 'pending' ? 'No hay solicitudes por revisar' : 'Todavía no respondiste solicitudes' }}</h3>
+      <h3>{{ filter() === 'pending' ? 'No hay solicitudes por revisar' : 'Todavía no ha respondido solicitudes' }}</h3>
       <p>
         {{ filter() === 'pending'
           ? 'Cuando un docente pida un entorno que no existe, aparecerá aquí.'
@@ -133,14 +133,14 @@
                 <label class="field" data-tour="requests-template">
                   <span class="field-label">Plantilla que resuelve la solicitud</span>
                   <select [ngModel]="selectedTemplateId()" (ngModelChange)="selectedTemplateId.set($event)">
-                    <option value="">Elegir plantilla...</option>
+                    <option value="">Seleccione una plantilla...</option>
                     @for (template of compatibleTemplates(); track template.id) {
                       <option [value]="template.id">{{ template.name }}</option>
                     }
                   </select>
                   @if (compatibleTemplates().length === 0) {
                     <p class="column-empty">
-                      No hay plantillas aprobadas para esta modalidad. Crea el entorno en el Constructor y vuelve a responder.
+                      No hay plantillas aprobadas para esta modalidad. Cree el entorno en el Constructor y vuelva a responder.
                     </p>
                   }
                 </label>
@@ -163,16 +163,16 @@
                 }
 
                 <div class="review-actions" data-tour="requests-actions">
-                  <button type="button" class="btn-outline" [disabled]="isSaving()" (click)="closeReview()">
+                  <button type="button" class="btn-secondary btn-sm" [disabled]="isSaving()" (click)="closeReview()">
                     Cancelar
                   </button>
-                  <button type="button" class="btn-outline-danger" [disabled]="isSaving()" (click)="reject()">
+                  <button type="button" class="btn-ghost btn-sm danger-action" [disabled]="isSaving()" (click)="reject()">
                     No es viable
                   </button>
-                  <button type="button" class="btn-outline" [disabled]="isSaving()" (click)="requestChanges()">
+                  <button type="button" class="btn-secondary btn-sm" [disabled]="isSaving()" (click)="requestChanges()">
                     Pedir ajuste
                   </button>
-                  <button type="button" class="btn-primary" [disabled]="isSaving()" (click)="approve()">
+                  <button type="button" class="btn-primary btn-sm" [disabled]="isSaving()" (click)="approve()">
                     <svg lucideCheck class="btn-icon"></svg>
                     Aprobar con esta plantilla
                   </button>
@@ -180,7 +180,7 @@
               </div>
             } @else {
               <div class="card-actions" data-tour="requests-open">
-                <button type="button" class="btn-primary" (click)="openReview(request)">
+                <button type="button" class="btn-secondary btn-sm" (click)="openReview(request)">
                   Responder
                 </button>
               </div>

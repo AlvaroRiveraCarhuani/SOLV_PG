@@ -1,7 +1,7 @@
 .table-card {
   background-color: var(--bg-surface);
   border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-lg);
+  border-radius: var(--radius-md);
   overflow: hidden;
   display: flex;
   flex-direction: column;
@@ -31,12 +31,10 @@
 }
 
 .count-badge {
-  font-size: var(--text-xs);
-  font-weight: 500;
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
   color: var(--text-muted);
-  background-color: var(--bg-canvas);
-  padding: 2px 8px;
-  border-radius: var(--radius-full);
+  white-space: nowrap;
 }
 
 .toolbar-right {
@@ -90,8 +88,8 @@
   font-size: var(--text-xs);
 
   th {
-    background-color: var(--color-gray-50);
-    padding: 10px 16px;
+    background-color: transparent;
+    padding: 8px 14px;
     font-size: var(--text-2xs);
     font-weight: 700;
     color: var(--text-muted);
@@ -101,13 +99,13 @@
   }
 
   td {
-    padding: 12px 16px;
+    padding: 10px 14px;
     border-bottom: 1px solid var(--border-subtle);
     vertical-align: middle;
   }
 
   tr:hover td {
-    background-color: var(--color-gray-50);
+    background-color: var(--bg-surface-subtle);
   }
 }
 
@@ -133,10 +131,7 @@
 .mono-tag {
   font-family: var(--font-mono);
   font-size: var(--text-2xs);
-  background-color: var(--color-gray-100);
-  color: var(--color-gray-700);
-  padding: 2px 6px;
-  border-radius: 4px;
+  color: var(--text-secondary);
 }
 
 .mono-val {
@@ -160,31 +155,21 @@
   gap: 6px;
 }
 
-.btn-icon {
-  background: transparent;
-  border: 1px solid transparent;
-  border-radius: 4px;
-  padding: 6px;
-  cursor: pointer;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  transition: all 150ms ease;
+.btn-stop {
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  color: var(--text-muted);
 
-  .icon {
-    width: 16px;
-    height: 16px;
+  &:hover {
+    background-color: var(--status-failed-bg);
+    color: var(--status-failed-color);
   }
+}
 
-  &.danger {
-    color: var(--text-muted);
-
-    &:hover {
-      background-color: var(--status-failed-bg);
-      color: var(--color-error);
-      border-color: var(--verdict-wa-border);
-    }
-  }
+.btn-stop-icon {
+  width: 15px;
+  height: 15px;
 }
 
 .empty-cell {
@@ -198,7 +183,7 @@
   align-items: center;
   justify-content: space-between;
   padding: 0.75rem 1.125rem;
-  background-color: var(--bg-canvas);
+  background-color: var(--bg-surface-subtle);
   border-top: 1px solid var(--border-subtle);
   font-size: var(--text-xs);
 }
@@ -227,8 +212,8 @@
   cursor: pointer;
 
   &:hover:not(:disabled) {
-    background-color: var(--color-gray-100);
-    border-color: var(--color-gray-300);
+    background-color: var(--bg-surface-subtle);
+    border-color: var(--border-strong);
   }
 
   &:disabled {

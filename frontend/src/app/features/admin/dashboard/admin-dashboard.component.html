@@ -44,7 +44,7 @@
       </button>
 
       <button 
-        class="btn-toggle-autorefresh" 
+        class="btn-secondary btn-autorefresh"
         [class.active]="autoRefresh()"
         (click)="toggleAutoRefresh()"
         title="Monitoreo en tiempo real cada 10 segundos">
@@ -62,7 +62,7 @@
       </button>
 
       <button 
-        class="btn-action-hibernate" 
+        class="btn-secondary btn-hibernate"
         (click)="requestHibernateAll()" 
         [disabled]="isHibernating() || hibernateCooldown() > 0 || showHibernateConfirm()"
         title="Hibernar contenedores inactivos">
@@ -78,18 +78,18 @@
       <div class="customizing-info">
         <svg lucideInfo class="customizing-icon"></svg>
         <span>
-          <strong>Modo Personalización:</strong> Arrastrá los bloques con el cursor o usá las flechas para ordenar la vista según tus prioridades.
+          <strong>Modo Personalización:</strong> arrastre los bloques con el cursor o use las flechas para ordenar la vista según sus prioridades.
         </span>
       </div>
       <div class="customizing-actions">
-        <button class="btn-custom-reset" (click)="resetLayout()" title="Restablecer disposición por defecto">
+        <button class="btn-ghost btn-sm" (click)="resetLayout()" title="Restablecer disposición por defecto">
           <svg lucideRotateCcw class="action-icon"></svg>
           <span>Restablecer</span>
         </button>
-        <button class="btn-custom-cancel" (click)="cancelCustomizing()">Cancelar</button>
-        <button class="btn-custom-save" (click)="saveLayout()">
+        <button class="btn-secondary btn-sm" (click)="cancelCustomizing()">Cancelar</button>
+        <button class="btn-secondary btn-sm" (click)="saveLayout()">
           <svg lucideCheckCircle class="action-icon"></svg>
-          <span>Guardar Orden</span>
+          <span>Guardar orden</span>
         </button>
       </div>
     </div>
@@ -235,7 +235,7 @@
   @if (showHibernateConfirm()) {
     <confirm-modal
       title="Hibernar todos los laboratorios"
-      [message]="'Se suspenderán ' + activeContainersCount() + ' laboratorio(s) activo(s)' + (affectedCoursesCount() > 0 ? ' de ' + affectedCoursesCount() + ' materia(s)' : '') + '. Las sesiones abiertas de los estudiantes se cierran y sus entornos quedan en reposo; podrás reanudarlos desde el detalle de cada materia.'"
+      [message]="'Se suspenderán ' + activeContainersCount() + ' laboratorio(s) activo(s)' + (affectedCoursesCount() > 0 ? ' de ' + affectedCoursesCount() + ' materia(s)' : '') + '. Las sesiones abiertas de los estudiantes se cierran y sus entornos quedan en reposo; podrá reanudarlos desde el detalle de cada materia.'"
       confirmText="Hibernar Todo"
       type="danger"
       (confirm)="confirmHibernateAll()"
@@ -246,7 +246,7 @@
   @if (containerToStop(); as c) {
     <confirm-modal
       title="Detener Contenedor de Laboratorio"
-      [message]="'¿Confirmas la detención del contenedor de ' + c.student_name + ' (' + c.student_email + ') en la materia ' + c.course_name + '? Se cerrará la sesión activa del entorno en Docker.'"
+      [message]="'¿Confirma la detención del contenedor de ' + c.student_name + ' (' + c.student_email + ') en la materia ' + c.course_name + '? Se cerrará la sesión activa del entorno en Docker.'"
       confirmText="Detener Contenedor"
       type="danger"
       (confirm)="confirmStopContainer(c.id)"

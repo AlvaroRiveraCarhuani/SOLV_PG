@@ -69,7 +69,7 @@
       <h2 class="section-title section-title-flush">Semestres y Ciclos Lectivos Registrados</h2>
       <button type="button" class="btn-primary" data-tour="periods-create" (click)="openCreate()">
         <svg lucidePlus class="btn-icon"></svg>
-        <span>Nuevo Período</span>
+        <span>Nuevo período</span>
       </button>
     </div>
 
@@ -164,9 +164,9 @@
                     }
                   </p>
                   @if (lifecycleFilter() === 'all') {
-                    <button type="button" class="btn-primary" (click)="openCreate()">
+                    <button type="button" class="btn-secondary" (click)="openCreate()">
                       <svg lucidePlus class="btn-icon"></svg>
-                      <span>Nuevo Período</span>
+                      <span>Nuevo período</span>
                     </button>
                   } @else {
                     <button type="button" class="btn-outline" (click)="applyLifecycleFilter('all')">
@@ -283,7 +283,7 @@
       </div>
     </div>
 
-    <form-field label="Para confirmar, escribe el código del período ({{ target.code }}):">
+    <form-field label="Para confirmar, escriba el código del período ({{ target.code }}):">
       <input
         type="text"
         class="form-input"

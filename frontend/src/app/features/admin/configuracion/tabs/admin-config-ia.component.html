@@ -154,7 +154,7 @@
 
         @if (addingCustom()) {
           <p class="draft-hint">
-            Nuevo proveedor personalizado: completá los datos y guardá la configuración para registrarlo en la institución.
+            Nuevo proveedor personalizado: complete los datos y guarde la configuración para registrarlo en la institución.
           </p>
         }
 
@@ -272,7 +272,7 @@
           label="Modelo de Inferencia"
           for="ai-model"
           [required]="enabled()"
-          hint="Identificador exacto del LLM: seleccioná un modelo del catálogo o usá el modo manual"
+          hint="Identificador exacto del LLM: seleccione un modelo del catálogo o use el modo manual"
           [error]="modelError()">
 
           <!-- Barra de modelo seleccionado actual -->
@@ -301,7 +301,7 @@
                 type="text"
                 class="form-input font-mono"
                 machineData
-                placeholder="Escribí el ID del modelo (ej. gpt-4o, gemini-2.5-flash)..."
+                placeholder="Escriba el ID del modelo (ej. gpt-4o, gemini-2.5-flash)..."
                 [ngModel]="model()"
                 (ngModelChange)="model.set($event)"
                 (blur)="modelTouched.set(true)" />
@@ -312,7 +312,7 @@
           @if (!canFetchModels() && !manualModelMode()) {
             <div class="model-locked-hint">
               <svg lucideLock class="hint-icon"></svg>
-              <span>Ingresá primero la API Key de autenticación arriba para descubrir y listar automáticamente los modelos disponibles de este proveedor.</span>
+              <span>Ingrese primero la API Key de autenticación arriba para descubrir y listar automáticamente los modelos disponibles de este proveedor.</span>
               <button type="button" class="btn-link" (click)="manualModelMode.set(true)">
                 O escribir el ID del modelo manualmente
               </button>

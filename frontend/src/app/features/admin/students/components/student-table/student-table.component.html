@@ -135,7 +135,7 @@
                     <button 
                       class="btn-copy-email" 
                       (click)="onCopyEmail(student.email)" 
-                      [title]="copiedEmail() === student.email ? '¡Copiado!' : 'Copiar correo'">
+                      [title]="copiedEmail() === student.email ? 'Copiado' : 'Copiar correo'">
                       @if (copiedEmail() === student.email) {
                         <svg lucideCheck class="copy-icon text-success"></svg>
                       } @else {
@@ -194,17 +194,17 @@
             <td>
               @if (student.oom_strike_count === 0) {
                 <span class="strike-pill normal">
-                  0 strikes
+                  0 penalizaciones
                 </span>
               } @else if (student.oom_strike_count < 3) {
                 <span class="strike-pill warning">
                   <svg lucideAlertTriangle class="pill-icon"></svg>
-                  <span>{{ student.oom_strike_count }} / 3 strikes</span>
+                  <span>{{ student.oom_strike_count }} / 3 penalizaciones</span>
                 </span>
               } @else {
-                <span class="strike-pill blocked" title="Estudiante bloqueado por superar el límite de 3 strikes OOM">
+                <span class="strike-pill blocked" title="Estudiante bloqueado por superar el límite de 3 penalizaciones OOM">
                   <svg lucideShieldAlert class="pill-icon"></svg>
-                  <span>3 / 3 (Bloqueado)</span>
+                  <span>3 / 3 (bloqueado)</span>
                 </span>
               }
             </td>
@@ -240,7 +240,7 @@
                           class="dropdown-item warning" 
                           (click)="onOpenResetOOM(student)">
                           <svg lucideRotateCcw class="dropdown-icon"></svg>
-                          <span>Restablecer strikes OOM ({{ student.oom_strike_count }})</span>
+                          <span>Restablecer penalizaciones OOM ({{ student.oom_strike_count }})</span>
                         </button>
                         <div class="dropdown-divider"></div>
                       }

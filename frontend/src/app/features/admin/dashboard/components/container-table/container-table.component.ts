@@ -93,10 +93,11 @@ import { LucideSearch, LucidePower, LucideChevronLeft, LucideChevronRight } from
                 <td class="text-right">
                   <div class="actions-group">
                     <button 
-                      class="btn-icon danger" 
-                      title="Detener Contenedor" 
+                      class="btn-ghost btn-sm btn-stop"
+                      title="Detener contenedor"
+                      aria-label="Detener contenedor"
                       (click)="stopContainer.emit(c)">
-                      <svg lucidePower class="icon"></svg>
+                      <svg lucidePower class="btn-stop-icon"></svg>
                     </button>
                   </div>
                 </td>

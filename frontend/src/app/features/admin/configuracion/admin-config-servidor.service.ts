@@ -215,6 +215,6 @@ export class AdminConfigServidorService {
 
   resolveError(err: unknown): string {
     const e = err as { error?: { message?: string; error?: string }; message?: string };
-    return e?.error?.message ?? e?.message ?? 'Ocurrió un error inesperado. Intenta nuevamente.';
+    return e?.error?.message ?? e?.message ?? 'Ocurrió un error inesperado. Intente nuevamente.';
   }
 }

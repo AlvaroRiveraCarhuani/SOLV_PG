@@ -1,7 +1,7 @@
 .card-container {
   background-color: var(--bg-surface);
   border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-lg);
+  border-radius: var(--radius-md);
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -36,12 +36,10 @@
 }
 
 .count-tag {
+  font-family: var(--font-mono);
   font-size: var(--text-2xs);
-  font-weight: 500;
   color: var(--text-muted);
-  background-color: var(--bg-canvas);
-  padding: 2px 8px;
-  border-radius: var(--radius-full);
+  white-space: nowrap;
 }
 
 .toolbar {
@@ -49,7 +47,7 @@
   justify-content: space-between;
   align-items: center;
   padding: var(--space-3) var(--space-5);
-  background-color: var(--color-gray-50);
+  background-color: var(--bg-surface-subtle);
   border-bottom: 1px solid var(--border-subtle);
   gap: var(--space-3);
   flex-wrap: wrap;
@@ -120,20 +118,30 @@
   font-size: var(--text-2xs);
 }
 
+.badge-active,
+.badge-idle {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+  white-space: nowrap;
+}
+
 .badge-active {
-  background-color: var(--color-green-100);
-  color: var(--color-success-dark);
-  padding: 2px 8px;
-  border-radius: var(--radius-full);
-  font-weight: 600;
+  color: var(--status-running-color);
+
+  &::before {
+    content: '';
+    width: 5px;
+    height: 5px;
+    border-radius: var(--radius-full);
+    background-color: var(--status-running-color);
+  }
 }
 
 .badge-idle {
-  background-color: var(--bg-canvas);
   color: var(--text-muted);
-  padding: 2px 8px;
-  border-radius: var(--radius-full);
-  font-weight: 500;
 }
 
 .table-wrapper {
@@ -148,7 +156,7 @@
   text-align: left;
 
   th {
-    background-color: var(--color-gray-50);
+    background-color: var(--bg-surface-subtle);
     padding: 10px 16px;
     font-size: var(--text-2xs);
     font-weight: 700;
@@ -169,7 +177,7 @@
   }
 
   tr:hover td {
-    background-color: var(--color-gray-50);
+    background-color: var(--bg-surface-subtle);
   }
 
   tr.row-active td {
@@ -197,7 +205,7 @@
   width: 6px;
   height: 6px;
   border-radius: 50%;
-  background-color: var(--color-success);
+  background-color: var(--status-running-color);
   flex-shrink: 0;
 }
 
@@ -245,24 +253,8 @@
 }
 
 .btn-detail {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-1);
-  padding: 5px 10px;
-  background-color: var(--bg-surface);
-  border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-md);
-  font-size: var(--text-xs);
-  font-weight: 500;
-  color: var(--text-secondary);
-  cursor: pointer;
-  transition: all 150ms ease;
-
-  &:hover {
-    background-color: var(--tenant-primary-subtle);
-    color: var(--tenant-primary);
-    border-color: var(--tenant-primary);
-  }
+  color: var(--tenant-primary);
+  white-space: nowrap;
 
   .btn-icon {
     width: 13px;
@@ -282,7 +274,7 @@
   justify-content: space-between;
   align-items: center;
   padding: var(--space-3) var(--space-5);
-  background-color: var(--color-gray-50);
+  background-color: var(--bg-surface-subtle);
   border-top: 1px solid var(--border-subtle);
   font-size: var(--text-xs);
   color: var(--text-secondary);
@@ -308,7 +300,7 @@
   transition: all 150ms ease;
 
   &:hover:not(:disabled) {
-    background-color: var(--bg-canvas);
+    background-color: var(--bg-surface-subtle);
     color: var(--tenant-primary);
   }
 

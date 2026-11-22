@@ -128,7 +128,7 @@ export class AdminConfigAdministradoresComponent implements OnInit, OnDestroy {
 
   getRevokeDisabledTooltip(admin: Administrator): string {
     if (this.isSelf(admin)) {
-      return 'No podés revocar tus propios privilegios de administrador';
+      return 'No puede revocar sus propios privilegios de administrador';
     }
     if (this.activeAdminsCount() <= 1) {
       return 'Debe existir al menos un administrador activo en la institución';
@@ -162,7 +162,7 @@ export class AdminConfigAdministradoresComponent implements OnInit, OnDestroy {
     }
 
     if (!email || !email.includes('@') || !email.includes('.')) {
-      this.formError.set('Ingresa un correo institucional válido.');
+      this.formError.set('Ingrese un correo institucional válido.');
       return;
     }
 

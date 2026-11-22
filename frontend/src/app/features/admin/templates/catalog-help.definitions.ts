@@ -121,7 +121,7 @@ export function buildCatalogTutorial(context: CatalogTutorialContext): TutorialD
         id: 'pending',
         title: 'Plantillas en aprobación',
         body:
-          'La pestaña sólo se muestra cuando hay algo que aprobar. El contador indica cuántas esperan tu decisión; si está en cero, no hay nada pendiente hoy.',
+          'La pestaña sólo se muestra cuando hay algo que aprobar. El contador indica cuántas esperan su decisión; si está en cero, no hay nada pendiente hoy.',
         selector: '[data-tour="templates-tabs"]',
         side: 'bottom',
         check: {

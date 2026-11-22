@@ -160,7 +160,7 @@
   font-family: var(--font-mono, monospace);
   font-size: var(--text-xs);
   font-weight: 600;
-  color: var(--color-gray-700);
+  color: var(--text-secondary);
   background-color: var(--bg-surface-active);
   padding: 2px 6px;
   border-radius: var(--radius-sm);
@@ -300,7 +300,7 @@
   &.pause {
     background-color: var(--bg-surface-active);
     border: 1px solid var(--border-strong);
-    color: var(--color-gray-700);
+    color: var(--text-secondary);
 
     &:hover {
       background-color: var(--border-subtle);
@@ -377,7 +377,7 @@
 
   &:hover {
     background-color: var(--bg-canvas);
-    border-color: var(--color-gray-400);
+    border-color: var(--border-strong);
   }
 }
 

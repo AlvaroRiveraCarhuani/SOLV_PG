@@ -1,82 +1,99 @@
+:host {
+  display: block;
+  height: 100%;
+}
+
 .panel-container {
-  background-color: var(--bg-surface);
-  border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-lg);
   display: flex;
   flex-direction: column;
-  overflow: hidden;
   height: 100%;
+  overflow: hidden;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  background-color: var(--bg-surface);
 }
 
 .panel-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: var(--space-4) var(--space-5);
+  gap: 12px;
+  padding: 12px 16px;
   border-bottom: 1px solid var(--border-subtle);
 }
 
 .header-title-group {
   display: flex;
   align-items: center;
-  gap: var(--space-2);
+  gap: 8px;
+  min-width: 0;
 }
 
 .header-icon-danger {
-  width: 16px;
-  height: 16px;
-  color: var(--verdict-wa);
+  width: 15px;
+  height: 15px;
+  flex-shrink: 0;
+  color: var(--status-failed-color);
 }
 
 .panel-title {
+  margin: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
   font-size: var(--text-sm);
   font-weight: 600;
   color: var(--text-primary);
-  margin: 0;
 }
 
-.incident-badge {
+.incident-count {
+  flex-shrink: 0;
+  font-family: var(--font-mono);
   font-size: var(--text-2xs);
   font-weight: 600;
-  color: var(--verdict-ast-color);
-  background-color: var(--status-failed-bg);
-  padding: 2px 8px;
-  border-radius: var(--radius-full);
+  color: var(--status-failed-color);
+  white-space: nowrap;
 
   &.zero {
-    color: var(--color-green-800);
-    background-color: var(--color-green-100);
+    color: var(--status-running-color);
   }
 }
 
 .panel-body {
-  padding: var(--space-4);
   display: flex;
   flex-direction: column;
-  gap: var(--space-4);
+  gap: 12px;
+  padding: 14px 16px;
   overflow-y: auto;
 }
 
 .incidents-list {
   display: flex;
   flex-direction: column;
-  gap: var(--space-3);
 }
 
-.incident-card {
-  border: 1px solid var(--status-failed-border);
-  background-color: var(--bg-surface);
-  border-radius: var(--radius-md);
-  padding: var(--space-3);
+.incident-row {
   display: flex;
   flex-direction: column;
   gap: 8px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--border-subtle);
+
+  &:first-child {
+    padding-top: 0;
+  }
+
+  &:last-child {
+    padding-bottom: 0;
+    border-bottom: 0;
+  }
 }
 
 .card-top {
   display: flex;
   justify-content: space-between;
   align-items: center;
+  gap: 8px;
 }
 
 .tag-status {
@@ -86,20 +103,21 @@
   font-family: var(--font-mono);
   font-size: var(--text-2xs);
   font-weight: 600;
-  color: var(--verdict-ast-color);
+  color: var(--status-failed-color);
 }
 
 .dot-danger {
   width: 6px;
   height: 6px;
-  border-radius: 50%;
-  background-color: var(--verdict-wa);
+  border-radius: var(--radius-full);
+  background-color: var(--status-failed-color);
 }
 
 .incident-time {
   font-family: var(--font-mono);
   font-size: var(--text-2xs);
   color: var(--text-muted);
+  white-space: nowrap;
 }
 
 .card-content {
@@ -116,70 +134,39 @@
 
 .course-sub {
   font-size: var(--text-2xs);
-  color: var(--text-secondary);
+  color: var(--text-muted);
 }
 
 .incident-desc {
+  margin: 4px 0 0;
   font-size: var(--text-xs);
-  color: var(--color-gray-600);
-  margin: 4px 0 0 0;
   line-height: 1.4;
+  color: var(--text-secondary);
 }
 
 .card-actions {
   display: flex;
   justify-content: flex-end;
-  gap: 8px;
-  margin-top: 4px;
-}
-
-.btn-log, .btn-resolve {
-  display: inline-flex;
-  align-items: center;
   gap: 4px;
-  padding: 4px 10px;
-  border-radius: 4px;
-  font-size: var(--text-2xs);
-  font-weight: 600;
-  cursor: pointer;
-  transition: all 150ms ease;
-
-  .btn-icon {
-    width: 13px;
-    height: 13px;
-  }
-}
-
-.btn-log {
-  background-color: var(--bg-surface);
-  border: 1px solid var(--border-subtle);
-  color: var(--color-gray-700);
-
-  &:hover {
-    background-color: var(--color-gray-50);
-    border-color: var(--color-gray-400);
-  }
 }
 
 .btn-resolve {
-  background-color: var(--color-green-100);
-  border: 1px solid var(--color-green-200);
-  color: var(--color-green-800);
+  color: var(--status-running-color);
 
   &:hover {
-    background-color: var(--color-green-200);
-    color: var(--color-green-900);
+    background-color: var(--status-running-bg);
+    color: var(--status-running-color);
   }
 }
 
 .qos-widget {
-  background-color: var(--color-gray-50);
-  border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-md);
-  padding: var(--space-3);
   display: flex;
   flex-direction: column;
   gap: 6px;
+  padding: 10px 12px;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  background-color: var(--bg-surface-subtle);
 }
 
 .qos-header {
@@ -191,21 +178,21 @@
 .qos-icon {
   width: 14px;
   height: 14px;
-  color: var(--text-secondary);
+  color: var(--text-muted);
 }
 
 .qos-title {
   font-size: var(--text-2xs);
-  font-weight: 700;
-  color: var(--text-secondary);
+  font-weight: 600;
   letter-spacing: 0.04em;
+  color: var(--text-secondary);
 }
 
 .qos-text {
-  font-size: var(--text-xs);
-  color: var(--text-muted);
   margin: 0;
-  line-height: 1.4;
+  font-size: var(--text-xs);
+  line-height: 1.45;
+  color: var(--text-muted);
 }
 
 .empty-incidents {
@@ -213,26 +200,26 @@
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  padding: 32px 16px;
-  text-align: center;
   gap: 6px;
-  background-color: var(--color-gray-50);
+  padding: 28px 16px;
   border: 1px dashed var(--border-subtle);
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-sm);
+  background-color: var(--bg-surface-subtle);
+  text-align: center;
 }
 
 .empty-icon {
-  width: 32px;
-  height: 32px;
-  border-radius: 50%;
-  background-color: var(--color-green-100);
-  color: var(--color-success);
   display: flex;
   align-items: center;
   justify-content: center;
-  font-weight: bold;
+  width: 28px;
+  height: 28px;
+  margin-bottom: 2px;
+  border-radius: var(--radius-full);
+  background-color: var(--status-running-bg);
   font-size: var(--text-sm);
-  margin-bottom: 4px;
+  font-weight: 600;
+  color: var(--status-running-color);
 }
 
 .empty-title {
@@ -242,8 +229,8 @@
 }
 
 .empty-text {
-  font-size: var(--text-2xs);
-  color: var(--text-secondary);
-  line-height: 1.4;
   max-width: 280px;
+  font-size: var(--text-2xs);
+  line-height: 1.4;
+  color: var(--text-muted);
 }

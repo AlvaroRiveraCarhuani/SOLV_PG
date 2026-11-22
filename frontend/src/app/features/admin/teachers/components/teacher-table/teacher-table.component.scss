@@ -114,9 +114,9 @@ $mut: var(--text-secondary);
   text-align: left;
 
   th {
-    background: var(--bg-surface-subtle);
-    padding: 0.75rem 1rem;
-    font-size: var(--text-xs);
+    background: transparent;
+    padding: 8px 14px;
+    font-size: var(--text-2xs);
     font-weight: 600;
     color: var(--text-secondary);
     text-transform: uppercase;
@@ -126,19 +126,19 @@ $mut: var(--text-secondary);
   }
 
   td {
-    padding: 12px 16px;
-    border-bottom: 1px solid var(--bg-surface-active);
+    padding: 10px 14px;
+    border-bottom: 1px solid var(--border-subtle);
     vertical-align: middle;
   }
 
   tr:hover td {
     background: var(--bg-surface-subtle);
   }
-  tr.row-pending td {
-    background: var(--status-pending-bg);
+  tr.row-pending td:first-child {
+    box-shadow: inset 2px 0 0 var(--status-pending-color);
   }
-  tr.row-expired td {
-    background: var(--status-failed-bg);
+  tr.row-expired td:first-child {
+    box-shadow: inset 2px 0 0 var(--status-failed-color);
   }
 }
 
@@ -149,14 +149,14 @@ $mut: var(--text-secondary);
 }
 
 .teacher-avatar {
-  width: 34px;
-  height: 34px;
-  border-radius: 50%;
-  background: $p-bg;
-  color: $p;
-  border: 1px solid $p-bdr;
-  font-size: var(--text-xs);
-  font-weight: 700;
+  width: 28px;
+  height: 28px;
+  border-radius: var(--radius-sm);
+  background: var(--bg-surface-subtle);
+  color: var(--text-secondary);
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+  font-weight: 600;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -180,19 +180,13 @@ $mut: var(--text-secondary);
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  padding: 2px 8px;
-  border-radius: var(--radius-sm);
-  font-size: var(--text-xs);
-  font-weight: 500;
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+  color: var(--text-muted);
 
-  &.manual {
-    background: var(--bg-surface-active);
-    color: var(--text-secondary);
-  }
   &.gclassroom {
-    background: $p-bg;
-    color: $p;
-    border: 1px solid $p-bdr;
+    color: var(--tenant-primary);
+
     .origin-icon {
       width: 11px;
       height: 11px;
@@ -204,25 +198,21 @@ $mut: var(--text-secondary);
   display: inline-flex;
   align-items: center;
   gap: 5px;
-  padding: 3px 9px;
-  border-radius: var(--radius-full);
   font-size: var(--text-xs);
-  font-weight: 600;
+  font-weight: 500;
+  white-space: nowrap;
 
   .pill-icon {
     width: 12px;
     height: 12px;
   }
   &.active {
-    background: var(--status-running-bg);
     color: var(--status-running-color);
   }
   &.pending {
-    background: var(--status-pending-bg);
     color: var(--status-pending-color);
   }
   &.expired {
-    background: var(--status-failed-bg);
     color: var(--status-failed-color);
   }
 }
@@ -231,25 +221,27 @@ $mut: var(--text-secondary);
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  padding: 4px 8px;
+  padding: 2px 4px;
+  border: 0;
   border-radius: var(--radius-sm);
   background: transparent;
-  border: 1px solid transparent;
+  font-family: var(--font-sans);
   font-size: var(--text-xs);
   font-weight: 500;
-  color: $mut;
+  color: var(--text-secondary);
   cursor: pointer;
+  white-space: nowrap;
 
   .courses-icon {
     width: 13px;
     height: 13px;
   }
+
   &.has-courses {
-    color: $p;
-    background: $p-bg;
-    border-color: $p-bdr;
+    color: var(--tenant-primary);
+
     &:hover {
-      background: var(--tenant-primary-border);
+      background: var(--tenant-primary-subtle);
     }
   }
 }
@@ -285,39 +277,35 @@ $mut: var(--text-secondary);
     height: 12px;
   }
 
-  &.copy-email {
-    background: var(--bg-surface-subtle);
-    border: 1px solid var(--border-strong);
-    color: var(--color-gray-700);
-    &:hover {
-      background: $bdr;
-      color: $txt;
-    }
-  }
+  &.copy-email,
   &.resend {
-    background: var(--bg-surface-subtle);
-    border: 1px solid var(--border-strong);
-    color: var(--color-gray-700);
+    border: 0;
+    background: transparent;
+    color: var(--text-secondary);
+
     &:hover {
-      background: $bdr;
+      background: var(--bg-surface-subtle);
+      color: var(--text-primary);
     }
   }
   &.renew {
-    background: var(--status-failed-bg);
-    border: 1px solid var(--status-failed-border);
-    color: var(--verdict-ast-color);
+    border: 0;
+    background: transparent;
+    color: var(--status-pending-color);
+
     &:hover {
-      background: var(--status-failed-border);
+      background: var(--status-pending-bg);
     }
   }
   &.revoke {
-    background: var(--bg-surface);
-    border: 1px solid $bdr;
-    color: var(--color-gray-400);
     padding: 4px 6px;
+    border: 0;
+    background: transparent;
+    color: var(--text-muted);
+
     &:hover {
       background: var(--status-failed-bg);
-      color: var(--color-error);
+      color: var(--status-failed-color);
     }
   }
 }
@@ -344,7 +332,7 @@ $mut: var(--text-secondary);
   }
   .empty-desc {
     font-size: var(--text-xs);
-    color: var(--color-gray-400);
+    color: var(--text-muted);
     margin: 0;
   }
 }

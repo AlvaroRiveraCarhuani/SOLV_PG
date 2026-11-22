@@ -104,7 +104,7 @@ import {
                 </td>
                 <td class="text-right">
                   <button 
-                    class="btn-detail" 
+                    class="btn-ghost btn-sm btn-detail"
                     (click)="viewDetails.emit(course)"
                     title="Inspeccionar contenedores de esta materia">
                     <svg lucideEye class="btn-icon"></svg>

@@ -243,7 +243,7 @@
               @if (techComponents().length === 0) {
                 <h3 class="empty-title">El catálogo está vacío</h3>
                 <p class="empty-text">Registra la primera tecnología para que el constructor de entornos pueda usarla.</p>
-                <button type="button" class="btn-primary" (click)="openNewComponentModal()">
+                <button type="button" class="btn-secondary" (click)="openNewComponentModal()">
                   Registrar primera tecnología
                 </button>
               } @else {
@@ -415,8 +415,8 @@
                     <div class="empty-state-mini">
                       <svg lucideBoxes class="empty-icon"></svg>
                       @if (techComponents().length === 0) {
-                        <p class="empty-text">El catálogo está vacío. Registra la primera tecnología para empezar.</p>
-                        <button type="button" class="btn-primary" (click)="openNewComponentModal()">
+                        <p class="empty-text">El catálogo está vacío. Registre la primera tecnología para empezar.</p>
+                        <button type="button" class="btn-secondary" (click)="openNewComponentModal()">
                           Registrar primera tecnología
                         </button>
                       } @else {

@@ -24,7 +24,7 @@
         label="Logo de la Institución"
         for="branding-logo"
         data-tour="branding-identity"
-        hint="Imagen PNG, SVG, JPG o WEBP de hasta 2 MB. También puedes pegar una URL https."
+        hint="Imagen PNG, SVG, JPG o WEBP de hasta 2 MB. También puede pegar una URL https."
         [error]="validation().logoError"
       >
         <div class="logo-upload-row">
@@ -121,7 +121,7 @@
         @if (contrastOk()) {
           <span>Contraste verificado: texto {{ previewTextColor() === '#FFFFFF' ? 'blanco' : 'oscuro' }} sobre el primario (WCAG AA)</span>
         } @else {
-          <span>Ingresa un color válido para verificar el contraste</span>
+          <span>Ingrese un color válido para verificar el contraste</span>
         }
       </div>
 
@@ -129,7 +129,7 @@
       <form-field
         label="Correo de Soporte"
         for="branding-email"
-        hint="Visible para estudiantes y docentes en los mensajes de ayuda. Apágalo si tu universidad no tiene soporte."
+        hint="Visible para estudiantes y docentes en los mensajes de ayuda. Desactívelo si su institución no cuenta con soporte."
         [error]="validation().emailError"
       >
         <label class="support-toggle">
@@ -217,7 +217,7 @@
           </p>
         </div>
         <p class="typography-hint">
-          Aplicar muestra la previa sin guardar. Guardar Marca persiste marca y tipografía juntas.
+          Aplicar muestra la previa sin guardar. Guardar marca persiste marca y tipografía juntas.
         </p>
 
         @if (showCustomFonts()) {
@@ -280,7 +280,7 @@
           @if (isSaving()) {
             <span>Guardando...</span>
           } @else {
-            <span>Guardar Marca</span>
+            <span>Guardar marca</span>
           }
         </button>
       </div>

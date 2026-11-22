@@ -74,8 +74,8 @@ describe('AdminConfigPeriodosComponent', () => {
       resolveError: vi.fn().mockImplementation((err: unknown) => {
         const code = (err as { error?: { error?: string } })?.error?.error;
         if (code === 'invalid_date_range') return 'La fecha de fin debe ser posterior o igual a la fecha de inicio.';
-        if (code === 'conflict_associated_subjects') return 'No se puede eliminar un período con materias asociadas. Desasócialas primero.';
-        return 'Ocurrió un error inesperado. Intenta nuevamente.';
+        if (code === 'conflict_associated_subjects') return 'No se puede eliminar un período con materias asociadas. Desasócielas primero.';
+        return 'Ocurrió un error inesperado. Intente nuevamente.';
       })
     };
     mockHttp = { get: vi.fn().mockReturnValue(of([])) };

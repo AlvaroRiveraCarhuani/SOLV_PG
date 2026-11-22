@@ -70,13 +70,13 @@
       }
     </div>
     <div class="header-actions">
-      <button class="btn-outline" (click)="openRosterEnrollModal()" title="Matricular estudiantes desde una planilla">
+      <button class="btn-secondary btn-sm" (click)="openRosterEnrollModal()" title="Matricular estudiantes desde una planilla">
         <svg lucideBookOpen class="btn-icon"></svg>
-        <span>Matricular por Nómina</span>
+        <span>Matricular por nómina</span>
       </button>
-      <button class="btn-primary" (click)="openRegisterModal()" title="Registrar estudiante individual o por planilla">
+      <button class="btn-primary btn-sm" (click)="openRegisterModal()" title="Registrar estudiante individual o por planilla">
         <svg lucideUserPlus class="btn-icon"></svg>
-        <span>Registrar Estudiante</span>
+        <span>Registrar estudiante</span>
       </button>
     </div>
   </header>
@@ -137,8 +137,8 @@
     <confirm-modal
       [title]="st.status === 'suspended' ? 'Reactivar cuenta institucional' : 'Suspender acceso institucional'"
       [message]="st.status === 'suspended' 
-        ? '¿Confirmas el restablecimiento de acceso a la plataforma para el estudiante ' + st.first_name + ' ' + st.last_name + '?' 
-        : '¿Confirmas la suspensión de acceso para ' + st.first_name + ' ' + st.last_name + '? Se pausarán sus entornos de laboratorio y se denegará el acceso.'"
+        ? '¿Confirma el restablecimiento de acceso a la plataforma para el estudiante ' + st.first_name + ' ' + st.last_name + '?'
+        : '¿Confirma la suspensión de acceso para ' + st.first_name + ' ' + st.last_name + '? Se pausarán sus entornos de laboratorio y se denegará el acceso.'"
       [confirmText]="st.status === 'suspended' ? 'Reactivar Acceso' : 'Suspender Acceso'"
       [type]="st.status === 'suspended' ? 'primary' : 'danger'"
       (confirm)="confirmToggleStatus(st)"

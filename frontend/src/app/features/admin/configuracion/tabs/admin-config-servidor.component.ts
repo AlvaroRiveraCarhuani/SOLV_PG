@@ -496,7 +496,7 @@ export class AdminConfigServidorComponent implements OnInit, OnDestroy {
       next: () => {
         this.isTriggering.set(false);
         this.hasTriggeredBackup.set(true);
-        this.showToast('Respaldo creado. Integridad sin verificar — usa Verificar para confirmar.');
+        this.showToast('Respaldo creado. Integridad sin verificar; use Verificar para confirmar.');
       },
       error: (err) => {
         this.isTriggering.set(false);

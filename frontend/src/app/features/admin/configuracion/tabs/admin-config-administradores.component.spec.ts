@@ -140,7 +140,7 @@ describe('AdminConfigAdministradoresComponent', () => {
     component.formLastName.set('Perez');
     component.formEmail.set('no-email');
     component.submitCreate();
-    expect(component.formError()).toBe('Ingresa un correo institucional válido.');
+    expect(component.formError()).toBe('Ingrese un correo institucional válido.');
 
     expect(adminServiceMock.createAdministrator).not.toHaveBeenCalled();
   });

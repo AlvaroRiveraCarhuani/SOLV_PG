@@ -156,9 +156,9 @@
       }
 
       <div class="card-actions-row">
-        <button type="button" class="btn-primary" (click)="openMaintenanceModal()">
+        <button type="button" class="btn-secondary" (click)="openMaintenanceModal()">
           <svg lucidePower class="btn-icon"></svg>
-          <span>{{ maintenance()?.maintenance_mode ? 'Desactivar Mantenimiento' : 'Activar Mantenimiento' }}</span>
+          <span>{{ maintenance()?.maintenance_mode ? 'Desactivar mantenimiento' : 'Activar mantenimiento' }}</span>
         </button>
       </div>
     </div>
@@ -267,7 +267,7 @@
           </div>
         }
         <div class="card-actions-row">
-          <button type="button" class="btn-primary" (click)="saveBackupStrategy()" [disabled]="!canSaveBackup()">
+          <button type="button" class="btn-secondary" (click)="saveBackupStrategy()" [disabled]="!canSaveBackup()">
             @if (isSavingBackup()) {
               <span>Guardando...</span>
             } @else {
@@ -444,7 +444,7 @@
             <button type="button" class="btn-outline" (click)="selectAllOrphans()">
               Seleccionar Todos
             </button>
-            <button type="button" class="btn-primary" (click)="openOrphanModal()" [disabled]="!canOpenOrphanModal()">
+            <button type="button" class="btn-secondary" (click)="openOrphanModal()" [disabled]="!canOpenOrphanModal()">
               <svg lucideTrash2 class="btn-icon"></svg>
               <span>
                 Liberar Seleccionados ({{ selectedOrphanNames().length }} · {{ formatBytes(selectedOrphanMB() * 1048576) }})
@@ -491,7 +491,7 @@
     </div>
 
     <form-field
-      label="Confirmación (escribe LIBERAR VOLUMENES HUERFANOS)"
+      label="Confirmación (escriba LIBERAR VOLUMENES HUERFANOS)"
       for="orphan-confirm"
       [error]="orphanPhrase().length > 0 && !orphanPhraseValid() ? 'La frase debe coincidir exactamente con LIBERAR VOLUMENES HUERFANOS.' : ''">
       <input
@@ -568,7 +568,7 @@
       </form-field>
 
       <form-field
-        label="Confirmación (escribe MANTENIMIENTO)"
+        label="Confirmación (escriba MANTENIMIENTO)"
         for="maintenance-confirm"
         [error]="confirmPhrase().length > 0 && confirmPhrase() !== 'MANTENIMIENTO' ? 'La frase debe coincidir exactamente con MANTENIMIENTO.' : ''">
         <input

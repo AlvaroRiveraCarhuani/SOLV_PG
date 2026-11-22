@@ -307,7 +307,7 @@ export class AdminConfigIaService {
     if (e?.status === 504 || e?.error?.error === 'ai_timeout') {
       return (
         e?.error?.message ||
-        'El motor de IA superó el tiempo límite de espera para esta operación. Probá nuevamente o utilizá un modelo más ágil.'
+        'El motor de IA superó el tiempo límite de espera para esta operación. Intente nuevamente o utilice un modelo más ágil.'
       );
     }
     return e?.error?.message ?? e?.message ?? 'Ocurrió un error al procesar la configuración de IA.';

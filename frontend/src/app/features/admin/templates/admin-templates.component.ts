@@ -27,7 +27,6 @@ import {
   LucideBox,
   LucideRefreshCw,
   LucidePlus,
-  LucideClock,
   LucideCheckCircle2,
   LucidePause,
   LucidePlay,
@@ -43,6 +42,7 @@ import {
 } from '@lucide/angular';
 import { TechLogoComponent, TechIconKey } from './components/tech-logo/tech-logo.component';
 import { SearchBarComponent } from '../../../shared/components/search-bar/search-bar.component';
+import { FilterPopoverComponent } from '../../../shared/components/filter-popover/filter-popover.component';
 import { PaginationBarComponent } from '../../../shared/components/pagination-bar/pagination-bar.component';
 import { ViewSwitcherComponent } from '../../../shared/components/view-switcher/view-switcher.component';
 import { StatusTabsComponent, StatusTabItem } from '../../../shared/components/status-tabs/status-tabs.component';
@@ -70,13 +70,10 @@ export interface ToastNotification {
   type: 'success' | 'error' | 'warning' | 'info';
 }
 
-import { EnvironmentLabelPipe } from '@shared/pipes/environment-label.pipe';
-
 @Component({
   selector: 'admin-templates',
   standalone: true,
   imports: [
-    EnvironmentLabelPipe,
     CommonModule,
     FormsModule,
     MachineDataDirective,
@@ -89,13 +86,13 @@ import { EnvironmentLabelPipe } from '@shared/pipes/environment-label.pipe';
     JudgeLanguageListComponent,
     TechLogoComponent,
     SearchBarComponent,
+    FilterPopoverComponent,
     PaginationBarComponent,
     ViewSwitcherComponent,
     StatusTabsComponent,
     LucideBox,
     LucideRefreshCw,
     LucidePlus,
-    LucideClock,
     LucideCheckCircle2,
     LucidePause,
     LucidePlay,
@@ -126,6 +123,40 @@ export class AdminTemplatesComponent implements OnInit, OnDestroy {
   selectedTech = signal<string>('all');
   selectedPurpose = signal<'ALL' | 'IDE_PERSISTENTE' | 'JUEZ_EFIMERO' | 'AMBOS'>('ALL');
   copiedTag = signal<string | null>(null);
+
+  activeFilterCount = computed(
+    () => Number(this.selectedPurpose() !== 'ALL') + Number(this.selectedTech() !== 'all')
+  );
+  hasActiveFilters = computed(() => this.activeFilterCount() > 0);
+
+  purposeOptions = computed(() => {
+    const templates = this.currentTabTemplates();
+    const count = (purpose: 'ALL' | 'IDE_PERSISTENTE' | 'JUEZ_EFIMERO' | 'AMBOS'): number =>
+      filterAdminTemplatesForView({
+        templates,
+        statusPredicate: () => true,
+        purpose,
+        tech: 'all',
+        searchTerm: ''
+      }).length;
+
+    return [
+      { value: 'ALL' as const, label: 'Todas', count: count('ALL') },
+      { value: 'IDE_PERSISTENTE' as const, label: 'Desarrollo', count: count('IDE_PERSISTENTE') },
+      { value: 'JUEZ_EFIMERO' as const, label: 'Evaluación', count: count('JUEZ_EFIMERO') },
+      { value: 'AMBOS' as const, label: 'Desarrollo y evaluación', count: count('AMBOS') }
+    ];
+  });
+
+  selectedPurposeLabel = computed(
+    () => this.purposeOptions().find(option => option.value === this.selectedPurpose())?.label ?? 'Todas'
+  );
+
+  selectedTechLabel = computed(() => {
+    const selected = this.selectedTech();
+    if (selected === 'all') return 'Todas';
+    return this.availableTechs().find(tech => tech.meta.id === selected)?.meta.name ?? selected;
+  });
   isLoading = signal<boolean>(false);
   openMenuId = signal<string | null>(null);
 
@@ -629,6 +660,53 @@ export class AdminTemplatesComponent implements OnInit, OnDestroy {
     this.catalogPage.set(1);
     this.rejectedPage.set(1);
   }
+
+  setPurposeFilter(purpose: 'ALL' | 'IDE_PERSISTENTE' | 'JUEZ_EFIMERO' | 'AMBOS'): void {
+    this.selectedPurpose.set(purpose);
+    this.catalogPage.set(1);
+    this.rejectedPage.set(1);
+  }
+
+  clearFilters(): void {
+    this.selectedPurpose.set('ALL');
+    this.selectedTech.set('all');
+    this.catalogPage.set(1);
+    this.rejectedPage.set(1);
+  }
+
+  cardStatusLabel(item: AdminTemplateItem): string {
+    if (item.status === 'PENDIENTE_AUDITORIA') return 'Auditoría';
+    if (item.status === 'pending') return 'Pendiente';
+    if (item.status === 'approved' || item.status === 'APROBADA') return 'Activa';
+    if (item.status === 'RECHAZADA' || item.status === 'rejected') return 'Rechazada';
+    return 'Pausada';
+  }
+
+  cardStatusClass(item: AdminTemplateItem): string {
+    if (item.status === 'PENDIENTE_AUDITORIA') return 'badge-status-audit-pending';
+    if (item.status === 'pending') return 'badge-status-pending';
+    if (item.status === 'approved' || item.status === 'APROBADA') return 'badge-status-approved';
+    if (item.status === 'RECHAZADA' || item.status === 'rejected') return 'badge-status-rejected';
+    return 'badge-status-paused';
+  }
+
+  cardStatusTone(item: AdminTemplateItem): 'pending' | 'running' | 'failed' | 'muted' {
+    if (item.status === 'PENDIENTE_AUDITORIA' || item.status === 'pending') return 'pending';
+    if (item.status === 'approved' || item.status === 'APROBADA') return 'running';
+    if (item.status === 'RECHAZADA' || item.status === 'rejected') return 'failed';
+    return 'muted';
+  }
+
+  visibleTemplates = computed(() => {
+    switch (this.activeTab()) {
+      case 'pending':
+        return this.pendingTemplates();
+      case 'catalog':
+        return this.paginatedCatalogTemplates();
+      default:
+        return this.paginatedRejectedTemplates();
+    }
+  });
 
   onSelectExtraTech(event: Event): void {
     const target = event.target as HTMLSelectElement;

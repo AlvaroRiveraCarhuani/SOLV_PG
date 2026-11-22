@@ -1,5 +1,5 @@
 <div class="templates-view-container">
-  <!-- Toast Notificación Flotante -->
+  <!-- Toast de notificación -->
   @if (toast(); as t) {
     <div class="toast-notification" [class.toast-error]="t.type === 'error'">
       @if (t.type === 'success') {
@@ -11,36 +11,28 @@
     </div>
   }
 
-  <!-- Header Superior -->
-  <header class="page-header view-header">
+  <!-- Cabecera compacta -->
+  <header class="page-header">
     <div class="header-info" data-tour="templates-summary">
-      <div class="title-with-badge">
-        <h1 class="page-title view-title">Catálogo de Entornos</h1>
-        <span class="role-badge">Laboratorios Virtuales</span>
-      </div>
-      <p class="page-subtitle view-subtitle">
-        Administra los entornos de laboratorio disponibles para las materias y el campus
-      </p>
+      <h1 class="page-title">Catálogo de Entornos</h1>
       @if (!isLoading()) {
         <p class="page-summary">
           <span machineData>{{ catalogCount() }}</span>
           {{ catalogCount() === 1 ? 'entorno' : 'entornos' }} registrados
           <span class="page-summary-sep">·</span>
-          <span machineData>{{ activeCount() }}</span>
-          {{ activeCount() === 1 ? 'activo' : 'activos' }}
+          <span machineData>{{ activeCount() }}</span> activos
           <span class="page-summary-sep">·</span>
-          <span machineData>{{ pausedCount() }}</span>
-          {{ pausedCount() === 1 ? 'pausado' : 'pausados' }}
+          <span machineData>{{ pausedCount() }}</span> pausados
           <span class="page-summary-sep">·</span>
-          RAM promedio <span machineData>{{ averageRam() }} MB</span>
+          RAM prom. <span machineData>{{ averageRam() }} MB</span>
         </p>
       }
     </div>
     <div class="header-actions" data-tour="templates-actions">
-      <button 
-        type="button" 
-        class="btn-secondary" 
-        (click)="warmAllTemplates()" 
+      <button
+        type="button"
+        class="btn-secondary btn-sm"
+        (click)="warmAllTemplates()"
         [disabled]="isWarmingAll() || activeCount() === 0"
         [title]="activeCount() === 0 ? 'No hay entornos activos en el catálogo para preparar' : 'Verifica e instala en el servidor los entornos de las materias activas para que los alumnos no esperen descargas en clase'">
         @if (isWarmingAll()) {
@@ -51,447 +43,171 @@
           <span>Preparar entornos</span>
         }
       </button>
-      <button type="button" class="btn-primary" (click)="navigateToCreateStudio()">
+      <button type="button" class="btn-primary btn-sm" (click)="navigateToCreateStudio()">
         <svg lucidePlus class="btn-icon"></svg>
         <span>Nuevo Entorno</span>
       </button>
     </div>
   </header>
 
-  <!-- Pestañas de Estado y Alternador de Vista -->
-  <div class="nav-toolbar" data-tour="templates-tabs">
-    <status-tabs
-      [tabs]="templateTabs()"
-      [activeTab]="activeTab()"
-      (tabChange)="onTabChange($event)"
-    />
-    <view-switcher [(mode)]="viewMode" />
-  </div>
-
-  <!-- Barra de Búsqueda y Filtros Dinámicos -->
-  <div class="search-and-filters-panel" data-tour="templates-filters">
-    <div class="search-bar-row">
-      <search-bar
-        [query]="searchTerm()"
-        (queryChange)="searchTerm.set($event)"
-        placeholder="Buscar plantilla, tecnología, docente o motivo..."
+  <!-- Barra única: pestañas, búsqueda, filtros y vista -->
+  <div class="catalog-toolbar">
+    <div class="toolbar-tabs" data-tour="templates-tabs">
+      <status-tabs
+        [tabs]="templateTabs()"
+        [activeTab]="activeTab()"
+        (tabChange)="onTabChange($event)"
       />
     </div>
 
-    <!-- Selector Rápido de Propósito Operativo -->
-    <div class="purpose-chips-bar" role="group" aria-label="Filtro por propósito de plantilla">
-      <button
-        type="button"
-        class="purpose-chip"
-        [class.active]="selectedPurpose() === 'ALL'"
-        (click)="selectedPurpose.set('ALL')">
-        Todos
-      </button>
-      <button
-        type="button"
-        class="purpose-chip"
-        [class.active]="selectedPurpose() === 'IDE_PERSISTENTE'"
-        (click)="selectedPurpose.set('IDE_PERSISTENTE')">
-        {{ 'IDE_PERSISTENTE' | environmentLabel }}
-      </button>
-      <button
-        type="button"
-        class="purpose-chip"
-        [class.active]="selectedPurpose() === 'JUEZ_EFIMERO'"
-        (click)="selectedPurpose.set('JUEZ_EFIMERO')">
-        {{ 'JUEZ_EFIMERO' | environmentLabel }}
-      </button>
-      <button
-        type="button"
-        class="purpose-chip"
-        [class.active]="selectedPurpose() === 'AMBOS'"
-        (click)="selectedPurpose.set('AMBOS')">
-        {{ 'AMBOS' | environmentLabel }}
-      </button>
-    </div>
+    <div class="toolbar-controls" data-tour="templates-filters">
+      <div class="toolbar-search">
+        <search-bar
+          [query]="searchTerm()"
+          [compact]="true"
+          (queryChange)="searchTerm.set($event)"
+          placeholder="Buscar plantilla, tecnología, docente o motivo..."
+        />
+      </div>
 
-    <!-- Chips Dinámicos por Tecnología (Calculados Reactivamente desde la BD) -->
-    @if (availableTechs().length > 0) {
-      <div class="tech-chips-bar" role="group" aria-label="Filtro por tecnología">
-        <button
-          type="button"
-          class="tech-chip"
-          [class.active]="selectedTech() === 'all'"
-          (click)="setTechFilter('all')">
-          <span>Todas</span>
-          <span class="chip-count">{{ currentTabTemplates().length }}</span>
-        </button>
+      <filter-popover
+        [activeCount]="activeFilterCount()"
+        (cleared)="clearFilters()">
+        <section class="filter-column" aria-label="Filtrar por modalidad">
+          <span class="filter-column-title">Modalidad</span>
+          @for (option of purposeOptions(); track option.value) {
+            <button
+              type="button"
+              class="filter-option"
+              [class.is-active]="selectedPurpose() === option.value"
+              (click)="setPurposeFilter(option.value)">
+              <span>{{ option.label }}</span>
+              <span class="filter-option-meta">
+                <span class="filter-option-count" machineData>{{ option.count }}</span>
+                @if (selectedPurpose() === option.value) {
+                  <svg lucideCheck class="filter-option-check"></svg>
+                }
+              </span>
+            </button>
+          }
+        </section>
 
-        @for (tech of topTechs(); track tech.meta.id) {
+        <section class="filter-column" aria-label="Filtrar por tecnología principal">
+          <span class="filter-column-title">Tecnología principal</span>
           <button
             type="button"
-            class="tech-chip"
-            [class.active]="selectedTech() === tech.meta.id"
-            (click)="setTechFilter(tech.meta.id)">
-            <tech-logo [iconType]="tech.meta.iconType" [size]="16" />
-            <span>{{ tech.meta.name }}</span>
-            <span class="chip-count">{{ tech.count }}</span>
-          </button>
-        }
-
-        @if (extraTechs().length > 0) {
-          <div class="tech-chip-select-wrapper" [class.active]="isExtraSelected()">
-            <select
-              class="tech-chip-select"
-              [value]="isExtraSelected() ? selectedTech() : ''"
-              (change)="onSelectExtraTech($event)"
-              aria-label="Más tecnologías">
-              <option value="" disabled [selected]="!isExtraSelected()">
-                +{{ extraTechs().length }} más...
-              </option>
-              @for (tech of extraTechs(); track tech.meta.id) {
-                <option [value]="tech.meta.id">
-                  {{ tech.meta.name }} ({{ tech.count }})
-                </option>
+            class="filter-option"
+            [class.is-active]="selectedTech() === 'all'"
+            (click)="setTechFilter('all')">
+            <span>Todas</span>
+            <span class="filter-option-meta">
+              <span class="filter-option-count" machineData>{{ currentTabTemplates().length }}</span>
+              @if (selectedTech() === 'all') {
+                <svg lucideCheck class="filter-option-check"></svg>
               }
-            </select>
-            <svg lucideChevronDown class="select-chevron-icon"></svg>
-          </div>
-        }
-      </div>
-    }
+            </span>
+          </button>
+          @for (tech of availableTechs(); track tech.meta.id) {
+            <button
+              type="button"
+              class="filter-option"
+              [class.is-active]="selectedTech() === tech.meta.id"
+              (click)="setTechFilter(tech.meta.id)">
+              <span class="filter-tech-label">
+                <tech-logo [iconType]="tech.meta.iconType" [size]="14" />
+                <span>{{ tech.meta.name }}</span>
+              </span>
+              <span class="filter-option-meta">
+                <span class="filter-option-count" machineData>{{ tech.count }}</span>
+                @if (selectedTech() === tech.meta.id) {
+                  <svg lucideCheck class="filter-option-check"></svg>
+                }
+              </span>
+            </button>
+          }
+        </section>
+      </filter-popover>
+
+      <view-switcher [(mode)]="viewMode" />
+    </div>
   </div>
 
-  <!-- CONTENIDO: Pestaña 1 - Plantillas en aprobación -->
-  @if (activeTab() === 'pending') {
-    @if (isLoading()) {
-      <div class="loading-state">
-        <svg lucideRefreshCw class="w-6 h-6 motion-spin text-secondary"></svg>
-        <span>Cargando solicitudes de plantillas...</span>
-      </div>
-    } @else if (pendingTemplates().length === 0) {
-      <div class="empty-state">
-        <div class="empty-icon-box">
-          <svg lucideCheckCircle2 class="w-8 h-8 text-success"></svg>
+  <!-- Chips removibles mientras haya filtros activos -->
+  @if (hasActiveFilters()) {
+    <div class="active-filter-bar" aria-label="Filtros activos">
+      @if (selectedPurpose() !== 'ALL') {
+        <button type="button" class="active-filter-chip" (click)="setPurposeFilter('ALL')">
+          <span>{{ selectedPurposeLabel() }}</span>
+          <span class="chip-remove" aria-hidden="true">×</span>
+        </button>
+      }
+      @if (selectedTech() !== 'all') {
+        <button type="button" class="active-filter-chip" (click)="setTechFilter('all')">
+          <span>{{ selectedTechLabel() }}</span>
+          <span class="chip-remove" aria-hidden="true">×</span>
+        </button>
+      }
+      <button type="button" class="btn-ghost btn-sm" (click)="clearFilters()">Limpiar filtros</button>
+    </div>
+  }
+
+  <div class="catalog-content">
+    <!-- Pestaña En aprobación -->
+    @if (activeTab() === 'pending') {
+      @if (isLoading()) {
+        <div class="loading-state">
+          <svg lucideRefreshCw class="loading-icon motion-spin"></svg>
+          <span>Cargando solicitudes de plantillas...</span>
         </div>
-        <h3 class="empty-title">Bandeja al Día</h3>
-        <p class="empty-description">
-          No hay solicitudes pendientes que coincidan con los criterios seleccionados.
-        </p>
-      </div>
-    } @else {
-      @if (viewMode() === 'cards') {
-        <!-- Modo Tarjetas: Grilla Lado a Lado de 3 columnas -->
+      } @else if (pendingTemplates().length === 0) {
+        <div class="empty-state">
+          <div class="empty-icon-box">
+            <svg lucideCheckCircle2 class="empty-icon text-success"></svg>
+          </div>
+          <h3 class="empty-title">Bandeja al día</h3>
+          <p class="empty-description">
+            No hay solicitudes pendientes que coincidan con los criterios seleccionados.
+          </p>
+        </div>
+      } @else if (viewMode() === 'cards') {
         <div class="cards-grid" data-tour="templates-list">
           @for (item of pendingTemplates(); track item.id) {
-            <div class="template-card">
-              <div class="card-header">
-                <div class="card-title-group">
-                  <div>
-                    <h3 class="card-title">{{ item.name }}</h3>
-                    <div class="card-badges">
-                      @let pBadge = getPurposeBadge(item.target_environment);
-                      <span [class]="'badge-purpose badge-purpose-' + pBadge.variant" [title]="pBadge.label">
-                        {{ pBadge.shortLabel }}
-                      </span>
-                      @if (item.category_name) {
-                        <span class="badge-category" title="Categoría">{{ item.category_name }}</span>
-                      }
-                      @if (item.status === 'PENDIENTE_AUDITORIA') {
-                        <span class="badge-status-audit-pending" title="Auditoría de seguridad y prueba de arranque en curso">
-                          <span class="status-dot amber"></span>
-                          Auditoría (~3 min)
-                        </span>
-                      } @else {
-                        <span class="badge-status-pending">Pendiente</span>
-                      }
-                      <span class="badge-profile">RAM: <span machineData>{{ item.base_ram_mb }} MB</span></span>
-                    </div>
-                  </div>
-                </div>
+            <article class="template-card">
+              <div class="card-head">
+                <h3 class="card-title">{{ item.name }}</h3>
+                <span [class]="'card-status is-' + cardStatusTone(item) + ' ' + cardStatusClass(item)">
+                  <span [class]="'status-dot ' + cardStatusTone(item)"></span>
+                  {{ cardStatusLabel(item) }}
+                </span>
               </div>
+
+              <p class="card-modality">
+                {{ getPurposeBadge(item.target_environment).shortLabel }}
+                <span class="meta-sep">·</span>
+                {{ item.category_name || 'Sin categoría' }}
+                @if (item.eol_status === 'eol') {
+                  <span class="eol-flag">EOL</span>
+                }
+              </p>
 
               <div class="card-stack" aria-label="Tecnologías solicitadas">
                 @for (tech of getStackTechs(item); track tech.id) {
-                  <span class="stack-chip">
-                    <tech-logo [iconType]="tech.iconKey" [size]="18" />
-                    <span class="stack-chip-name">{{ tech.name }}</span>
+                  <span class="stack-item">
+                    <tech-logo [iconType]="tech.iconKey" [size]="15" />
+                    <span>{{ tech.name }}</span>
                   </span>
                 }
               </div>
 
-              @if (item.language_runners?.length) {
-                <div class="judge-languages-inline">
-                  <span class="judge-languages-caption">Lenguajes:</span>
-                  <judge-language-list [runners]="item.language_runners ?? []" />
-                </div>
-              }
+              <p class="card-requester">
+                Solicitada por {{ item.requested_by_name || 'administración' }}
+                <span class="meta-sep">·</span>
+                <time>{{ item.created_at | dateText }}</time>
+              </p>
 
-
-              <div class="card-meta">
-                <div class="meta-row">
-                  <span class="meta-text font-medium">
-                    Creada por {{ item.requested_by_name || 'administración' }}
-                  </span>
-                </div>
-                <div class="meta-row">
-                  <svg lucideClock class="meta-icon"></svg>
-                  <time class="meta-text text-tertiary font-mono">
-                    {{ item.created_at | dateText }}
-                  </time>
-                </div>
-              </div>
-
-              <div class="docker-image-box">
-                <span class="docker-label">Imagen:</span>
-                <div class="docker-tag-wrapper">
-                  <code class="docker-tag">{{ item.docker_image }}</code>
-                  <button
-                    type="button"
-                    class="btn-copy-tag"
-                    (click)="copyDockerTag(item.docker_image, $event)"
-                    [title]="copiedTag() === item.docker_image ? '¡Copiado!' : 'Copiar tag'">
-                    @if (copiedTag() === item.docker_image) {
-                      <svg lucideCheck class="copy-icon text-success"></svg>
-                    } @else {
-                      <svg lucideCopy class="copy-icon"></svg>
-                    }
-                  </button>
-                </div>
-              </div>
-
-              @if ((item.target_environment === 'JUEZ_EFIMERO' || item.target_environment === 'AMBOS') && item.entrypoint) {
-                <div class="judge-entrypoint-box">
-                  <span class="judge-entrypoint-label">Comando del evaluador:</span>
-                  <code class="judge-entrypoint-tag" machineData>{{ item.entrypoint }}</code>
-                </div>
-              }
-
-              <div class="pedagogical-justification-box">
-                <span class="justification-title">Justificación pedagógica:</span>
-                <p class="justification-text">
-                  {{ templateDescription(item) || 'Sin justificación técnica especificada por el docente.' }}
-                </p>
-              </div>
-
-              @if (item.status !== 'PENDIENTE_AUDITORIA') {
-                <div class="card-actions">
-                  <button type="button" class="btn-outline-danger" (click)="openRejectModal(item)">
-                    Rechazar
-                  </button>
-                  <button type="button" class="btn-primary" (click)="openReviewModal(item)">
-                    Revisar cuota
-                  </button>
-                </div>
-              } @else {
-                <div class="card-actions">
-                  <span class="meta-text text-tertiary">Auditoría automática de contenedor en curso...</span>
-                </div>
-              }
-            </div>
-          }
-        </div>
-      } @else {
-        <!-- Tabla de plantillas en aprobación -->
-        <div class="table-card table-responsive" data-tour="templates-list">
-          <table class="data-table">
-            <thead>
-              <tr>
-                <th>Plantilla / Imagen Docker</th>
-                <th>Docente Solicitante</th>
-                <th>RAM Solicitada</th>
-                <th>Fecha Solicitud</th>
-                <th>Justificación Pedagógica</th>
-                <th class="text-right">Acciones</th>
-              </tr>
-            </thead>
-            <tbody>
-              @for (item of pendingTemplates(); track item.id) {
-                <tr>
-                  <td>
-                    <div class="cell-entity-group">
-                      <div>
-                        <div class="cell-title-badges">
-                          <span class="cell-main-title font-semibold">{{ item.name }}</span>
-                          @let pBadge = getPurposeBadge(item.target_environment);
-                          <span [class]="'badge-purpose badge-purpose-' + pBadge.variant" [title]="pBadge.label">
-                            {{ pBadge.shortLabel }}
-                          </span>
-                          @if (item.category_name) {
-                            <span class="badge-category">{{ item.category_name }}</span>
-                          }
-                        </div>
-                        <div class="cell-stack" aria-label="Tecnologías del entorno">
-                          @for (tech of getStackTechs(item); track tech.id) {
-                            <span class="cell-stack-chip">
-                              <tech-logo [iconType]="tech.iconKey" [size]="14" />
-                              <span class="cell-stack-name">{{ tech.name }}</span>
-                            </span>
-                          }
-                        </div>
-                        @if (item.language_runners?.length) {
-                          <div class="judge-languages-inline">
-                            <span class="judge-languages-caption">Lenguajes:</span>
-                            <judge-language-list [runners]="item.language_runners ?? []" />
-                          </div>
-                        }
-                        @if ((item.target_environment === 'JUEZ_EFIMERO' || item.target_environment === 'AMBOS') && item.entrypoint) {
-                          <div class="judge-entrypoint-subtle">
-                            <span class="judge-label">{{ 'JUEZ_EFIMERO' | environmentLabel }}:</span>
-                            <code machineData>{{ item.entrypoint }}</code>
-                          </div>
-                        }
-                        <div class="docker-copy-inline">
-                          <code class="cell-code">{{ item.docker_image }}</code>
-                          <button
-                            type="button"
-                            class="btn-copy-tag"
-                            (click)="copyDockerTag(item.docker_image, $event)"
-                            [title]="copiedTag() === item.docker_image ? '¡Copiado!' : 'Copiar tag'">
-                            @if (copiedTag() === item.docker_image) {
-                              <svg lucideCheck class="copy-icon text-success"></svg>
-                            } @else {
-                              <svg lucideCopy class="copy-icon"></svg>
-                            }
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-                  </td>
-                  <td>
-                    <span class="cell-text font-medium">Creada por {{ item.requested_by_name || 'administración' }}</span>
-                  </td>
-                  <td>
-                    <span class="ram-badge"><span machineData>{{ item.base_ram_mb }} MB</span></span>
-                  </td>
-                  <td>
-                    <time class="cell-text text-secondary font-mono font-date">{{ item.created_at | dateText }}</time>
-                  </td>
-                  <td>
-                    <span class="cell-desc-subtle" [title]="templateDescription(item) || 'Sin justificación'">
-                      {{ templateDescription(item) || 'Sin justificación técnica especificada' }}
-                    </span>
-                  </td>
-                  <td class="text-right">
-                    <div class="action-buttons-group">
-                      <button type="button" class="btn-action-reject" (click)="openRejectModal(item)" title="Rechazar solicitud">
-                        Rechazar
-                      </button>
-                      <button type="button" class="btn-action-approve" (click)="openReviewModal(item)" title="Revisar y fijar cuotas">
-                        Revisar
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              }
-            </tbody>
-          </table>
-        </div>
-      }
-    }
-  }
-
-  <!-- CONTENIDO: Pestaña 2 - Catálogo Activo -->
-  @if (activeTab() === 'catalog') {
-    @if (isLoading()) {
-      <div class="loading-state">
-        <svg lucideRefreshCw class="w-6 h-6 motion-spin text-secondary"></svg>
-        <span>Cargando catálogo oficial de plantillas...</span>
-      </div>
-    } @else if (catalogTemplates().length === 0) {
-      <div class="empty-state">
-        <div class="empty-icon-box">
-          <svg lucideBox class="w-8 h-8 text-secondary"></svg>
-        </div>
-        <h3 class="empty-title">Sin Coincidencias en Catálogo</h3>
-        <p class="empty-description">
-          No se encontraron plantillas oficiales que coincidan con la tecnología o búsqueda seleccionada.
-        </p>
-      </div>
-    } @else {
-      @if (viewMode() === 'cards') {
-        <!-- Catálogo en Tarjetas (Paginado) -->
-        <div class="cards-grid" data-tour="templates-list">
-          @for (item of paginatedCatalogTemplates(); track item.id) {
-            <div class="template-card" [class.card-paused]="isPausedStatus(item.status)">
-              <div class="card-header">
-                <div class="card-title-group">
-                  <div class="card-title-block">
-                    <h3 class="card-title">{{ item.name }}</h3>
-                    <div class="card-badges">
-                      @let pBadge = getPurposeBadge(item.target_environment);
-                      <span [class]="'badge-purpose badge-purpose-' + pBadge.variant" [title]="pBadge.label">
-                        {{ pBadge.shortLabel }}
-                      </span>
-                      @if (item.category_name) {
-                        <span class="badge-category" title="Categoría">{{ item.category_name }}</span>
-                      }
-                    </div>
-                  </div>
-                </div>
-
-                <div class="card-status-group">
-                  @if (item.status === 'PENDIENTE_AUDITORIA') {
-                    <span class="badge-status-audit-pending" title="Auditoría de seguridad y prueba de arranque en curso">
-                      <span class="status-dot amber"></span>
-                      Auditoría
-                    </span>
-                  } @else if (item.status === 'approved' || item.status === 'APROBADA') {
-                    <span class="badge-status-approved" [title]="'Sin vulnerabilidades críticas' + (item.smoke_test_status ? ' | Prueba de arranque: ' + item.smoke_test_status : '')">
-                      <span class="status-dot green"></span>
-                      Activa
-                    </span>
-                  } @else if (item.status === 'RECHAZADA' || item.status === 'rejected') {
-                    <span class="badge-status-rejected" [title]="item.rejection_reason || (item.cve_critical_count ? item.cve_critical_count + ' CVEs críticos detectados' : 'Rechazada')">
-                      <span class="status-dot red"></span>
-                      Rechazada
-                    </span>
-                  } @else {
-                    <span class="badge-status-paused">
-                      <span class="status-dot gray"></span>
-                      Pausada
-                    </span>
-                  }
-                  @if (item.eol_status === 'eol') {
-                    <span class="badge-status-eol" [title]="item.eol_message || 'Versión sin soporte oficial (EOL)'">
-                      <span class="status-dot red"></span>
-                      EOL
-                    </span>
-                  } @else if (item.eol_status === 'warning') {
-                    <span class="badge-status-eol-warning" [title]="item.eol_message || 'Próximo a fin de soporte'">
-                      <span class="status-dot amber"></span>
-                      Próximo a EOL
-                    </span>
-                  }
-                </div>
-              </div>
-
-              <div class="card-stack" aria-label="Tecnologías incluidas">
-                @for (tech of getStackTechs(item); track tech.id) {
-                  <span class="stack-chip">
-                    <tech-logo [iconType]="tech.iconKey" [size]="18" />
-                    <span class="stack-chip-name">{{ tech.name }}</span>
-                  </span>
-                }
-              </div>
-
-              @if (item.language_runners?.length) {
-                <div class="judge-languages-inline">
-                  <span class="judge-languages-caption">Lenguajes:</span>
-                  <judge-language-list [runners]="item.language_runners ?? []" />
-                </div>
-              }
-
-
-              @if (templateDescription(item); as description) {
-                <p class="card-description">{{ description }}</p>
-              }
-
-              <div class="card-meta">
-                <span class="meta-item">
-                  <svg lucideHardDrive class="meta-icon"></svg>
-                  <span>RAM <span machineData>{{ item.base_ram_mb }} MB</span></span>
-                </span>
-                <span class="meta-item">
-                  <svg lucideClock class="meta-icon"></svg>
-                  <span>Aprobada <time>{{ (item.reviewed_at || item.created_at) | dateText:'date' }}</time></span>
-                </span>
-              </div>
+              <p class="card-description">
+                {{ templateDescription(item) || 'Sin justificación técnica especificada por el docente.' }}
+              </p>
 
               <details class="card-tech-details">
                 <summary class="tech-details-summary">
@@ -507,7 +223,7 @@
                         type="button"
                         class="btn-copy-tag"
                         (click)="copyDockerTag(item.docker_image, $event)"
-                        [title]="copiedTag() === item.docker_image ? '¡Copiado!' : 'Copiar tag'">
+                        [title]="copiedTag() === item.docker_image ? 'Copiado' : 'Copiar tag'">
                         @if (copiedTag() === item.docker_image) {
                           <svg lucideCheck class="copy-icon text-success"></svg>
                         } @else {
@@ -519,7 +235,7 @@
                   @if ((item.target_environment === 'JUEZ_EFIMERO' || item.target_environment === 'AMBOS') && item.entrypoint) {
                     <div class="tech-detail-row">
                       <span class="tech-detail-label">Comando del evaluador</span>
-                      <code class="judge-entrypoint-tag" machineData>{{ item.entrypoint }}</code>
+                      <code class="docker-tag" machineData>{{ item.entrypoint }}</code>
                     </div>
                   }
                   @if (item.language_runners?.length) {
@@ -542,31 +258,241 @@
               </details>
 
               <div class="card-footer">
-                @if (getCacheStatus(item.id); as cache) {
-                  @if (warmingTemplateIds().has(item.id)) {
-                    <span class="badge-cache-warming">
-                      <svg lucideRefreshCw class="badge-icon motion-spin"></svg>
-                      Preparando...
-                    </span>
-                  } @else if (cache.is_cached) {
-                    <span class="badge-cache-cached" [title]="'Imagen disponible en el servidor (' + formatBytes(cache.size_bytes) + ')'">
-                      <svg lucideHardDrive class="badge-icon"></svg>
-                      Entorno preparado
-                    </span>
-                  } @else {
-                    <button
-                      type="button"
-                      class="badge-cache-missing-btn"
-                      (click)="warmTemplate(item, $event)"
-                      title="Descarga la imagen al servidor para que el aula no espere">
-                      <svg lucideDownloadCloud class="badge-icon"></svg>
-                      Preparar entorno
+                <div class="card-footer-meta">
+                  <span>RAM <span machineData>{{ item.base_ram_mb }} MB</span></span>
+                  <span class="meta-sep">·</span>
+                  <time>{{ item.created_at | dateText:'date' }}</time>
+                </div>
+                <div class="card-footer-actions">
+                  @if (item.status !== 'PENDIENTE_AUDITORIA') {
+                    <button type="button" class="btn-ghost btn-sm is-danger" (click)="openRejectModal(item)">
+                      Rechazar
                     </button>
+                    <button type="button" class="btn-ghost btn-sm is-primary" (click)="openReviewModal(item)">
+                      Revisar
+                    </button>
+                  } @else {
+                    <span class="audit-note">Auditoría automática en curso...</span>
                   }
-                }
+                </div>
+              </div>
+            </article>
+          }
+        </div>
+      } @else {
+        <div class="table-card table-responsive" data-tour="templates-list">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Plantilla / Imagen Docker</th>
+                <th>Docente solicitante</th>
+                <th>RAM solicitada</th>
+                <th>Fecha de solicitud</th>
+                <th>Justificación pedagógica</th>
+                <th class="text-right">Acciones</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (item of pendingTemplates(); track item.id) {
+                <tr>
+                  <td>
+                    <div class="cell-title-badges">
+                      <span class="cell-main-title">{{ item.name }}</span>
+                      <span class="cell-modality">{{ getPurposeBadge(item.target_environment).shortLabel }}</span>
+                      @if (item.category_name) {
+                        <span class="cell-modality">{{ item.category_name }}</span>
+                      }
+                    </div>
+                    <div class="cell-stack" aria-label="Tecnologías del entorno">
+                      @for (tech of getStackTechs(item); track tech.id) {
+                        <span class="cell-stack-item">
+                          <tech-logo [iconType]="tech.iconKey" [size]="14" />
+                          <span>{{ tech.name }}</span>
+                        </span>
+                      }
+                    </div>
+                    <div class="docker-copy-inline">
+                      <code class="cell-code">{{ item.docker_image }}</code>
+                      <button
+                        type="button"
+                        class="btn-copy-tag"
+                        (click)="copyDockerTag(item.docker_image, $event)"
+                        [title]="copiedTag() === item.docker_image ? 'Copiado' : 'Copiar tag'">
+                        @if (copiedTag() === item.docker_image) {
+                          <svg lucideCheck class="copy-icon text-success"></svg>
+                        } @else {
+                          <svg lucideCopy class="copy-icon"></svg>
+                        }
+                      </button>
+                    </div>
+                  </td>
+                  <td>
+                    <span class="cell-text">Creada por {{ item.requested_by_name || 'administración' }}</span>
+                  </td>
+                  <td>
+                    <span class="ram-badge" machineData>{{ item.base_ram_mb }} MB</span>
+                  </td>
+                  <td>
+                    <time class="cell-mono">{{ item.created_at | dateText }}</time>
+                  </td>
+                  <td>
+                    <span class="cell-desc-subtle" [title]="templateDescription(item) || 'Sin justificación'">
+                      {{ templateDescription(item) || 'Sin justificación técnica especificada' }}
+                    </span>
+                  </td>
+                  <td class="text-right">
+                    @if (item.status !== 'PENDIENTE_AUDITORIA') {
+                      <div class="table-actions">
+                        <button type="button" class="btn-ghost btn-sm is-danger" (click)="openRejectModal(item)" title="Rechazar solicitud">
+                          Rechazar
+                        </button>
+                        <button type="button" class="btn-ghost btn-sm is-primary" (click)="openReviewModal(item)" title="Revisar y fijar cuotas">
+                          Revisar
+                        </button>
+                      </div>
+                    } @else {
+                      <span class="audit-note">Auditoría en curso</span>
+                    }
+                  </td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+      }
+    }
 
-                <div class="card-actions">
-                  <button type="button" class="btn-outline-secondary" (click)="navigateToEditStudio(item)" title="Abrir en el Constructor de Entornos">
+    <!-- Pestaña Catálogo activo -->
+    @if (activeTab() === 'catalog') {
+      @if (isLoading()) {
+        <div class="loading-state">
+          <svg lucideRefreshCw class="loading-icon motion-spin"></svg>
+          <span>Cargando catálogo oficial de plantillas...</span>
+        </div>
+      } @else if (catalogTemplates().length === 0) {
+        <div class="empty-state">
+          <div class="empty-icon-box">
+            <svg lucideBox class="empty-icon"></svg>
+          </div>
+          <h3 class="empty-title">Sin coincidencias en el catálogo</h3>
+          <p class="empty-description">
+            No se encontraron plantillas oficiales que coincidan con la modalidad, la tecnología o la búsqueda seleccionada.
+          </p>
+        </div>
+      } @else if (viewMode() === 'cards') {
+        <div class="cards-grid" data-tour="templates-list">
+          @for (item of paginatedCatalogTemplates(); track item.id) {
+            <article class="template-card" [class.card-paused]="isPausedStatus(item.status)">
+              <div class="card-head">
+                <h3 class="card-title">{{ item.name }}</h3>
+                <span [class]="'card-status is-' + cardStatusTone(item) + ' ' + cardStatusClass(item)">
+                  <span [class]="'status-dot ' + cardStatusTone(item)"></span>
+                  {{ cardStatusLabel(item) }}
+                </span>
+              </div>
+
+              <p class="card-modality">
+                {{ getPurposeBadge(item.target_environment).shortLabel }}
+                <span class="meta-sep">·</span>
+                {{ item.category_name || 'Sin categoría' }}
+                @if (item.eol_status === 'eol') {
+                  <span class="eol-flag">EOL</span>
+                } @else if (item.eol_status === 'warning') {
+                  <span class="eol-flag is-warning">Próximo a EOL</span>
+                }
+              </p>
+
+              <div class="card-stack" aria-label="Tecnologías incluidas">
+                @for (tech of getStackTechs(item); track tech.id) {
+                  <span class="stack-item">
+                    <tech-logo [iconType]="tech.iconKey" [size]="15" />
+                    <span>{{ tech.name }}</span>
+                  </span>
+                }
+              </div>
+
+              @if (templateDescription(item); as description) {
+                <p class="card-description">{{ description }}</p>
+              }
+
+              <details class="card-tech-details">
+                <summary class="tech-details-summary">
+                  <svg lucideChevronDown class="tech-details-chevron"></svg>
+                  <span>Detalles técnicos</span>
+                </summary>
+                <div class="tech-details-body">
+                  <div class="tech-detail-row">
+                    <span class="tech-detail-label">Imagen base</span>
+                    <div class="docker-tag-wrapper">
+                      <code class="docker-tag">{{ item.docker_image }}</code>
+                      <button
+                        type="button"
+                        class="btn-copy-tag"
+                        (click)="copyDockerTag(item.docker_image, $event)"
+                        [title]="copiedTag() === item.docker_image ? 'Copiado' : 'Copiar tag'">
+                        @if (copiedTag() === item.docker_image) {
+                          <svg lucideCheck class="copy-icon text-success"></svg>
+                        } @else {
+                          <svg lucideCopy class="copy-icon"></svg>
+                        }
+                      </button>
+                    </div>
+                  </div>
+                  @if ((item.target_environment === 'JUEZ_EFIMERO' || item.target_environment === 'AMBOS') && item.entrypoint) {
+                    <div class="tech-detail-row">
+                      <span class="tech-detail-label">Comando del evaluador</span>
+                      <code class="docker-tag" machineData>{{ item.entrypoint }}</code>
+                    </div>
+                  }
+                  @if (item.language_runners?.length) {
+                    <div class="tech-detail-row">
+                      <span class="tech-detail-label">Lenguajes del evaluador</span>
+                      <judge-language-list [runners]="item.language_runners ?? []" [showCommands]="true" />
+                    </div>
+                  }
+                  @if (item.tools_declared?.length) {
+                    <div class="tech-detail-row">
+                      <span class="tech-detail-label">Herramientas</span>
+                      <div class="card-tools" aria-label="Herramientas declaradas">
+                        @for (tool of item.tools_declared; track tool) {
+                          <code class="card-tool">{{ tool }}</code>
+                        }
+                      </div>
+                    </div>
+                  }
+                </div>
+              </details>
+
+              <div class="card-footer">
+                <div class="card-footer-meta">
+                  <span>RAM <span machineData>{{ item.base_ram_mb }} MB</span></span>
+                  <span class="meta-sep">·</span>
+                  <time>{{ (item.reviewed_at || item.created_at) | dateText:'date' }}</time>
+                  @if (getCacheStatus(item.id); as cache) {
+                    @if (warmingTemplateIds().has(item.id)) {
+                      <span class="cache-state is-pending">
+                        <svg lucideRefreshCw class="cache-icon motion-spin"></svg>
+                        Preparando
+                      </span>
+                    } @else if (cache.is_cached) {
+                      <span class="cache-state is-ready" [title]="'Imagen disponible en el servidor (' + formatBytes(cache.size_bytes) + ')'">
+                        <svg lucideCheck class="cache-icon"></svg>
+                        Entorno preparado
+                      </span>
+                    } @else {
+                      <button
+                        type="button"
+                        class="cache-action"
+                        (click)="warmTemplate(item, $event)"
+                        title="Descarga la imagen al servidor para que el aula no espere">
+                        <svg lucideDownloadCloud class="cache-icon"></svg>
+                        Preparar entorno
+                      </button>
+                    }
+                  }
+                </div>
+                <div class="card-footer-actions">
+                  <button type="button" class="btn-ghost btn-sm" (click)="navigateToEditStudio(item)" title="Abrir en el Constructor de Entornos">
                     <svg lucidePencil class="btn-icon-xs"></svg>
                     <span>Editar</span>
                   </button>
@@ -574,12 +500,12 @@
                   <div class="row-menu-anchor">
                     <button
                       type="button"
-                      class="btn-row-menu"
+                      class="btn-ghost menu-trigger"
                       (click)="toggleRowMenu(item.id, $event)"
                       [class.active]="openMenuId() === item.id"
                       title="Más acciones"
                       aria-label="Más acciones de la plantilla">
-                      <svg lucideMoreVertical class="w-4 h-4"></svg>
+                      <svg lucideMoreVertical class="menu-trigger-icon"></svg>
                     </button>
 
                     @if (openMenuId() === item.id) {
@@ -588,21 +514,17 @@
                           <svg lucideHardDrive class="menu-item-icon"></svg>
                           <span>Ajustar cuota de RAM</span>
                         </button>
-
                         <button type="button" class="menu-item" role="menuitem" (click)="duplicateTemplate(item); openMenuId.set(null)">
                           <svg lucideCopy class="menu-item-icon"></svg>
                           <span>Duplicar plantilla</span>
                         </button>
-
                         @if (item.status === 'approved' || item.status === 'APROBADA') {
                           <button type="button" class="menu-item menu-item--promote" role="menuitem" (click)="promoteToModel(item); openMenuId.set(null)">
                             <svg lucideBadgeCheck class="menu-item-icon"></svg>
                             <span>Promover a modelo</span>
                           </button>
                         }
-
                         <div class="menu-divider"></div>
-
                         @if (item.status === 'approved' || item.status === 'APROBADA') {
                           <button type="button" class="menu-item menu-item--danger" role="menuitem" (click)="requestToggleStatus(item); openMenuId.set(null)">
                             <svg lucidePause class="menu-item-icon"></svg>
@@ -623,19 +545,18 @@
                   </div>
                 </div>
               </div>
-            </div>
+            </article>
           }
         </div>
       } @else {
-        <!-- Catálogo en Tabla de Alta Densidad (Paginado) -->
         <div class="table-card table-responsive" data-tour="templates-list">
           <table class="data-table">
             <thead>
               <tr>
-                <th>Entorno Oficial</th>
-                <th>Imagen Base</th>
-                <th>RAM Asignada</th>
-                <th>Fecha Aprobación</th>
+                <th>Entorno oficial</th>
+                <th>Imagen base</th>
+                <th>RAM asignada</th>
+                <th>Fecha de aprobación</th>
                 <th>Estado</th>
                 <th>Disponibilidad</th>
                 <th class="text-right">Acciones</th>
@@ -645,43 +566,24 @@
               @for (item of paginatedCatalogTemplates(); track item.id) {
                 <tr [class.row-paused]="isPausedStatus(item.status)">
                   <td>
-                    <div class="cell-entity-group">
-                      <div>
-                        <div class="cell-title-badges">
-                          <span class="cell-main-title font-semibold">{{ item.name }}</span>
-                          @let pBadge = getPurposeBadge(item.target_environment);
-                          <span [class]="'badge-purpose badge-purpose-' + pBadge.variant" [title]="pBadge.label">
-                            {{ pBadge.shortLabel }}
-                          </span>
-                          @if (item.category_name) {
-                            <span class="badge-category">{{ item.category_name }}</span>
-                          }
-                        </div>
-                        <div class="cell-stack" aria-label="Tecnologías del entorno">
-                          @for (tech of getStackTechs(item); track tech.id) {
-                            <span class="cell-stack-chip">
-                              <tech-logo [iconType]="tech.iconKey" [size]="14" />
-                              <span class="cell-stack-name">{{ tech.name }}</span>
-                            </span>
-                          }
-                        </div>
-                        @if (item.language_runners?.length) {
-                          <div class="judge-languages-inline">
-                            <span class="judge-languages-caption">Lenguajes:</span>
-                            <judge-language-list [runners]="item.language_runners ?? []" />
-                          </div>
-                        }
-                        @if ((item.target_environment === 'JUEZ_EFIMERO' || item.target_environment === 'AMBOS') && item.entrypoint) {
-                          <div class="judge-entrypoint-subtle">
-                            <span class="judge-label">{{ 'JUEZ_EFIMERO' | environmentLabel }}:</span>
-                            <code machineData>{{ item.entrypoint }}</code>
-                          </div>
-                        }
-                        @if (templateDescription(item); as description) {
-                          <div class="cell-desc-subtle">{{ description }}</div>
-                        }
-                      </div>
+                    <div class="cell-title-badges">
+                      <span class="cell-main-title">{{ item.name }}</span>
+                      <span class="cell-modality">{{ getPurposeBadge(item.target_environment).shortLabel }}</span>
+                      @if (item.category_name) {
+                        <span class="cell-modality">{{ item.category_name }}</span>
+                      }
                     </div>
+                    <div class="cell-stack" aria-label="Tecnologías del entorno">
+                      @for (tech of getStackTechs(item); track tech.id) {
+                        <span class="cell-stack-item">
+                          <tech-logo [iconType]="tech.iconKey" [size]="14" />
+                          <span>{{ tech.name }}</span>
+                        </span>
+                      }
+                    </div>
+                    @if (templateDescription(item); as description) {
+                      <div class="cell-desc-subtle">{{ description }}</div>
+                    }
                   </td>
                   <td>
                     <div class="docker-copy-inline">
@@ -690,7 +592,7 @@
                         type="button"
                         class="btn-copy-tag"
                         (click)="copyDockerTag(item.docker_image, $event)"
-                        [title]="copiedTag() === item.docker_image ? '¡Copiado!' : 'Copiar tag'">
+                        [title]="copiedTag() === item.docker_image ? 'Copiado' : 'Copiar tag'">
                         @if (copiedTag() === item.docker_image) {
                           <svg lucideCheck class="copy-icon text-success"></svg>
                         } @else {
@@ -700,84 +602,49 @@
                     </div>
                   </td>
                   <td>
-                    <span class="ram-badge"><span machineData>{{ item.base_ram_mb }} MB</span></span>
+                    <span class="ram-badge" machineData>{{ item.base_ram_mb }} MB</span>
                   </td>
                   <td>
-                    <span class="cell-text text-secondary font-mono">
-                      <time>{{ (item.reviewed_at || item.created_at) | dateText:'date' }}</time>
+                    <time class="cell-mono">{{ (item.reviewed_at || item.created_at) | dateText:'date' }}</time>
+                  </td>
+                  <td>
+                    <span [class]="'table-status is-' + cardStatusTone(item) + ' ' + cardStatusClass(item)">
+                      <span [class]="'status-dot ' + cardStatusTone(item)"></span>
+                      {{ cardStatusLabel(item) }}
                     </span>
-                  </td>
-                  <td>
-                    @if (item.status === 'PENDIENTE_AUDITORIA') {
-                      <span class="badge-status-audit-pending" title="Auditoría de seguridad y prueba de arranque en curso">
-                        <span class="status-dot amber"></span>
-                        Auditoría (~3 min)
-                      </span>
-                    } @else if (item.status === 'approved' || item.status === 'APROBADA') {
-                      <span class="badge-status-approved" [title]="'0 CVEs críticos' + (item.smoke_test_status ? ' | Smoke: ' + item.smoke_test_status : '')">
-                        <span class="status-dot green"></span>
-                        Activa
-                      </span>
-                    } @else if (item.status === 'RECHAZADA' || item.status === 'rejected') {
-                      <span class="badge-status-rejected" [title]="item.rejection_reason || (item.cve_critical_count ? item.cve_critical_count + ' CVEs críticos detectados' : 'Rechazada')">
-                        <span class="status-dot red"></span>
-                        Rechazada
-                      </span>
-                    } @else if (item.status === 'paused') {
-                      <span class="badge-status-paused">
-                        <span class="status-dot gray"></span>
-                        Pausada
-                      </span>
-                    }
-                    @if (item.eol_status === 'eol') {
-                      <span class="badge-status-eol" [title]="item.eol_message || 'Versión sin soporte oficial (EOL)'">
-                        <span class="status-dot red"></span>
-                        EOL
-                      </span>
-                    } @else if (item.eol_status === 'warning') {
-                      <span class="badge-status-eol-warning" [title]="item.eol_message || 'Próximo a fin de soporte'">
-                        <span class="status-dot amber"></span>
-                        Próximo a EOL
-                      </span>
-                    }
                   </td>
                   <td>
                     @if (getCacheStatus(item.id); as cache) {
                       @if (warmingTemplateIds().has(item.id)) {
-                        <span class="badge-cache-warming">
-                          <svg lucideRefreshCw class="badge-icon motion-spin"></svg>
-                          Preparando...
+                        <span class="cache-state is-pending">
+                          <svg lucideRefreshCw class="cache-icon motion-spin"></svg>
+                          Preparando
                         </span>
                       } @else if (cache.is_cached) {
-                        <span class="badge-cache-cached" [title]="'Imagen disponible en el servidor (' + formatBytes(cache.size_bytes) + ')'">
-                          <svg lucideHardDrive class="badge-icon"></svg>
+                        <span class="cache-state is-ready" [title]="'Imagen disponible en el servidor (' + formatBytes(cache.size_bytes) + ')'">
+                          <svg lucideCheck class="cache-icon"></svg>
                           Entorno preparado
                         </span>
                       } @else {
-                        <button
-                          type="button"
-                          class="badge-cache-missing-btn"
-                          (click)="warmTemplate(item, $event)"
-                          title="Descarga la imagen al servidor para que el aula no espere">
-                          <svg lucideDownloadCloud class="badge-icon"></svg>
-                          Preparar entorno
+                        <button type="button" class="cache-action" (click)="warmTemplate(item, $event)" title="Descargar la imagen al servidor">
+                          <svg lucideDownloadCloud class="cache-icon"></svg>
+                          Preparar
                         </button>
                       }
                     } @else {
-                      <span class="cell-text text-secondary font-mono">-</span>
+                      <span class="cell-mono">—</span>
                     }
                   </td>
                   <td class="text-right">
                     <div class="row-menu-anchor">
                       <button
                         type="button"
-                        class="btn-row-menu"
+                        class="btn-ghost menu-trigger"
                         (click)="toggleRowMenu(item.id, $event)"
                         [class.active]="openMenuId() === item.id"
                         title="Acciones"
-                        aria-label="Abrir menú de acciones"
-                      >
-                        <svg lucideMoreVertical class="w-4 h-4"></svg>
+                        aria-label="Abrir menú de acciones">
+                        <svg lucideMoreVertical class="menu-trigger-icon"></svg>
                       </button>
 
                       @if (openMenuId() === item.id) {
@@ -786,39 +653,29 @@
                             <svg lucidePencil class="menu-item-icon"></svg>
                             <span>Editar en Constructor</span>
                           </button>
-
                           <button type="button" class="menu-item" role="menuitem" (click)="openEditModal(item); openMenuId.set(null)">
-                            <svg lucidePencil class="menu-item-icon"></svg>
-                            <span>Ajustar Cuota</span>
+                            <svg lucideHardDrive class="menu-item-icon"></svg>
+                            <span>Ajustar cuota</span>
                           </button>
-
                           <button type="button" class="menu-item" role="menuitem" (click)="duplicateTemplate(item); openMenuId.set(null)">
                             <svg lucideCopy class="menu-item-icon"></svg>
                             <span>Duplicar</span>
                           </button>
-
                           @if (item.status === 'approved' || item.status === 'APROBADA') {
                             <button type="button" class="menu-item menu-item--promote" role="menuitem" (click)="promoteToModel(item); openMenuId.set(null)">
                               <svg lucideBadgeCheck class="menu-item-icon"></svg>
                               <span>Promover a modelo</span>
                             </button>
-                          }
-
-                          <div class="menu-divider"></div>
-
-                          @if (item.status === 'approved' || item.status === 'APROBADA') {
+                            <div class="menu-divider"></div>
                             <button type="button" class="menu-item menu-item--danger" role="menuitem" (click)="requestToggleStatus(item); openMenuId.set(null)">
                               <svg lucidePause class="menu-item-icon"></svg>
                               <span>Pausar</span>
                             </button>
                           } @else {
+                            <div class="menu-divider"></div>
                             <button type="button" class="menu-item menu-item--success" role="menuitem" (click)="requestToggleStatus(item); openMenuId.set(null)">
                               <svg lucidePlay class="menu-item-icon"></svg>
-                              @if (item.status === 'RECHAZADA' || item.status === 'rejected') {
-                                <span>Reenviar a auditoría</span>
-                              } @else {
-                                <span>Reactivar</span>
-                              }
+                              <span>Reactivar</span>
                             </button>
                           }
                         </div>
@@ -832,7 +689,6 @@
         </div>
       }
 
-      <!-- Paginación del Catálogo -->
       @if (totalCatalogPages() > 1) {
         <pagination-bar
           [currentPage]="catalogPage()"
@@ -842,193 +698,163 @@
         />
       }
 
-      <!-- Nota pedagógica institucional -->
       <div class="catalog-footer-note">
-        <svg lucideAlertCircle class="w-4 h-4 text-secondary shrink-0"></svg>
+        <svg lucideAlertCircle class="footer-note-icon"></svg>
         <span>
-          <strong>Nota institucional:</strong> Al pausar una plantilla, ya no se listará para nuevos laboratorios, salvaguardando los entornos ya creados y las entregas de estudiantes pasadas.
+          <strong>Nota institucional:</strong> al pausar una plantilla deja de listarse para nuevos laboratorios, pero conserva los entornos ya creados y las entregas de estudiantes anteriores.
         </span>
       </div>
     }
-  }
 
-  <!-- CONTENIDO: Pestaña 3 - Historial de Rechazadas -->
-  @if (activeTab() === 'rejected') {
-    @if (isLoading()) {
-      <div class="loading-state">
-        <svg lucideRefreshCw class="w-6 h-6 motion-spin text-secondary"></svg>
-        <span>Cargando historial de solicitudes rechazadas...</span>
-      </div>
-    } @else if (rejectedTemplates().length === 0) {
-      <div class="empty-state">
-        <div class="empty-icon-box">
-          <svg lucideCheckCircle2 class="w-8 h-8 text-success"></svg>
+    <!-- Pestaña Rechazadas -->
+    @if (activeTab() === 'rejected') {
+      @if (isLoading()) {
+        <div class="loading-state">
+          <svg lucideRefreshCw class="loading-icon motion-spin"></svg>
+          <span>Cargando historial de solicitudes rechazadas...</span>
         </div>
-        <h3 class="empty-title">Sin Solicitudes Rechazadas</h3>
-        <p class="empty-description">
-          No existen solicitudes de plantillas denegadas que coincidan con los filtros actuales.
-        </p>
-      </div>
-    } @else {
-      @if (viewMode() === 'cards') {
-        <!-- Rechazadas en Tarjetas -->
+      } @else if (rejectedTemplates().length === 0) {
+        <div class="empty-state">
+          <div class="empty-icon-box">
+            <svg lucideCheckCircle2 class="empty-icon text-success"></svg>
+          </div>
+          <h3 class="empty-title">Sin solicitudes rechazadas</h3>
+          <p class="empty-description">
+            No existen solicitudes de plantillas denegadas que coincidan con los filtros actuales.
+          </p>
+        </div>
+      } @else if (viewMode() === 'cards') {
         <div class="cards-grid" data-tour="templates-list">
           @for (item of paginatedRejectedTemplates(); track item.id) {
-            <div class="template-card card-rejected">
-              <div class="card-header">
-                <div class="card-title-group">
-                  <div>
-                    <h3 class="card-title">{{ item.name }}</h3>
-                    <div class="card-badges">
-                      @let pBadge = getPurposeBadge(item.target_environment);
-                      <span [class]="'badge-purpose badge-purpose-' + pBadge.variant" [title]="pBadge.label">
-                        {{ pBadge.shortLabel }}
-                      </span>
-                      @if (item.category_name) {
-                        <span class="badge-category" title="Categoría">{{ item.category_name }}</span>
-                      }
-                      <span class="badge-status-rejected">Rechazada</span>
-                      <span class="badge-profile">RAM: <span machineData>{{ item.base_ram_mb }} MB</span></span>
-                    </div>
-                  </div>
-                </div>
+            <article class="template-card card-rejected">
+              <div class="card-head">
+                <h3 class="card-title">{{ item.name }}</h3>
+                <span [class]="'card-status is-' + cardStatusTone(item) + ' ' + cardStatusClass(item)">
+                  <span [class]="'status-dot ' + cardStatusTone(item)"></span>
+                  {{ cardStatusLabel(item) }}
+                </span>
               </div>
+
+              <p class="card-modality">
+                {{ getPurposeBadge(item.target_environment).shortLabel }}
+                <span class="meta-sep">·</span>
+                {{ item.category_name || 'Sin categoría' }}
+              </p>
 
               <div class="card-stack" aria-label="Tecnologías solicitadas">
                 @for (tech of getStackTechs(item); track tech.id) {
-                  <span class="stack-chip">
-                    <tech-logo [iconType]="tech.iconKey" [size]="18" />
-                    <span class="stack-chip-name">{{ tech.name }}</span>
+                  <span class="stack-item">
+                    <tech-logo [iconType]="tech.iconKey" [size]="15" />
+                    <span>{{ tech.name }}</span>
                   </span>
                 }
               </div>
 
-              @if (item.language_runners?.length) {
-                <div class="judge-languages-inline">
-                  <span class="judge-languages-caption">Lenguajes:</span>
-                  <judge-language-list [runners]="item.language_runners ?? []" />
-                </div>
-              }
-
-
-              <div class="card-meta">
-                <div class="meta-row">
-                  <span class="meta-text font-medium">{{ item.requested_by_name || 'Docente' }}</span>
-                </div>
-                <div class="meta-row">
-                  <svg lucideClock class="meta-icon"></svg>
-                  <span class="meta-text text-tertiary font-mono">
-                    Revisada: <time>{{ (item.reviewed_at || item.created_at) | dateText }}</time>
-                  </span>
-                </div>
-              </div>
-
-              <div class="docker-image-box">
-                <span class="docker-label">Imagen Solicitada:</span>
-                <div class="docker-tag-wrapper">
-                  <code class="docker-tag">{{ item.docker_image }}</code>
-                  <button
-                    type="button"
-                    class="btn-copy-tag"
-                    (click)="copyDockerTag(item.docker_image, $event)"
-                    [title]="copiedTag() === item.docker_image ? '¡Copiado!' : 'Copiar tag'">
-                    @if (copiedTag() === item.docker_image) {
-                      <svg lucideCheck class="copy-icon text-success"></svg>
-                    } @else {
-                      <svg lucideCopy class="copy-icon"></svg>
-                    }
-                  </button>
-                </div>
-              </div>
-
-              @if ((item.target_environment === 'JUEZ_EFIMERO' || item.target_environment === 'AMBOS') && item.entrypoint) {
-                <div class="judge-entrypoint-box">
-                  <span class="judge-entrypoint-label">Comando del evaluador:</span>
-                  <code class="judge-entrypoint-tag" machineData>{{ item.entrypoint }}</code>
-                </div>
-              }
+              <p class="card-requester">
+                Creada por {{ item.requested_by_name || 'administración' }}
+                <span class="meta-sep">·</span>
+                <time>Revisada el {{ (item.reviewed_at || item.created_at) | dateText }}</time>
+              </p>
 
               <div class="rejection-box">
-                <span class="rejection-label">Motivo Técnico de Rechazo:</span>
-                <p class="rejection-reason-text">
+                <span class="rejection-label">Motivo técnico del rechazo</span>
+                <p class="rejection-text">
                   {{ item.rejection_reason || item.smoke_test_output || 'Sin motivo especificado' }}
                 </p>
               </div>
-            </div>
+
+              <details class="card-tech-details">
+                <summary class="tech-details-summary">
+                  <svg lucideChevronDown class="tech-details-chevron"></svg>
+                  <span>Detalles técnicos</span>
+                </summary>
+                <div class="tech-details-body">
+                  <div class="tech-detail-row">
+                    <span class="tech-detail-label">Imagen solicitada</span>
+                    <div class="docker-tag-wrapper">
+                      <code class="docker-tag">{{ item.docker_image }}</code>
+                      <button
+                        type="button"
+                        class="btn-copy-tag"
+                        (click)="copyDockerTag(item.docker_image, $event)"
+                        [title]="copiedTag() === item.docker_image ? 'Copiado' : 'Copiar tag'">
+                        @if (copiedTag() === item.docker_image) {
+                          <svg lucideCheck class="copy-icon text-success"></svg>
+                        } @else {
+                          <svg lucideCopy class="copy-icon"></svg>
+                        }
+                      </button>
+                    </div>
+                  </div>
+                  @if ((item.target_environment === 'JUEZ_EFIMERO' || item.target_environment === 'AMBOS') && item.entrypoint) {
+                    <div class="tech-detail-row">
+                      <span class="tech-detail-label">Comando del evaluador</span>
+                      <code class="docker-tag" machineData>{{ item.entrypoint }}</code>
+                    </div>
+                  }
+                </div>
+              </details>
+
+              <div class="card-footer">
+                <div class="card-footer-meta">
+                  <span>RAM <span machineData>{{ item.base_ram_mb }} MB</span></span>
+                  <span class="meta-sep">·</span>
+                  <time>{{ (item.reviewed_at || item.created_at) | dateText:'date' }}</time>
+                </div>
+              </div>
+            </article>
           }
         </div>
       } @else {
-        <!-- Rechazadas en Tabla de Alta Densidad -->
         <div class="table-card table-responsive" data-tour="templates-list">
           <table class="data-table">
             <thead>
               <tr>
-                <th>Plantilla / Imagen Solicitada</th>
-                <th>Docente Solicitante</th>
-                <th>Fecha de Rechazo</th>
-                <th>Motivo Técnico de Rechazo</th>
+                <th>Plantilla / Imagen solicitada</th>
+                <th>Docente solicitante</th>
+                <th>Fecha de rechazo</th>
+                <th>Motivo técnico del rechazo</th>
               </tr>
             </thead>
             <tbody>
               @for (item of paginatedRejectedTemplates(); track item.id) {
                 <tr>
                   <td>
-                    <div class="cell-entity-group">
-                      <div>
-                        <div class="cell-title-badges">
-                          <span class="cell-main-title font-semibold">{{ item.name }}</span>
-                          @let pBadge = getPurposeBadge(item.target_environment);
-                          <span [class]="'badge-purpose badge-purpose-' + pBadge.variant" [title]="pBadge.label">
-                            {{ pBadge.shortLabel }}
-                          </span>
-                          @if (item.category_name) {
-                            <span class="badge-category">{{ item.category_name }}</span>
-                          }
-                        </div>
-                        <div class="cell-stack" aria-label="Tecnologías del entorno">
-                          @for (tech of getStackTechs(item); track tech.id) {
-                            <span class="cell-stack-chip">
-                              <tech-logo [iconType]="tech.iconKey" [size]="14" />
-                              <span class="cell-stack-name">{{ tech.name }}</span>
-                            </span>
-                          }
-                        </div>
-                        @if (item.language_runners?.length) {
-                          <div class="judge-languages-inline">
-                            <span class="judge-languages-caption">Lenguajes:</span>
-                            <judge-language-list [runners]="item.language_runners ?? []" />
-                          </div>
+                    <div class="cell-title-badges">
+                      <span class="cell-main-title">{{ item.name }}</span>
+                      <span class="cell-modality">{{ getPurposeBadge(item.target_environment).shortLabel }}</span>
+                      @if (item.category_name) {
+                        <span class="cell-modality">{{ item.category_name }}</span>
+                      }
+                    </div>
+                    <div class="cell-stack" aria-label="Tecnologías del entorno">
+                      @for (tech of getStackTechs(item); track tech.id) {
+                        <span class="cell-stack-item">
+                          <tech-logo [iconType]="tech.iconKey" [size]="14" />
+                          <span>{{ tech.name }}</span>
+                        </span>
+                      }
+                    </div>
+                    <div class="docker-copy-inline">
+                      <code class="cell-code">{{ item.docker_image }}</code>
+                      <button
+                        type="button"
+                        class="btn-copy-tag"
+                        (click)="copyDockerTag(item.docker_image, $event)"
+                        [title]="copiedTag() === item.docker_image ? 'Copiado' : 'Copiar tag'">
+                        @if (copiedTag() === item.docker_image) {
+                          <svg lucideCheck class="copy-icon text-success"></svg>
+                        } @else {
+                          <svg lucideCopy class="copy-icon"></svg>
                         }
-                        @if ((item.target_environment === 'JUEZ_EFIMERO' || item.target_environment === 'AMBOS') && item.entrypoint) {
-                          <div class="judge-entrypoint-subtle">
-                            <span class="judge-label">{{ 'JUEZ_EFIMERO' | environmentLabel }}:</span>
-                            <code machineData>{{ item.entrypoint }}</code>
-                          </div>
-                        }
-                        <div class="docker-copy-inline">
-                          <code class="cell-code">{{ item.docker_image }}</code>
-                          <button
-                            type="button"
-                            class="btn-copy-tag"
-                            (click)="copyDockerTag(item.docker_image, $event)"
-                            [title]="copiedTag() === item.docker_image ? '¡Copiado!' : 'Copiar tag'">
-                            @if (copiedTag() === item.docker_image) {
-                              <svg lucideCheck class="copy-icon text-success"></svg>
-                            } @else {
-                              <svg lucideCopy class="copy-icon"></svg>
-                            }
-                          </button>
-                        </div>
-                      </div>
+                      </button>
                     </div>
                   </td>
                   <td>
-                    <span class="cell-text font-medium">Creada por {{ item.requested_by_name || 'administración' }}</span>
+                    <span class="cell-text">Creada por {{ item.requested_by_name || 'administración' }}</span>
                   </td>
                   <td>
-                    <span class="cell-text text-secondary font-mono">
-                      <time>{{ (item.reviewed_at || item.created_at) | dateText }}</time>
-                    </span>
+                    <time class="cell-mono">{{ (item.reviewed_at || item.created_at) | dateText }}</time>
                   </td>
                   <td>
                     <div class="rejection-cell-text">
@@ -1042,7 +868,6 @@
         </div>
       }
 
-      <!-- Paginación de Rechazadas -->
       @if (totalRejectedPages() > 1) {
         <pagination-bar
           [currentPage]="rejectedPage()"
@@ -1052,7 +877,7 @@
         />
       }
     }
-  }
+  </div>
 
   <!-- Modales -->
   @if (selectedTemplateForReview(); as tpl) {
@@ -1076,7 +901,6 @@
       (closed)="closeEditModal()" />
   }
 
-  <!-- Modal de Suspensión / Reactivación -->
   @if (templateToToggleStatus(); as tpl) {
     <template-status-modal animate.leave="motion-modal-out"
       [template]="tpl"
@@ -1085,7 +909,6 @@
     />
   }
 
-  <!-- Diálogo Modal de Promoción a Modelo (ST-15) -->
   @if (templateToPromote(); as tpl) {
     <template-promote-modal animate.leave="motion-modal-out"
       [template]="tpl"

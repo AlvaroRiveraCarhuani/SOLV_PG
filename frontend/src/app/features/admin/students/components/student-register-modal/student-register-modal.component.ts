@@ -104,7 +104,7 @@ export class StudentRegisterModalComponent {
     }
 
     if (!em.includes('@') || !em.includes('.')) {
-      this.error.set('Ingresá un correo electrónico válido.');
+      this.error.set('Ingrese un correo electrónico válido.');
       return;
     }
 

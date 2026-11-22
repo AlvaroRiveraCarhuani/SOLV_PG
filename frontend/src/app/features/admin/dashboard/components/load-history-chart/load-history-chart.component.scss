@@ -1,8 +1,8 @@
 .chart-card {
   background-color: var(--bg-surface);
   border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-lg);
-  padding: var(--space-4);
+  border-radius: var(--radius-md);
+  padding: 16px 20px;
   display: flex;
   flex-direction: column;
   gap: var(--space-3);
@@ -51,14 +51,9 @@
   display: inline-flex;
   align-items: center;
   gap: 5px;
+  font-family: var(--font-mono);
   font-size: var(--text-2xs);
-  font-weight: 600;
-  letter-spacing: 0.5px;
-  color: var(--text-secondary);
-  background-color: var(--bg-canvas);
-  padding: 1px 6px;
-  border-radius: var(--radius-sm);
-  border: 1px solid var(--border-subtle);
+  color: var(--text-muted);
 }
 
 .live-dot {
@@ -94,11 +89,11 @@
   border-radius: 2px;
 
   &.ram { background-color: var(--tenant-primary); }
-  &.cpu { background-color: var(--color-gray-500); }
+  &.cpu { background-color: var(--text-secondary); }
   &.threshold { 
     height: 2px; 
-    background-color: var(--verdict-wa); 
-    border-top: 1px dashed var(--verdict-wa); 
+    background-color: var(--color-error);
+    border-top: 1px dashed var(--color-error);
   }
 }
 
@@ -163,7 +158,7 @@
   transform: translateY(-100%);
   font-size: var(--text-2xs);
   font-weight: 600;
-  color: var(--verdict-wa);
+  color: var(--status-failed-color);
   background-color: var(--status-failed-bg);
   border: 1px solid var(--status-failed-border);
   padding: 1px 6px;
@@ -185,7 +180,7 @@
 }
 
 .threshold-line {
-  stroke: var(--verdict-wa);
+  stroke: var(--color-error);
   stroke-width: 1.25;
   stroke-dasharray: 5 3;
   opacity: 0.85;
@@ -202,7 +197,7 @@
   }
 
   &.cpu-line {
-    stroke: var(--color-gray-500);
+    stroke: var(--text-secondary);
     stroke-width: 1.75;
   }
 }
@@ -223,7 +218,7 @@
   stroke: var(--bg-surface);
 
   &.ram-dot { fill: var(--tenant-primary); }
-  &.cpu-dot { fill: var(--color-gray-500); }
+  &.cpu-dot { fill: var(--text-secondary); }
 }
 
 .chart-tooltip {
@@ -265,7 +260,7 @@
   border-radius: 50%;
 
   &.ram-bg { background-color: var(--tenant-primary); }
-  &.cpu-bg { background-color: var(--color-gray-500); }
+  &.cpu-bg { background-color: var(--text-secondary); }
 }
 
 .tooltip-name {

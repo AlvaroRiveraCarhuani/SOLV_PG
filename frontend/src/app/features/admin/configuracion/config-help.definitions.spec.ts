@@ -193,7 +193,7 @@ describe('Guías de la Configuración Institucional', () => {
     expect(step('email')?.check?.isComplete()).toBe(false);
     email.set('operador@uab.edu.bo');
     expect(step('email')?.check?.isComplete()).toBe(true);
-    error.set('Ingresa un correo institucional válido.');
+    error.set('Ingrese un correo institucional válido.');
     expect(step('email')?.check?.isComplete()).toBe(false);
     error.set(null);
 

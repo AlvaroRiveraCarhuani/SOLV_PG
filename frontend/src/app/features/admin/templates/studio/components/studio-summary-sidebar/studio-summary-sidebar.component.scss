@@ -25,8 +25,7 @@
 .blueprint-card {
   background-color: var(--bg-surface);
   border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-card);
+  border-radius: var(--radius-md);
   overflow: hidden;
   display: flex;
   flex-direction: column;
@@ -53,7 +52,7 @@
 
 .blueprint-tabs {
   display: inline-flex;
-  background-color: var(--color-gray-200);
+  background-color: var(--bg-surface-active);
   padding: 2px;
   border-radius: var(--radius-xs);
 }
@@ -118,7 +117,7 @@
   font-weight: 600;
   padding: 2px var(--space-2);
   border-radius: var(--radius-xs);
-  background-color: var(--color-gray-100);
+  background-color: var(--bg-surface-subtle);
   color: var(--text-secondary);
 }
 
@@ -181,7 +180,7 @@
   font-size: var(--text-2xs);
   padding: 2px var(--space-2);
   border-radius: var(--radius-xs);
-  background-color: var(--color-gray-100);
+  background-color: var(--bg-surface-subtle);
   color: var(--text-secondary);
   border: 1px solid var(--border-subtle);
 }

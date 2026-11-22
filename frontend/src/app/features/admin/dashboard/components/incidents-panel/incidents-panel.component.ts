@@ -15,7 +15,7 @@ import { LucideAlertTriangle, LucideCheckCircle, LucideFileText, LucideInfo } fr
           <svg lucideAlertTriangle class="header-icon-danger"></svg>
           <h3 class="panel-title">Incidencias de Infraestructura</h3>
         </div>
-        <span class="incident-badge" [class.zero]="incidents().length === 0">
+        <span class="incident-count" [class.zero]="incidents().length === 0">
           {{ incidents().length }} {{ incidents().length === 1 ? 'alerta' : 'alertas' }}
         </span>
       </div>
@@ -24,7 +24,7 @@ import { LucideAlertTriangle, LucideCheckCircle, LucideFileText, LucideInfo } fr
         <!-- Lista de Incidencias OOM / Fallos -->
         <div class="incidents-list">
           @for (inc of incidents(); track inc.id) {
-            <div class="incident-card" [class.oom-card]="inc.type === 'oom_killed'">
+            <div class="incident-row" [class.oom-row]="inc.type === 'oom_killed'">
               <div class="card-top">
                 <div class="tag-status">
                   <span class="dot-danger"></span>
@@ -41,14 +41,14 @@ import { LucideAlertTriangle, LucideCheckCircle, LucideFileText, LucideInfo } fr
 
               <div class="card-actions">
                 <button 
-                  class="btn-log" 
+                  class="btn-ghost btn-sm"
                   (click)="viewLogs.emit(inc.environment_id)"
                   title="Inspeccionar traza del error">
                   <svg lucideFileText class="btn-icon"></svg>
                   <span>Ver Logs</span>
                 </button>
                 <button 
-                  class="btn-resolve" 
+                  class="btn-ghost btn-sm btn-resolve"
                   (click)="resolveIncident.emit(inc.environment_id)"
                   title="Restablecer contadores OOM y liberar recursos del contenedor">
                   <svg lucideCheckCircle class="btn-icon"></svg>

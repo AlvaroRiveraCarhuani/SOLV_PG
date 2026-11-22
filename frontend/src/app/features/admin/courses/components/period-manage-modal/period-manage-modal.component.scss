@@ -190,7 +190,7 @@
   &:hover {
     background-color: var(--bg-surface-active);
     color: var(--text-primary);
-    border-color: var(--color-gray-400);
+    border-color: var(--border-strong);
   }
 }
 
@@ -217,7 +217,7 @@
   cursor: pointer;
   padding: 0.375rem;
   border-radius: 6px;
-  color: var(--color-gray-400);
+  color: var(--text-muted);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -240,7 +240,7 @@
   cursor: pointer;
   padding: 0.375rem;
   border-radius: 6px;
-  color: var(--color-gray-400);
+  color: var(--text-muted);
   display: flex;
   align-items: center;
   justify-content: center;

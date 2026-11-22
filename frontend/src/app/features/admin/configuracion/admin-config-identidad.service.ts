@@ -60,13 +60,13 @@ export function mapFontErrorCode(code: string): FontErrorMapping {
     case 'font_kind_mismatch':
       return { slot: 'general', message: 'La fuente elegida no corresponde a ese uso (interfaz o datos de máquina).' };
     case 'font_format_invalid':
-      return { slot: 'general', message: 'Valor de fuente inválido: usa el catálogo o una URL https:// válida.' };
+      return { slot: 'general', message: 'Valor de fuente inválido: use el catálogo o una URL https:// válida.' };
     case 'font_url_host_not_allowed':
       return { slot: 'general', message: 'Solo se permiten hojas CSS de fonts.googleapis.com.' };
     case 'font_url_unreachable':
-      return { slot: 'general', message: 'No se pudo alcanzar la hoja CSS de la fuente. Verifica la URL e intenta nuevamente.' };
+      return { slot: 'general', message: 'No se pudo alcanzar la hoja CSS de la fuente. Verifique la URL e intente nuevamente.' };
     default:
-      return { slot: 'general', message: 'La tipografía fue rechazada por el servidor. Revisa las fuentes elegidas.' };
+      return { slot: 'general', message: 'La tipografía fue rechazada por el servidor. Revise las fuentes elegidas.' };
   }
 }
 
@@ -158,7 +158,7 @@ export class AdminConfigIdentidadService {
   /** Traduce errores HTTP a mensajes accionables. */
   resolveError(err: unknown): string {
     if (err instanceof HttpErrorResponse && (err.status === 0 || !err.error)) {
-      return 'Sin conexión con el servidor. Revisa tu red e intenta nuevamente.';
+      return 'Sin conexión con el servidor. Revise su conexión de red e intente nuevamente.';
     }
     const e = err as { error?: { message?: string; error?: string }; message?: string };
     return (
@@ -166,7 +166,7 @@ export class AdminConfigIdentidadService {
       e?.error?.error ||
       (typeof e?.error === 'string' ? e.error : undefined) ||
       e?.message ||
-      'No se pudo guardar la identidad institucional. Intenta nuevamente.'
+      'No se pudo guardar la identidad institucional. Intente nuevamente.'
     );
   }
 
@@ -185,7 +185,7 @@ export class AdminConfigIdentidadService {
     }
     if (!/^#([A-Fa-f0-9]{6})$/.test(color)) {
       result.valid = false;
-      result.colorError = 'Formato inválido. Usa el formato #RRGGBB (ej. #2563EB).';
+      result.colorError = 'Formato inválido. Use el formato #RRGGBB (ej. #2563EB).';
     }
     // El backend genera URLs relativas (/api/v1/public/branding/logo/<id>.<ext>)
     // al subir por multipart; se aceptan junto a las absolutas https://.

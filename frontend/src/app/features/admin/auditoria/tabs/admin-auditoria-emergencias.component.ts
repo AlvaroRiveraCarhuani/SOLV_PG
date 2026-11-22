@@ -190,7 +190,7 @@ export class AdminAuditoriaEmergenciasComponent implements OnInit, OnDestroy {
         } else if (err.status === 403) {
           this.confirmError.set('Solo el rol de administrador puede ejecutar acciones de emergencia.');
         } else {
-          this.confirmError.set(backend.message ?? 'No se pudo ejecutar la acción. Intenta nuevamente.');
+          this.confirmError.set(backend.message ?? 'No se pudo ejecutar la acción. Intente nuevamente.');
         }
       }
     });

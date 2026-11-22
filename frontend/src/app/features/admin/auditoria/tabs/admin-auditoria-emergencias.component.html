@@ -17,7 +17,7 @@
   @if (ramCritical()) {
     <div class="critical-banner" role="alert">
       <svg lucideTriangleAlert aria-hidden="true"></svg>
-      <span>La memoria del host supera el 90%. Considera hibernar environments antes de una acción destructiva.</span>
+      <span>La memoria del host supera el 90 %. Considere hibernar entornos antes de una acción destructiva.</span>
     </div>
   }
 
@@ -92,8 +92,8 @@
       <div class="confirm-body">
         <p class="confirm-desc">{{ target.description }}</p>
         <p class="confirm-warning">
-          Esta acción quedará registrada en el Registro de Auditoría con tu usuario
-          y el motivo ingresado. Para ejecutarla, escribe la frase exacta:
+          Esta acción quedará registrada en el Registro de Auditoría con su usuario
+          y el motivo ingresado. Para ejecutarla, escriba la frase exacta:
           <code class="confirm-phrase">{{ target.phrase }}</code>
         </p>
 
@@ -117,7 +117,7 @@
             data-tour="emergency-reason"
             rows="3"
             maxlength="500"
-            placeholder="Describe la situación que justifica esta acción..."
+            placeholder="Describa la situación que justifica esta acción..."
             [ngModel]="confirmReason()"
             (ngModelChange)="confirmReason.set($event)"
           ></textarea>
