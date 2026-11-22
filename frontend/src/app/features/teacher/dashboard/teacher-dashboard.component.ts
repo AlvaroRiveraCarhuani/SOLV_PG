@@ -46,7 +46,6 @@ export class TeacherDashboardComponent implements OnInit, OnDestroy {
   private readonly router = inject(Router);
 
   readonly overview = this.dashboardService.overview;
-  readonly periods = this.dashboardService.periods;
   readonly isLoading = this.dashboardService.isLoading;
 
   readonly selectedPeriodId = signal<string>('');
@@ -70,13 +69,18 @@ export class TeacherDashboardComponent implements OnInit, OnDestroy {
     () => this.overview()?.queue ?? { pending: 0, practices: 0, oldest_submitted_at: null }
   );
 
-  readonly periodOptions = computed<ComboboxOption[]>(() =>
-    this.periods().map(period => ({
+  /** El resumen docente ya trae el período vigente; no se consulta el catálogo de administración. */
+  readonly periodOptions = computed<ComboboxOption[]>(() => {
+    const period = this.overview()?.period;
+    if (!period) {
+      return [];
+    }
+    return [{
       id: period.id,
       label: `${period.name} · ${period.code}${period.is_active ? ' (activo)' : ''}`,
       value: period.id
-    }))
-  );
+    }];
+  });
 
   /** La columna solo existe con trabajo que accionar; sin ella el canvas ocupa el ancho. */
   /** Prácticas con entregas pendientes: prioridad de corrección del día. */
@@ -110,7 +114,7 @@ export class TeacherDashboardComponent implements OnInit, OnDestroy {
   });
 
   ngOnInit(): void {
-    this.loadPeriods();
+    this.loadOverview();
     this.loadExerciseBank();
     this.startRefresh();
   }
@@ -157,23 +161,16 @@ export class TeacherDashboardComponent implements OnInit, OnDestroy {
     this.loadOverview();
   }
 
-  private loadPeriods(): void {
-    this.dashboardService.getAcademicPeriods().subscribe({
-      next: periods => {
-        const active = periods.find(period => period.is_active) ?? periods[0];
-        if (active) {
-          this.selectedPeriodId.set(active.id);
-        }
-        this.loadOverview();
-      },
-      error: () => this.loadOverview()
-    });
-  }
-
   /** Un error de red conserva el resumen ya cargado: el docente no pierde su mapa. */
   private loadOverview(): void {
     this.dashboardService.loadOverview(this.selectedPeriodId() || undefined).subscribe({
-      next: () => this.loadError.set(null),
+      next: () => {
+        const period = this.overview()?.period;
+        if (period && !this.selectedPeriodId()) {
+          this.selectedPeriodId.set(period.id);
+        }
+        this.loadError.set(null);
+      },
       error: () => this.loadError.set('No se pudo actualizar el panel. Revise su conexión e intente de nuevo.')
     });
   }
