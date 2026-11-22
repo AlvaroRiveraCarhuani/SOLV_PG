@@ -203,7 +203,7 @@ export class AiByokPanelComponent implements OnInit {
 
   /**
    * Solo se puede descubrir el catálogo con una credencial propia: la clave
-   * guardada de este proveedor o una API key recién pegada. Nunca cae en el
+   * guardada de este proveedor o una API key recién ingresada. Nunca cae en el
    * motor institucional.
    */
   readonly canFetchModels = computed(() => {
@@ -275,9 +275,9 @@ export class AiByokPanelComponent implements OnInit {
   readonly modelsLockedHint = computed(() => {
     const provider = this.selectedProvider();
     if (!provider) {
-      return 'Seleccioná un proveedor para listar sus modelos.';
+      return 'Seleccione un proveedor para listar sus modelos.';
     }
-    return 'Ingresá primero tu API key personal arriba para descubrir y listar los modelos disponibles de este proveedor.';
+    return 'Ingrese primero su API key personal arriba para descubrir y listar los modelos disponibles de este proveedor.';
   });
 
   readonly filteredModels = computed(() => {
@@ -304,8 +304,8 @@ export class AiByokPanelComponent implements OnInit {
 
   readonly apiKeyHint = computed(() =>
     this.hasSavedKey() && this.sameProviderAsSaved()
-      ? 'Dejá vacío para conservar la clave guardada'
-      : 'Pega tu clave privada'
+      ? 'Deje vacío para conservar la clave guardada'
+      : 'Ingrese su clave privada'
   );
 
   readonly apiKeyPlaceholder = computed(() =>
@@ -316,8 +316,8 @@ export class AiByokPanelComponent implements OnInit {
 
   readonly modelHint = computed(() =>
     this.manualModelMode()
-      ? 'Escribí el identificador exacto del modelo'
-      : 'Buscá el modelo por nombre o ID, o escríbelo manualmente'
+      ? 'Escriba el identificador exacto del modelo'
+      : 'Busque el modelo por nombre o ID, o escríbalo manualmente'
   );
 
   ngOnInit(): void {
@@ -396,12 +396,12 @@ export class AiByokPanelComponent implements OnInit {
   fetchNewProviderModels(): void {
     if (!this.canQueryNewProvider() || this.newProviderLoadingModels()) {
       this.newProviderFeedbackOk.set(false);
-      this.newProviderFeedback.set('Completá el nombre y una URL https:// para listar los modelos.');
+      this.newProviderFeedback.set('Complete el nombre y una URL https:// para listar los modelos.');
       return;
     }
     if (this.newProviderApiKey().trim() === '') {
       this.newProviderFeedbackOk.set(false);
-      this.newProviderFeedback.set('Pegá tu API key para consultar el catálogo del proveedor.');
+      this.newProviderFeedback.set('Ingrese su API key para consultar el catálogo del proveedor.');
       return;
     }
     this.newProviderLoadingModels.set(true);
@@ -421,7 +421,7 @@ export class AiByokPanelComponent implements OnInit {
           }
           if (models.length === 0) {
             this.newProviderFeedbackOk.set(false);
-            this.newProviderFeedback.set('El proveedor no devolvió modelos. Podés escribir el ID a mano.');
+            this.newProviderFeedback.set('El proveedor no devolvió modelos. Puede escribir el ID a mano.');
           }
         },
         error: (err: unknown) => {
@@ -438,7 +438,7 @@ export class AiByokPanelComponent implements OnInit {
     }
     if (!this.canQueryNewProvider() || this.newProviderApiKey().trim() === '' || this.newProviderModel().trim() === '') {
       this.newProviderFeedbackOk.set(false);
-      this.newProviderFeedback.set('Completá nombre, URL https://, API key y modelo para probar la conexión.');
+      this.newProviderFeedback.set('Complete nombre, URL https://, API key y modelo para probar la conexión.');
       return;
     }
     this.newProviderTesting.set(true);
@@ -501,7 +501,7 @@ export class AiByokPanelComponent implements OnInit {
           this.showAddProvider.set(false);
           this.feedbackOk.set(true);
           this.feedbackMessage.set(
-            'Proveedor agregado a tu catálogo. Activá tu clave personal para usarlo en lugar del motor institucional.'
+            'Proveedor agregado a su catálogo. Active su clave personal para usarlo en lugar del motor institucional.'
           );
           this.changed.emit(res);
         },
@@ -542,7 +542,7 @@ export class AiByokPanelComponent implements OnInit {
           this.model.set(res.model ?? '');
           this.apiKey.set('');
           this.feedbackOk.set(true);
-          this.feedbackMessage.set('Proveedor eliminado de tu catálogo personal.');
+          this.feedbackMessage.set('Proveedor eliminado de su catálogo personal.');
           this.changed.emit(res);
         },
         error: (err: unknown) => {
@@ -647,7 +647,7 @@ export class AiByokPanelComponent implements OnInit {
 
     if (this.enabled() && !this.model().trim()) {
       this.feedbackOk.set(false);
-      this.feedbackMessage.set('Elegí un modelo antes de guardar la configuración.');
+      this.feedbackMessage.set('Elija un modelo antes de guardar la configuración.');
       return;
     }
 
@@ -705,7 +705,7 @@ export class AiByokPanelComponent implements OnInit {
           this.current.set(res);
           this.feedbackOk.set(true);
           this.feedbackMessage.set(
-            'Clave personal eliminada. Volviste a usar el motor institucional.'
+            'Clave personal eliminada. Volvió a usar el motor institucional.'
           );
           this.changed.emit(res);
         },

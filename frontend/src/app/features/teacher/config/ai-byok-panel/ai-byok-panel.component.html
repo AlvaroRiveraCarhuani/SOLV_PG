@@ -1,7 +1,7 @@
 @if (loading()) {
   <div class="panel-loading">
     <svg lucideLoader2 class="motion-spin"></svg>
-    <span>Cargando tu configuración de IA...</span>
+    <span>Cargando su configuración de IA...</span>
   </div>
 } @else {
   <header class="panel-head">
@@ -11,8 +11,8 @@
         Mi API Key personal
       </h2>
       <p class="card-hint">
-        Mientras esté inactiva, usás el motor que configuró la institución. Al activarla, tu clave
-        prevalece y el consumo corre por tu cuenta.
+        Mientras esté inactiva, usa el motor que configuró la institución. Al activarla, su clave
+        prevalece y el consumo corre por su cuenta.
       </p>
     </div>
 
@@ -89,7 +89,7 @@
                 </div>
               } @else if (isInstitutionalActiveProvider(item.value)) {
                 <span class="model-caption institutional-caption">
-                  Ya operás con este motor sin clave personal. Tu clave solo hace falta para
+                  Ya opera con este motor sin clave personal. Su clave solo hace falta para
                   superar la cuota compartida.
                 </span>
               } @else {
@@ -179,7 +179,7 @@
             Actualizado: <time>{{ fetched | dateText:'time' }}</time>
             <span class="catalog-count font-mono">({{ availableModels().length }} modelos)</span>
           } @else {
-            Consultá el catálogo del proveedor para elegir un modelo
+            Consulte el catálogo del proveedor para elegir un modelo
           }
         </span>
         <button
@@ -311,9 +311,9 @@
 
       <p class="panel-note">
         @if (institutionalAvailable()) {
-          Al quitar tu clave volvés al motor institucional sin perder nada más de tu configuración.
+          Al quitar su clave vuelve al motor institucional sin perder nada más de su configuración.
         } @else {
-          La institución no tiene la IA habilitada. Quitar tu clave te deja sin copiloto hasta que la
+          La institución no tiene la IA habilitada. Quitar su clave le deja sin copiloto hasta que la
           habilite un administrador.
         }
       </p>
@@ -325,7 +325,7 @@
   <modal-shell
     animate.leave="motion-modal-out"
     title="Agregar proveedor"
-    subtitle="Sumá una cuenta propia compatible con la API de OpenAI sin esperar a que la institución la registre."
+    subtitle="Sume una cuenta propia compatible con la API de OpenAI sin esperar a que la institución la registre."
     maxWidth="620px"
     (close)="closeAddProvider()"
   >
@@ -372,7 +372,7 @@
       />
     </form-field>
 
-    <form-field label="Modelo" for="byok-new-model" hint="Elegí uno del catálogo o escribí el identificador exacto">
+    <form-field label="Modelo" for="byok-new-model" hint="Elija uno del catálogo o escriba el identificador exacto">
       <input
         id="byok-new-model"
         type="text"
@@ -464,7 +464,7 @@
 @if (providerToDelete(); as provider) {
   <confirm-modal
     title="¿Eliminar proveedor?"
-    [message]="'El proveedor ' + provider.label + ' y su clave personal se eliminan de tu catálogo. La institución no se ve afectada.'"
+    [message]="'El proveedor ' + provider.label + ' y su clave personal se eliminan de su catálogo. La institución no se ve afectada.'"
     confirmText="Eliminar"
     cancelText="Cancelar"
     type="danger"

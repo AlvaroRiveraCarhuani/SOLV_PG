@@ -106,24 +106,35 @@
 .students-table {
   width: 100%;
   min-width: 820px;
+  table-layout: fixed;
   border-collapse: collapse;
   text-align: left;
   font-size: var(--text-sm);
 
+  // Columnas proporcionales: a 1366px la cabecera «Último Incidente» y la
+  // columna de acciones quedan completas dentro del contenido, sin recortes.
+  th:nth-child(1) { width: 25%; }
+  th:nth-child(2) { width: 15%; }
+  th:nth-child(3) { width: 12%; }
+  th:nth-child(4) { width: 11%; }
+  th:nth-child(5) { width: 14%; }
+  th:nth-child(6) { width: 12%; }
+  th:nth-child(7) { width: 11%; }
+
   th {
     background-color: transparent;
-    padding: 8px 14px;
+    padding: 8px 10px;
     font-size: var(--text-2xs);
     font-weight: 600;
     color: var(--text-muted);
     text-transform: uppercase;
     letter-spacing: 0.05em;
     border-bottom: 1px solid var(--border-subtle);
-    white-space: nowrap;
+    white-space: normal;
   }
 
   td {
-    padding: 10px 14px;
+    padding: 10px;
     border-bottom: 1px solid var(--border-subtle);
     vertical-align: middle;
   }
@@ -171,6 +182,7 @@
   display: flex;
   flex-direction: column;
   gap: 0.15rem;
+  min-width: 0;
 }
 
 .student-name {
@@ -182,10 +194,15 @@
   display: flex;
   align-items: center;
   gap: 0.35rem;
+  min-width: 0;
 }
 
 .student-email {
-  font-size: var(--text-xs);
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: var(--text-2xs);
   color: var(--text-secondary);
   font-family: var(--font-mono);
 }

@@ -10,14 +10,14 @@
   <div class="engine-usage" data-tour="teacher-ai-usage" [class.engine-usage-personal]="usingPersonalKey()">
     @if (usingPersonalKey()) {
       <svg lucideKeyRound class="usage-icon"></svg>
-      <span class="usage-text">Estás operando con tu clave personal.</span>
+      <span class="usage-text">Está operando con su clave personal.</span>
     } @else if (institutionalEnabled()) {
       <svg lucideShieldCheck class="usage-icon"></svg>
-      <span class="usage-text">Estás operando con el motor institucional.</span>
+      <span class="usage-text">Está operando con el motor institucional.</span>
     } @else {
       <svg lucideCpu class="usage-icon"></svg>
       <span class="usage-text">
-        La institución no tiene la IA habilitada. Activá tu clave personal para usar el copiloto.
+        La institución no tiene la IA habilitada. Active su clave personal para usar el copiloto.
       </span>
     }
   </div>
@@ -31,7 +31,7 @@
         </h2>
         <p class="card-hint">
           Configurado por un administrador para toda la institución. Es de solo lectura: si necesita
-          un cambio, contactá al área de sistemas.
+          un cambio, contacte al área de sistemas.
         </p>
       </div>
       <span
@@ -46,7 +46,7 @@
       <div class="engine-paused-note">
         <svg lucidePauseCircle class="note-icon"></svg>
         <span>
-          No se está usando: tu clave personal tiene prioridad mientras el interruptor de «Mi API
+          No se está usando: su clave personal tiene prioridad mientras el interruptor de «Mi API
           Key personal» esté activo.
         </span>
       </div>
@@ -71,7 +71,7 @@
       </dl>
     } @else {
       <p class="engine-empty">
-        Un administrador todavía no habilitó el motor institucional. Podés usar el copiloto con tu
+        Un administrador todavía no habilitó el motor institucional. Puede usar el copiloto con su
         propia clave mientras tanto.
       </p>
     }

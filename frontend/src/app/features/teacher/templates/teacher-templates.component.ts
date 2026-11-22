@@ -504,7 +504,9 @@ export class TeacherTemplatesComponent implements OnInit, OnDestroy {
         const mapped: PublishedTemplate[] = items.map((item: RawTemplateItem) => {
           const name = item.name || '';
           const dockerImage = item.docker_image || '';
-          const rawDesc = item.description || '';
+          // `SYSTEM_SEED_RUNNER` es una marca interna del sembrado. No debe
+          // llegar a la ficha pública del entorno.
+          const rawDesc = item.description === 'SYSTEM_SEED_RUNNER' ? '' : (item.description || '');
           const techInfo = resolveTemplateTechInfo(name, dockerImage, rawDesc);
           // Sin datos no se inventan: la tarjeta omite la descripción o la
           // categoría cuando la API no las trae. `General` es el relleno del

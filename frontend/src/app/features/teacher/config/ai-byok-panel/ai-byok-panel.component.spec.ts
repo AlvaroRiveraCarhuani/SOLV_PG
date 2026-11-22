@@ -291,7 +291,7 @@ describe('AiByokPanelComponent', () => {
 
     component.onProviderChange('gemini');
 
-    expect(component.apiKeyHint()).toBe('Pega tu clave privada');
+    expect(component.apiKeyHint()).toBe('Ingrese su clave privada');
     expect(component.apiKeyPlaceholder()).toContain('AIzaSy');
   });
 });

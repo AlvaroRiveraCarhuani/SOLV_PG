@@ -18,9 +18,11 @@
       <p class="page-subtitle">Administración de profesores, invitaciones y asignación de materias.</p>
       @if (!isLoading()) {
         <p class="page-summary">
-          <span machineData>{{ counts().all }}</span> docentes registrados
+          <span machineData>{{ counts().all }}</span>
+          {{ counts().all === 1 ? 'docente registrado' : 'docentes registrados' }}
           <span class="page-summary-sep">·</span>
-          <span machineData>{{ counts().active }}</span> activos
+          <span machineData>{{ counts().active }}</span>
+          {{ counts().active === 1 ? 'activo' : 'activos' }}
           <span class="page-summary-sep">·</span>
           <span machineData>{{ counts().noCourses }}</span> sin materias
           <span class="page-summary-sep">·</span>

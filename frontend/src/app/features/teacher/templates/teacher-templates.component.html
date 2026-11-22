@@ -3,7 +3,7 @@
   <header class="templates-header">
     <div class="header-titles">
       <h1 class="page-title">Catálogo de Entornos</h1>
-      <p class="page-subtitle">Explorá los entornos preconfigurados y herramientas disponibles para tus cursos.</p>
+      <p class="page-subtitle">Explore los entornos preconfigurados y las herramientas disponibles para sus cursos.</p>
     </div>
 
     <div class="header-actions" data-tour="teacher-templates-header-actions">
@@ -88,10 +88,10 @@
     <div class="empty-state motion-fade">
       <svg lucideLayers class="empty-icon"></svg>
       <h3>No se encontraron entornos</h3>
-      <p>Ajustá los filtros o solicitá una nueva tecnología al administrador.</p>
-      <button type="button" class="btn-primary" (click)="openRequestModal()">
+      <p>Ajuste los filtros o solicite una nueva tecnología al administrador.</p>
+      <button type="button" class="btn-secondary" (click)="openRequestModal()">
         <svg lucidePlus class="btn-icon"></svg>
-        <span>Solicitar Entorno</span>
+        <span>Solicitar entorno</span>
       </button>
     </div>
   } @else {
@@ -156,7 +156,7 @@
           <div class="card-footer">
             <button
               type="button"
-              class="btn-primary btn-use-template"
+              class="btn-secondary btn-use-template"
               (click)="createLabFromTemplate(tpl)"
               title="Crear un nuevo laboratorio con este entorno"
             >
@@ -199,9 +199,9 @@
     } @else if (requests().length === 0) {
       <div class="empty-state motion-fade">
         <svg lucideInbox class="empty-icon"></svg>
-        <h3>Todavía no pediste ningún entorno</h3>
-        <p>Cuando necesites herramientas que no están en el catálogo, cuéntanos qué deben hacer tus estudiantes.</p>
-        <button type="button" class="btn-primary" (click)="openRequestModal()">
+        <h3>Todavía no ha solicitado ningún entorno</h3>
+        <p>Cuando necesite herramientas que no están en el catálogo, cuéntenos qué deben hacer sus estudiantes.</p>
+        <button type="button" class="btn-secondary" (click)="openRequestModal()">
           <svg lucidePlus class="btn-icon"></svg>
           <span>Solicitar entorno</span>
         </button>

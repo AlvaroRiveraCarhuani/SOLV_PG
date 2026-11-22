@@ -357,7 +357,7 @@ export class TeacherExercisesComponent implements OnInit, OnDestroy {
       },
       error: () => {
         this.isDuplicating.set(false);
-        this.duplicateError.set('No se pudo duplicar el laboratorio. Intenta de nuevo.');
+        this.duplicateError.set('No se pudo duplicar el laboratorio. Intente de nuevo.');
       }
     });
   }

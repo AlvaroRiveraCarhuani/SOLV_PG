@@ -795,7 +795,7 @@ export class TemplateRequestModalComponent implements OnInit {
         error: err => {
           this.isSubmitting.set(false);
           this.formError.set(
-            err?.error?.message || err?.error?.error || 'No pudimos registrar la solicitud. Intenta de nuevo.'
+            err?.error?.message || err?.error?.error || 'No pudimos registrar la solicitud. Intente de nuevo.'
           );
         }
       });

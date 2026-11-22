@@ -80,7 +80,7 @@ describe('TeacherAiSettingsComponent', () => {
     expect(component.usingPersonalKey()).toBe(true);
     expect(component.institutionalBadgeLabel()).toBe('EN PAUSA');
     expect(fixture.nativeElement.textContent).toContain('EN PAUSA');
-    expect(fixture.nativeElement.textContent).toContain('tu clave personal tiene prioridad');
+    expect(fixture.nativeElement.textContent).toContain('su clave personal tiene prioridad');
   });
 
   it('muestra HABILITADO cuando el motor institucional es el que se usa', async () => {

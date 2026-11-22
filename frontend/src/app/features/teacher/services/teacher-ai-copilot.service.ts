@@ -212,23 +212,23 @@ export class TeacherAiCopilotService {
       return body.message || 'El Copiloto IA está deshabilitado para esta institución.';
     }
     if (body?.code === 'ai_quota_exceeded') {
-      return body.message || 'Se agotó la cuota horaria de IA. Intenta de nuevo más tarde.';
+      return body.message || 'Se agotó la cuota horaria de IA. Intente de nuevo más tarde.';
     }
     if (body?.message) {
       return body.message;
     }
     if (status === 401) {
-      return 'Tu sesión expiró. Vuelve a iniciar sesión para usar el Copiloto IA.';
+      return 'Su sesión expiró. Vuelva a iniciar sesión para usar el Copiloto IA.';
     }
     if (status === 403) {
-      return 'No tienes permiso para generar borradores con IA.';
+      return 'No tiene permiso para generar borradores con IA.';
     }
     if (status === 429) {
-      return 'Se agotó la cuota horaria de IA. Intenta de nuevo más tarde.';
+      return 'Se agotó la cuota horaria de IA. Intente de nuevo más tarde.';
     }
     if (status === 409) {
       return 'El Copiloto IA está deshabilitado para esta institución.';
     }
-    return 'No se pudo contactar al Copiloto IA. Intenta nuevamente.';
+    return 'No se pudo contactar al Copiloto IA. Intente nuevamente.';
   }
 }

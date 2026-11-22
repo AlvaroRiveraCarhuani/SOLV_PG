@@ -101,11 +101,11 @@ import { ExerciseEditorStore } from '../../exercise-editor.store';
               </div>
             </div>
             <span class="field-hint">
-              Los alumnos podrán resolver la práctica en cualquiera de los lenguajes seleccionados.
+              Los estudiantes podrán resolver la práctica en cualquiera de los lenguajes seleccionados.
             </span>
           } @else {
             <span class="field-hint">
-              Haz clic en los lenguajes que desees permitir para esta práctica.
+              Seleccione los lenguajes que desea permitir para esta práctica.
             </span>
           }
         </div>
@@ -264,16 +264,20 @@ export class MetadataFormComponent implements OnInit {
     };
 
     for (const tpl of runners) {
+      const templateCode = this.store.deriveLanguageCode(tpl);
       if (tpl.language_runners && tpl.language_runners.length > 0) {
         for (const lr of tpl.language_runners) {
           const code = (lr.language || '').trim().toLowerCase();
           if (code && !map.has(code)) {
-            const img = lr.docker_image || findImageForCode(code) || tpl.docker_image;
+            // La imagen del template solo representa al lenguaje principal. En
+            // plantillas multilingües, heredarla etiquetaba C, Rust o
+            // TypeScript con la versión de Python.
+            const img = lr.docker_image || findImageForCode(code) || (templateCode === code ? tpl.docker_image : '');
             map.set(code, this.formatLanguageWithVersion(code, img));
           }
         }
       } else {
-        const code = this.store.deriveLanguageCode(tpl);
+        const code = templateCode;
         if (code && !map.has(code)) {
           const img = findImageForCode(code) || tpl.docker_image;
           map.set(code, this.formatLanguageWithVersion(code, img));
@@ -316,12 +320,17 @@ export class MetadataFormComponent implements OnInit {
 
     if (vMatch) {
       const version = vMatch[1];
-      if (noDigest.includes('node')) return `JavaScript (Node ${version})`;
-      if (noDigest.includes('temurin')) return `Java ${version}`;
+      // La etiqueta de Node describe el runtime de JavaScript, no la versión
+      // de TypeScript: para TypeScript se omite la versión en vez de mostrar
+      // un número que no le corresponde.
+      if (noDigest.includes('node')) {
+        return code === 'javascript' ? `JavaScript (Node ${version})` : baseName;
+      }
+      if (noDigest.includes('temurin') && code === 'java') return `Java ${version}`;
       return `${baseName} ${version}`;
     }
 
-    if (noDigest.includes('mono')) return 'C# (Mono)';
+    if (noDigest.includes('mono') && code === 'csharp') return 'C# (Mono)';
     return baseName;
   }
 

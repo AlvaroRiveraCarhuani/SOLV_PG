@@ -3,7 +3,7 @@
   <header class="exercises-header">
     <div class="header-titles">
       <h1 class="page-title">Catálogo de Laboratorios</h1>
-      <p class="page-subtitle">Prácticas reutilizables de tus materias. Edítalas, genera casos de prueba o duplícalas a otra materia.</p>
+      <p class="page-subtitle">Prácticas reutilizables de sus materias. Edítelas, genere casos de prueba o duplíquelas en otra materia.</p>
       @if (!isLoading()) {
         <p class="page-summary" aria-label="Resumen de laboratorios" data-tour="exercises-summary">
           <button
@@ -119,14 +119,14 @@
     <div class="empty-state">
       <svg lucideBookOpen class="empty-icon"></svg>
       <h3>Sin materias asignadas</h3>
-      <p>Para crear y gestionar laboratorios necesitas tener al menos una materia asignada. Contacta al administrador para que asigne tus materias.</p>
+      <p>Para crear y gestionar laboratorios necesita tener al menos una materia asignada. Contacte al administrador para que asigne sus materias.</p>
     </div>
   } @else if (filteredExercises().length === 0) {
     <div class="empty-state">
       <svg lucideLayers class="empty-icon"></svg>
       <h3>No se encontraron laboratorios</h3>
       @if (allExercises().length === 0) {
-        <p>Aún no tienes laboratorios creados. Comienza creando tu primer laboratorio.</p>
+        <p>Aún no tiene laboratorios creados. Comience creando su primer laboratorio.</p>
         <button type="button" class="btn btn-primary" (click)="openCreateModal()">
           <svg lucidePlus class="btn-icon"></svg>
           <span>Crear Laboratorio</span>
@@ -211,7 +211,7 @@
               class="btn-card-action"
               data-tour="exercise-action-duplicate"
               (click)="openDuplicateModal(lab)"
-              title="Copiar este laboratorio a otra de tus materias"
+              title="Copiar este laboratorio a otra de sus materias"
             >
               <svg lucideLayers class="action-icon"></svg>
               <span>Duplicar</span>
