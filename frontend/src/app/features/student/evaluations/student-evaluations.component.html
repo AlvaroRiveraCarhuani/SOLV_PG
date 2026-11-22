@@ -1,121 +1,392 @@
 <section class="student-evaluations">
-  <header class="page-header">
+  <header class="evaluations-header">
     <div class="header-titles">
       <h1 class="page-title">Evaluaciones y prácticas</h1>
-      <p class="page-subtitle">Consulta tus actividades publicadas, su estado y tu último resultado.</p>
+      <p class="page-subtitle">{{ summaryStats() }}</p>
+    </div>
+    <div class="header-actions">
+      <a class="btn-secondary" routerLink="/student/history">
+        <svg lucideHistory class="btn-icon" aria-hidden="true"></svg>
+        <span>Mis entregas</span>
+      </a>
+      @if (mostUrgentActivity(); as urgent) {
+        <a
+          class="btn-primary"
+          [routerLink]="['/student/exercises', urgent.exerciseId]"
+          [title]="urgent.title"
+        >
+          <span>{{ urgent.label }}</span>
+        </a>
+      }
     </div>
   </header>
 
-  <status-tabs
-    [tabs]="statusTabs()"
-    [activeTab]="statusFilter()"
-    (tabChange)="onStatusTabChange($event)"
-  />
-
+  <!-- Barra única de búsqueda y popover de filtros -->
   <div class="evaluations-toolbar">
-    <div class="toolbar-field">
-      <span class="toolbar-label">Materia</span>
-      <combobox
-        [options]="subjectOptions()"
-        [value]="subjectFilter()"
-        (valueChange)="subjectFilter.set($event)"
-        [compact]="true"
-        [showSearchIcon]="false"
-        placeholder="Todas las materias"
-        inputAriaLabel="Filtrar por materia"
-      />
+    <div class="toolbar-left">
+      <div class="search-box">
+        <search-bar
+          [query]="searchQuery()"
+          placeholder="Buscar por título o materia..."
+          ariaLabel="Buscar evaluaciones"
+          (queryChange)="searchQuery.set($event)"
+          (cleared)="searchQuery.set('')"
+        />
+      </div>
+
+      <filter-popover
+        buttonLabel="Filtros"
+        [activeCount]="activeFilterCount()"
+        width="540px"
+        triggerAriaLabel="Abrir filtros de actividades"
+        (cleared)="clearAllFilters()"
+      >
+        <div class="filters-grid">
+          <!-- Columna 1: Estado -->
+          <div class="filter-col">
+            <span class="filter-col-title">ESTADO</span>
+            <button
+              type="button"
+              class="filter-option"
+              [class.is-active]="statusFilter() === 'all'"
+              (click)="setStatus('all')"
+            >
+              <span>Todos los estados</span>
+              @if (statusFilter() === 'all') { <svg lucideCheck class="check-icon"></svg> }
+            </button>
+            <button
+              type="button"
+              class="filter-option"
+              [class.is-active]="statusFilter() === 'in_progress'"
+              (click)="setStatus('in_progress')"
+            >
+              <span>En curso</span>
+              @if (statusFilter() === 'in_progress') { <svg lucideCheck class="check-icon"></svg> }
+            </button>
+            <button
+              type="button"
+              class="filter-option"
+              [class.is-active]="statusFilter() === 'pending'"
+              (click)="setStatus('pending')"
+            >
+              <span>Pendiente</span>
+              @if (statusFilter() === 'pending') { <svg lucideCheck class="check-icon"></svg> }
+            </button>
+            <button
+              type="button"
+              class="filter-option"
+              [class.is-active]="statusFilter() === 'completed'"
+              (click)="setStatus('completed')"
+            >
+              <span>Completadas</span>
+              @if (statusFilter() === 'completed') { <svg lucideCheck class="check-icon"></svg> }
+            </button>
+          </div>
+
+          <!-- Columna 2: Materia -->
+          <div class="filter-col">
+            <span class="filter-col-title">MATERIA</span>
+            <button
+              type="button"
+              class="filter-option"
+              [class.is-active]="subjectFilter() === 'all'"
+              (click)="setSubject('all')"
+            >
+              <span>Todas las materias</span>
+              @if (subjectFilter() === 'all') { <svg lucideCheck class="check-icon"></svg> }
+            </button>
+            @for (item of subjectsMap() | keyvalue; track item.key) {
+              <button
+                type="button"
+                class="filter-option"
+                [class.is-active]="subjectFilter() === item.key"
+                (click)="setSubject(item.key)"
+              >
+                <span class="option-text font-mono">{{ item.value.code }}</span>
+                @if (subjectFilter() === item.key) { <svg lucideCheck class="check-icon"></svg> }
+              </button>
+            }
+          </div>
+
+          <!-- Columna 3: Tipo -->
+          <div class="filter-col">
+            <span class="filter-col-title">TIPO</span>
+            <button
+              type="button"
+              class="filter-option"
+              [class.is-active]="purposeFilter() === 'all'"
+              (click)="setPurpose('all')"
+            >
+              <span>Todas</span>
+              @if (purposeFilter() === 'all') { <svg lucideCheck class="check-icon"></svg> }
+            </button>
+            <button
+              type="button"
+              class="filter-option"
+              [class.is-active]="purposeFilter() === 'exam'"
+              (click)="setPurpose('exam')"
+            >
+              <span>Exámenes</span>
+              @if (purposeFilter() === 'exam') { <svg lucideCheck class="check-icon"></svg> }
+            </button>
+            <button
+              type="button"
+              class="filter-option"
+              [class.is-active]="purposeFilter() === 'class'"
+              (click)="setPurpose('class')"
+            >
+              <span>Prácticas</span>
+              @if (purposeFilter() === 'class') { <svg lucideCheck class="check-icon"></svg> }
+            </button>
+          </div>
+        </div>
+      </filter-popover>
     </div>
-    <div class="toolbar-field">
-      <span class="toolbar-label">Tipo de actividad</span>
-      <combobox
-        [options]="purposeOptions"
-        [value]="purposeFilter()"
-        (valueChange)="onPurposeChange($event)"
-        [compact]="true"
-        [showSearchIcon]="false"
-        placeholder="Todas las actividades"
-        inputAriaLabel="Filtrar por tipo de actividad"
-      />
-    </div>
-    <div class="toolbar-search">
-      <search-bar
-        [query]="searchQuery()"
-        placeholder="Buscar por título..."
-        ariaLabel="Buscar evaluaciones"
-        (queryChange)="searchQuery.set($event)"
-        (cleared)="searchQuery.set('')"
-      />
+
+    <div class="toolbar-right">
+      <span class="activities-count font-mono" machineData>
+        {{ filteredCount() }} de {{ totalActivities() }} actividades
+      </span>
     </div>
   </div>
 
+  <!-- Chips removibles cuando hay filtros activos -->
+  @if (hasActiveFilters()) {
+    <div class="active-filters-bar">
+      @if (searchQuery().trim()) {
+        <span class="filter-chip">
+          <span>Búsqueda: "{{ searchQuery() }}"</span>
+          <button type="button" class="btn-chip-remove" (click)="searchQuery.set('')" aria-label="Quitar búsqueda">
+            <svg lucideX class="chip-x"></svg>
+          </button>
+        </span>
+      }
+      @if (statusFilter() !== 'all') {
+        <span class="filter-chip">
+          <span>Estado: {{ statusLabel(statusFilter()) }}</span>
+          <button type="button" class="btn-chip-remove" (click)="setStatus('all')" aria-label="Quitar filtro de estado">
+            <svg lucideX class="chip-x"></svg>
+          </button>
+        </span>
+      }
+      @if (subjectFilter() !== 'all') {
+        <span class="filter-chip">
+          <span>Materia: {{ subjectsMap().get(subjectFilter())?.code || subjectFilter() }}</span>
+          <button type="button" class="btn-chip-remove" (click)="setSubject('all')" aria-label="Quitar filtro de materia">
+            <svg lucideX class="chip-x"></svg>
+          </button>
+        </span>
+      }
+      @if (purposeFilter() !== 'all') {
+        <span class="filter-chip">
+          <span>Tipo: {{ purposeFilter() === 'exam' ? 'Examen' : 'Práctica' }}</span>
+          <button type="button" class="btn-chip-remove" (click)="setPurpose('all')" aria-label="Quitar filtro de tipo">
+            <svg lucideX class="chip-x"></svg>
+          </button>
+        </span>
+      }
+      <button type="button" class="btn-ghost btn-sm clear-all-btn" (click)="clearAllFilters()">
+        Limpiar todo
+      </button>
+    </div>
+  }
+
   @if (isLoading()) {
     <skeleton-loader variant="list" [count]="4" />
-  } @else if (filteredEvaluations().length === 0) {
+  } @else if (filteredCount() === 0) {
     <div class="empty-state">
-      <p>No hay actividades que coincidan con los filtros.</p>
+      <svg lucideInbox class="empty-icon" aria-hidden="true"></svg>
+      <p class="empty-title">No hay actividades que coincidan con los filtros</p>
+      <p class="empty-copy">Intente con otros términos o limpie los filtros activos.</p>
+      <button type="button" class="btn-secondary" (click)="clearAllFilters()">Limpiar filtros</button>
     </div>
   } @else {
-    <ul class="evaluation-list">
-      @for (item of filteredEvaluations(); track item.exercise_id) {
-        <li class="evaluation-item">
-          <div class="evaluation-main">
-            <div class="evaluation-badges">
-              <span class="activity-tag" [class.is-exam]="item.purpose === 'exam'">
-                {{ item.purpose === 'exam' ? 'Evaluación' : 'Práctica' }}
-              </span>
-              <span class="academic-status" [ngClass]="statusClass(item.academic_status)">
-                {{ statusLabel(item.academic_status) }}
-              </span>
-            </div>
+    <div class="radar-groups">
+      <!-- Bloque 1: Exámenes y cierres próximos -->
+      @if (upcomingAndDue().length > 0) {
+        <section class="radar-group">
+          <header class="group-header">
+            <h2 class="group-title">Exámenes y cierres próximos</h2>
+            <span class="group-count font-mono" machineData>{{ upcomingAndDue().length }}</span>
+          </header>
 
-            <h2 class="evaluation-title">{{ item.title }}</h2>
+          <div class="group-rows-container">
+            @for (item of upcomingAndDue(); track item.exercise_id) {
+              <div
+                class="activity-row"
+                [class.is-exam]="item.purpose === 'exam'"
+              >
+                <div class="row-date-badge font-mono" machineData>
+                  @if (item.due_date) {
+                    <time class="badge-day font-mono" [attr.datetime]="item.due_date">{{ item.due_date | dateText:'daymonth' }}</time>
+                  } @else {
+                    <span class="badge-open">ABIERTO</span>
+                  }
+                </div>
 
-            <div class="evaluation-meta">
-              <span class="evaluation-subject">
-                <span class="subject-code" machineData>{{ item.subject_code }}</span>
-                {{ item.subject_name }}
-              </span>
-              @if (difficultyLabel(item.difficulty); as difficulty) {
-                <span class="evaluation-difficulty">{{ difficulty }}</span>
-              }
-              @if (item.due_date) {
-                <span class="evaluation-due">
-                  Entrega
-                  <time [attr.datetime]="item.due_date">{{ item.due_date | dateText:'date' }}</time>
-                </span>
-              }
-            </div>
-          </div>
+                <div class="row-identity">
+                  <div class="row-heading">
+                    @if (isIdeExercise(item)) {
+                      <svg lucideLaptop class="modality-icon" aria-hidden="true"></svg>
+                    } @else {
+                      <svg lucideTerminal class="modality-icon" aria-hidden="true"></svg>
+                    }
+                    <h3 class="row-title">{{ item.title }}</h3>
+                    @if (item.purpose === 'exam') {
+                      <span class="exam-tag">Examen</span>
+                    }
+                  </div>
 
-          <div class="evaluation-stats">
-            <span class="stat">
-              <span class="stat-label">Intentos</span>
-              <span class="stat-value" machineData>{{ item.attempts_count }}</span>
-            </span>
-            @if (item.best_score !== null && item.best_score !== undefined) {
-              <span class="stat">
-                <span class="stat-label">Mejor nota</span>
-                <span class="stat-value" machineData>{{ item.best_score }} pts</span>
-              </span>
+                  <div class="row-meta">
+                    <span class="subject-code font-mono" machineData>{{ item.subject_code }}</span>
+                    <span class="subject-name">{{ item.subject_name }}</span>
+                    @if (item.due_date) {
+                      <span class="meta-sep">·</span>
+                      <span class="urgency-pill" [class.is-urgent]="getUrgencyLabel(item.due_date) === 'Hoy'">
+                        {{ getUrgencyLabel(item.due_date) }}
+                      </span>
+                    }
+                    @if (item.attempts_count > 0) {
+                      <span class="meta-sep">·</span>
+                      <span class="attempts-text font-mono" machineData>
+                        {{ item.attempts_count }} {{ item.attempts_count === 1 ? 'intento' : 'intentos' }}
+                      </span>
+                    }
+                  </div>
+                </div>
+
+                <div class="row-verdict-col">
+                  @if (item.last_verdict) {
+                    <verdict-badge [verdict]="item.last_verdict" [origin]="item.last_verdict_origin" size="sm" />
+                  }
+                </div>
+
+                <div class="row-actions">
+                  <a class="btn-secondary btn-sm action-link" [routerLink]="['/student/exercises', item.exercise_id]">
+                    <span>{{ actionLabel(item) }}</span>
+                  </a>
+                </div>
+              </div>
             }
-            @if (item.last_verdict) {
-              <span class="stat">
-                <span class="stat-label">Último resultado</span>
-                <verdict-badge [verdict]="item.last_verdict" [origin]="item.last_verdict_origin" size="sm" />
-              </span>
-              @if (item.last_submitted_at) {
-                <time class="stat-date" [attr.datetime]="item.last_submitted_at">
-                  {{ item.last_submitted_at | dateText:'compact-datetime' }}
-                </time>
-              }
-            }
           </div>
-
-          <div class="evaluation-action">
-            <a class="action-link" [routerLink]="['/student/exercises', item.exercise_id]">{{ actionLabel(item) }}</a>
-          </div>
-        </li>
+        </section>
       }
-    </ul>
+
+      <!-- Bloque 2: Prácticas abiertas · Sin fecha límite -->
+      @if (openPractices().length > 0) {
+        <section class="radar-group">
+          <header class="group-header">
+            <h2 class="group-title">Prácticas abiertas · Sin fecha límite</h2>
+            <span class="group-count font-mono" machineData>{{ openPractices().length }}</span>
+          </header>
+
+          <div class="group-rows-container is-calm">
+            @for (item of openPractices(); track item.exercise_id) {
+              <div class="activity-row">
+                <div class="row-identity">
+                  <div class="row-heading">
+                    @if (isIdeExercise(item)) {
+                      <svg lucideLaptop class="modality-icon" aria-hidden="true"></svg>
+                    } @else {
+                      <svg lucideTerminal class="modality-icon" aria-hidden="true"></svg>
+                    }
+                    <h3 class="row-title">{{ item.title }}</h3>
+                  </div>
+
+                  <div class="row-meta">
+                    <span class="subject-code font-mono" machineData>{{ item.subject_code }}</span>
+                    <span class="subject-name">{{ item.subject_name }}</span>
+                    <span class="meta-sep">·</span>
+                    <span class="status-text">{{ statusLabel(item.academic_status) }}</span>
+                  </div>
+                </div>
+
+                <div class="row-verdict-col">
+                  @if (item.last_verdict) {
+                    <verdict-badge [verdict]="item.last_verdict" [origin]="item.last_verdict_origin" size="sm" />
+                  }
+                </div>
+
+                <div class="row-actions">
+                  <a class="btn-secondary btn-sm action-link" [routerLink]="['/student/exercises', item.exercise_id]">
+                    <span>{{ actionLabel(item) }}</span>
+                  </a>
+                </div>
+              </div>
+            }
+          </div>
+        </section>
+      }
+
+      <!-- Bloque 3: Completadas (plegado por defecto) -->
+      @if (completedActivities().length > 0) {
+        <section class="radar-group completed-group">
+          <header class="group-header toggle-header" (click)="toggleCompleted()">
+            <div class="group-header-left">
+              <button
+                type="button"
+                class="btn-toggle-fold"
+                [attr.aria-expanded]="isCompletedSectionOpen()"
+                aria-label="Alternar actividades completadas"
+              >
+                @if (isCompletedSectionOpen()) {
+                  <svg lucideChevronUp class="fold-icon"></svg>
+                } @else {
+                  <svg lucideChevronDown class="fold-icon"></svg>
+                }
+              </button>
+              <h2 class="group-title">Completadas</h2>
+              <span class="group-count font-mono" machineData>{{ completedActivities().length }}</span>
+            </div>
+            <span class="completed-note">
+              {{ isCompletedSectionOpen() ? 'Haga clic para plegar' : 'Plegado · Haga clic para desplegar' }}
+            </span>
+          </header>
+
+          @if (isCompletedSectionOpen()) {
+            <div class="group-rows-container">
+              @for (item of completedActivities(); track item.exercise_id) {
+                <div class="activity-row is-completed">
+                  <div class="row-identity">
+                    <a class="row-title-link" [routerLink]="['/student/exercises', item.exercise_id]">
+                      @if (isIdeExercise(item)) {
+                        <svg lucideLaptop class="modality-icon" aria-hidden="true"></svg>
+                      } @else {
+                        <svg lucideTerminal class="modality-icon" aria-hidden="true"></svg>
+                      }
+                      <h3 class="row-title">{{ item.title }}</h3>
+                    </a>
+
+                    <div class="row-meta">
+                      <span class="subject-code font-mono" machineData>{{ item.subject_code }}</span>
+                      <span class="subject-name">{{ item.subject_name }}</span>
+                      @if (item.best_score !== null && item.best_score !== undefined) {
+                        <span class="meta-sep">·</span>
+                        <span class="score-mono font-mono" machineData>{{ item.best_score }} / 100</span>
+                      }
+                    </div>
+                  </div>
+
+                  <div class="row-verdict-col">
+                    @if (item.last_verdict) {
+                      <verdict-badge [verdict]="item.last_verdict" [origin]="item.last_verdict_origin" size="sm" />
+                    }
+                  </div>
+
+                  <div class="row-actions">
+                    <a class="btn-secondary btn-sm action-link" [routerLink]="['/student/exercises', item.exercise_id]">
+                      <span>Practicar de nuevo</span>
+                    </a>
+                    <a class="btn-ghost btn-sm" [routerLink]="['/student/history', item.exercise_id]">
+                      <span>Ver entrega →</span>
+                    </a>
+                  </div>
+                </div>
+              }
+            </div>
+          }
+        </section>
+      }
+    </div>
   }
 </section>

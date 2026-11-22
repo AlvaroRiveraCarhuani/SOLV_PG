@@ -139,6 +139,32 @@ export class StudentSubmissionDetailComponent implements OnInit {
     return lang || 'python';
   });
 
+  readonly singleFileExtension = computed<string>(() => {
+    const lang = (this.submission()?.language || '').toLowerCase().trim();
+    const map: Record<string, string> = {
+      python: 'py',
+      py: 'py',
+      javascript: 'js',
+      js: 'js',
+      typescript: 'ts',
+      ts: 'ts',
+      golang: 'go',
+      go: 'go',
+      cpp: 'cpp',
+      'c++': 'cpp',
+      c: 'c',
+      java: 'java',
+      rust: 'rs',
+      rs: 'rs',
+      csharp: 'cs',
+      'c#': 'cs',
+      php: 'php',
+      ruby: 'rb',
+      sql: 'sql'
+    };
+    return map[lang] || lang || 'txt';
+  });
+
   readonly activeFileComments = computed<SubmissionComment[]>(() => {
     const filePath = this.activeFile()?.path;
     return this.comments().filter((c) => {
@@ -170,7 +196,7 @@ export class StudentSubmissionDetailComponent implements OnInit {
     try {
       const sub = await this.studentService.getSubmissionReview(submissionId);
       if (!sub) {
-        this.loadError.set('No se encontró la entrega solicitada o no pertenece a tus materias.');
+        this.loadError.set('No se encontró la entrega solicitada o no pertenece a sus materias.');
         return;
       }
       this.submission.set(sub);

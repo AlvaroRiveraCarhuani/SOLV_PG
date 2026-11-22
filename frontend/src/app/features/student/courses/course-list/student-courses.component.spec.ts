@@ -51,7 +51,7 @@ describe('StudentCoursesComponent', () => {
   let fixture: ComponentFixture<StudentCoursesComponent>;
 
   function cards(): HTMLElement[] {
-    return Array.from((fixture.nativeElement as HTMLElement).querySelectorAll<HTMLElement>('.course-item'));
+    return Array.from((fixture.nativeElement as HTMLElement).querySelectorAll<HTMLElement>('.course-card, .course-list-row'));
   }
 
   function statusTabs(): StatusTabsComponent {
@@ -110,18 +110,20 @@ describe('StudentCoursesComponent', () => {
   it('permite ver las materias como tarjetas o como lista', async () => {
     await setup();
 
-    const list = fixture.nativeElement.querySelector('.course-list') as HTMLElement;
-    expect(list.classList).toContain('course-list-cards');
+    expect(component.viewMode()).toBe('cards');
+    expect(fixture.nativeElement.querySelector('.courses-cards-grid')).not.toBeNull();
 
     const switcher = fixture.debugElement.query(By.directive(ViewSwitcherComponent))
       .componentInstance as ViewSwitcherComponent;
     switcher.selectMode('table');
     fixture.detectChanges();
-    expect(list.classList).not.toContain('course-list-cards');
+    expect(component.viewMode()).toBe('table');
+    expect(fixture.nativeElement.querySelector('.courses-list-container')).not.toBeNull();
 
     switcher.selectMode('cards');
     fixture.detectChanges();
-    expect(list.classList).toContain('course-list-cards');
+    expect(component.viewMode()).toBe('cards');
+    expect(fixture.nativeElement.querySelector('.courses-cards-grid')).not.toBeNull();
   });
 
   it('filtra por las pestañas de estado académico', async () => {
@@ -167,7 +169,7 @@ describe('StudentCoursesComponent', () => {
     const firstCard = cards().find((card) => card.textContent?.includes('Estructuras de Datos'));
     expect(firstCard).toBeTruthy();
 
-    const action = firstCard?.querySelector<HTMLAnchorElement>('.course-action');
+    const action = firstCard?.querySelector<HTMLAnchorElement>('a[href*="/student/courses/s1"]');
     expect(action?.getAttribute('href')).toBe('/student/courses/s1');
     expect(action?.textContent).toContain('Ver prácticas');
   });

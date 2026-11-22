@@ -3,9 +3,8 @@ import { By } from '@angular/platform-browser';
 import { provideRouter } from '@angular/router';
 import { StudentEvaluationsComponent } from './student-evaluations.component';
 import { StudentEvaluationItem, StudentService } from '@core/services/student.service';
-import { StatusTabsComponent } from '@shared/components/status-tabs/status-tabs.component';
 import { SearchBarComponent } from '@shared/components/search-bar/search-bar.component';
-import { ComboboxComponent } from '@shared/components/combobox/combobox.component';
+import { FilterPopoverComponent } from '@shared/components/filter-popover/filter-popover.component';
 
 const EVALUATIONS: StudentEvaluationItem[] = [
   {
@@ -55,7 +54,6 @@ const EVALUATIONS: StudentEvaluationItem[] = [
     attempts_count: 3,
     best_score: 95,
     last_verdict: 'AC',
-    // Proyecto corregido con rúbrica: el último resultado no lo escribió el juez.
     last_verdict_origin: 'rubric',
     last_submitted_at: '2026-10-18T09:30:00',
     academic_status: 'completed'
@@ -96,21 +94,11 @@ describe('StudentEvaluationsComponent', () => {
   let fixture: ComponentFixture<StudentEvaluationsComponent>;
 
   function items(): HTMLElement[] {
-    return Array.from((fixture.nativeElement as HTMLElement).querySelectorAll<HTMLElement>('.evaluation-item'));
+    return Array.from((fixture.nativeElement as HTMLElement).querySelectorAll<HTMLElement>('.activity-row'));
   }
 
   function itemFor(title: string): HTMLElement | undefined {
     return items().find((item) => item.textContent?.includes(title));
-  }
-
-  function statusTabs(): StatusTabsComponent {
-    return fixture.debugElement.query(By.directive(StatusTabsComponent)).componentInstance as StatusTabsComponent;
-  }
-
-  function comboboxes(): ComboboxComponent[] {
-    return fixture.debugElement
-      .queryAll(By.directive(ComboboxComponent))
-      .map((debugElement) => debugElement.componentInstance as ComboboxComponent);
   }
 
   function searchBar(): SearchBarComponent {
@@ -135,56 +123,51 @@ describe('StudentEvaluationsComponent', () => {
 
     fixture = TestBed.createComponent(StudentEvaluationsComponent);
     component = fixture.componentInstance;
+    component.completedExpanded.set(true);
     fixture.detectChanges();
   }
 
-  it('muestra todas las actividades publicadas sin tarjetas de totales', async () => {
+  it('muestra todas las actividades publicadas agrupadas en radar transversal sin tarjetas de totales', async () => {
     await setup();
 
     const text = (fixture.nativeElement as HTMLElement).textContent ?? '';
-    // Los conteos por estado ya viven en las pestañas del filtro.
     expect(fixture.nativeElement.querySelectorAll('kpi-card').length).toBe(0);
-    expect(text).toContain('Pendientes');
-    expect(text).toContain('Vencidas');
+    expect(text).toContain('Exámenes y cierres próximos');
+    expect(text).toContain('Prácticas abiertas');
 
     expect(items().length).toBe(5);
     expect(text).toContain('SIS-211');
     expect(text).toContain('Estructuras de Datos');
-
-    const labels = items().map((item) => item.querySelector('.academic-status')?.textContent?.trim());
-    expect(labels).toEqual(['Pendiente', 'En progreso', 'Completado', 'Vencido', 'Pendiente']);
     expect(component.isLoading()).toBe(false);
   });
 
-  it('filtra por estado académico desde las pestañas', async () => {
+  it('filtra por estado académico', async () => {
     await setup();
 
-    statusTabs().tabChange.emit('completed');
+    component.setStatus('completed');
     fixture.detectChanges();
     expect(items().length).toBe(1);
     expect(items()[0].textContent).toContain('Práctica de árboles');
 
-    statusTabs().tabChange.emit('overdue');
+    component.setStatus('pending');
     fixture.detectChanges();
-    expect(items().length).toBe(1);
-    expect(items()[0].textContent).toContain('Examen de ordenamiento');
+    expect(items().length).toBe(2);
 
-    statusTabs().tabChange.emit('all');
+    component.setStatus('all');
     fixture.detectChanges();
     expect(items().length).toBe(5);
   });
 
-  it('filtra por materia y por tipo de actividad desde los combobox', async () => {
+  it('filtra por materia y por tipo de actividad', async () => {
     await setup();
 
-    const [subjectCombo, purposeCombo] = comboboxes();
-    subjectCombo.valueChange.emit('s2');
+    component.setSubject('s2');
     fixture.detectChanges();
     expect(component.subjectFilter()).toBe('s2');
     expect(items().length).toBe(2);
 
-    subjectCombo.valueChange.emit('all');
-    purposeCombo.valueChange.emit('exam');
+    component.setSubject('all');
+    component.setPurpose('exam');
     fixture.detectChanges();
     expect(component.purposeFilter()).toBe('exam');
     expect(items().length).toBe(2);
@@ -204,29 +187,25 @@ describe('StudentEvaluationsComponent', () => {
     expect(items().length).toBe(5);
   });
 
-  it('muestra el último resultado con verdict-badge en lenguaje humano', async () => {
+  it('muestra el último resultado con veredicto humanizado (cero AC/WA/TLE)', async () => {
     await setup();
 
-    expect(itemFor('Examen de grafos')?.querySelector('verdict-badge')?.textContent).toContain('No cumple');
-    expect(itemFor('Práctica de árboles')?.querySelector('verdict-badge')?.textContent).toContain(
-      'Calificado por rúbrica'
-    );
-    expect(itemFor('Examen de ordenamiento')?.querySelector('verdict-badge')?.textContent).toContain('Tarda demasiado');
-    expect(itemFor('Recorrido de listas')?.querySelector('verdict-badge')).toBeNull();
+    expect(itemFor('Examen de grafos')?.textContent).toContain('No cumple');
+    expect(itemFor('Práctica de árboles')?.textContent).toContain('Calificado por rúbrica');
+    expect(itemFor('Examen de ordenamiento')?.textContent).toContain('Tarda demasiado');
+    expect(itemFor('Recorrido de listas')?.querySelector('.verdict-text')).toBeNull();
   });
 
   it('enruta cada actividad a la práctica que le corresponde', async () => {
     await setup();
 
-    const solverLink = itemFor('Recorrido de listas')?.querySelector<HTMLAnchorElement>('.action-link');
+    const solverLink = itemFor('Recorrido de listas')?.querySelector<HTMLAnchorElement>('.row-actions a');
     expect(solverLink?.getAttribute('href')).toBe('/student/exercises/e1');
     expect(solverLink?.textContent).toContain('Resolver');
 
-    expect(itemFor('Examen de grafos')?.querySelector('.action-link')?.textContent).toContain('Continuar');
-    expect(itemFor('Examen de ordenamiento')?.querySelector('.action-link')?.textContent).toContain('Resolver');
+    expect(itemFor('Examen de grafos')?.querySelector('.row-actions a')?.textContent).toContain('Continuar');
+    expect(itemFor('Examen de ordenamiento')?.querySelector('.row-actions a')?.textContent).toContain('Resolver');
 
-    // Una práctica con IDE abre su propio solver: el entorno se acota a la
-    // práctica, no a la materia.
     const labLink = itemFor('Práctica de árboles')?.querySelector<HTMLAnchorElement>('.action-link');
     expect(labLink?.getAttribute('href')).toBe('/student/exercises/e3');
   });
@@ -236,10 +215,6 @@ describe('StudentEvaluationsComponent', () => {
 
     const pendingDue = itemFor('Recorrido de listas')?.querySelector('time');
     expect(pendingDue?.getAttribute('datetime')).toBe('2026-11-05T23:59:00');
-    expect(pendingDue?.textContent?.trim()).toBe('05/11/2026');
-
-    const lastSubmission = itemFor('Examen de grafos')?.querySelector('time.stat-date');
-    expect(lastSubmission?.getAttribute('datetime')).toBe('2026-10-20T14:05:00');
-    expect(lastSubmission?.textContent?.trim()).toBe('20/10 14:05:00');
+    expect(pendingDue?.textContent?.trim()).toContain('05 nov');
   });
 });

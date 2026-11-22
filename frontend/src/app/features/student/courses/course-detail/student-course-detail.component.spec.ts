@@ -9,6 +9,7 @@ describe('StudentCourseDetailComponent', () => {
   let fixture: ComponentFixture<StudentCourseDetailComponent>;
   let mockStudentService: {
     dashboardData: ReturnType<typeof vi.fn>;
+    dueAssignments: ReturnType<typeof vi.fn>;
     loadDashboard: ReturnType<typeof vi.fn>;
   };
 
@@ -24,6 +25,7 @@ describe('StudentCourseDetailComponent', () => {
         ],
         recent_submissions: []
       }),
+      dueAssignments: vi.fn().mockReturnValue([]),
       loadDashboard: vi.fn().mockResolvedValue(undefined)
     };
 

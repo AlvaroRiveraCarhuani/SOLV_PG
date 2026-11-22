@@ -1,8 +1,21 @@
 <section class="student-courses">
-  <header class="page-header">
-    <div class="header-titles">
-      <h1 class="page-title">Mis materias</h1>
-      <p class="page-subtitle">Entra a una materia para ver sus prácticas, tu avance y lo que entrega pronto.</p>
+  <header class="courses-header">
+    <div class="header-left">
+      <a routerLink="/student" class="btn-ghost btn-back">
+        <svg lucideArrowLeft class="btn-icon" aria-hidden="true"></svg>
+        <span>Inicio</span>
+      </a>
+      <span class="header-divider" aria-hidden="true"></span>
+      <div class="header-titles">
+        <h1 class="page-title">Mis materias</h1>
+        <p class="page-subtitle">Ingrese a una materia para consultar sus prácticas, su avance y los cierres próximos.</p>
+      </div>
+    </div>
+    <div class="header-right">
+      <a class="btn-secondary" routerLink="/student/history">
+        <svg lucideHistory class="btn-icon" aria-hidden="true"></svg>
+        <span>Mis entregas</span>
+      </a>
     </div>
   </header>
 
@@ -38,54 +51,53 @@
   } @else if (subjects().length === 0) {
     <div class="empty-state">
       <svg lucideBookOpen class="empty-icon" aria-hidden="true"></svg>
-      <p class="empty-title">Todavía no tienes materias inscritas</p>
+      <p class="empty-title">Todavía no tiene materias inscritas</p>
       <p class="empty-copy">
-        Cuando te matriculen en un curso, aparece acá con su avance y sus próximas entregas.
+        Cuando le matriculen en una materia, aparecerá aquí con su avance y sus próximas entregas.
       </p>
     </div>
   } @else if (filteredSubjects().length === 0) {
     <div class="empty-state">
       <p class="empty-title">No hay materias que coincidan con el filtro</p>
-      <p class="empty-copy">Probá con otro nombre, otro código o quitá los filtros.</p>
-      <button type="button" class="btn-outline" (click)="clearFilters()">Quitar filtros</button>
+      <p class="empty-copy">Intente con otro nombre, otro código o retire los filtros.</p>
+      <button type="button" class="btn-secondary" (click)="clearFilters()">Quitar filtros</button>
     </div>
-  } @else {
-    <ul class="course-list" [class.course-list-cards]="viewMode() === 'cards'">
+  } @else if (viewMode() === 'cards') {
+    <div class="courses-cards-grid">
       @for (item of filteredSubjects(); track item.subject.id) {
-        <li
-          class="course-item motion-rise motion-stagger"
-          [style.--motion-index]="$index"
-          [style.--course-accent]="getCourseColor(item.subject.id, item.subject.code)"
-          [style.--course-accent-bg]="getCourseThemeStyle(item.subject.id, item.subject.code).accentBg"
-          [style.--course-accent-border]="getCourseThemeStyle(item.subject.id, item.subject.code).accentBorder"
-        >
-          <div class="course-identity">
-            <button
-              #colorTrigger
-              type="button"
-              class="course-code-button"
-              title="Cambiar el color de la materia"
-              aria-label="Cambiar el color de la materia"
-              (click)="toggleColorPicker(item.subject.id, $event)"
-            >
-              <span class="course-color-dot" aria-hidden="true"></span>
-              <span class="course-code" machineData>{{ item.subject.code }}</span>
-              <svg lucidePalette class="course-palette-icon" aria-hidden="true"></svg>
-            </button>
-            <h2 class="course-name">{{ item.subject.name }}</h2>
+        <article class="course-card motion-rise">
+          <div class="card-top">
+            <div class="card-identity-row">
+              <button
+                #colorTrigger
+                type="button"
+                class="course-code-btn"
+                title="Personalizar color de la materia"
+                aria-label="Personalizar color de la materia"
+                (click)="toggleColorPicker(item.subject.id, $event)"
+              >
+                <span
+                  class="course-color-dot"
+                  [style.background-color]="getCourseColor(item.subject.id, item.subject.code)"
+                  aria-hidden="true"
+                ></span>
+                <span class="course-code font-mono" machineData>{{ item.subject.code }}</span>
+                <svg lucidePalette class="palette-icon" aria-hidden="true"></svg>
+              </button>
 
-            @if (nextDueFor(item.subject.id); as nextDue) {
-              <p class="course-next-due">
-                <svg lucideClock class="course-next-due-icon" aria-hidden="true"></svg>
-                <span class="course-next-due-label">Entrega</span>
-                <span class="course-next-due-title">{{ nextDue.title }}</span>
-                <time class="course-next-due-date" [attr.datetime]="nextDue.due_date">
-                  {{ nextDue.due_date | dateText:'daymonth' }}
-                </time>
-              </p>
-            } @else {
-              <p class="course-next-due is-empty">Sin entregas próximas</p>
-            }
+              @if (hasLiveAula(item.subject.id)) {
+                <span class="status-badge is-live">
+                  <span class="dot-live" aria-hidden="true"></span>
+                  En vivo
+                </span>
+              } @else if ((item.completed_exercises ?? 0) === (item.total_exercises ?? 0) && (item.total_exercises ?? 0) > 0) {
+                <span class="status-badge is-done">Completada</span>
+              } @else {
+                <span class="status-badge is-progress">En curso</span>
+              }
+            </div>
+
+            <h2 class="course-card-title">{{ item.subject.name }}</h2>
 
             @if (activeColorPickerCourseId() === item.subject.id) {
               <div
@@ -104,33 +116,89 @@
             }
           </div>
 
-          <div class="course-progress">
-            <div class="course-progress-labels">
-              <span class="course-progress-count">
-                <span machineData>{{ item.completed_exercises ?? 0 }}</span> de
-                <span machineData>{{ item.total_exercises ?? 0 }}</span>
+          <div class="card-progress-section">
+            <div class="progress-labels font-mono">
+              <span class="progress-counts" machineData>
+                {{ item.completed_exercises ?? 0 }} de {{ item.total_exercises ?? 0 }}
                 {{ (item.total_exercises ?? 0) === 1 ? 'práctica' : 'prácticas' }}
               </span>
-              <span class="course-progress-percent" machineData>{{ item.progress_percent ?? 0 }}%</span>
+              <span class="progress-percent" machineData>{{ item.progress_percent ?? 0 }}%</span>
             </div>
-            <div
-              class="course-progress-track"
-              role="progressbar"
-              aria-valuemin="0"
-              aria-valuemax="100"
-              [attr.aria-valuenow]="item.progress_percent ?? 0"
-              [attr.aria-label]="'Avance en ' + item.subject.name"
-            >
-              <div class="course-progress-fill" [style.width.%]="item.progress_percent ?? 0"></div>
+            <div class="progress-bar-track">
+              <div
+                class="progress-bar-fill"
+                [class.is-done]="(item.completed_exercises ?? 0) === (item.total_exercises ?? 0) && (item.total_exercises ?? 0) > 0"
+                [style.width.%]="item.progress_percent ?? 0"
+              ></div>
             </div>
           </div>
 
-          <a class="course-action" [routerLink]="['/student/courses', item.subject.id]">
-            <span>Ver prácticas</span>
-            <svg lucideChevronRight class="course-action-icon" aria-hidden="true"></svg>
-          </a>
-        </li>
+          <footer class="card-footer">
+            <div class="card-footer-due">
+              @if (nextDueFor(item.subject.id); as nextDue) {
+                <span class="due-label">Cierre:</span>
+                <span class="due-assignment-title">{{ nextDue.title }}</span>
+                <time class="due-date font-mono" [attr.datetime]="nextDue.due_date">
+                  {{ nextDue.due_date | dateText:'daymonth' }}
+                </time>
+              } @else {
+                <span class="due-empty">Sin entregas próximas</span>
+              }
+            </div>
+            <a class="btn-ghost btn-sm" [routerLink]="['/student/courses', item.subject.id]">
+              <span>Ver prácticas →</span>
+            </a>
+          </footer>
+        </article>
       }
-    </ul>
+    </div>
+  } @else {
+    <!-- Modo Lista: Contenedor único border-first -->
+    <div class="courses-list-container">
+      @for (item of filteredSubjects(); track item.subject.id) {
+        <div class="course-list-row">
+          <div class="list-identity">
+            <span class="course-code font-mono" machineData>{{ item.subject.code }}</span>
+            <div class="list-name-group">
+              <h2 class="list-course-name">{{ item.subject.name }}</h2>
+              @if (hasLiveAula(item.subject.id)) {
+                <span class="live-dot" title="Aula en vivo abierta" aria-label="Aula en vivo abierta"></span>
+              }
+            </div>
+          </div>
+
+          <div class="list-due-col">
+            @if (nextDueFor(item.subject.id); as nextDue) {
+              <span class="due-label">Cierre</span>
+              <time class="due-date font-mono" [attr.datetime]="nextDue.due_date">
+                {{ nextDue.due_date | dateText:'daymonth' }}
+              </time>
+            } @else {
+              <span class="due-empty">Al día</span>
+            }
+          </div>
+
+          <div class="list-progress-col">
+            <div class="progress-labels font-mono">
+              <span machineData>{{ item.completed_exercises ?? 0 }}/{{ item.total_exercises ?? 0 }}</span>
+              <span machineData>{{ item.progress_percent ?? 0 }}%</span>
+            </div>
+            <div class="progress-bar-track">
+              <div
+                class="progress-bar-fill"
+                [class.is-done]="(item.completed_exercises ?? 0) === (item.total_exercises ?? 0) && (item.total_exercises ?? 0) > 0"
+                [style.width.%]="item.progress_percent ?? 0"
+              ></div>
+            </div>
+          </div>
+
+          <div class="list-action-col">
+            <a class="btn-ghost btn-sm" [routerLink]="['/student/courses', item.subject.id]">
+              <span>Ver prácticas →</span>
+            </a>
+          </div>
+        </div>
+      }
+    </div>
   }
 </section>

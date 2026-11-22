@@ -12,21 +12,15 @@ import { MachineDataDirective } from '@shared/directives/machine-data.directive'
 import { DismissibleDirective } from '@shared/directives/dismissible.directive';
 import { DateTextPipe } from '@shared/pipes/date-text.pipe';
 import {
+  LucideArrowLeft,
   LucideBookOpen,
-  LucideChevronRight,
-  LucideClock,
+  LucideHistory,
   LucidePalette
 } from '@lucide/angular';
+import { StudentAulaService } from '../../services/student-aula.service';
 
 type FilterMode = 'all' | 'in_progress' | 'completed';
 
-/**
- * Mis materias: el listado de materias inscritas del alumno.
- *
- * Cada fila responde tres cosas: qué materia es, cuánto avanzó y qué entrega
- * pronto. Los indicadores agregados del semestre viven en el inicio; repetirlos
- * acá como tarjetas no agregaba lectura y ensanchaba la vista sin motivo.
- */
 @Component({
   selector: 'student-courses',
   standalone: true,
@@ -42,9 +36,9 @@ type FilterMode = 'all' | 'in_progress' | 'completed';
     ViewSwitcherComponent,
     DismissibleDirective,
     DateTextPipe,
+    LucideArrowLeft,
     LucideBookOpen,
-    LucideChevronRight,
-    LucideClock,
+    LucideHistory,
     LucidePalette
   ],
   templateUrl: './student-courses.component.html',
@@ -53,16 +47,17 @@ type FilterMode = 'all' | 'in_progress' | 'completed';
 export class StudentCoursesComponent implements OnInit {
   readonly studentService = inject(StudentService);
   readonly courseColorService = inject(CourseColorService);
+  private readonly aulasService = inject(StudentAulaService);
 
   searchQuery = signal('');
   filterMode = signal<FilterMode>('all');
-  /** La lista y la tarjeta muestran lo mismo: cambia la densidad, no el contenido. */
   viewMode = signal<ViewMode>('cards');
   activeColorPickerCourseId = signal<string | null>(null);
 
   subjects = computed(() => this.studentService.dashboardData()?.subjects ?? []);
   dueAssignments = computed(() => this.studentService.dueAssignments());
   isLoading = computed(() => this.studentService.loading());
+  activeAulas = computed(() => this.aulasService.aulas());
 
   statusTabs = computed<StatusTabItem[]>(() => {
     const all = this.subjects();
@@ -131,7 +126,12 @@ export class StudentCoursesComponent implements OnInit {
     return this.dueAssignments().find(due => due.subject_id === subjectId);
   }
 
+  hasLiveAula(subjectId: string): boolean {
+    return this.activeAulas().some(aula => aula.subject_id === subjectId && aula.status === 'in_progress');
+  }
+
   async ngOnInit(): Promise<void> {
+    void this.aulasService.load();
     if (!this.studentService.dashboardData()) {
       await this.studentService.loadDashboard();
     }

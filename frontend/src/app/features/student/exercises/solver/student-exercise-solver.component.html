@@ -1,12 +1,13 @@
-<div class="solver-page-container">
+<div class="solver-page-container" [class.is-ide]="isIdeExercise()">
+  <!-- Barra superior compacta (48px, 1 sola línea) -->
   <header class="solver-topbar">
     <div class="topbar-left">
       <button
         type="button"
         (click)="goBack()"
-        class="btn-back"
+        class="btn-ghost btn-back"
         title="Volver"
-        aria-label="Volver a la vista anterior"
+        aria-label="Volver a la materia o inicio"
       >
         <svg lucideArrowLeft class="topbar-icon" aria-hidden="true"></svg>
         <span>Volver</span>
@@ -14,8 +15,11 @@
 
       <div class="title-meta">
         <h1 class="page-title">{{ exercise()?.title || 'Cargando ejercicio...' }}</h1>
-        @if (exercise()?.purpose === 'exam') {
-          <span class="exam-pill">Evaluación de Examen</span>
+        @if (isExamProject()) {
+          <span class="exam-badge-header">Examen</span>
+        }
+        @if (!isIdeExercise()) {
+          <span class="meta-limit font-mono" machineData>Límite {{ timeLimitLabel() }}</span>
         }
       </div>
     </div>
@@ -33,13 +37,67 @@
             inputAriaLabel="Seleccionar lenguaje"
           />
         </div>
+
+        @if (!isExamSubmitted()) {
+          <button
+            type="button"
+            class="btn-ghost btn-action-top"
+            (click)="resetBoilerplate()"
+            title="Restaurar plantilla inicial"
+          >
+            <svg lucideRotateCcw class="btn-icon"></svg>
+            <span>Reiniciar</span>
+          </button>
+
+          <button
+            type="button"
+            class="btn-secondary btn-action-top"
+            data-testid="btn-test-code"
+            (click)="testCode()"
+            [disabled]="isTesting() || isSubmitting() || !sourceCode().trim()"
+            title="Probar con casos de ejemplo sin registrar entrega (Ctrl+Enter)"
+          >
+            @if (isTesting()) {
+              <svg lucideLoader2 class="btn-icon motion-spin"></svg>
+              <span>Probando…</span>
+            } @else {
+              <svg lucidePlay class="btn-icon"></svg>
+              <span>Probar código</span>
+            }
+          </button>
+
+          <button
+            type="button"
+            class="btn-primary btn-action-top"
+            data-testid="btn-submit-solution"
+            (click)="requestSubmitEvaluation()"
+            [disabled]="isTesting() || isSubmitting() || !sourceCode().trim()"
+          >
+            @if (isSubmitting()) {
+              <svg lucideLoader2 class="btn-icon motion-spin"></svg>
+              <span>Evaluando…</span>
+            } @else {
+              <svg lucideCheckCircle2 class="btn-icon"></svg>
+              <span>{{ isExamProject() ? 'Entregar examen' : 'Enviar a evaluación' }}</span>
+            }
+          </button>
+        } @else {
+          <span class="exam-locked-status">
+            {{ isExamExpired() && !lastSubmissionId() ? 'Examen finalizado' : 'Examen entregado' }}
+          </span>
+          @if (lastSubmissionId()) {
+            <a [routerLink]="['/student/history', lastSubmissionId()]" class="btn-secondary btn-sm">
+              <span>Ver entrega enviada →</span>
+            </a>
+          }
+        }
       }
     </div>
   </header>
 
   @if (isLoading()) {
     <div class="solver-state-card">
-      <p>Cargando consigna del ejercicio...</p>
+      <p>Cargando consigna del ejercicio…</p>
     </div>
   } @else if (loadError()) {
     <div class="solver-state-card error-card">
@@ -47,486 +105,392 @@
       <p>{{ loadError() }}</p>
     </div>
   } @else if (exercise(); as ex) {
+    <!-- Avisos de Companion / Avance docente -->
     @for (advance of practiceAdvances(); track advance.id) {
       <section class="advance-callout" aria-live="polite">
         <svg lucideFileCode class="advance-icon"></svg>
         <div class="advance-copy">
-          <p class="advance-title">Tu docente emitió un avance de esta práctica</p>
+          <p class="advance-title">Su docente emitió un avance para esta práctica</p>
           <p class="advance-hint">
-            Trae <span machineData>{{ advance.file_count }}</span> archivos y no cambia nada hasta que lo confirmes.
-            Los archivos se escriben en el entorno de esta práctica.
-          </p>
-          <p class="advance-meta">
-            Emitido a las <time>{{ advance.created_at | dateText:'time' }}</time>
+            Incluye <span class="font-mono" machineData>{{ advance.file_count }}</span> archivos.
+            No se modificará nada hasta que confirme la recepción.
           </p>
         </div>
         <div class="advance-actions">
           <button
             type="button"
-            class="btn-outline"
+            class="btn-secondary btn-sm"
             (click)="dismissAdvance(advance)"
             [disabled]="isDismissingAdvance()"
           >
             Descartar
           </button>
-          <button type="button" class="btn-primary" (click)="openAdvance(advance)">
+          <button type="button" class="btn-primary btn-sm" (click)="openAdvance(advance)">
             Ver archivos
           </button>
         </div>
       </section>
     }
 
-    <div class="solver-split-grid" [class.is-project]="isIdeExercise()">
-      <!-- Columna izquierda: Consigna y ejemplos públicos -->
-      <section class="statement-panel">
-        @if (difficultyLabel() || !isIdeExercise()) {
-          <div class="meta-strip">
-            @if (difficultyLabel(); as difficulty) {
-              <span class="meta-badge">{{ difficulty }}</span>
-            }
-            @if (!isIdeExercise()) {
-              <span class="meta-badge">
-                <svg lucideClock class="meta-icon" aria-hidden="true"></svg>
-                <span>Límite</span>
-                <span machineData>{{ timeLimitLabel() }}</span>
-              </span>
-            }
-          </div>
-        }
-
-        <article class="statement-card">
-          <div class="section-heading">
-            <svg lucideFileText class="section-icon"></svg>
-            <h2 class="section-title section-title-base section-title-flush">Descripción del Problema</h2>
-          </div>
-          <div class="markdown-body" [innerHTML]="renderedDescription()"></div>
-        </article>
-
-        @if (constraintsList().length > 0) {
-          <article class="statement-card constraints-card">
-            <div class="section-heading">
-              <svg lucideShield class="section-icon"></svg>
-              <h2 class="section-title section-title-base section-title-flush">Restricciones de Código</h2>
-            </div>
-            <ul class="constraints-list">
-              @for (rule of constraintsList(); track rule) {
-                <li><code class="font-mono">{{ rule }}</code></li>
-              }
-            </ul>
-          </article>
-        }
-
-        @if (!isIdeExercise()) {
-          <article class="statement-card">
-            <div class="section-heading">
-              <svg lucideLayers class="section-icon"></svg>
-              <h2 class="section-title section-title-base section-title-flush">Casos de Ejemplo (<span machineData>{{ exampleCases().length }}</span>)</h2>
-            </div>
-
-            @for (tc of exampleCases(); track $index) {
-              <div class="example-box">
-                <div class="example-box-header">
-                  <span class="font-mono" machineData>Ejemplo #{{ $index + 1 }}</span>
-                </div>
-                <div class="example-io-columns">
-                  <div class="io-col">
-                    <span class="io-label">Entrada (STDIN)</span>
-                    <pre class="io-pre font-mono" machineData>{{ tc.input || '(vacío)' }}</pre>
-                  </div>
-                  <div class="io-col">
-                    <span class="io-label">Salida Esperada (STDOUT)</span>
-                    <pre class="io-pre font-mono" machineData>{{ tc.expected_output || '(vacío)' }}</pre>
-                  </div>
-                </div>
+    <!-- ARQUETIPO: IDE_PERSISTENTE (Sección 10.6) -->
+    @if (isIdeExercise()) {
+      <div class="ide-layout-container">
+        <!-- Columna Izquierda: Consigna + Rúbrica de evaluación -->
+        <div class="ide-main-col">
+          @if (showsClassPausedNotice()) {
+            <div class="exam-amber-banner" role="alert">
+              <svg lucideAlertTriangle class="banner-icon"></svg>
+              <div>
+                <strong>Clase en pausa:</strong> El docente pausó la clase: su entorno quedó en solo lectura.
               </div>
-            } @empty {
-              <p class="empty-note">Sin casos de ejemplo públicos.</p>
-            }
-          </article>
-        } @else {
-          <article class="statement-card">
-            <div class="section-heading">
-              <svg lucideTerminal class="section-icon"></svg>
-              <h2 class="section-title section-title-base section-title-flush">Proyecto en {{ 'IDE_PERSISTENTE' | environmentLabel }}</h2>
             </div>
-            <p class="ide-hint">
-              El ejercicio se resuelve dentro de tu entorno de desarrollo. Trabajá en el IDE y
-              entregá: se envía el contenido del entorno de esta práctica para que el docente lo
-              califique con la rúbrica.
-            </p>
-            <ul class="ide-rules-list">
-              <li>Se entrega el entorno de esta práctica tal como está en el IDE; no hay que copiar archivos.</li>
-              <li>La entrega queda pendiente de calificación hasta que el docente la revise con la rúbrica.</li>
-              @if (isExamProject()) {
+          }
+
+          @if (isExamProject()) {
+            <div class="exam-amber-banner" role="alert">
+              <svg lucideAlertTriangle class="banner-icon"></svg>
+              <div>
+                <strong>Examen supervisado:</strong>
                 @if (exercise()?.exam_network === 'egress') {
-                  <li>
-                    Este examen tiene acceso a internet por una excepción declarada por el docente.
-                  </li>
+                  <span> Este examen tiene acceso a internet por una excepción declarada por el docente.</span>
                 } @else {
-                  <li>
-                    Este examen no tiene acceso a internet: el editor funciona, pero no podés
-                    descargar dependencias ni consultar sitios externos.
-                  </li>
+                  <span> Este examen no tiene acceso a internet.</span>
                 }
-              }
-              <li>
-                @if (isExamProject()) {
-                  Al entregar se registra una versión con tu código. Podés seguir editando y volver a
-                  entregar mientras el examen siga abierto; al cerrarlo, el entorno queda en solo lectura.
-                } @else if (canResubmitProject()) {
-                  Podés volver a entregar mientras el docente lo permita.
-                } @else {
-                  Solo se permite una entrega para este ejercicio.
-                }
-              </li>
-            </ul>
-          </article>
-        }
-      </section>
-
-      <!-- Columna derecha: Editor de código + Resultado del Juez -->
-      <section class="editor-panel">
-        @if (isIdeExercise()) {
-          <div class="editor-card rail-card">
-            <div class="editor-toolbar">
-              <div class="toolbar-left">
-                <svg lucideTerminal class="toolbar-icon" aria-hidden="true"></svg>
-                <span class="file-label">Entorno de la práctica</span>
-              </div>
-              <div class="toolbar-actions">
-                @if (hasProjectSubmission()) {
-                  <span class="exam-locked-pill">Entrega registrada</span>
-                }
+                <span> Al finalizar el plazo establecido, permanecerá en modo solo lectura.</span>
+                <div class="exam-state-hint">
+                  @switch (environmentState()) {
+                    @case ('preparing') {
+                      <span class="exam-state">Preparando su examen: se está preparando un espacio nuevo con el proyecto base.</span>
+                    }
+                    @case ('ready') {
+                      <span class="exam-state">Está rindiendo el examen. Su práctica de esta materia sigue intacta.</span>
+                    }
+                    @case ('closed') {
+                      <span class="exam-state">Su espacio está en solo lectura.</span>
+                    }
+                  }
+                </div>
               </div>
             </div>
+          }
 
-            <div class="editor-body rail-body">
-              @if (hasProjectSubmission()) {
-                <a [routerLink]="['/student/history', projectSubmissionId()]" class="btn-outline rail-action">
-                  Ver entrega enviada
-                </a>
-              }
-              <button
-                type="button"
-                class="btn-primary rail-action"
-                data-testid="btn-start-ide"
-                [disabled]="isStartingEnvironment()"
-                (click)="openEnvironment()"
-              >
-                @if (isStartingEnvironment()) {
-                  <svg lucideRefreshCw class="btn-icon motion-spin" aria-hidden="true"></svg>
-                  <span>Abriendo entorno…</span>
-                } @else {
-                  <svg lucideExternalLink class="btn-icon" aria-hidden="true"></svg>
-                  <span>Abrir entorno</span>
-                }
-              </button>
+          <!-- Consigna de la práctica -->
+          <article class="statement-card">
+            <header class="card-section-header">
+              <svg lucideFileText class="section-icon"></svg>
+              <h2 class="section-title">Consigna de la práctica</h2>
+            </header>
+            <div class="markdown-body" [innerHTML]="renderedDescription()"></div>
+          </article>
 
-              <p class="rail-note">
-                Se abre en una pestaña nueva y conserva tus archivos entre sesiones.
-              </p>
+          <!-- Rúbrica de evaluación (GET /api/v1/exercises/{id}/rubric) -->
+          @if (rubric(); as rub) {
+            <article class="rubric-card">
+              <header class="card-section-header">
+                <svg lucideLayers class="section-icon"></svg>
+                <div class="rubric-header-text">
+                  <h2 class="section-title">Rúbrica de evaluación</h2>
+                  <span class="rubric-sub">Criterios oficiales aplicados para calificar el proyecto</span>
+                </div>
+              </header>
 
-              @if (popupBlocked()) {
-                @if (ideUrl(); as url) {
-                  <p class="rail-note" data-testid="popup-blocked-notice">
-                    Tu navegador no abrió la pestaña nueva. Abrí el entorno desde este enlace.
-                  </p>
-                  <a
-                    class="btn-outline rail-action"
-                    data-testid="link-open-ide"
-                    [href]="url"
-                    target="_blank"
-                    rel="noopener noreferrer"
+              <!-- Barra proporcional interactiva 100% vinculada por hover -->
+              <div class="rubric-proportional-bar" role="progressbar" aria-label="Distribución porcentual de la rúbrica">
+                @for (c of rub.criteria; track c.id || $index) {
+                  <div
+                    class="rubric-bar-segment"
+                    [class.is-hovered]="activeCriterionIndex() === $index"
+                    [style.flex-grow]="c.weight || 1"
+                    (mouseenter)="activeCriterionIndex.set($index)"
+                    (mouseleave)="activeCriterionIndex.set(null)"
+                    [title]="c.name + ' (' + c.weight + ' pts)'"
                   >
-                    <svg lucideExternalLink class="btn-icon" aria-hidden="true"></svg>
-                    <span>Abrir el IDE</span>
-                  </a>
-                }
-              }
-
-              @if (showsClassPausedNotice()) {
-                <p class="empty-note practice-state" role="status">
-                  El docente pausó la clase: tu entorno quedó en solo lectura. Cuando la reanude,
-                  podés volver a escribir.
-                </p>
-              }
-
-              @if (environmentIsRunning()) {
-                <p class="ide-ready">
-                  <svg lucideCheckCircle2 class="ide-ready-icon" aria-hidden="true"></svg>
-                  <span>Entorno listo para trabajar.</span>
-                </p>
-              }
-
-              @if (appUrl(); as url) {
-                <a
-                  class="btn-outline rail-action"
-                  data-testid="btn-open-app"
-                  [href]="url"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                >
-                  <svg lucideExternalLink class="btn-icon" aria-hidden="true"></svg>
-                  <span>Abrir mi aplicación</span>
-                </a>
-              }
-
-              @if (resourceQuota(); as quota) {
-                <dl class="quota-summary">
-                  <div class="quota-item">
-                    <dt>RAM asignada</dt>
-                    <dd><span class="font-mono" machineData>{{ quota.grantedMB }} MB</span></dd>
+                    <span class="segment-label font-mono">{{ c.name }} ({{ c.weight }} pts)</span>
                   </div>
-                  @if (quota.declaredMB > 0) {
-                    <div class="quota-item">
-                      <dt>Perfil de la plantilla</dt>
-                      <dd><span class="font-mono" machineData>{{ quota.declaredMB }} MB</span></dd>
-                    </div>
-                  }
-                  @if (quota.cpuText) {
-                    <div class="quota-item">
-                      <dt>CPU</dt>
-                      <dd><span class="font-mono" machineData>{{ quota.cpuText }}</span></dd>
-                    </div>
-                  }
-                </dl>
-                @if (quota.reduced) {
-                  <p class="empty-note" role="status">
-                    La cuota concedida es menor que el perfil de la plantilla porque el servidor
-                    está ocupado. Al reabrir el entorno con menos carga puede subir.
-                  </p>
                 }
-              }
+              </div>
 
-              @if (diskNotice(); as aviso) {
-                <p class="empty-note" [class.ide-error]="aviso.tone === 'full'" role="status">
-                  {{ aviso.text }}
-                </p>
+              <!-- Lista de criterios de la rúbrica -->
+              <div class="rubric-criteria-list">
+                @for (c of rub.criteria; track c.id || $index) {
+                  <div
+                    class="rubric-criterion-row"
+                    [class.is-highlighted]="activeCriterionIndex() === $index"
+                    (mouseenter)="activeCriterionIndex.set($index)"
+                    (mouseleave)="activeCriterionIndex.set(null)"
+                  >
+                    <div class="criterion-head">
+                      <span class="criterion-name">{{ c.name }}</span>
+                      <span class="criterion-weight font-mono" machineData>{{ c.weight }} pts</span>
+                    </div>
+                    @if (c.description) {
+                      <p class="criterion-desc">{{ c.description }}</p>
+                    }
+                    @if (c.levels && c.levels.length > 0) {
+                      <div class="criterion-levels-grid">
+                        @for (lvl of c.levels; track lvl.name) {
+                          <div class="level-box">
+                            <span class="level-name">{{ lvl.name }} ({{ lvl.score }} pts)</span>
+                            <span class="level-desc">{{ lvl.description }}</span>
+                          </div>
+                        }
+                      </div>
+                    }
+                  </div>
+                }
+              </div>
+            </article>
+          }
+        </div>
+
+        <!-- Columna Derecha Sticky: Espacio de trabajo y entrega -->
+        <aside class="ide-aside-col">
+          <!-- Una sola tarjeta operativa (Espacio de trabajo y entrega) -->
+          <article class="operative-ide-card">
+            <header class="operative-header">
+              <svg lucideTerminal class="operative-icon"></svg>
+              <h2 class="operative-title">Espacio de trabajo y entrega</h2>
+            </header>
+
+            <div class="operative-body">
+              <div class="state-indicator-row">
+                <span class="state-label">Estado:</span>
+                @if (examClosed() || (isExamProject() && isExamExpired())) {
+                  <span class="status-pill is-closed">Solo lectura</span>
+                } @else if (environmentIsRunning()) {
+                  <span class="status-pill is-running">En ejecución</span>
+                } @else {
+                  <span class="status-pill is-idle">Sin iniciar</span>
+                }
+              </div>
+
+              <!-- Botón principal: Abrir entorno -->
+              <div class="operative-action-primary">
+                @if (examClosed() || (isExamProject() && isExamExpired())) {
+                  <button
+                    type="button"
+                    class="btn-secondary btn-block"
+                    (click)="openEnvironment()"
+                  >
+                    <svg lucideExternalLink class="btn-icon"></svg>
+                    <span>Abrir entorno (solo lectura)</span>
+                  </button>
+                } @else {
+                  <button
+                    type="button"
+                    class="btn-primary btn-block"
+                    data-testid="btn-start-ide"
+                    [disabled]="isStartingEnvironment()"
+                    (click)="openEnvironment()"
+                  >
+                    @if (isStartingEnvironment()) {
+                      <svg lucideRefreshCw class="btn-icon motion-spin"></svg>
+                      <span>Abriendo entorno…</span>
+                    } @else {
+                      <svg lucideExternalLink class="btn-icon"></svg>
+                      <span>Abrir entorno</span>
+                    }
+                  </button>
+                }
+              </div>
+
+              <!-- Botón secundario: Entregar proyecto -->
+              <div class="operative-action-secondary">
                 <button
                   type="button"
-                  class="btn-primary"
-                  [disabled]="purgingCaches()"
-                  (click)="purgeCaches()"
+                  class="btn-secondary btn-block"
+                  data-testid="btn-submit-project"
+                  [disabled]="!canSubmitProject() || isSubmittingProject()"
+                  (click)="requestSubmitProject()"
                 >
-                  {{ purgingCaches() ? 'Borrando archivos generados…' : 'Borrar archivos generados' }}
+                  @if (isSubmittingProject()) {
+                    <svg lucideLoader2 class="btn-icon motion-spin"></svg>
+                    <span>Entregando…</span>
+                  } @else {
+                    <svg lucidePlay class="btn-icon"></svg>
+                    <span>Entregar proyecto</span>
+                  }
                 </button>
-              }
-
-              @if (isExamProject() && (environment() || examClosed())) {
-                @switch (environmentState()) {
-                  @case ('preparing') {
-                    <p class="empty-note exam-state" role="status">
-                      Preparando tu examen: se está armando un espacio nuevo con el proyecto base.
-                    </p>
-                  }
-                  @case ('ready') {
-                    <p class="empty-note exam-state" role="status">
-                      Estás rindiendo el examen. Podés entregar y seguir editando hasta que el docente lo
-                      cierre: al cerrar, el espacio queda en solo lectura.
-                    </p>
-                  }
-                  @case ('closed') {
-                    <p class="empty-note exam-state" role="status">
-                      Tu espacio está en solo lectura. Si el docente pausó el aula, vuelve a escribir
-                      cuando la reanude; si ya terminó, puede reabrirte con un motivo.
-                    </p>
-                  }
-                  @default {
-                    <p class="ide-error exam-state" role="alert">
-                      No se pudo preparar tu examen. Recargá la página; si sigue igual, avisá al docente.
-                    </p>
-                  }
+                @if (!environmentIsRunning()) {
+                  <p class="field-hint">Inicie primero el entorno para registrar la entrega de su proyecto.</p>
                 }
-                <p class="empty-note">
-                  Tu práctica de esta materia sigue intacta: el examen usa un espacio aparte.
-                </p>
+              </div>
+
+              @if (hasProjectSubmission()) {
+                <div class="submission-registered-box">
+                  <svg lucideCheckCircle2 class="box-icon"></svg>
+                  <div>
+                    <span class="box-title">Entrega registrada</span>
+                    <a [routerLink]="['/student/history', projectSubmissionId()]" class="box-link">
+                      Ver detalle en historial →
+                    </a>
+                  </div>
+                </div>
               }
 
               @if (environmentError()) {
-                <p class="ide-error" role="alert">{{ environmentError() }}</p>
-              }
-            </div>
-          </div>
-
-          <div class="editor-card rail-card">
-            <div class="editor-toolbar">
-              <div class="toolbar-left">
-                <svg lucideLayers class="toolbar-icon"></svg>
-                <span class="file-label">Entrega del proyecto</span>
-              </div>
-              <div class="toolbar-actions">
-                @if (hasProjectSubmission()) {
-                  <span class="exam-locked-pill">Entrega registrada</span>
-                }
-              </div>
-            </div>
-
-            <div class="editor-body rail-body">
-              <button
-                type="button"
-                class="btn-primary rail-action"
-                data-testid="btn-submit-project"
-                [disabled]="!canSubmitProject()"
-                (click)="requestSubmitProject()"
-              >
-                @if (isSubmittingProject()) {
-                  <svg lucideLoader2 class="btn-icon motion-spin"></svg>
-                  <span>Entregando…</span>
-                } @else if (examSubmitPending()) {
-                  <svg lucidePlay class="btn-icon"></svg>
-                  <span>Confirmar entrega</span>
-                } @else {
-                  <svg lucidePlay class="btn-icon"></svg>
-                  <span>Entregar proyecto</span>
-                }
-              </button>
-
-              @if (hasProjectSubmission()) {
-                <div class="exam-locked-banner" role="status">
-                  <svg lucideCheckCircle2 class="locked-icon"></svg>
-                  @if (isExamProject()) {
-                    <span>Entrega registrada. Podés seguir editando y volver a entregar mientras el examen siga abierto.</span>
-                  } @else {
-                    <span>Entrega registrada. Tu entorno sigue disponible.</span>
-                  }
+                <div class="error-notice" role="alert">
+                  {{ environmentError() }}
                 </div>
-              }
-              @if (examSubmitPending()) {
-                <div class="exam-submit-warning" role="alert">
-                  <p class="exam-submit-text">
-                    Al entregar, tu código queda registrado como una versión. Podés seguir editando y
-                    volver a entregar mientras el examen siga abierto; al cerrarlo, el entorno queda en
-                    solo lectura.
-                  </p>
-                  <button type="button" class="btn-outline" (click)="cancelExamSubmit()">
-                    Cancelar
-                  </button>
-                </div>
-              }
-
-              @if (projectSubmission(); as submission) {
-                <div class="submission-saved-banner">
-                  <svg lucideCheckCircle2 class="saved-icon"></svg>
-                  <span>
-                    Entrega registrada (<code class="font-mono" machineData>{{ submission.submission_id }}</code>)
-                  </span>
-                </div>
-                <div class="verdict-metrics">
-                  @if (submission.verdict || submission.verdict_origin) {
-                    <verdict-badge [verdict]="submission.verdict" [origin]="submission.verdict_origin" size="sm" />
-                  }
-                  @if (projectSubmittedAt(); as submittedAt) {
-                    <time class="metric-chip font-mono" machineData>{{ submittedAt | dateText:'long-datetime' }}</time>
-                  }
-                </div>
-                @if (isExamProject()) {
-                  <p class="empty-note">Entregaste el examen: podés corregir y volver a entregar mientras siga abierto.</p>
-                } @else if (canResubmitProject()) {
-                  <p class="empty-note">Podés reemplazar la entrega con los archivos actuales.</p>
-                } @else {
-                  <p class="empty-note">Este ejercicio admite una única entrega.</p>
-                }
-              } @else {
-                <p class="rail-note">
-                  Se entrega el entorno tal como está en el IDE: no hay que copiar archivos.
-                </p>
-                <p class="rail-note">
-                  Queda pendiente hasta que el docente la revise con la rúbrica.
-                </p>
               }
 
               @if (projectError()) {
-                <p class="ide-error" role="alert">{{ projectError() }}</p>
+                <div class="error-notice" role="alert">
+                  {{ projectError() }}
+                </div>
               }
             </div>
-          </div>
-        } @else {
-        <div class="editor-card">
-          <div class="editor-toolbar">
-            <div class="toolbar-left">
-              <svg lucideFileCode class="toolbar-icon"></svg>
-              <span class="file-label font-mono" machineData>solucion.{{ selectedLanguage() }}</span>
-            </div>
+          </article>
 
-            <div class="toolbar-actions">
-              @if (isExamSubmitted()) {
-                <span class="exam-locked-pill">{{ isExamExpired() && !lastSubmissionId() ? 'Examen finalizado' : 'Examen entregado' }}</span>
-                @if (lastSubmissionId()) {
-                  <a [routerLink]="['/student/history', lastSubmissionId()]" class="btn-outline btn-view-submission">
-                    Ver entrega enviada
-                  </a>
-                }
-              } @else {
-                <button
-                  type="button"
-                  class="btn-outline btn-reset-code"
-                  (click)="resetBoilerplate()"
-                  title="Restaurar plantilla inicial"
-                >
-                  <svg lucideRotateCcw class="btn-icon"></svg>
-                  <span>Reiniciar</span>
-                </button>
-
-                <button
-                  type="button"
-                  class="btn-outline btn-test-code"
-                  data-testid="btn-test-code"
-                  (click)="testCode()"
-                  [disabled]="isTesting() || isSubmitting() || !sourceCode().trim()"
-                  title="Probar con casos de ejemplo sin registrar entrega"
-                >
-                  @if (isTesting()) {
-                    <svg lucideLoader2 class="btn-icon motion-spin"></svg>
-                    <span>Probando...</span>
-                  } @else {
-                    <svg lucidePlay class="btn-icon"></svg>
-                    <span>Probar código</span>
-                  }
-                </button>
-
-                <button
-                  type="button"
-                  class="btn-primary btn-submit-solution"
-                  data-testid="btn-submit-solution"
-                  (click)="submitSolution()"
-                  [disabled]="isTesting() || isSubmitting() || !sourceCode().trim()"
-                >
-                  @if (isSubmitting()) {
-                    <svg lucideLoader2 class="btn-icon motion-spin"></svg>
-                    <span>Evaluando...</span>
-                  } @else {
-                    <svg lucideCheckCircle2 class="btn-icon"></svg>
-                    <span>{{ isExamProject() ? 'Entregar Examen' : 'Enviar a Evaluación' }}</span>
-                  }
-                </button>
-              }
-            </div>
-          </div>
-
-          <div class="editor-body">
-            @if (isExamSubmitted()) {
-              <div class="exam-locked-banner" role="status">
-                <svg lucideCheckCircle2 class="locked-icon"></svg>
-                <span>
-                  {{ isExamExpired() && !lastSubmissionId()
-                    ? 'El plazo de entrega para este examen ha finalizado. El editor se encuentra en modo solo lectura.'
-                    : 'Has entregado este examen. Las entregas de examen son definitivas y el código se encuentra en modo solo lectura.' }}
-                </span>
+          <!-- Bloque cardless Detalles de entrega -->
+          <section class="delivery-details-block">
+            <h3 class="details-title">Detalles de entrega</h3>
+            <dl class="details-list">
+              <div class="details-row">
+                <dt>Reenvíos</dt>
+                <dd>{{ canResubmitProject() ? 'Permitidos' : 'Intento único' }}</dd>
               </div>
-            }
+              <div class="details-row">
+                <dt>Entregas registradas</dt>
+                <dd class="font-mono" machineData>{{ hasProjectSubmission() ? '1' : '0' }}</dd>
+              </div>
+              @if (exercise()?.due_date) {
+                <div class="details-row">
+                  <dt>Fecha límite</dt>
+                  <dd class="font-mono">
+                    <time [attr.datetime]="exercise()?.due_date">
+                      {{ exercise()?.due_date | dateText:'datetime' }}
+                    </time>
+                  </dd>
+                </div>
+              }
+              @if (isExamProject()) {
+                <div class="details-row">
+                  <dt>Acceso a red</dt>
+                  <dd>{{ exercise()?.exam_network === 'egress' ? 'Habilitado' : 'Sin acceso a internet' }}</dd>
+                </div>
+              }
+            </dl>
+          </section>
+        </aside>
+      </div>
+    } @else {
+      <!-- ARQUETIPO: JUEZ_EFIMERO (Sección 10.7 Split-Pane) -->
+      <div class="workbench-split-layout">
+        <!-- Panel Izquierdo (~42%): Enunciado y Casos de ejemplo -->
+        <section class="workbench-left-pane">
+          @if (isExamProject()) {
+            <div class="exam-amber-banner" role="alert">
+              <svg lucideAlertTriangle class="banner-icon"></svg>
+              <div>
+                <strong>Modo examen:</strong> Evaluación supervisada. Siga las instrucciones y recuerde enviar su solución antes de la hora de cierre.
+              </div>
+            </div>
+          }
 
+          <article class="statement-card">
+            <header class="card-section-header">
+              <svg lucideFileText class="section-icon"></svg>
+              <h2 class="section-title">Descripción del problema</h2>
+            </header>
+            <div class="markdown-body" [innerHTML]="renderedDescription()"></div>
+          </article>
+
+          @if (constraintsList().length > 0) {
+            <article class="statement-card">
+              <header class="card-section-header">
+                <svg lucideShield class="section-icon"></svg>
+                <h2 class="section-title">Restricciones</h2>
+              </header>
+              <ul class="constraints-list">
+                @for (c of constraintsList(); track c) {
+                  <li><code class="font-mono">{{ c }}</code></li>
+                }
+              </ul>
+            </article>
+          }
+
+          <!-- Casos de ejemplo públicos -->
+          <article class="statement-card">
+            <header class="card-section-header">
+              <svg lucideLayers class="section-icon"></svg>
+              <div class="examples-header-titles">
+                <h2 class="section-title">Casos de ejemplo</h2>
+                <span class="examples-count font-mono" machineData>({{ exampleCases().length }})</span>
+              </div>
+            </header>
+
+            <div class="examples-stack">
+              @for (tc of exampleCases(); track $index) {
+                <div class="example-item-box">
+                  <div class="example-box-top">
+                    <span class="example-num font-mono" machineData>Ejemplo #{{ $index + 1 }}</span>
+                    @if (tc.input) {
+                      <button
+                        type="button"
+                        class="btn-ghost btn-copy"
+                        (click)="copyInput(tc.input, $index)"
+                        title="Copiar entrada STDIN"
+                      >
+                        @if (copiedCaseIndex() === $index) {
+                          <svg lucideCheck class="copy-icon is-copied"></svg>
+                          <span>Copiado</span>
+                        } @else {
+                          <svg lucideCopy class="copy-icon"></svg>
+                          <span>Copiar entrada</span>
+                        }
+                      </button>
+                    }
+                  </div>
+
+                  <div class="io-grid">
+                    <div class="io-col">
+                      <span class="io-heading">Entrada (STDIN)</span>
+                      <pre class="io-pre font-mono" machineData>{{ tc.input || '(vacío)' }}</pre>
+                    </div>
+                    <div class="io-col">
+                      <span class="io-heading">Salida esperada (STDOUT)</span>
+                      <pre class="io-pre font-mono" machineData>{{ tc.expected_output || '(vacío)' }}</pre>
+                    </div>
+                  </div>
+                </div>
+              } @empty {
+                <p class="empty-copy">No hay casos de ejemplo públicos.</p>
+              }
+            </div>
+          </article>
+        </section>
+
+        <!-- Panel Derecho (~58%): Editor + Consola inferior plegable de 2 pestañas -->
+        <section class="workbench-right-pane">
+          <!-- Sub-barra del archivo -->
+          <div class="file-subbar">
+            <div class="subbar-left">
+              <svg lucideFileCode class="file-icon"></svg>
+              <span class="file-name font-mono" machineData>{{ fileName() }}</span>
+              @if (isExamSubmitted()) {
+                <span class="status-readonly-pill">Solo lectura · Examen entregado</span>
+              }
+            </div>
+            <div class="subbar-right">
+              <span class="file-meta font-mono">UTF-8 · Ln 1, Col 1</span>
+            </div>
+          </div>
+
+          <!-- Editor ocupando el espacio vertical disponible -->
+          <div class="editor-viewport">
             @defer {
               <code-editor
                 [value]="sourceCode()"
                 [language]="selectedLanguage()"
                 [readonly]="isExamSubmitted()"
-                minHeight="280px"
+                minHeight="240px"
                 (valueChange)="onCodeChange($event)"
               />
             } @placeholder {
               <textarea
                 class="form-textarea font-mono"
-                rows="10"
+                rows="12"
                 [ngModel]="sourceCode()"
                 [disabled]="isExamSubmitted()"
                 (ngModelChange)="onCodeChange($event)"
@@ -534,67 +498,173 @@
               ></textarea>
             }
           </div>
-        </div>
 
-        @if (submitError()) {
-          <div class="verdict-card verdict-error" role="alert">
-            <svg lucideAlertTriangle class="verdict-icon"></svg>
-            <span>{{ submitError() }}</span>
-          </div>
-        }
+          <!-- Consola inferior plegable (248px abierta / 38px cerrada) con 2 pestañas -->
+          <div class="solver-bottom-console" [class.is-collapsed]="!consoleOpen()">
+            <div class="console-header">
+              <div class="console-tabs-group" role="tablist">
+                <button
+                  type="button"
+                  class="console-tab-btn"
+                  [class.is-active]="activeConsoleTab() === 'test'"
+                  (click)="setConsoleTab('test')"
+                  role="tab"
+                  [attr.aria-selected]="activeConsoleTab() === 'test'"
+                >
+                  <span>Prueba rápida</span>
+                </button>
+                <button
+                  type="button"
+                  class="console-tab-btn"
+                  [class.is-active]="activeConsoleTab() === 'submit'"
+                  (click)="setConsoleTab('submit')"
+                  role="tab"
+                  [attr.aria-selected]="activeConsoleTab() === 'submit'"
+                >
+                  <span>Resultado oficial</span>
+                </button>
+              </div>
 
-        @if (lastResult(); as res) {
-          <div class="verdict-card" data-testid="judge-result-panel">
-            <div class="verdict-header">
-              <div class="verdict-title-group">
-                <svg lucideTerminal class="verdict-icon"></svg>
-                <h3 class="card-title">{{ isTestRun() ? 'Resultado de Prueba (Casos de Ejemplo)' : 'Resultado de la Evaluación' }}</h3>
-                <verdict-badge [verdict]="res.verdict" />
-                @if (isTestRun()) {
-                  <span class="test-run-pill">Prueba sin calificar</span>
+              <button
+                type="button"
+                class="btn-ghost btn-console-toggle"
+                (click)="toggleConsole()"
+                title="Plegar o desplegar consola"
+                aria-label="Plegar o desplegar consola"
+              >
+                @if (consoleOpen()) {
+                  <svg lucideChevronDown class="toggle-icon"></svg>
+                } @else {
+                  <svg lucideChevronUp class="toggle-icon"></svg>
                 }
-              </div>
-
-              <div class="verdict-metrics">
-                <span class="metric-chip font-mono" machineData>{{ res.execution_time_ms }} ms</span>
-                <span class="metric-chip font-mono" machineData>{{ res.memory_used_mb }} MB</span>
-              </div>
+              </button>
             </div>
 
-            <p class="verdict-message">{{ res.message }}</p>
+            <!-- Contenido de la consola cuando está abierta -->
+            @if (consoleOpen()) {
+              <div class="console-body">
+                @if (submitError()) {
+                  <div class="console-error-banner" role="alert">
+                    <svg lucideAlertTriangle class="banner-icon"></svg>
+                    <span>{{ submitError() }}</span>
+                  </div>
+                }
 
-            @if (isTestRun()) {
-              <p class="test-run-note">
-                Ejecución preliminar sobre los casos de ejemplo. Tu código no ha sido entregado formalmente y podés seguir editando.
-              </p>
-            }
+                <!-- Pestaña 1: Prueba Rápida -->
+                @if (activeConsoleTab() === 'test') {
+                  <div class="tab-pane-test">
+                    <!-- Franja de prueba / Salvaguarda anti-olvido -->
+                    @if (showsAntiForgetNotice()) {
+                      <div class="anti-forget-stripe" role="alert">
+                        <svg lucideAlertTriangle class="stripe-icon"></svg>
+                        <span>Ejemplos cumplen · Falta enviar la entrega oficial</span>
+                      </div>
+                    } @else {
+                      <div class="test-run-stripe">
+                        <span>Ejecución de prueba · No registra entrega</span>
+                      </div>
+                    }
 
-            @if (res.case_results && res.case_results.length > 0) {
-              <div class="cases-summary-list">
-                @for (cr of res.case_results; track cr.index) {
-                  <div class="case-result-item">
-                    <span class="font-mono" machineData>Caso #{{ cr.index + 1 }}</span>
-                    <verdict-badge [verdict]="cr.verdict" />
-                    <span class="font-mono" machineData>{{ cr.duration_ms }} ms</span>
-                    @if (cr.actual_output) {
-                      <span class="case-output-preview font-mono" machineData title="Salida obtenida">Salida: {{ cr.actual_output.trim() }}</span>
+                    @if (lastResult(); as res) {
+                      <div class="test-results-container">
+                        <div class="verdict-summary-line">
+                          <verdict-badge [verdict]="res.verdict" />
+                          <span class="execution-time font-mono" machineData>{{ res.execution_time_ms }} ms</span>
+                          @if (res.memory_used_mb) {
+                            <span class="meta-sep">·</span>
+                            <span class="execution-memory font-mono" machineData>{{ res.memory_used_mb }} MB</span>
+                          }
+                        </div>
+
+                        @if (res.message) {
+                          <p class="verdict-msg">{{ res.message }}</p>
+                        }
+
+                        @if (res.case_results && res.case_results.length > 0) {
+                          <div class="cases-results-list">
+                            @for (cr of res.case_results; track cr.index) {
+                              <div class="case-card">
+                                <div class="case-card-head">
+                                  <span class="case-index font-mono" machineData>Caso #{{ cr.index + 1 }}</span>
+                                  <verdict-badge [verdict]="cr.verdict" size="sm" />
+                                  <span class="case-duration font-mono" machineData>{{ cr.duration_ms }} ms</span>
+                                </div>
+                                @if (cr.actual_output) {
+                                  <div class="case-output-preview font-mono" machineData>
+                                    <span class="out-label">Su salida:</span>
+                                    <pre class="out-pre">{{ cr.actual_output.trim() }}</pre>
+                                  </div>
+                                }
+                              </div>
+                            }
+                          </div>
+                        }
+                      </div>
+                    } @else {
+                      <p class="console-empty-hint">
+                        Pulse "Probar código" (o use <kbd>Ctrl+Enter</kbd>) para verificar su solución contra los casos de ejemplo.
+                      </p>
+                    }
+                  </div>
+                }
+
+                <!-- Pestaña 2: Resultado Oficial -->
+                @if (activeConsoleTab() === 'submit') {
+                  <div class="tab-pane-submit">
+                    @if (lastResult(); as res) {
+                      <div class="official-results-container">
+                        <div class="verdict-summary-line">
+                          <verdict-badge [verdict]="res.verdict" />
+                          <span class="execution-time font-mono" machineData>{{ res.execution_time_ms }} ms</span>
+                          @if (res.memory_used_mb) {
+                            <span class="meta-sep">·</span>
+                            <span class="execution-memory font-mono" machineData>{{ res.memory_used_mb }} MB</span>
+                          }
+                        </div>
+
+                        @if (res.message) {
+                          <p class="verdict-msg">{{ res.message }}</p>
+                        }
+
+                        @if (lastSubmissionId()) {
+                          <div class="official-id-line">
+                            <span>Identificador de entrega:</span>
+                            <code class="font-mono" machineData>{{ lastSubmissionId() }}</code>
+                          </div>
+                        }
+
+                        <!-- Resumen de casos ocultos -->
+                        <div class="cases-summary-bar">
+                          <span class="summary-text font-mono" machineData>
+                            Evaluación completada sobre todos los casos de prueba.
+                          </span>
+                        </div>
+                      </div>
+                    } @else {
+                      <p class="console-empty-hint">
+                        Aún no ha enviado su entrega oficial. Pulse "{{ isExamProject() ? 'Entregar examen' : 'Enviar a evaluación' }}" para calificar la solución completa.
+                      </p>
                     }
                   </div>
                 }
               </div>
             }
-
-            @if (!isTestRun() && lastSubmissionId()) {
-              <div class="submission-saved-banner">
-                <svg lucideCheckCircle2 class="saved-icon"></svg>
-                <span>Entrega registrada (<code class="font-mono" machineData>{{ lastSubmissionId() }}</code>)</span>
-              </div>
-            }
           </div>
-        }
-        }
-      </section>
-    </div>
+        </section>
+      </div>
+    }
+  }
+
+  <!-- Modal de confirmación para examen (intento único vs reenvíos) -->
+  @if (examConfirmModalOpen()) {
+    <confirm-modal
+      [title]="examModalTitle()"
+      [message]="examModalMessage()"
+      confirmText="Confirmar y entregar"
+      cancelText="Cancelar"
+      (confirm)="onConfirmExamSubmit()"
+      (cancel)="onCancelExamSubmit()"
+    />
   }
 
   @if (selectedAdvance(); as advance) {

@@ -53,13 +53,13 @@
   } @else if (preview(); as files) {
     <p class="block-text">
       El avance trae <span machineData>{{ files.file_count }}</span> archivos del ejercicio.
-      Nada cambia en tu entorno hasta que confirmes.
+      Nada cambia en su entorno hasta que confirme la recepción.
     </p>
 
     @if (files.overwritten.length > 0) {
       <section class="file-group file-group-warning">
         <h3 class="group-title">Se reemplazan</h3>
-        <p class="group-hint">Tu versión actual se guarda en una copia dentro del laboratorio antes de reemplazarse.</p>
+        <p class="group-hint">Su versión actual se guarda en una copia dentro del laboratorio antes de reemplazarse.</p>
         <ul class="file-list">
           @for (path of files.overwritten; track path) {
             <li><code>{{ path }}</code></li>

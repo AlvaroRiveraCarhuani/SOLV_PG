@@ -1,39 +1,121 @@
 <div class="student-course">
-  <header class="course-header">
-    <a routerLink="/student/courses" class="back-link">
-      <svg lucideArrowLeft class="back-icon" aria-hidden="true"></svg>
-      <span>Mis materias</span>
-    </a>
-
-    <div class="course-heading">
-      <div class="course-heading-text">
-        <div class="course-title-row">
-          <h1 class="page-title">{{ subjectName() }}</h1>
+  <!-- Cabecera plana de la materia -->
+  <header class="course-flat-header">
+    <div class="header-left">
+      <a routerLink="/student/courses" class="btn-ghost btn-back">
+        <svg lucideArrowLeft class="btn-icon" aria-hidden="true"></svg>
+        <span>Mis materias</span>
+      </a>
+      <span class="header-divider" aria-hidden="true"></span>
+      <div class="course-title-group">
+        <div class="title-with-code">
           @if (subjectCode()) {
-            <span class="subject-code-badge" machineData>{{ subjectCode() }}</span>
+            <span class="subject-code font-mono" machineData>{{ subjectCode() }}</span>
           }
+          <h1 class="page-title">{{ subjectName() }}</h1>
         </div>
-
         <p class="page-subtitle">
-          @if (totalExercises() > 0) {
-            <span machineData>{{ completedExercises() }}</span> de
-            <span machineData>{{ totalExercises() }}</span> prácticas completadas
-            <span class="subtitle-separator" aria-hidden="true">·</span>
-            <span machineData>{{ progressPercent() }}%</span> del curso
-          } @else {
-            Esta materia todavía no tiene prácticas publicadas.
-          }
+          <span class="font-mono" machineData>{{ totalExercises() }}</span>
+          {{ totalExercises() === 1 ? 'práctica publicada' : 'prácticas publicadas' }}
         </p>
       </div>
+    </div>
 
-      <button type="button" class="btn-outline btn-refresh refresh-button" (click)="refresh()">
-        <svg lucideRefreshCw class="refresh-icon" aria-hidden="true"></svg>
-        <span>Actualizar</span>
-      </button>
+    <!-- Selector discreto de cambio rápido de materia -->
+    <div class="header-right">
+      @if (subjects().length > 1) {
+        <div class="subject-switcher">
+          <label for="course-switcher-select" class="switcher-label">Cambiar materia:</label>
+          <select
+            id="course-switcher-select"
+            class="switcher-select font-mono"
+            [value]="effectiveCourseId()"
+            (change)="onSwitchSubject($event)"
+            aria-label="Seleccionar otra materia matriculada"
+          >
+            @for (s of subjects(); track s.subject.id) {
+              <option [value]="s.subject.id">
+                {{ s.subject.code }} — {{ s.subject.name }}
+              </option>
+            }
+          </select>
+        </div>
+      }
     </div>
   </header>
 
-  <main class="course-main-content">
-    <curricular-map [courseId]="effectiveCourseId()" [refreshTick]="refreshTick()"></curricular-map>
+  <!-- Layout de 2 columnas: 1fr + 320px sticky -->
+  <main class="course-hub-layout">
+    <!-- Columna Izquierda: Recorrido curricular -->
+    <section class="hub-main">
+      <curricular-map [courseId]="effectiveCourseId()"></curricular-map>
+    </section>
+
+    <!-- Columna Derecha Sticky: Panel de la Materia -->
+    <aside class="hub-aside">
+      <!-- 1. Tarjeta Siguiente paso (único .btn-primary) -->
+      @if (nextStep(); as step) {
+        <article class="next-step-card motion-rise">
+          <div class="card-eyebrow">
+            <span>Siguiente paso en</span>
+            <span class="font-mono" machineData>{{ subjectCode() }}</span>
+          </div>
+
+          <h2 class="next-step-title">{{ step.title }}</h2>
+
+          <div class="next-step-action">
+            <a class="btn-primary btn-block" [routerLink]="['/student/exercises', step.exerciseId]">
+              <span>{{ step.label }}</span>
+            </a>
+          </div>
+        </article>
+      }
+
+      <!-- 2. Bloque cardless Avance de la materia -->
+      <section class="progress-cardless-block">
+        <h2 class="block-title">Avance de la materia</h2>
+
+        <div class="progress-bar-container">
+          <div class="progress-labels font-mono">
+            <span machineData>{{ completedExercises() }} de {{ totalExercises() }}</span>
+            <span machineData>{{ progressPercent() }}%</span>
+          </div>
+          <div class="progress-track">
+            <div
+              class="progress-fill"
+              [class.is-done]="completedExercises() === totalExercises() && totalExercises() > 0"
+              [style.width.%]="progressPercent()"
+            ></div>
+          </div>
+        </div>
+
+        <dl class="breakdown-table">
+          <div class="breakdown-row">
+            <dt class="breakdown-label">Completadas</dt>
+            <dd class="breakdown-val font-mono" machineData>{{ completedExercises() }}</dd>
+          </div>
+          <div class="breakdown-row">
+            <dt class="breakdown-label">En curso</dt>
+            <dd class="breakdown-val font-mono" machineData>{{ inProgressExercises() }}</dd>
+          </div>
+          <div class="breakdown-row">
+            <dt class="breakdown-label">Sin empezar</dt>
+            <dd class="breakdown-val font-mono" machineData>{{ notStartedExercises() }}</dd>
+          </div>
+        </dl>
+
+        <div class="live-status-row">
+          <span class="live-label">Aula de la materia:</span>
+          @if (hasLiveAula()) {
+            <span class="live-badge is-active">
+              <span class="dot-pulse" aria-hidden="true"></span>
+              Clase en vivo
+            </span>
+          } @else {
+            <span class="live-badge is-idle">Sin clase abierta</span>
+          }
+        </div>
+      </section>
+    </aside>
   </main>
 </div>

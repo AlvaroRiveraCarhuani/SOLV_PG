@@ -112,7 +112,7 @@
             </div>
           } @else {
             <div class="empty-code-placeholder">
-              <p>Selecciona un archivo del árbol para ver su contenido.</p>
+              <p>Seleccione un archivo del árbol para ver su contenido.</p>
             </div>
           }
         </main>
@@ -122,7 +122,7 @@
           <div class="code-pane-header">
             <div class="file-info">
               <svg lucideFileCode class="file-icon"></svg>
-              <span class="file-path font-mono">solucion.{{ singleCodeLanguage() }}</span>
+              <span class="file-path font-mono">solucion.{{ singleFileExtension() }}</span>
             </div>
             <span class="file-lines" machineData>{{ (sub.code || '').split('\n').length }} líneas</span>
           </div>

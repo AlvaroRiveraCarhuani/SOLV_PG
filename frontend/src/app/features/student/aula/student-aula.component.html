@@ -2,7 +2,7 @@
   <header class="page-header">
     <div>
       <h1 class="page-title">Aula</h1>
-      <p class="page-subtitle">Tu clase en vivo, la práctica que abrió el docente y el código que comparte contigo.</p>
+      <p class="page-subtitle">Su clase en vivo, la práctica abierta por el docente y el código que comparte con usted.</p>
     </div>
     <button type="button" class="btn btn-secondary" (click)="refresh()" [disabled]="isLoading()">
       <svg lucideRefreshCw></svg>
@@ -18,9 +18,9 @@
     <div class="aula-empty">
       <svg lucideInbox></svg>
       <div>
-        <p class="empty-title">No tienes clase abierta en este momento</p>
+        <p class="empty-title">No tiene clase abierta en este momento</p>
         <p class="empty-copy">
-          Cuando el docente abra el aula de una práctica, aparece acá con su horario y sus avances.
+          Cuando el docente abra el aula de una práctica, aparecerá aquí con su horario y sus avances.
         </p>
         <a class="btn btn-secondary" routerLink="/student/courses">
           <svg lucideBookOpen></svg>
@@ -43,9 +43,9 @@
           <div class="paused-note" role="status">
             <svg lucidePause></svg>
             <span>
-              El docente pausó {{ clase.purpose === 'exam' ? 'el examen' : 'la clase' }}. Tu entorno quedó en solo lectura desde
+              El docente pausó {{ clase.purpose === 'exam' ? 'el examen' : 'la clase' }}. Su entorno quedó en solo lectura desde
               <time [attr.datetime]="clase.frozen_at">{{ clase.frozen_at | dateText:'time' }}</time>
-              y vuelve a escribir cuando lo reanude.
+              y volverá a permitir escritura cuando se reanude la sesión.
             </span>
           </div>
         }
@@ -98,7 +98,7 @@
               <div>
                 <p class="empty-title">Sin avances pendientes</p>
                 <p class="empty-copy">
-                  Cuando el docente emita el código de la clase, aparece acá para que lo apliques en tu práctica.
+                  Cuando el docente emita el código de la clase, aparecerá aquí para que pueda revisarlo y aplicarlo en su práctica.
                 </p>
               </div>
             </div>

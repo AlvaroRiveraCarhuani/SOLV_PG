@@ -7,28 +7,24 @@ import {
   StudentService
 } from '@core/services/student.service';
 import { SearchBarComponent } from '@shared/components/search-bar/search-bar.component';
-import { StatusTabItem, StatusTabsComponent } from '@shared/components/status-tabs/status-tabs.component';
-import { ComboboxComponent, ComboboxOption } from '@shared/components/combobox/combobox.component';
+import { FilterPopoverComponent } from '@shared/components/filter-popover/filter-popover.component';
 import { VerdictBadgeComponent } from '@shared/components/verdict-badge/verdict-badge.component';
 import { SkeletonLoaderComponent } from '@shared/components/skeleton/skeleton-loader.component';
 import { MachineDataDirective } from '@shared/directives/machine-data.directive';
 import { DateTextPipe } from '@shared/pipes/date-text.pipe';
+import {
+  LucideCheck,
+  LucideChevronDown,
+  LucideChevronUp,
+  LucideHistory,
+  LucideInbox,
+  LucideLaptop,
+  LucideTerminal,
+  LucideX
+} from '@lucide/angular';
 
 export type AcademicStatusFilter = 'all' | StudentAcademicStatus;
 export type ActivityPurposeFilter = 'all' | 'exam' | 'class';
-
-const DIFFICULTY_LABELS: Record<string, string> = {
-  easy: 'Fácil',
-  medium: 'Medio',
-  hard: 'Difícil'
-};
-
-const ACADEMIC_STATUS_LABELS: Record<StudentAcademicStatus, string> = {
-  pending: 'Pendiente',
-  in_progress: 'En progreso',
-  completed: 'Completado',
-  overdue: 'Vencido'
-};
 
 @Component({
   selector: 'student-evaluations',
@@ -38,12 +34,19 @@ const ACADEMIC_STATUS_LABELS: Record<StudentAcademicStatus, string> = {
     CommonModule,
     RouterLink,
     SearchBarComponent,
-    StatusTabsComponent,
-    ComboboxComponent,
+    FilterPopoverComponent,
     VerdictBadgeComponent,
     SkeletonLoaderComponent,
     MachineDataDirective,
-    DateTextPipe
+    DateTextPipe,
+    LucideCheck,
+    LucideChevronDown,
+    LucideChevronUp,
+    LucideHistory,
+    LucideInbox,
+    LucideLaptop,
+    LucideTerminal,
+    LucideX
   ],
   templateUrl: './student-evaluations.component.html',
   styleUrl: './student-evaluations.component.scss'
@@ -52,53 +55,70 @@ export class StudentEvaluationsComponent implements OnInit {
   private studentService = inject(StudentService);
 
   readonly isLoading = signal<boolean>(true);
+  readonly searchQuery = signal<string>('');
   readonly statusFilter = signal<AcademicStatusFilter>('all');
   readonly subjectFilter = signal<string>('all');
   readonly purposeFilter = signal<ActivityPurposeFilter>('all');
-  readonly searchQuery = signal<string>('');
+  readonly completedExpanded = signal<boolean>(false);
 
   readonly evaluations = computed<StudentEvaluationItem[]>(() => this.studentService.evaluations());
 
-  readonly counts = computed<Record<AcademicStatusFilter, number>>(() => {
-    const items = this.evaluations();
+  readonly totalActivities = computed(() => this.evaluations().length);
+
+  readonly subjectsMap = computed(() => {
+    const map = new Map<string, { code: string; name: string }>();
+    for (const item of this.evaluations()) {
+      if (!map.has(item.subject_id)) {
+        map.set(item.subject_id, { code: item.subject_code, name: item.subject_name });
+      }
+    }
+    return map;
+  });
+
+  readonly summaryStats = computed(() => {
+    const list = this.evaluations();
+    const exams = list.filter(item => item.purpose === 'exam' && item.academic_status !== 'completed').length;
+    const inProgress = list.filter(item => item.academic_status === 'in_progress').length;
+    const completed = list.filter(item => item.academic_status === 'completed').length;
+    const examPlural = exams === 1 ? '1 examen próximo' : `${exams} exámenes próximos`;
+    return `${examPlural} · ${inProgress} en curso · ${completed} completadas en todas sus materias.`;
+  });
+
+  readonly mostUrgentActivity = computed<{ label: string; exerciseId: string; title: string } | null>(() => {
+    const list = this.evaluations().filter(item => item.academic_status !== 'completed');
+    if (list.length === 0) return null;
+
+    // Prioridad: examen con due_date más cercano o práctica en progreso
+    const sorted = [...list].sort((a, b) => {
+      if (a.purpose === 'exam' && b.purpose !== 'exam') return -1;
+      if (b.purpose === 'exam' && a.purpose !== 'exam') return 1;
+      if (a.due_date && b.due_date) {
+        return new Date(a.due_date).getTime() - new Date(b.due_date).getTime();
+      }
+      if (a.due_date) return -1;
+      if (b.due_date) return 1;
+      return 0;
+    });
+
+    const top = sorted[0];
     return {
-      all: items.length,
-      pending: items.filter((item) => item.academic_status === 'pending').length,
-      in_progress: items.filter((item) => item.academic_status === 'in_progress').length,
-      completed: items.filter((item) => item.academic_status === 'completed').length,
-      overdue: items.filter((item) => item.academic_status === 'overdue').length
+      label: `Continuar ${top.subject_code} →`,
+      exerciseId: top.exercise_id,
+      title: top.title
     };
   });
 
-  readonly statusTabs = computed<StatusTabItem[]>(() => {
-    const totals = this.counts();
-    return [
-      { id: 'all', label: 'Todas', count: totals.all },
-      { id: 'pending', label: 'Pendientes', count: totals.pending },
-      { id: 'in_progress', label: 'En progreso', count: totals.in_progress },
-      { id: 'completed', label: 'Completadas', count: totals.completed },
-      { id: 'overdue', label: 'Vencidas', count: totals.overdue }
-    ];
+  readonly activeFilterCount = computed(() => {
+    let count = 0;
+    if (this.statusFilter() !== 'all') count++;
+    if (this.subjectFilter() !== 'all') count++;
+    if (this.purposeFilter() !== 'all') count++;
+    return count;
   });
 
-  readonly subjectOptions = computed<ComboboxOption[]>(() => {
-    const labels = new Map<string, string>();
-    for (const item of this.evaluations()) {
-      if (!labels.has(item.subject_id)) {
-        labels.set(item.subject_id, `${item.subject_code} — ${item.subject_name}`);
-      }
-    }
-    return [
-      { id: 'all', label: 'Todas las materias', value: 'all' },
-      ...Array.from(labels, ([id, label]) => ({ id, label, value: id }))
-    ];
+  readonly hasActiveFilters = computed(() => {
+    return this.activeFilterCount() > 0 || this.searchQuery().trim().length > 0;
   });
-
-  readonly purposeOptions: ComboboxOption[] = [
-    { id: 'all', label: 'Todas las actividades', value: 'all' },
-    { id: 'exam', label: 'Evaluaciones calificadas', value: 'exam' },
-    { id: 'class', label: 'Prácticas de clase', value: 'class' }
-  ];
 
   readonly filteredEvaluations = computed<StudentEvaluationItem[]>(() => {
     const status = this.statusFilter();
@@ -119,9 +139,102 @@ export class StudentEvaluationsComponent implements OnInit {
       if (!query) {
         return true;
       }
-      return item.title.toLowerCase().includes(query);
+      return (
+        item.title.toLowerCase().includes(query) ||
+        item.subject_name.toLowerCase().includes(query) ||
+        item.subject_code.toLowerCase().includes(query)
+      );
     });
   });
+
+  readonly filteredCount = computed(() => this.filteredEvaluations().length);
+
+  // Jerarquía en 3 bloques
+  readonly upcomingAndDue = computed(() => {
+    return this.filteredEvaluations()
+      .filter(item => item.academic_status !== 'completed' && (item.due_date || item.purpose === 'exam'))
+      .sort((a, b) => {
+        if (!a.due_date) return 1;
+        if (!b.due_date) return -1;
+        return new Date(a.due_date).getTime() - new Date(b.due_date).getTime();
+      });
+  });
+
+  readonly openPractices = computed(() => {
+    return this.filteredEvaluations().filter(
+      item => item.academic_status !== 'completed' && !item.due_date && item.purpose !== 'exam'
+    );
+  });
+
+  readonly completedActivities = computed(() => {
+    return this.filteredEvaluations().filter(item => item.academic_status === 'completed');
+  });
+
+  readonly isCompletedSectionOpen = computed(() => {
+    return this.completedExpanded() || this.statusFilter() === 'completed';
+  });
+
+  toggleCompleted(): void {
+    this.completedExpanded.update(v => !v);
+  }
+
+  clearAllFilters(): void {
+    this.statusFilter.set('all');
+    this.subjectFilter.set('all');
+    this.purposeFilter.set('all');
+    this.searchQuery.set('');
+  }
+
+  setStatus(status: AcademicStatusFilter): void {
+    this.statusFilter.set(status);
+  }
+
+  setSubject(subjectId: string): void {
+    this.subjectFilter.set(subjectId);
+  }
+
+  setPurpose(purpose: ActivityPurposeFilter): void {
+    this.purposeFilter.set(purpose);
+  }
+
+  getUrgencyLabel(dueDateStr?: string | null): string {
+    if (!dueDateStr) return '';
+    const now = new Date();
+    const due = new Date(dueDateStr);
+    const diffMs = due.getTime() - now.getTime();
+    if (diffMs < 0) return 'Vencida';
+    const diffHours = diffMs / (1000 * 60 * 60);
+    if (diffHours <= 24) return 'Hoy';
+    if (diffHours <= 48) return 'Mañana';
+    const days = Math.ceil(diffHours / 24);
+    return `En ${days} días`;
+  }
+
+  statusLabel(status: StudentAcademicStatus | 'all'): string {
+    if (status === 'all') return 'Todos';
+    switch (status) {
+      case 'completed': return 'Cumplida';
+      case 'in_progress': return 'En curso';
+      case 'pending': return 'Pendiente';
+      case 'overdue': return 'Vencida';
+      default: return 'Disponible';
+    }
+  }
+
+  isIdeExercise(item: StudentEvaluationItem): boolean {
+    return item.environment_type === 'IDE_PERSISTENTE' || item.type === 'project';
+  }
+
+  actionLabel(item: StudentEvaluationItem): string {
+    switch (item.academic_status) {
+      case 'in_progress':
+        return 'Continuar';
+      case 'completed':
+        return 'Ver entrega →';
+      default:
+        return 'Resolver';
+    }
+  }
 
   ngOnInit(): void {
     if (this.studentService.evaluations().length > 0) {
@@ -136,44 +249,6 @@ export class StudentEvaluationsComponent implements OnInit {
       await this.studentService.loadEvaluations();
     } finally {
       this.isLoading.set(false);
-    }
-  }
-
-  onStatusTabChange(tab: string): void {
-    if (tab === 'all' || tab === 'pending' || tab === 'in_progress' || tab === 'completed' || tab === 'overdue') {
-      this.statusFilter.set(tab);
-    }
-  }
-
-  onPurposeChange(value: string): void {
-    if (value === 'all' || value === 'exam' || value === 'class') {
-      this.purposeFilter.set(value);
-    }
-  }
-
-  difficultyLabel(difficulty?: string | null): string | null {
-    if (!difficulty) {
-      return null;
-    }
-    return DIFFICULTY_LABELS[difficulty.trim().toLowerCase()] ?? difficulty;
-  }
-
-  statusLabel(status: StudentAcademicStatus): string {
-    return ACADEMIC_STATUS_LABELS[status] ?? 'Pendiente';
-  }
-
-  statusClass(status: StudentAcademicStatus): string {
-    return `is-${status}`;
-  }
-
-  actionLabel(item: StudentEvaluationItem): string {
-    switch (item.academic_status) {
-      case 'in_progress':
-        return 'Continuar';
-      case 'completed':
-        return 'Practicar de nuevo';
-      default:
-        return 'Resolver';
     }
   }
 }

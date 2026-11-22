@@ -1,22 +1,47 @@
 <section class="home">
   <header class="home-header">
-    <div>
+    <div class="header-info">
       <h1 class="page-title">{{ timeGreeting() }}, {{ studentFirstName() }}.</h1>
       <p class="page-subtitle">{{ summary() }}</p>
     </div>
-    <a class="btn btn-secondary" routerLink="/student/history">
-      <svg lucideHistory></svg>
+    <a class="btn-secondary header-action" routerLink="/student/history">
+      <svg lucideHistory class="btn-icon" aria-hidden="true"></svg>
       <span>Mis entregas</span>
+      @if (recentSubmissions().length > 0) {
+        <span class="count-badge font-mono" machineData>{{ recentSubmissions().length }}</span>
+      }
     </a>
   </header>
 
   <div class="home-grid">
+    <!-- Columna Izquierda: Aula ahora + Próximas entregas -->
     <div class="home-main">
-      <article class="home-card aula-now motion-rise">
+      <article
+        class="home-card aula-now motion-rise"
+        [class.is-live]="primaryAula() && primaryAula()?.status === 'in_progress'"
+        [class.is-exam]="primaryAula() && isExam(primaryAula()!)"
+      >
         <header class="card-head">
           <h2 class="card-title">Aula ahora</h2>
           @if (primaryAula(); as clase) {
-            <span class="aula-state" [class]="'state-' + statusTone(clase.status)">{{ statusLabel(clase.status) }}</span>
+            <span
+              class="aula-badge"
+              [class.state-live]="clase.status === 'in_progress'"
+              [class.state-exam]="isExam(clase)"
+              [class.state-neutral]="clase.status !== 'in_progress' && !isExam(clase)"
+            >
+              @if (isExam(clase)) {
+                <span class="status-dot dot-warn" aria-hidden="true"></span>
+                Examen en curso
+              } @else if (clase.status === 'in_progress') {
+                <span class="status-dot dot-pulse" aria-hidden="true"></span>
+                Clase en vivo
+              } @else {
+                {{ statusLabel(clase.status) }}
+              }
+            </span>
+          } @else {
+            <span class="aula-badge state-neutral">Sin clase abierta</span>
           }
         </header>
 
@@ -24,65 +49,76 @@
           <field-message variant="error" [message]="message" />
         } @else if (primaryAula(); as clase) {
           <div class="aula-identity">
-            <code class="subject-code">{{ clase.subject_code }}</code>
-            <h3>{{ clase.subject_name }}</h3>
+            <span class="subject-code font-mono" machineData>{{ clase.subject_code }}</span>
+            <h3 class="subject-title">{{ clase.subject_name }}</h3>
           </div>
 
           <dl class="aula-meta">
-            <div>
+            <div class="meta-item">
               <dt>Práctica</dt>
-              <dd>
-                @if (clase.exercise_title) {
-                  {{ clase.exercise_title }}
-                } @else {
-                  Sin práctica asociada
+              <dd class="practice-title">
+                @if (clase.exercise_id) {
+                  @if (isIdeExercise(clase)) {
+                    <svg lucideLaptop class="meta-icon" aria-hidden="true"></svg>
+                  } @else {
+                    <svg lucideTerminal class="meta-icon" aria-hidden="true"></svg>
+                  }
                 }
+                <span>{{ clase.exercise_title || 'Sin práctica asociada' }}</span>
               </dd>
             </div>
-            <div>
+            <div class="meta-item">
               <dt>Horario</dt>
-              <dd>
+              <dd class="font-mono">
                 <time [attr.datetime]="clase.opens_at">{{ clase.opens_at | dateText:'time' }}</time>
                 –
                 <time [attr.datetime]="clase.ends_at">{{ clase.ends_at | dateText:'time' }}</time>
               </dd>
             </div>
-            <div>
+            <div class="meta-item">
               <dt>En el aula</dt>
               <dd>
-                <span machineData>{{ clase.present }}</span> de
-                <span machineData>{{ clase.enrolled }}</span>
+                <span class="font-mono" machineData>{{ clase.present }}</span> de
+                <span class="font-mono" machineData>{{ clase.enrolled }}</span>
               </dd>
             </div>
           </dl>
 
+          @if (isExam(clase)) {
+            <div class="exam-notice">
+              <p>Este examen supervisado no permite acceso libre a internet. Al finalizar el plazo, su entorno permanecerá en solo lectura.</p>
+            </div>
+          }
+
           <div class="card-actions">
-            @if (clase.exercise_id) {
-              <a class="btn btn-primary" [routerLink]="['/student/exercises', clase.exercise_id]">Abrir práctica</a>
-              <a class="link-quiet" routerLink="/student/aula">
-                @if (otherAulaCount() > 0) {
-                  Ver las <span machineData>{{ aulas().length }}</span> clases
-                } @else {
-                  Ver el aula
-                }
+            @if (isExam(clase)) {
+              <a class="btn-primary" [routerLink]="['/student/exercises', clase.exercise_id]">
+                <span>Entrar al examen →</span>
+              </a>
+            } @else if (clase.exercise_id) {
+              <a class="btn-primary" [routerLink]="['/student/exercises', clase.exercise_id]">
+                <span>Entrar al aula en vivo →</span>
               </a>
             } @else {
-              <a class="btn btn-primary" routerLink="/student/aula">Entrar al aula</a>
-              @if (otherAulaCount() > 0) {
-                <a class="link-quiet" routerLink="/student/aula">
-                  Ver las <span machineData>{{ aulas().length }}</span> clases
-                </a>
-              }
+              <a class="btn-primary" routerLink="/student/aula">
+                <span>Entrar al aula en vivo →</span>
+              </a>
+            }
+
+            @if (otherAulaCount() > 0) {
+              <a class="btn-ghost" routerLink="/student/aula">
+                <span>Ver las <span class="font-mono" machineData>{{ aulas().length }}</span> clases</span>
+              </a>
             }
           </div>
         } @else {
           <p class="empty-copy">
-            No tienes clase abierta. Cuando el docente abra el aula de una práctica, aparece acá con su horario.
+            No tiene clase abierta en este momento. Las prácticas publicadas siguen disponibles sin aula abierta.
           </p>
           <div class="card-actions">
-            <a class="btn btn-secondary" routerLink="/student/courses">
-              <svg lucideBookOpen></svg>
-              <span>Ver mis prácticas</span>
+            <a class="btn-primary" routerLink="/student/courses">
+              <svg lucideBookOpen class="btn-icon" aria-hidden="true"></svg>
+              <span>Ver mis prácticas →</span>
             </a>
           </div>
         }
@@ -91,28 +127,51 @@
       <article class="home-card motion-rise motion-stagger" [style.--motion-index]="1">
         <header class="card-head">
           <h2 class="card-title">Próximas entregas</h2>
-          @if (dueCount() > 0) {
-            <span class="card-count" machineData>{{ dueCount() }}</span>
-          }
+          <span class="card-count font-mono" machineData>
+            {{ dueCount() }} {{ dueCount() === 1 ? 'pendiente' : 'pendientes' }}
+          </span>
         </header>
 
         @if (dueLoadFailed()) {
-          <field-message variant="error" message="No pudimos leer tus entregas pendientes." />
+          <field-message variant="error" message="No se pudieron consultar sus entregas pendientes." />
         } @else if (dueSoon().length === 0) {
-          <p class="empty-copy">No tienes entregas con fecha límite próxima.</p>
+          <div class="empty-state-box">
+            <svg lucideInbox class="empty-state-icon" aria-hidden="true"></svg>
+            <p class="empty-state-title">No tiene entregas con fecha límite próxima</p>
+            <p class="empty-state-subtitle">Cuando sus docentes publiquen actividades con plazo, aparecerán aquí ordenadas cronológicamente.</p>
+          </div>
         } @else {
-          <ul class="row-list">
+          <ul class="due-list">
             @for (due of dueSoon(); track due.exercise_id) {
-              <li>
-                <a class="row-link" [routerLink]="['/student/exercises', due.exercise_id]">
-                  <span class="row-main">
-                    <span class="row-title">{{ due.title }}</span>
-                    <span class="row-sub">{{ due.subject_name }} <code>{{ due.subject_code }}</code></span>
-                  </span>
-                  <time class="row-time" [attr.datetime]="due.due_date">
-                    {{ due.due_date | dateText:'datetime' }}
-                  </time>
-                  <svg lucideArrowRight class="row-arrow"></svg>
+              <li class="due-row">
+                <div class="due-date-badge font-mono" machineData>
+                  <time class="due-date-day" [attr.datetime]="due.due_date">{{ due.due_date | dateText:'daymonth' }}</time>
+                </div>
+
+                <div class="due-main">
+                  <div class="due-title-row">
+                    @if (isIdeExercise(due)) {
+                      <svg lucideLaptop class="modality-icon" aria-hidden="true"></svg>
+                    } @else {
+                      <svg lucideTerminal class="modality-icon" aria-hidden="true"></svg>
+                    }
+                    <span class="due-title">{{ due.title }}</span>
+                    @if (isExam(due)) {
+                      <span class="exam-mini-badge">Examen</span>
+                    }
+                  </div>
+                  <div class="due-sub">
+                    <span class="subject-code font-mono" machineData>{{ due.subject_code }}</span>
+                    <span class="subject-name">{{ due.subject_name }}</span>
+                    <span class="meta-sep">·</span>
+                    <span class="urgency-label" [class.is-urgent]="getUrgencyLabel(due.due_date) === 'Hoy'">
+                      {{ getUrgencyLabel(due.due_date) }}
+                    </span>
+                  </div>
+                </div>
+
+                <a class="btn-secondary btn-sm action-btn" [routerLink]="['/student/exercises', due.exercise_id]">
+                  <span>{{ isExam(due) ? 'Iniciar →' : 'Continuar →' }}</span>
                 </a>
               </li>
             }
@@ -121,60 +180,87 @@
       </article>
     </div>
 
+    <!-- Columna Derecha: Sus materias (arriba) + Últimas entregas (abajo) -->
     <aside class="home-side">
-      <article class="home-card motion-rise motion-stagger" [style.--motion-index]="1">
+      <!-- 1. Sus materias -->
+      <article class="home-card motion-rise">
         <header class="card-head">
-          <h2 class="card-title">Últimas entregas</h2>
-          <a class="link-quiet" routerLink="/student/history">Historial</a>
+          <div class="card-title-group">
+            <h2 class="card-title">Sus materias</h2>
+            <span class="card-count font-mono" machineData>{{ subjects().length }}</span>
+          </div>
+          <a class="btn-ghost btn-sm" routerLink="/student/courses">
+            <span>Ver todas →</span>
+          </a>
         </header>
 
-        @if (recent().length === 0) {
-          <p class="empty-copy">Aún no registras entregas.</p>
+        @if (topSubjects().length === 0) {
+          <p class="empty-copy">No tiene materias matriculadas.</p>
         } @else {
-          <ul class="recent-list">
-            @for (sub of recent(); track sub.id) {
-              <li class="recent-item">
-                <span class="row-title">{{ sub.exercise_title || 'Ejercicio' }}</span>
-                <span class="recent-meta">
-                  @if (sub.verdict || sub.verdict_origin) {
-                    <verdict-badge [verdict]="sub.verdict" [origin]="sub.verdict_origin" size="sm" />
-                  }
-                  <time [attr.datetime]="sub.submitted_at">
-                    {{ sub.submitted_at | dateText:'compact-datetime' }}
-                  </time>
-                </span>
+          <ul class="subjects-list">
+            @for (item of topSubjects(); track item.subject.id) {
+              <li class="subject-row">
+                <a class="subject-row-link" [routerLink]="['/student/courses', item.subject.id]">
+                  <div class="subject-row-head">
+                    <span class="subject-code font-mono" machineData>{{ item.subject.code }}</span>
+                    <span class="subject-row-name" [title]="item.subject.name">{{ item.subject.name }}</span>
+                  </div>
+                  <div class="subject-row-meta">
+                    <span class="subject-progress-text font-mono" machineData>
+                      {{ item.completed_exercises ?? 0 }} / {{ item.total_exercises ?? 0 }} prácticas
+                    </span>
+                    <span class="subject-status-tag" [class.is-complete]="(item.completed_exercises ?? 0) === (item.total_exercises ?? 0) && (item.total_exercises ?? 0) > 0">
+                      {{ (item.completed_exercises ?? 0) === (item.total_exercises ?? 0) && (item.total_exercises ?? 0) > 0 ? 'Al día' : ((item.progress_percent ?? 0) + '%') }}
+                    </span>
+                  </div>
+                  <div class="subject-mini-track">
+                    <div
+                      class="subject-mini-fill"
+                      [class.is-done]="(item.completed_exercises ?? 0) === (item.total_exercises ?? 0) && (item.total_exercises ?? 0) > 0"
+                      [style.width.%]="item.progress_percent ?? 0"
+                    ></div>
+                  </div>
+                </a>
               </li>
             }
           </ul>
         }
       </article>
 
-      <article class="home-card motion-rise motion-stagger" [style.--motion-index]="2">
+      <!-- 2. Últimas entregas -->
+      <article class="home-card motion-rise motion-stagger" [style.--motion-index]="1">
         <header class="card-head">
-          <h2 class="card-title">Tus materias</h2>
-          <span class="card-count">
-            <span machineData>{{ globalProgressPercent() }}%</span> del semestre
-          </span>
+          <h2 class="card-title">Últimas entregas</h2>
+          <a class="btn-ghost btn-sm" routerLink="/student/history">
+            <span>Historial →</span>
+          </a>
         </header>
 
-        @if (subjects().length === 0) {
-          <p class="empty-copy">No tienes materias matriculadas.</p>
+        @if (recent().length === 0) {
+          <div class="empty-state-box">
+            <svg lucideInbox class="empty-state-icon" aria-hidden="true"></svg>
+            <p class="empty-state-title">Aún no registra entregas</p>
+            <p class="empty-state-subtitle">Sus entregas de código y proyectos se registrarán aquí con su veredicto oficial.</p>
+          </div>
         } @else {
-          <ul class="row-list">
-            @for (item of subjects(); track item.subject.id) {
-              <li>
-                <a class="course-row" [routerLink]="['/student/courses', item.subject.id]">
-                  <span class="course-main">
-                    <code class="subject-code">{{ item.subject.code }}</code>
-                    <span class="row-title">{{ item.subject.name }}</span>
-                  </span>
-                  <span class="course-progress">
-                    <span machineData>{{ item.completed_exercises ?? 0 }}/{{ item.total_exercises ?? 0 }}</span>
-                    <span class="progress-track">
-                      <span class="progress-fill" [style.width.%]="item.progress_percent ?? 0"></span>
-                    </span>
-                  </span>
-                </a>
+          <ul class="recent-list">
+            @for (sub of recent(); track sub.id) {
+              <li class="recent-item">
+                <div class="recent-item-main">
+                  <span class="recent-title">{{ sub.exercise_title || 'Ejercicio' }}</span>
+                  <div class="recent-meta-line">
+                    @if (sub.score !== undefined && sub.score !== null) {
+                      <span class="recent-score font-mono" machineData>{{ sub.score }} / 100</span>
+                      <span class="meta-sep">·</span>
+                    }
+                    <time class="recent-date font-mono" [attr.datetime]="sub.submitted_at">
+                      {{ sub.submitted_at | dateText:'compact-datetime' }}
+                    </time>
+                  </div>
+                </div>
+                <div class="recent-badge-wrap">
+                  <verdict-badge [verdict]="sub.verdict" [origin]="sub.verdict_origin" size="sm" />
+                </div>
               </li>
             }
           </ul>

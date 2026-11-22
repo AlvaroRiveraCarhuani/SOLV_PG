@@ -28,9 +28,12 @@ function renderTreeNode(node: TreeNode): string {
  * resto del código queda en un `<pre>` normal.
  */
 export function renderStatementMarkdown(raw: string): string {
-  if (!raw.trim()) {
+  if (!raw || !raw.trim()) {
     return '<p>Sin descripción disponible.</p>';
   }
+
+  // Normalizar saltos de línea escapados (\n literales) procedentes de serialización JSON
+  const normalized = raw.includes('\\n') ? raw.replace(/\\n/g, '\n') : raw;
 
   const renderer = new marked.Renderer();
   renderer.code = ({ text, lang }) => {
@@ -47,5 +50,5 @@ export function renderStatementMarkdown(raw: string): string {
     return `<pre><code${languageClass}>${escapeHtml(text)}</code></pre>`;
   };
 
-  return marked.parse(raw, { renderer, async: false }) as string;
+  return marked.parse(normalized, { renderer, async: false }) as string;
 }

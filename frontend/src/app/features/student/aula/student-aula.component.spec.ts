@@ -74,7 +74,7 @@ describe('StudentAulaComponent', () => {
     const fixture = await setup([], []);
 
     const text = fixture.nativeElement.textContent as string;
-    expect(text).toContain('No tienes clase abierta en este momento');
+    expect(text).toContain('No tiene clase abierta en este momento');
     expect(fixture.nativeElement.querySelector('.aula-card')).toBeNull();
 
     fixture.destroy();

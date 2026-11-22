@@ -2,24 +2,20 @@ import { Component, inject, input, signal, computed, effect } from '@angular/cor
 import { CommonModule } from '@angular/common';
 import { RouterModule } from '@angular/router';
 import {
-  LucideLock,
-  LucideBookOpen,
   LucideAlertCircle,
+  LucideBookOpen,
+  LucideCheck,
   LucideFileCode2,
-  LucideChevronRight,
-  LucideLayers
+  LucideLaptop,
+  LucideLock,
+  LucideTerminal
 } from '@lucide/angular';
-import { StudentService, CourseCurricularMap, CurricularModuleMap } from '@core/services/student.service';
+import { StudentService, CourseCurricularMap, CurricularModuleMap, CurricularExercise } from '@core/services/student.service';
 import { MachineDataDirective } from '@shared/directives/machine-data.directive';
+import { EnvironmentLabelPipe } from '@shared/pipes/environment-label.pipe';
 
-/**
- * Prácticas de una materia, ordenadas por el mapa curricular cuando el docente
- * definió módulos.
- *
- * El mapa y las prácticas viven en paneles separados: una materia sin módulos
- * no dibuja un estado vacío enorme antes de sus prácticas, y una materia con
- * módulos no mezcla el desbloqueo académico con los ejercicios sueltos.
- */
+type CurricularFilterTab = 'all' | 'pending' | 'exam' | 'completed';
+
 @Component({
   selector: 'curricular-map',
   standalone: true,
@@ -27,12 +23,14 @@ import { MachineDataDirective } from '@shared/directives/machine-data.directive'
     CommonModule,
     RouterModule,
     MachineDataDirective,
-    LucideLock,
-    LucideBookOpen,
+    EnvironmentLabelPipe,
     LucideAlertCircle,
+    LucideBookOpen,
+    LucideCheck,
     LucideFileCode2,
-    LucideChevronRight,
-    LucideLayers
+    LucideLaptop,
+    LucideLock,
+    LucideTerminal
   ],
   templateUrl: './curricular-map.component.html',
   styleUrl: './curricular-map.component.scss'
@@ -41,17 +39,33 @@ export class CurricularMapComponent {
   private studentService = inject(StudentService);
 
   courseId = input.required<string>();
-  /** El encabezado de la ficha incrementa este valor para releer el mapa. */
   refreshTick = input(0);
 
   mapData = signal<CourseCurricularMap | null>(null);
   isLoading = signal<boolean>(true);
   loadError = signal<string | null>(null);
+  activeTab = signal<CurricularFilterTab>('all');
 
   totalModules = computed(() => this.mapData()?.modules.length || 0);
   hasModules = computed(() => this.totalModules() > 0);
 
-  unassignedExercises = computed(() => this.mapData()?.unassigned_exercises ?? []);
+  allExercisesList = computed<CurricularExercise[]>(() => {
+    const data = this.mapData();
+    if (!data) return [];
+    const fromModules = data.modules.flatMap(m => m.exercises);
+    const unassigned = data.unassigned_exercises || [];
+    return [...fromModules, ...unassigned];
+  });
+
+  tabCounts = computed(() => {
+    const list = this.allExercisesList();
+    return {
+      all: list.length,
+      pending: list.filter(e => !this.isExerciseCompleted(e)).length,
+      exam: list.filter(e => e.purpose === 'exam').length,
+      completed: list.filter(e => this.isExerciseCompleted(e)).length
+    };
+  });
 
   completedModules = computed(() => {
     const mods = this.mapData()?.modules || [];
@@ -64,13 +78,16 @@ export class CurricularMapComponent {
     return Math.round((this.completedModules() / total) * 100);
   });
 
+  unassignedExercises = computed(() => {
+    const unassigned = this.mapData()?.unassigned_exercises ?? [];
+    return this.filterExercises(unassigned);
+  });
+
   constructor() {
     effect(() => {
       const id = this.courseId();
       this.refreshTick();
-      if (!id) {
-        return;
-      }
+      if (!id) return;
       void this.loadCurricularMap(id);
     });
   }
@@ -88,58 +105,38 @@ export class CurricularMapComponent {
     }
   }
 
-  getModuleStateLabel(state: CurricularModuleMap['state']): string {
-    switch (state) {
-      case 'completed':
-        return 'Completado';
-      case 'in_progress':
-        return 'En curso';
-      case 'unlocked':
-        return 'Disponible';
-      case 'locked':
-        return 'Bloqueado';
-      default:
-        return 'Pendiente';
-    }
+  setTab(tab: CurricularFilterTab): void {
+    this.activeTab.set(tab);
   }
 
-  getDifficultyClass(diff?: string): string {
-    switch (diff?.toLowerCase()) {
-      case 'easy':
-      case 'facil':
-      case 'fácil':
-        return 'diff-easy';
-      case 'medium':
-      case 'medio':
-        return 'diff-medium';
-      case 'hard':
-      case 'dificil':
-      case 'difícil':
-        return 'diff-hard';
-      default:
-        return 'diff-default';
-    }
+  filterExercises(exercises: CurricularExercise[]): CurricularExercise[] {
+    const tab = this.activeTab();
+    if (tab === 'all') return exercises;
+    if (tab === 'pending') return exercises.filter(e => !this.isExerciseCompleted(e));
+    if (tab === 'exam') return exercises.filter(e => e.purpose === 'exam');
+    if (tab === 'completed') return exercises.filter(e => this.isExerciseCompleted(e));
+    return exercises;
   }
 
-  getDifficultyLabel(diff?: string): string {
-    switch (diff?.toLowerCase()) {
-      case 'easy':
-      case 'facil':
-      case 'fácil':
-        return 'Fácil';
-      case 'medium':
-      case 'medio':
-        return 'Medio';
-      case 'hard':
-      case 'dificil':
-      case 'difícil':
-        return 'Difícil';
-      default:
-        return diff || 'General';
-    }
+  isExerciseCompleted(ex: CurricularExercise): boolean {
+    return (ex.best_score !== null && ex.best_score !== undefined && ex.best_score >= 60);
+  }
+
+  isExerciseInProgress(ex: CurricularExercise): boolean {
+    return !this.isExerciseCompleted(ex) && ex.best_score !== null && ex.best_score !== undefined;
   }
 
   getModulePassedCount(module: CurricularModuleMap): number {
     return module.exercises.filter(ex => (ex.best_score ?? 0) >= module.pass_score).length;
+  }
+
+  isIdeExercise(ex: CurricularExercise): boolean {
+    const item = ex as unknown as { environment_type?: string; type?: string };
+    return item.environment_type === 'IDE_PERSISTENTE' || item.type === 'project';
+  }
+
+  getEnvironmentType(ex: CurricularExercise): string {
+    const item = ex as unknown as { environment_type?: string };
+    return item.environment_type || (this.isIdeExercise(ex) ? 'IDE_PERSISTENTE' : 'JUEZ_EFIMERO');
   }
 }

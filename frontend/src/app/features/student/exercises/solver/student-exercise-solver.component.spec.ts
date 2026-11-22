@@ -160,7 +160,7 @@ describe('StudentExerciseSolverComponent', () => {
 
     expect(component.practiceAdvances().map(advance => advance.id)).toEqual(['advance-1']);
     const callout = fixture.nativeElement.querySelector('.advance-callout') as HTMLElement | null;
-    expect(callout?.textContent).toContain('Tu docente emitió un avance de esta práctica');
+    expect(callout?.textContent).toContain('Su docente emitió un avance para esta práctica');
 
     component.openAdvance(component.practiceAdvances()[0]);
     fixture.detectChanges();
@@ -201,7 +201,7 @@ describe('StudentExerciseSolverComponent', () => {
     component.environment.set({ id: 'ws-1', status: 'pending' } as unknown as PracticeEnvironment);
     fixture.detectChanges();
     expect(component.environmentState()).toBe('preparing');
-    expect(fixture.nativeElement.textContent).toContain('Preparando tu examen');
+    expect(fixture.nativeElement.textContent).toContain('Preparando su examen');
 
     component.environment.set({
       id: 'ws-1',
@@ -210,13 +210,13 @@ describe('StudentExerciseSolverComponent', () => {
     } as unknown as PracticeEnvironment);
     fixture.detectChanges();
     expect(component.environmentState()).toBe('ready');
-    expect(fixture.nativeElement.textContent).toContain('Estás rindiendo el examen');
-    expect(fixture.nativeElement.textContent).toContain('Tu práctica de esta materia sigue intacta');
+    expect(fixture.nativeElement.textContent).toContain('Está rindiendo el examen');
+    expect(fixture.nativeElement.textContent).toContain('Su práctica de esta materia sigue intacta');
 
     component.environment.set({ id: 'ws-1', status: 'frozen' } as unknown as PracticeEnvironment);
     fixture.detectChanges();
     expect(component.environmentState()).toBe('closed');
-    expect(fixture.nativeElement.textContent).toContain('Tu espacio está en solo lectura');
+    expect(fixture.nativeElement.textContent).toContain('Su espacio está en solo lectura');
   });
 
   it('muestra el aviso de solo lectura cuando el examen ya terminó y el entorno no carga', async () => {
@@ -241,7 +241,7 @@ describe('StudentExerciseSolverComponent', () => {
     expect(component.environment()).toBeNull();
     expect(component.examClosed()).toBe(true);
     expect(component.environmentState()).toBe('closed');
-    expect(fixture.nativeElement.textContent).toContain('Tu espacio está en solo lectura');
+    expect(fixture.nativeElement.textContent).toContain('Su espacio está en solo lectura');
 
     startSpy.mockRestore();
     openSpy.mockRestore();
@@ -270,7 +270,7 @@ describe('StudentExerciseSolverComponent', () => {
     expect(component.examClosed()).toBe(false);
     expect(fixture.nativeElement.textContent).toContain('El docente pausó la clase');
     expect(fixture.nativeElement.textContent).not.toContain('El examen terminó');
-    expect(fixture.nativeElement.textContent).not.toContain('Tu espacio está en solo lectura');
+    expect(fixture.nativeElement.textContent).not.toContain('Su espacio está en solo lectura');
 
     startSpy.mockRestore();
     openSpy.mockRestore();
@@ -318,27 +318,27 @@ describe('StudentExerciseSolverComponent', () => {
     expect(component.isExamProject()).toBe(true);
     expect(component.canSubmitProject()).toBe(true);
 
-    // Primer clic: confirma, todavía no entrega.
+    // Primer clic: abre confirm-modal
     component.requestSubmitProject();
     expect(projectSubmitCalls.length).toBe(0);
-    expect(component.examSubmitPending()).toBe(true);
+    expect(component.examConfirmModalOpen()).toBe(true);
 
-    // Segundo clic: registra la entrega como versión.
-    component.requestSubmitProject();
+    // Confirmación en modal: registra la entrega como versión.
+    component.onConfirmExamSubmit();
     await new Promise(resolve => setTimeout(resolve, 0));
     fixture.detectChanges();
 
     expect(projectSubmitCalls).toEqual(['ws-1']);
     expect(projectSubmitPayloads).toEqual([{ exercise_id: 'ex-101' }]);
     expect(component.projectSubmission()?.submission_id).toBe('sub-exam');
-    expect(component.examSubmitPending()).toBe(false);
+    expect(component.examConfirmModalOpen()).toBe(false);
 
     // El entorno sigue escribible: se puede volver a entregar.
     expect(component.canSubmitProject()).toBe(true);
     expect(fixture.nativeElement.textContent).not.toContain('congelado en solo lectura');
 
     component.requestSubmitProject();
-    component.requestSubmitProject();
+    component.onConfirmExamSubmit();
     await new Promise(resolve => setTimeout(resolve, 0));
     expect(projectSubmitCalls).toEqual(['ws-1', 'ws-1']);
   });

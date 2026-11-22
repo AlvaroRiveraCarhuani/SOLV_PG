@@ -8,22 +8,15 @@ import { FieldMessageComponent } from '@shared/components/field-message/field-me
 import { MachineDataDirective } from '@shared/directives/machine-data.directive';
 import { DateTextPipe } from '@shared/pipes/date-text.pipe';
 import {
-  LucideArrowRight,
   LucideBookOpen,
-  LucideHistory
+  LucideHistory,
+  LucideInbox,
+  LucideLaptop,
+  LucideTerminal
 } from '@lucide/angular';
 import { StudentAulaService } from '../services/student-aula.service';
 import { aulaStatusLabel, aulaStatusTone } from '../services/aula-status';
 
-/**
- * Inicio del alumno.
- *
- * No es un tablero de widgets: son las tres cosas que el alumno necesita ver al
- * entrar —la clase que está abierta, lo que entrega pronto y el avance de sus
- * materias— y el acceso a su historial. El entorno ya no se muestra acá porque
- * es de una práctica, no de la materia: se abre desde la práctica o desde el
- * aula (ADR-059).
- */
 @Component({
   selector: 'student-dashboard',
   standalone: true,
@@ -35,9 +28,11 @@ import { aulaStatusLabel, aulaStatusTone } from '../services/aula-status';
     FieldMessageComponent,
     MachineDataDirective,
     DateTextPipe,
-    LucideArrowRight,
     LucideBookOpen,
-    LucideHistory
+    LucideHistory,
+    LucideInbox,
+    LucideLaptop,
+    LucideTerminal
   ],
   templateUrl: './student-dashboard.component.html',
   styleUrl: './student-dashboard.component.scss'
@@ -69,13 +64,17 @@ export class StudentDashboardComponent implements OnInit {
     return this.studentService.dashboardData()?.subjects || [];
   });
 
+  readonly topSubjects = computed(() => {
+    return this.subjects().slice(0, 4);
+  });
+
   readonly dueAssignments = computed(() => {
     return this.studentService.dueAssignments();
   });
 
   readonly dueCount = computed(() => this.dueAssignments().length);
 
-  /** La portada resume; la lista completa vive en su vista. */
+  /** Máximo 4 actividades próximas */
   readonly dueSoon = computed(() => this.dueAssignments().slice(0, 4));
 
   readonly recentSubmissions = computed(() => {
@@ -88,32 +87,46 @@ export class StudentDashboardComponent implements OnInit {
 
   readonly otherAulaCount = computed(() => Math.max(this.aulas().length - 1, 0));
 
-  readonly globalProgressPercent = computed(() => {
-    const items = this.subjects();
-    if (items.length === 0) return 0;
-    const total = items.reduce((acc, item) => acc + (item.total_exercises ?? 0), 0);
-    const completed = items.reduce((acc, item) => acc + (item.completed_exercises ?? 0), 0);
-    if (total === 0) return 0;
-    return Math.round((completed * 100) / total);
-  });
-
   readonly summary = computed(() => {
     if (this.dueLoadFailed()) {
-      return 'No pudimos revisar tus entregas pendientes.';
+      return 'No se pudieron consultar sus entregas pendientes.';
     }
     const clase = this.primaryAula();
     if (clase) {
-      return `Tienes clase abierta de ${clase.subject_name}.`;
+      return `Tiene clase abierta de ${clase.subject_name}.`;
     }
     const pendientes = this.dueCount();
     if (pendientes === 1) {
-      return 'Tienes 1 entrega próxima.';
+      return 'Tiene 1 entrega próxima.';
     }
     if (pendientes > 1) {
-      return `Tienes ${pendientes} entregas próximas.`;
+      return `Tiene ${pendientes} entregas próximas.`;
     }
-    return 'No tienes entregas pendientes.';
+    return 'No tiene entregas pendientes.';
   });
+
+  getUrgencyLabel(dueDateStr?: string): string {
+    if (!dueDateStr) return '';
+    const now = new Date();
+    const due = new Date(dueDateStr);
+    const diffMs = due.getTime() - now.getTime();
+    if (diffMs < 0) return 'Vencida';
+    const diffHours = diffMs / (1000 * 60 * 60);
+    if (diffHours <= 24) return 'Hoy';
+    if (diffHours <= 48) return 'Mañana';
+    const days = Math.ceil(diffHours / 24);
+    return `En ${days} días`;
+  }
+
+  isExam(item: unknown): boolean {
+    const it = item as { purpose?: string; type?: string; title?: string };
+    return it?.purpose === 'exam' || it?.type === 'exam' || (it?.title?.toLowerCase().includes('examen') ?? false);
+  }
+
+  isIdeExercise(item: unknown): boolean {
+    const it = item as { environment_type?: string; type?: string };
+    return it?.environment_type === 'IDE_PERSISTENTE' || it?.type === 'project' || it?.type === 'ide';
+  }
 
   ngOnInit(): void {
     void this.aulasService.load();

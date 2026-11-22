@@ -133,7 +133,7 @@ describe('StudentDashboardComponent', () => {
     await setup();
 
     expect(text()).toContain('Mateo');
-    expect(text()).toContain('Tienes clase abierta de Estructuras de Datos.');
+    expect(text()).toContain('Tiene clase abierta de Estructuras de Datos.');
   });
 
   it('muestra la práctica, el horario y la presencia del aula', async () => {
@@ -148,21 +148,15 @@ describe('StudentDashboardComponent', () => {
     expect(times.length).toBe(2);
     expect(times[0].textContent?.trim()).toBe('08:00');
 
-    // Con práctica asociada, la tarjeta lleva directo a la práctica: el aula es
-    // el contexto (presencia y avances), no un paso intermedio obligatorio.
-    const practiceLink = links().find(a => a.textContent?.includes('Abrir práctica'));
+    const practiceLink = links().find(a => a.textContent?.includes('Entrar al aula en vivo'));
     expect(practiceLink?.getAttribute('href')).toBe('/student/exercises/ex-1');
-
-    const aulaLink = links().find(a => a.textContent?.includes('Ver el aula'));
-    expect(aulaLink?.getAttribute('href')).toBe('/student/aula');
   });
 
   it('sin práctica asociada entra al aula como única acción', async () => {
     await setup({ aulas: [{ ...AULA, exercise_id: null, exercise_title: undefined }] });
 
-    const aulaLink = links().find(a => a.textContent?.includes('Entrar al aula'));
+    const aulaLink = links().find(a => a.textContent?.includes('Entrar al aula en vivo'));
     expect(aulaLink?.getAttribute('href')).toBe('/student/aula');
-    expect(text()).not.toContain('Abrir práctica');
   });
 
   it('avisa cuando hay más de una clase abierta', async () => {
@@ -174,8 +168,8 @@ describe('StudentDashboardComponent', () => {
   it('sin clase abierta invita a las prácticas y no afirma que está al día si falló la carga', async () => {
     await setup({ aulas: [], dueFailed: true });
 
-    expect(text()).toContain('No tienes clase abierta');
-    expect(text()).toContain('No pudimos revisar tus entregas pendientes.');
+    expect(text()).toContain('No tiene clase abierta');
+    expect(text()).toContain('No se pudieron consultar sus entregas pendientes.');
 
     const practicas = links().find(a => a.textContent?.includes('Ver mis prácticas'));
     expect(practicas?.getAttribute('href')).toBe('/student/courses');
@@ -184,27 +178,24 @@ describe('StudentDashboardComponent', () => {
   it('lista las entregas próximas con su fecha y enlace a la práctica', async () => {
     await setup();
 
-    const row = (fixture.nativeElement as HTMLElement).querySelector('.row-link') as HTMLAnchorElement;
-    expect(row.textContent).toContain('Listas enlazadas');
-    expect(row.textContent).toContain('SIS-211');
-    expect(row.getAttribute('href')).toBe('/student/exercises/ex-9');
+    const row = (fixture.nativeElement as HTMLElement).querySelector('.due-row');
+    expect(row?.textContent).toContain('Listas enlazadas');
+    expect(row?.textContent).toContain('SIS-211');
 
-    const time = row.querySelector('time');
-    expect(time?.getAttribute('datetime')).toBe('2026-11-06T23:59:00');
-    expect(time?.textContent?.trim()).toBe('06/11/2026 23:59');
+    const actionLink = row?.querySelector('.action-btn') as HTMLAnchorElement;
+    expect(actionLink?.getAttribute('href')).toBe('/student/exercises/ex-9');
   });
 
-  it('muestra el avance por materia y el total del semestre', async () => {
+  it('muestra el avance por materia con conteo real', async () => {
     await setup();
 
-    const rows = (fixture.nativeElement as HTMLElement).querySelectorAll('.course-row');
+    const rows = (fixture.nativeElement as HTMLElement).querySelectorAll('.subject-row');
     expect(rows.length).toBe(2);
-    expect(rows[0].textContent).toContain('3/4');
+    expect(rows[0].textContent).toContain('3 / 4 prácticas');
 
-    const fills = (fixture.nativeElement as HTMLElement).querySelectorAll<HTMLElement>('.progress-fill');
+    const fills = (fixture.nativeElement as HTMLElement).querySelectorAll<HTMLElement>('.subject-mini-fill');
     expect(fills[0].style.width).toBe('75%');
     expect(fills[1].style.width).toBe('0%');
-    expect(text()).toContain('50%');
   });
 
   it('cierra con las últimas entregas y sus estados vacíos', async () => {
@@ -217,7 +208,7 @@ describe('StudentDashboardComponent', () => {
 
     await setup({ dashboard: EMPTY_DASHBOARD, aulas: [], due: [] });
 
-    expect(text()).toContain('No tienes materias matriculadas.');
-    expect(text()).toContain('Aún no registras entregas.');
+    expect(text()).toContain('No tiene materias matriculadas.');
+    expect(text()).toContain('Aún no registra entregas');
   });
 });
