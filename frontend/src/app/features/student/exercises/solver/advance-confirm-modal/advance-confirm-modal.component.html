@@ -48,7 +48,7 @@
   } @else if (loadError(); as message) {
     <div class="advance-error" role="alert">
       <p>{{ message }}</p>
-      <button type="button" class="btn btn-outline" (click)="loadPreview()">Reintentar</button>
+      <button type="button" class="btn btn-secondary" (click)="loadPreview()">Reintentar</button>
     </div>
   } @else if (preview(); as files) {
     <p class="block-text">
@@ -91,7 +91,7 @@
     @if (result()) {
       <button type="button" class="btn btn-primary" (click)="onClose()">Cerrar</button>
     } @else {
-      <button type="button" class="btn btn-outline" (click)="onClose()" [disabled]="isApplying()">
+      <button type="button" class="btn btn-secondary" (click)="onClose()" [disabled]="isApplying()">
         Cancelar
       </button>
       <button
