@@ -5,7 +5,7 @@
       <div>
         <h3 class="card-title">Criterios de Evaluación y Rúbrica</h3>
         <p class="section-desc">
-          Opcional. Si definís criterios, se usan para calificar; si no, calificás a mano. La escala estándar se aplica sola.
+          Opcional. Si define criterios, se usan para calificar; si no, califica manualmente. La escala estándar se aplica sola.
         </p>
       </div>
     </div>
@@ -14,34 +14,46 @@
       <span class="rubric-scale-badge">
         Escala: <strong>Logrado (100%) · Parcial (50%) · No logrado (0%)</strong>
       </span>
-      <span
-        class="rubric-balance-badge font-mono"
-        [class.valid]="totalRubricWeight() === 100"
-        [class.invalid]="totalRubricWeight() !== 100"
-        machineData
-      >
-        @if (totalRubricWeight() === 100) {
-          <svg lucideCheckCircle2 class="badge-icon icon-success"></svg>
-          <span>Total: 100% · Balanceado ✓</span>
-        } @else {
-          <svg lucideAlertTriangle class="badge-icon icon-danger"></svg>
-          <span>Total: {{ totalRubricWeight() }}% · Debe sumar 100%</span>
-        }
-      </span>
+      @if ((rubric()?.criteria?.length || 0) > 0) {
+        <span
+          class="rubric-balance-badge font-mono"
+          [class.valid]="totalRubricWeight() === 100"
+          [class.invalid]="totalRubricWeight() !== 100"
+          machineData
+        >
+          @if (totalRubricWeight() === 100) {
+            <svg lucideCheckCircle2 class="badge-icon icon-success"></svg>
+            <span>Total: 100 %</span>
+          } @else {
+            <svg lucideAlertTriangle class="badge-icon icon-warning"></svg>
+            <span>Total: {{ totalRubricWeight() }} %</span>
+          }
+        </span>
 
-      @if (totalRubricWeight() !== 100 && (rubric()?.criteria?.length || 0) > 0) {
-        <button type="button" class="btn-balance-action" (click)="balanceEqually.emit()" title="Repartir pesos equitativamente para sumar 100%">
-          <svg lucideScale class="btn-icon-xs"></svg>
-          <span>Balancear al 100%</span>
-        </button>
+        @if (totalRubricWeight() !== 100) {
+          <button type="button" class="btn-balance-action" (click)="balanceEqually.emit()" title="Repartir pesos de modo que sumen 100 %">
+            <svg lucideScale class="btn-icon-xs"></svg>
+            <span>Equilibrar</span>
+          </button>
+        }
       }
     </div>
   </div>
 
+  @if ((rubric()?.criteria?.length || 0) > 0) {
+    <span class="rubric-total-track" aria-hidden="true">
+      <span
+        class="rubric-total-fill"
+        [class.is-balanced]="totalRubricWeight() === 100"
+        [style.width.%]="totalRubricWeight()"
+      ></span>
+    </span>
+  }
+
   @if (!rubric() || rubric()?.criteria?.length === 0) {
     <div class="empty-rubric-box">
       <svg lucideClipboardList class="empty-icon"></svg>
-      <p class="empty-text">No has definido criterios de evaluación para este laboratorio.</p>
+      <p class="empty-text">Sin criterios definidos. La práctica se califica manualmente sobre 100 puntos.</p>
       <button type="button" class="btn-add-initial" (click)="addCriterion.emit()">
         <svg lucidePlus class="btn-icon"></svg>
         <span>Agregar primer criterio</span>
@@ -129,7 +141,7 @@
 
     <button type="button" class="btn-add-criterion" (click)="addCriterion.emit()">
       <svg lucidePlus class="btn-icon-sm"></svg>
-      <span>+ Agregar aspecto a evaluar</span>
+      <span>Agregar criterio</span>
     </button>
   }
 </section>

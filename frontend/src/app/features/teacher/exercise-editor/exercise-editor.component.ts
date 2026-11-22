@@ -1,5 +1,6 @@
 import { Component, OnDestroy, OnInit, computed, inject, input, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { FormsModule } from '@angular/forms';
 import { RouterLink, ActivatedRoute, Router } from '@angular/router';
 import {
   LucideArrowLeft,
@@ -9,7 +10,9 @@ import {
   LucideGlobe,
   LucideLoader2,
   LucideSparkles,
-  LucideTerminal
+  LucideTerminal,
+  LucideMoreVertical,
+  LucidePanelRightOpen
 } from '@lucide/angular';
 import { ExerciseEditorStore } from './exercise-editor.store';
 import { StepIdentityComponent } from './steps/step-identity/step-identity.component';
@@ -18,8 +21,13 @@ import { StepIdeEnvironmentComponent } from './steps/step-ide-environment/step-i
 import { StepPublicationComponent } from './steps/step-publication/step-publication.component';
 import { StudentPreviewModalComponent } from './student-preview-modal/student-preview-modal.component';
 import { AiExerciseGeneratorModalComponent } from './ai-exercise-generator-modal/ai-exercise-generator-modal.component';
+import { StepperNavComponent } from './shared/stepper-nav.component';
+import { PreflightModalComponent } from './shared/preflight-modal/preflight-modal.component';
+import { ConsultDrawerComponent } from './shared/consult-drawer/consult-drawer.component';
 import { ConfirmModalComponent } from '@shared/components/confirm-modal/confirm-modal.component';
-import { ModalShellComponent } from '@shared/components/modal-shell/modal-shell.component';
+import { DismissibleDirective } from '@shared/directives/dismissible.directive';
+import { MachineDataDirective } from '@shared/directives/machine-data.directive';
+import { EnvironmentLabelPipe } from '@shared/pipes/environment-label.pipe';
 import { TeacherAiCopilotService, AIGenerateExerciseResponse } from '../services/teacher-ai-copilot.service';
 import { TeacherDashboardService } from '../services/teacher-dashboard.service';
 import { TeacherCourseService } from '../services/teacher-course.service';
@@ -32,6 +40,7 @@ import { Subscription, catchError, of } from 'rxjs';
   standalone: true,
   imports: [
     CommonModule,
+    FormsModule,
     RouterLink,
     LucideArrowLeft,
     LucideCheck,
@@ -41,193 +50,316 @@ import { Subscription, catchError, of } from 'rxjs';
     LucideLoader2,
     LucideSparkles,
     LucideTerminal,
+    LucideMoreVertical,
+    LucidePanelRightOpen,
     StepIdentityComponent,
     StepContractComponent,
     StepIdeEnvironmentComponent,
     StepPublicationComponent,
     StudentPreviewModalComponent,
     AiExerciseGeneratorModalComponent,
+    StepperNavComponent,
+    PreflightModalComponent,
+    ConsultDrawerComponent,
     ConfirmModalComponent,
-    ModalShellComponent
+    DismissibleDirective,
+    MachineDataDirective,
+    EnvironmentLabelPipe
   ],
   template: `
-    <div class="exercise-editor-page">
-      <!-- Top Navigation & Actions Bar -->
-      <header class="editor-topbar">
-        <div class="topbar-left">
-          <a [routerLink]="['/teacher/cursos', store.courseId()]" class="back-link">
-            <svg lucideArrowLeft class="back-icon"></svg>
-            <span>Volver al curso{{ courseName() ? ' · ' + courseName() : '' }}</span>
+    <div class="editor-page">
+      <header class="editor-header">
+        <div class="header-left">
+          <a [routerLink]="['/teacher/cursos', store.courseId()]" class="btn-ghost btn-sm back-link">
+            <svg lucideArrowLeft class="btn-icon-sm" aria-hidden="true"></svg>
+            {{ courseName() || 'Materia' }}
           </a>
+          <span class="header-divider" aria-hidden="true"></span>
 
-          <div class="title-meta">
-            <h1 class="editor-heading">
-              {{ store.metadata().title || (store.exerciseId() ? 'Editar práctica' : 'Nueva práctica') }}
+          <div class="title-block">
+            <h1 class="editor-title">
+              {{ store.metadata().title || (store.exerciseId() ? 'Editar práctica' : (store.metadata().purpose === 'exam' ? 'Nuevo examen' : 'Nueva práctica')) }}
             </h1>
-            <div class="meta-badges">
-              <span class="status-badge" [class.published]="store.status() === 'published'">
-                {{ store.status() === 'published' ? 'Publicado' : 'Borrador' }}
-              </span>
-
-              @if (store.dirty()) {
-                <span class="dirty-badge">
-                  <span class="dirty-dot"></span>
-                  <span>Cambios sin guardar</span>
-                </span>
-              } @else if (store.lastSavedAt()) {
-                <span class="saved-badge">
-                  <svg lucideCheck class="saved-icon"></svg>
-                  <span>Guardado</span>
-                </span>
-              }
-            </div>
-
-            @if (unitTitle()) {
-              <span class="status-badge unit-badge">{{ unitTitle() }}</span>
-            }
+            <span class="status-badge" [class.is-published]="store.status() === 'published'">
+              {{ store.status() === 'published' ? 'Publicado' : 'Borrador' }}
+            </span>
           </div>
+
+          <span class="persist-state" [class.is-dirty]="store.dirty()">
+            <span class="persist-dot" aria-hidden="true"></span>
+            {{ store.dirty() || !store.exerciseId() ? 'Cambios sin guardar' : 'Guardado' }}
+          </span>
+
+          @if (store.dirty() || !store.exerciseId()) {
+            <button type="button" class="btn-ghost btn-sm save-btn" [disabled]="store.isSaving()" (click)="saveNow()">
+              Guardar
+            </button>
+          }
         </div>
 
-        <div class="topbar-actions">
-          @if (store.isIde() && store.exerciseId()) {
-            <button
-              type="button"
-              class="btn-outline env-test-btn"
-              [disabled]="isEnvTestRunning()"
-              (click)="runEnvTest()"
-              title="Ejecuta el entorno real, incluido el script de base de datos, como lo verá el alumno"
-            >
-              @if (isEnvTestRunning()) {
-                <svg lucideLoader2 class="btn-icon motion-spin"></svg>
-                <span>Probando...</span>
-              } @else {
-                <svg lucideTerminal class="btn-icon"></svg>
-                <span>Probar entorno</span>
-              }
+        <div class="header-actions">
+          @if (store.isIde() && isEnvTestRunning() && store.currentStep() !== 2) {
+            <button type="button" class="env-pill" (click)="store.setStep(2)" title="Volver a la sección 2">
+              <svg lucideLoader2 class="btn-icon-sm motion-spin" aria-hidden="true"></svg>
+              Probando entorno… <span machineData>{{ envTestJob()?.progress?.percent ?? 0 }} %</span>
             </button>
           }
 
-          <button
-            type="button"
-            class="btn-outline preview-btn"
-            (click)="store.setStudentPreviewOpen(true, 'preview')"
-            title="Ver exactamente cómo verá el estudiante el enunciado y editor"
-          >
-            <svg lucideEye class="btn-icon"></svg>
-            <span>Vista previa</span>
+          <button type="button" class="btn-secondary btn-sm" (click)="store.setStudentPreviewOpen(true, 'preview')">
+            <svg lucideEye class="btn-icon-sm" aria-hidden="true"></svg>
+            Vista previa
           </button>
 
-          <button
-            type="button"
-            class="btn-outline ai-copilot-btn"
-            (click)="aiModalOpen.set(true)"
-            title="Generar propuesta pedagógica completa con el Copiloto IA"
-          >
-            <svg lucideSparkles class="btn-icon"></svg>
-            <span>Generar con IA</span>
+          <button type="button" class="btn-secondary btn-sm" (click)="aiModalOpen.set(true)">
+            <svg lucideSparkles class="btn-icon-sm" aria-hidden="true"></svg>
+            Generar con IA
+            <span class="ai-mode">{{ aiEnabled() ? 'Institucional' : 'BYOK' }}</span>
           </button>
 
-          <button
-            type="button"
-            class="btn-outline delete-draft-btn"
-            (click)="confirmDeleteDraft()"
-            title="Descartar y borrar los cambios no guardados del borrador"
-          >
-            <svg lucideTrash2 class="btn-icon"></svg>
-            <span>Eliminar borrador</span>
-          </button>
+          <div class="more-actions-dropdown" dismissible (dismiss)="showMoreActions.set(false)">
+            <button
+              type="button"
+              class="btn-secondary btn-sm more-toggle"
+              aria-label="Más acciones del editor"
+              [attr.aria-expanded]="showMoreActions()"
+              (click)="showMoreActions.update(v => !v)"
+            >
+              <svg lucideMoreVertical class="btn-icon-sm" aria-hidden="true"></svg>
+            </button>
 
-          @if (store.status() === 'published') {
-            @if (store.templateChangedSincePublish()) {
-              <button
-                type="button"
-                class="btn-primary btn-publish-step"
-                [disabled]="store.isPublishing()"
-                (click)="onPublishClick()"
-                title="La plantilla del entorno cambió: republicá para que los alumnos nuevos la reciban"
-              >
-                @if (store.isPublishing()) {
-                  <svg lucideLoader2 class="btn-icon motion-spin"></svg>
-                  <span>Republicando...</span>
-                } @else {
-                  <svg lucideGlobe class="btn-icon"></svg>
-                  <span>Republicar entorno</span>
-                }
-              </button>
-            } @else {
-              <div class="published-pill">
-                <svg lucideCheck class="btn-icon"></svg>
-                <span>Publicada</span>
+            @if (showMoreActions()) {
+              <div class="dropdown-menu animate-dropdown" animate.leave="motion-dropdown-out">
+                <button type="button" class="dropdown-item is-danger" (click)="confirmDeleteDraft(); showMoreActions.set(false)">
+                  <svg lucideTrash2 class="btn-icon-sm" aria-hidden="true"></svg>
+                  Eliminar borrador
+                </button>
               </div>
             }
-          } @else {
-            <button
-              type="button"
-              class="btn-primary btn-publish-step"
-              [disabled]="store.isPublishing()"
-              (click)="onPublishClick()"
-              title="Publicar la práctica para los estudiantes"
-            >
-              @if (store.isPublishing()) {
-                <svg lucideLoader2 class="btn-icon motion-spin"></svg>
-                <span>Publicando...</span>
-              } @else {
-                <svg lucideGlobe class="btn-icon"></svg>
-                <span>Publicar</span>
-              }
-            </button>
-          }
+          </div>
+
+          <button
+            type="button"
+            class="btn-primary btn-sm publish-btn"
+            [disabled]="store.isPublishing()"
+            (click)="requestPublish()"
+          >
+            @if (store.isPublishing()) {
+              <svg lucideLoader2 class="btn-icon-sm motion-spin" aria-hidden="true"></svg>
+              Publicando…
+            } @else if (store.status() === 'published') {
+              <svg lucideGlobe class="btn-icon-sm" aria-hidden="true"></svg>
+              {{ store.templateChangedSincePublish() ? 'Republicar entorno' : 'Actualizar publicación' }}
+            } @else {
+              <svg lucideGlobe class="btn-icon-sm" aria-hidden="true"></svg>
+              Publicar
+            }
+          </button>
         </div>
       </header>
 
-      @if (store.status() === 'published') {
-        <div class="published-edit-banner" role="status">
-          <svg lucideGlobe class="banner-icon"></svg>
-          <span>
-            Esta práctica está publicada: consigna y rúbrica se aplican al guardar. Si cambiás la
-            plantilla del entorno, usá «Republicar entorno» para que los alumnos nuevos la reciban.
-          </span>
-        </div>
-      }
+      <div class="editor-layout">
+        <stepper-nav (openPreflight)="openPreflightModal()" />
 
-      @if (store.isIde() && (envTestJob() || envTestError())) {
-        <div
-          class="env-test-strip"
-          [class.failed]="envTestJob()?.status === 'failed' || !!envTestError()"
-          [class.success]="envTestJob()?.status === 'success'"
-          role="status"
-        >
-          <span>{{ envTestSummary() }}</span>
-        </div>
-      }
+        <div class="editor-main">
+          <section class="context-strip" aria-label="Contexto de la práctica">
+            <div class="context-groups">
+              <div class="context-group" role="radiogroup" aria-label="Modalidad">
+                <span class="context-label font-mono">MODALIDAD</span>
+                <div class="segmented">
+                  <button
+                    type="button"
+                    role="radio"
+                    class="segment"
+                    [class.is-active]="store.isIde()"
+                    [attr.aria-checked]="store.isIde()"
+                    (click)="setEnvironment('IDE_PERSISTENTE')"
+                  >
+                    {{ 'IDE_PERSISTENTE' | environmentLabel }}
+                  </button>
+                  <button
+                    type="button"
+                    role="radio"
+                    class="segment"
+                    [class.is-active]="!store.isIde()"
+                    [attr.aria-checked]="!store.isIde()"
+                    (click)="setEnvironment('JUEZ_EFIMERO')"
+                  >
+                    {{ 'JUEZ_EFIMERO' | environmentLabel }}
+                  </button>
+                </div>
+              </div>
 
-      <!-- Lienzo único: la práctica se completa en una sola pasada -->
-      <main class="editor-columns-grid">
-        <section class="center-column">
-          @if (store.isLoading()) {
-            <div class="loading-state">
-              <p>Cargando la práctica...</p>
+              <div class="context-group" role="radiogroup" aria-label="Propósito">
+                <span class="context-label font-mono">PROPÓSITO</span>
+                <div class="segmented">
+                  <button
+                    type="button"
+                    role="radio"
+                    class="segment"
+                    [class.is-active]="store.metadata().purpose === 'class'"
+                    [attr.aria-checked]="store.metadata().purpose === 'class'"
+                    (click)="setPurpose('class')"
+                  >
+                    Clase / Formativo
+                  </button>
+                  <button
+                    type="button"
+                    role="radio"
+                    class="segment"
+                    [class.is-active]="store.metadata().purpose === 'exam'"
+                    [attr.aria-checked]="store.metadata().purpose === 'exam'"
+                    (click)="setPurpose('exam')"
+                  >
+                    Examen / Calificado
+                  </button>
+                </div>
+              </div>
             </div>
-          } @else {
-            <step-identity />
 
-            @if (store.metadata().environment_type === 'IDE_PERSISTENTE') {
+            @if (store.metadata().purpose === 'exam') {
+              <div class="exam-strip">
+                <div class="context-group" role="radiogroup" aria-label="Acceso a internet">
+                  <span class="context-label font-mono">ACCESO A INTERNET</span>
+                  <div class="segmented">
+                    <button
+                      type="button"
+                      role="radio"
+                      class="segment"
+                      [class.is-active]="store.metadata().exam_network !== 'egress'"
+                      [attr.aria-checked]="store.metadata().exam_network !== 'egress'"
+                      (click)="setExamNetwork('none')"
+                    >
+                      Sin internet
+                    </button>
+                    <button
+                      type="button"
+                      role="radio"
+                      class="segment"
+                      [class.is-active]="store.metadata().exam_network === 'egress'"
+                      [attr.aria-checked]="store.metadata().exam_network === 'egress'"
+                      (click)="setExamNetwork('egress')"
+                    >
+                      Excepción con motivo
+                    </button>
+                  </div>
+                </div>
+
+                @if (store.metadata().exam_network === 'egress') {
+                  <div class="reason-field">
+                    <label class="reason-label" for="exam-reason">Motivo de la excepción *</label>
+                    <textarea
+                      id="exam-reason"
+                      class="form-textarea reason-input"
+                      rows="2"
+                      maxlength="240"
+                      [class.has-warning]="!examReasonValid()"
+                      [ngModel]="store.metadata().exam_network_reason"
+                      (ngModelChange)="onExamReasonChange($event)"
+                      placeholder="Explique por qué la evaluación requiere conexión externa"
+                    ></textarea>
+                    <span class="reason-meta font-mono">
+                      <span machineData>{{ (store.metadata().exam_network_reason || '').length }}</span> / 240
+                      @if (!examReasonValid()) {
+                        <span class="reason-hint">Mínimo 10 caracteres</span>
+                      }
+                    </span>
+                  </div>
+                }
+
+                @if (!store.isIde()) {
+                  <label class="seed-chip">
+                    <input
+                      type="checkbox"
+                      [checked]="store.metadata().per_student_seed"
+                      (change)="toggleAntiCopy($event)"
+                    />
+                    Anti-copia (semilla por estudiante)
+                  </label>
+                }
+
+                <p class="exam-note">
+                  El editor y las ejecuciones locales continúan funcionando sin conexión a internet.
+                </p>
+              </div>
+            }
+          </section>
+
+          @if (store.status() === 'published') {
+            <div class="published-banner" role="status">
+              <svg lucideGlobe class="banner-icon" aria-hidden="true"></svg>
+              <span>
+                Esta práctica está publicada: consigna y rúbrica se aplican al guardar. Si cambia la
+                plantilla del entorno, use «Republicar entorno» para que los estudiantes nuevos la reciban.
+              </span>
+            </div>
+          }
+
+          @if (store.isIde() && (envTestJob() || envTestError()) && !isEnvTestRunning()) {
+            <div
+              class="env-test-strip"
+              [class.is-failed]="envTestJob()?.status === 'failed' || !!envTestError()"
+              [class.is-success]="envTestJob()?.status === 'success'"
+              role="status"
+            >
+              <span>{{ envTestSummary() }}</span>
+            </div>
+          }
+
+          @if (store.currentStep() > 1) {
+            <div class="consult-bar">
+              <button type="button" class="btn-secondary btn-sm" (click)="consultOpen.set(true)">
+                <svg lucidePanelRightOpen class="btn-icon-sm" aria-hidden="true"></svg>
+                {{ store.isIde() ? 'Ver consigna' : 'Ver enunciado' }}
+              </button>
+            </div>
+          }
+
+          <div class="editor-section-content">
+            @if (store.isLoading()) {
+              <div class="loading-state">
+                <p>Cargando la práctica…</p>
+              </div>
+            } @else if (store.currentStep() === 1) {
+              <step-identity />
+            } @else if (store.isIde()) {
+              @if (store.currentStep() === 2) {
+                <section class="env-test-panel" aria-label="Prueba de entorno">
+                  <div class="env-test-copy">
+                    <span class="env-test-title">Prueba de entorno</span>
+                    <p class="env-test-detail">
+                      {{ isEnvTestRunning() ? envTestSummary() : (envTestJob()?.status === 'success' ? 'El entorno quedó listo con la configuración actual.' : 'Verifique el entorno antes de la clase.') }}
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    class="btn-secondary btn-sm"
+                    [disabled]="isEnvTestRunning() || !store.exerciseId()"
+                    (click)="runEnvTest()"
+                  >
+                    @if (isEnvTestRunning()) {
+                      <svg lucideLoader2 class="btn-icon-sm motion-spin" aria-hidden="true"></svg>
+                      Probando…
+                    } @else {
+                      Probar entorno
+                    }
+                  </button>
+                </section>
+              }
               <step-ide-environment />
-            } @else {
+            } @else if (store.currentStep() === 2) {
               <step-contract />
+            } @else {
               <step-publication />
             }
-          }
-        </section>
-      </main>
+          </div>
+        </div>
+      </div>
 
-      <!-- Modal de Vista Previa del Estudiante -->
       <student-preview-modal
         [isOpen]="store.studentPreviewOpen()"
         (closed)="store.setStudentPreviewOpen(false)"
       />
 
-      <!-- Modal de Confirmación para Borrar Borrador -->
       @if (showDeleteModal()) {
         <confirm-modal
           title="¿Eliminar borrador?"
@@ -240,34 +372,16 @@ import { Subscription, catchError, of } from 'rxjs';
         />
       }
 
-      <!-- Modal Informativa de Requisitos para Publicar -->
-      @if (showValidationModal()) {
-        <modal-shell animate.leave="motion-modal-out"
-          title="Requisitos para publicar"
-          subtitle="Completá los siguientes aspectos antes de publicar la práctica:"
-          maxWidth="520px"
-          (closed)="showValidationModal.set(false)"
-        >
-          <div class="missing-reqs-content">
-            <ul class="missing-reqs-list" style="margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: var(--space-2);">
-              @for (req of store.missingPublishRequirements(); track $index) {
-                <li class="missing-req-item" style="display: flex; align-items: flex-start; gap: var(--space-2); font-size: var(--text-xs); color: var(--text-secondary);">
-                  <span class="bullet-dot" style="color: var(--color-warning); font-weight: bold;">•</span>
-                  <span>{{ req }}</span>
-                </li>
-              }
-            </ul>
-
-            <div class="modal-shell-actions" style="margin-top: var(--space-4); display: flex; justify-content: flex-end;">
-              <button type="button" class="btn-primary" (click)="showValidationModal.set(false)">
-                Entendido, voy a completarlo
-              </button>
-            </div>
-          </div>
-        </modal-shell>
+      @if (preflightOpen()) {
+        <preflight-modal (closed)="preflightOpen.set(false)" (publish)="onPreflightPublish()" />
       }
 
-      <!-- Modal de Confirmación para Publicar la Práctica -->
+      <consult-drawer
+        [open]="consultOpen()"
+        (closed)="consultOpen.set(false)"
+        (editSection)="goToIdentity()"
+      />
+
       @if (store.showPublishConfirmModal()) {
         <confirm-modal
           title="Publicar práctica"
@@ -281,15 +395,13 @@ import { Subscription, catchError, of } from 'rxjs';
         />
       }
 
-      <!-- Toast de Confirmación -->
       @if (toastMessage(); as msg) {
         <div class="toast-notification animate-fade" role="status">
-          <svg lucideCheck class="toast-icon"></svg>
+          <svg lucideCheck class="toast-icon" aria-hidden="true"></svg>
           <span>{{ msg }}</span>
         </div>
       }
 
-      <!-- Modal del Copiloto IA -->
       @if (aiModalOpen()) {
         <ai-exercise-generator-modal
           [defaultLanguage]="store.metadata().language || 'python'"
@@ -323,6 +435,9 @@ export class ExerciseEditorComponent implements OnInit, OnDestroy {
   readonly aiModalOpen = signal(false);
   readonly unitTitle = signal<string>('');
 
+  readonly showMoreActions = signal(false);
+  readonly preflightOpen = signal(false);
+
   /** Nombre del curso resuelto desde el catálogo del panel docente. */
   readonly courseName = computed(() => {
     const cId = this.store.courseId();
@@ -343,6 +458,11 @@ export class ExerciseEditorComponent implements OnInit, OnDestroy {
     return hasStatement || hasRubric || hasTitle;
   });
 
+  readonly examReasonValid = computed(() => {
+    const meta = this.store.metadata();
+    return meta.exam_network !== 'egress' || (meta.exam_network_reason || '').trim().length >= 10;
+  });
+
   readonly envTestJob = signal<PracticeEnvTestJob | null>(null);
   readonly isEnvTestRunning = signal(false);
   readonly envTestError = signal<string | null>(null);
@@ -359,19 +479,19 @@ export class ExerciseEditorComponent implements OnInit, OnDestroy {
     }
     switch (job.status) {
       case 'success':
-        return 'Entorno probado correctamente: el alumno puede abrirlo tal como está.';
+        return 'Entorno probado correctamente: el estudiante puede abrirlo tal como está.';
       case 'failed':
-        return `La prueba falló: ${job.error_message || 'revisá el script de base de datos y el stack.'}`;
+        return `La prueba falló: ${job.error_message || 'revise el script de base de datos y el stack.'}`;
       case 'canceled':
         return 'La última prueba se canceló.';
       default:
-        return `Probando el entorno... ${job.progress?.percent ?? 0}%`;
+        return `Probando el entorno… ${job.progress?.percent ?? 0} %`;
     }
   });
 
   readonly publishMessage = computed(() => {
     const title = this.store.metadata().title || 'este ejercicio';
-    const base = `¿Confirmas publicar «${title}»? Quedará visible inmediatamente para todos los estudiantes inscritos en el curso.`;
+    const base = `¿Confirma publicar «${title}»? Quedará visible de inmediato para los estudiantes inscritos en el curso.`;
     if (!this.store.isIde()) {
       return base;
     }
@@ -380,28 +500,83 @@ export class ExerciseEditorComponent implements OnInit, OnDestroy {
       return `${base} Hay una prueba de entorno en curso.`;
     }
     if (!job) {
-      return `${base} Todavía no probaste el entorno.`;
+      return `${base} Todavía no se probó el entorno.`;
     }
     if (job.status === 'success') {
       return `${base} La última prueba de entorno salió bien.`;
     }
     if (job.status === 'failed') {
-      return `${base} La última prueba de entorno falló: ${job.error_message || 'sin detalle'}. Podés publicar igual.`;
+      return `${base} La última prueba de entorno falló: ${job.error_message || 'sin detalle'}. Puede publicar igual.`;
     }
     return base;
   });
 
   showDeleteModal = signal<boolean>(false);
-  showValidationModal = signal<boolean>(false);
+  consultOpen = signal<boolean>(false);
   toastMessage = signal<string | null>(null);
   private toastTimer: ReturnType<typeof setTimeout> | null = null;
 
-  onPublishClick(): void {
-    if (this.store.missingPublishRequirements().length > 0) {
-      this.showValidationModal.set(true);
-    } else {
-      this.store.showPublishConfirmModal.set(true);
+  /** Abre el preflight si hay bloqueos o avisos sin aceptar. */
+  requestPublish(): void {
+    this.store.refreshChecklist();
+    const warnings = this.store.checklistReport()?.warnings ?? [];
+    const hasBlockers = this.store.missingPublishRequirements().length > 0 || !this.examReasonValid();
+    if (hasBlockers || (warnings.length > 0 && !this.store.acceptedWarnings())) {
+      this.preflightOpen.set(true);
+      return;
     }
+    this.store.showPublishConfirmModal.set(true);
+  }
+
+  openPreflightModal(): void {
+    this.store.refreshChecklist();
+    this.preflightOpen.set(true);
+  }
+
+  onPreflightPublish(): void {
+    this.store.setAcceptedWarnings(true);
+    this.preflightOpen.set(false);
+    this.onPublishConfirmed();
+  }
+
+  goToIdentity(): void {
+    this.consultOpen.set(false);
+    this.store.setStep(1);
+  }
+
+  saveNow(): void {
+    void this.store.saveDraft();
+  }
+
+  setEnvironment(environment: 'IDE_PERSISTENTE' | 'JUEZ_EFIMERO'): void {
+    this.store.updateMetadata({
+      environment_type: environment,
+      modality: environment === 'IDE_PERSISTENTE' ? 'environment' : 'judge',
+      ...(environment === 'JUEZ_EFIMERO' ? {} : { per_student_seed: false })
+    });
+  }
+
+  setPurpose(purpose: 'class' | 'exam'): void {
+    const keepsSeed = purpose === 'exam' && !this.store.isIde();
+    this.store.updateMetadata({
+      purpose,
+      ...(keepsSeed ? {} : { per_student_seed: false })
+    });
+  }
+
+  setExamNetwork(network: 'none' | 'egress'): void {
+    this.store.updateMetadata({
+      exam_network: network,
+      ...(network === 'none' ? { exam_network_reason: '' } : {})
+    });
+  }
+
+  onExamReasonChange(reason: string): void {
+    this.store.updateMetadata({ exam_network_reason: reason });
+  }
+
+  toggleAntiCopy(event: Event): void {
+    this.store.updateMetadata({ per_student_seed: (event.target as HTMLInputElement).checked });
   }
 
   confirmDeleteDraft() {
@@ -417,10 +592,10 @@ export class ExerciseEditorComponent implements OnInit, OnDestroy {
   onPublishConfirmed() {
     this.store.executePublish(
       () => {
-        this.showToast('¡Ejercicio publicado con éxito!');
+        this.showToast('Ejercicio publicado.');
       },
       () => {
-        this.showToast(this.store.publishError() || 'Error al publicar el ejercicio.');
+        this.showToast(this.store.publishError() || 'No se pudo publicar el ejercicio.');
       }
     );
   }
@@ -519,7 +694,6 @@ export class ExerciseEditorComponent implements OnInit, OnDestroy {
     const envType = snapshot.queryParamMap.get('environment_type') || '';
     const moduleId = snapshot.queryParamMap.get('module_id') || '';
 
-    // Tracking de telemetría de uso
     console.info('[AuditLog] exercise_editor_opened', {
       editor_type: 'new_editor',
       exercise_id: exId,
@@ -549,9 +723,7 @@ export class ExerciseEditorComponent implements OnInit, OnDestroy {
       }
       this.loadLatestEnvTest(exId);
     } else {
-      // Al ingresar a crear nuevo laboratorio, iniciar con formulario completamente limpio
       this.store.resetToNew(cId);
-      // Preselección desde el Catálogo de Entornos ("Usar en Laboratorio")
       this.store.preselectTemplate(tplId, envType);
     }
 
@@ -560,7 +732,6 @@ export class ExerciseEditorComponent implements OnInit, OnDestroy {
       error: () => this.aiEnabled.set(false)
     });
 
-    // El lienzo muestra la auditoría, no una validación por paso.
-    this.store.setStep(3);
+    this.store.setStep(1);
   }
 }

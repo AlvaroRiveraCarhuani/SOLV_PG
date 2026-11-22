@@ -1,7 +1,7 @@
 <modal-shell animate.leave="motion-modal-out"
   title="Generar Borrador con Copiloto IA"
   [subtitle]="isIde() ? 'Crea la consigna estructurada y la rúbrica de evaluación balanceada al 100%' : 'Crea enunciado, solución de referencia y casos de prueba sellados por el motor de evaluación'"
-  maxWidth="640px"
+  maxWidth="740px"
   (close)="closed.emit()"
 >
   <svg modal-icon lucideSparkles class="icon"></svg>
@@ -263,7 +263,7 @@
         label="Consigna pedagógica"
         for="ai-prompt"
         [required]="true"
-        [hint]="isIde() ? 'Describe la práctica de desarrollo que deseas enseñar. Presioná Ctrl + Enter para generar.' : 'Describe el tema del ejercicio (5 a 1500 caracteres). Presioná Ctrl + Enter para generar.'"
+        [hint]="isIde() ? 'Describa la práctica de desarrollo que desea enseñar. Presione Ctrl + Enter para generar.' : 'Describa el tema del ejercicio (5 a 1500 caracteres). Presione Ctrl + Enter para generar.'"
       >
         <textarea
           id="ai-prompt"

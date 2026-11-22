@@ -302,7 +302,7 @@ export class ExerciseEditorStore {
       warnings.push('Se recomienda agregar al menos una etiqueta temática (tag)');
     }
     if (!m.difficulty) {
-      warnings.push('No has definido un nivel de dificultad');
+      warnings.push('No se ha definido un nivel de dificultad');
     }
 
     return {
@@ -350,7 +350,7 @@ export class ExerciseEditorStore {
       }
       const rub = this.rubric();
       if (!rub || !rub.criteria || rub.criteria.length === 0) {
-        warnings.push('No has definido los criterios de la rúbrica de evaluación');
+        warnings.push('No se han definido los criterios de la rúbrica de evaluación');
       } else {
         const totalWeight = rub.criteria.reduce((sum, c) => sum + (c.weight || 0), 0);
         if (Math.abs(totalWeight - 100) > 0.01) {

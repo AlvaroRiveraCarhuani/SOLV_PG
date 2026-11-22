@@ -14,9 +14,10 @@
 .student-preview-window {
   display: flex;
   flex-direction: column;
-  width: 92vw;
-  max-width: 1440px;
-  height: 90vh;
+  width: 960px;
+  max-width: 92vw;
+  height: 85vh;
+  max-height: 85vh;
   background-color: var(--bg-surface);
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-lg);

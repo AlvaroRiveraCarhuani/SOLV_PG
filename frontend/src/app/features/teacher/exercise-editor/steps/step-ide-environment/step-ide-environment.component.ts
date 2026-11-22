@@ -8,7 +8,6 @@ import { IdeDbInitScriptComponent } from './components/ide-db-init-script/ide-db
 import { IdeDeliveryConfigComponent } from './components/ide-delivery-config/ide-delivery-config.component';
 import { IdeRubricEditorComponent } from './components/ide-rubric-editor/ide-rubric-editor.component';
 import { IdeProjectInitialComponent } from '../../workspace-project/ide-project-initial.component';
-import { StatementEditorComponent } from '../step-identity/statement-editor.component';
 import { ResolvableStackConfig } from '@features/admin/templates/template-tech-detector.utils';
 
 export interface ApprovedTemplate {
@@ -40,7 +39,6 @@ export interface ApprovedTemplate {
   imports: [
     IdeTemplateSelectorComponent,
     IdeDbInitScriptComponent,
-    StatementEditorComponent,
     IdeDeliveryConfigComponent,
     IdeRubricEditorComponent,
     IdeProjectInitialComponent,
@@ -48,6 +46,7 @@ export interface ApprovedTemplate {
   ],
   template: `
     <div class="ide-step-container">
+      @if (store.currentStep() === 2) {
       <!-- 1. Entorno de Trabajo (Stack Tecnológico) -->
       <section class="form-section">
         <ide-template-selector
@@ -68,7 +67,7 @@ export interface ApprovedTemplate {
       @if (!hasDatabaseService() && store.metadata().db_init_script.trim()) {
         <section class="form-section">
           <p class="script-published-note">
-            La plantilla elegida no incluye base de datos y la práctica conserva un script SQL. Mientras siga ahí no se puede publicar: limpialo abajo o elegí una plantilla con base.
+            La plantilla elegida no incluye base de datos y la práctica conserva un script SQL. Mientras siga ahí no se puede publicar: límpielo abajo o elija una plantilla con base.
           </p>
         </section>
       }
@@ -81,17 +80,15 @@ export interface ApprovedTemplate {
           />
           @if (store.status() === 'published' && store.metadata().db_init_script?.trim()) {
             <p class="script-published-note">
-              Los alumnos que ya abrieron la práctica conservan su base actual; los nuevos reciben esta versión del script. Podés reiniciar la base de un alumno desde la página de la práctica.
+              Los estudiantes que ya abrieron la práctica conservan su base actual; los nuevos reciben esta versión del script. Puede reiniciar la base de un estudiante desde la página de la práctica.
             </p>
           }
         </section>
       }
 
-      <!-- 4. Consigna Pedagógica (Enunciado sobre el entorno ya seleccionado) -->
-      <section class="form-section">
-        <statement-editor />
-      </section>
+      }
 
+      @if (store.currentStep() === 3) {
       <!-- 5. Parámetros de Entrega y Sincronización -->
       <section class="form-section">
         <ide-delivery-config
@@ -118,6 +115,7 @@ export interface ApprovedTemplate {
           (balanceEqually)="distributeWeightsEqually()"
         />
       </section>
+      }
 
       @if (showRequestModal()) {
         <template-request-modal

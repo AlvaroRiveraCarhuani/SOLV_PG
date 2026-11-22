@@ -400,3 +400,23 @@
     height: 13px;
   }
 }
+
+/* Barra proporcional del total de la rúbrica sobre 100 %. */
+.rubric-total-track {
+  display: block;
+  height: 5px;
+  margin: 0 0 var(--space-2);
+  border-radius: 3px;
+  background-color: var(--bg-surface-active);
+  overflow: hidden;
+}
+
+.rubric-total-fill {
+  display: block;
+  height: 100%;
+  background-color: var(--status-pending-color);
+
+  &.is-balanced {
+    background-color: var(--status-success-color);
+  }
+}

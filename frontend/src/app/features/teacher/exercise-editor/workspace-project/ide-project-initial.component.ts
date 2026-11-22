@@ -477,12 +477,12 @@ export class IdeProjectInitialComponent {
     if (!id || this.aiGenerating()) return;
     const template = this.store.metadata().template;
     if (!template) {
-      this.aiError.set('Elegí un entorno de trabajo antes de generar el proyecto.');
+      this.aiError.set('Elija un entorno de trabajo antes de generar el proyecto.');
       return;
     }
     const form = this.aiForm();
     if (!form.description.trim()) {
-      this.aiError.set('Describe qué proyecto querés preparar antes de generar.');
+      this.aiError.set('Describa qué proyecto desea preparar antes de generar.');
       return;
     }
 
@@ -891,7 +891,7 @@ export class IdeProjectInitialComponent {
       labels.length === 1
         ? labels[0]
         : `${labels.slice(0, -1).join(', ')} y ${labels[labels.length - 1]}`;
-    return `El proyecto incluye ${list}, pero el entorno «${mismatch.environmentName}» fue preparado para otra tecnología. Esas herramientas pueden no estar disponibles al abrirlo; revisá el proyecto o elegí otro entorno.`;
+    return `El proyecto incluye ${list}, pero el entorno «${mismatch.environmentName}» fue preparado para otra tecnología. Esas herramientas pueden no estar disponibles al abrirlo; revise el proyecto o elija otro entorno.`;
   }
 
   formatBytes(bytes: number): string {

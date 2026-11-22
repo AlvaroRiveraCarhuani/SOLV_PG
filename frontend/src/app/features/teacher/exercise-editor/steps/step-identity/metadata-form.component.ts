@@ -194,7 +194,7 @@ import { ExerciseEditorStore } from '../../exercise-editor.store';
           [tags]="store.metadata().tags"
           (tagsChange)="onTagsChange($event)"
         />
-        <span class="field-hint">Para clasificar y reutilizar la práctica en tu biblioteca docente.</span>
+        <span class="field-hint">Para clasificar y reutilizar la práctica en su biblioteca docente.</span>
       </div>
     </div>
   `,

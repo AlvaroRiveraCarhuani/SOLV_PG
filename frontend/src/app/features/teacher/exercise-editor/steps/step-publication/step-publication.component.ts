@@ -1,6 +1,6 @@
 import { Component, OnInit, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { LucideShield, LucideCode2, LucideCheckSquare } from '@lucide/angular';
+import { LucideShield, LucideCode2 } from '@lucide/angular';
 import { ExerciseEditorStore } from '../../exercise-editor.store';
 import { ASTRulesBuilderComponent } from './ast-rules-builder/ast-rules-builder.component';
 import { BoilerplateTabsComponent } from './boilerplate-tabs/boilerplate-tabs.component';
@@ -12,7 +12,6 @@ import { BoilerplateTabsComponent } from './boilerplate-tabs/boilerplate-tabs.co
     CommonModule,
     LucideShield,
     LucideCode2,
-    LucideCheckSquare,
     ASTRulesBuilderComponent,
     BoilerplateTabsComponent
   ],
