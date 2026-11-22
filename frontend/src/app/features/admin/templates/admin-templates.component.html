@@ -174,7 +174,7 @@
           @for (item of pendingTemplates(); track item.id) {
             <article class="template-card">
               <div class="card-head">
-                <h3 class="card-title">{{ item.name }}</h3>
+                <h3 class="card-title" [title]="item.name">{{ item.name }}</h3>
                 <span [class]="'card-status is-' + cardStatusTone(item) + ' ' + cardStatusClass(item)">
                   <span [class]="'status-dot ' + cardStatusTone(item)"></span>
                   {{ cardStatusLabel(item) }}
@@ -388,7 +388,7 @@
           @for (item of paginatedCatalogTemplates(); track item.id) {
             <article class="template-card" [class.card-paused]="isPausedStatus(item.status)">
               <div class="card-head">
-                <h3 class="card-title">{{ item.name }}</h3>
+                <h3 class="card-title" [title]="item.name">{{ item.name }}</h3>
                 <span [class]="'card-status is-' + cardStatusTone(item) + ' ' + cardStatusClass(item)">
                   <span [class]="'status-dot ' + cardStatusTone(item)"></span>
                   {{ cardStatusLabel(item) }}
@@ -734,7 +734,7 @@
           @for (item of paginatedRejectedTemplates(); track item.id) {
             <article class="template-card card-rejected">
               <div class="card-head">
-                <h3 class="card-title">{{ item.name }}</h3>
+                <h3 class="card-title" [title]="item.name">{{ item.name }}</h3>
                 <span [class]="'card-status is-' + cardStatusTone(item) + ' ' + cardStatusClass(item)">
                   <span [class]="'status-dot ' + cardStatusTone(item)"></span>
                   {{ cardStatusLabel(item) }}

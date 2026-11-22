@@ -48,7 +48,9 @@ import {
   LucideWrench,
   LucideNetwork,
   LucideInfo,
-  LucideCheck
+  LucideCheck,
+  LucideDatabase,
+  LucidePackage
 } from '@lucide/angular';
 import {
   AiProposalView,
@@ -131,7 +133,9 @@ const STUDIO_HELP_KEY = 'studio-template-builder';
     LucideWrench,
     LucideNetwork,
     LucideInfo,
-    LucideCheck
+    LucideCheck,
+    LucideDatabase,
+    LucidePackage
   ],
   templateUrl: './template-studio.component.html',
   styleUrls: ['./template-studio.component.scss']
@@ -186,6 +190,12 @@ export class TemplateStudioComponent implements OnInit, OnDestroy {
 
   readonly targetEnvironment = signal<TargetEnvironment>('IDE_PERSISTENTE');
   readonly studioMode = signal<'visual' | 'code'>('visual');
+  readonly techTab = signal<'lang' | 'addons' | 'db'>('lang');
+  // El entorno de evaluación no admite base de datos satélite: si la pestaña
+  // activa era «db», se muestra el panel de lenguajes en lugar de un vacío.
+  readonly activeTechTab = computed<'lang' | 'addons' | 'db'>(() =>
+    this.techTab() === 'db' && this.targetEnvironment() === 'JUEZ_EFIMERO' ? 'lang' : this.techTab()
+  );
   readonly blueprintTab = signal<'human' | 'manifest'>('human');
 
   readonly name = signal<string>('');
@@ -423,7 +433,7 @@ export class TemplateStudioComponent implements OnInit, OnDestroy {
   });
 
   readonly selectedWebComponent = computed<TemplateComponent | null>(() => {
-    if (this.targetEnvironment() === 'JUEZ_EFIMERO' || this.targetEnvironment() === 'AMBOS') return null;
+    if (this.targetEnvironment() === 'JUEZ_EFIMERO') return null;
     const id = this.selectedWebPlatformId();
     if (!id) return null;
     return this.techComponents().find(i => i.id === id || i.slug === id) || null;
@@ -469,7 +479,7 @@ export class TemplateStudioComponent implements OnInit, OnDestroy {
   );
 
   readonly selectedDatabaseOption = computed<StudioDatabaseOption | null>(() => {
-    if (this.targetEnvironment() === 'JUEZ_EFIMERO' || this.targetEnvironment() === 'AMBOS') return null;
+    if (this.targetEnvironment() === 'JUEZ_EFIMERO') return null;
     const id = this.selectedDatabaseId();
     if (!id || id === 'db-none' || id === 'none') return null;
     return (
@@ -480,7 +490,7 @@ export class TemplateStudioComponent implements OnInit, OnDestroy {
   });
 
   readonly selectedAuxiliaryOption = computed<StudioDatabaseOption | null>(() => {
-    if (this.targetEnvironment() === 'JUEZ_EFIMERO' || this.targetEnvironment() === 'AMBOS') return null;
+    if (this.targetEnvironment() === 'JUEZ_EFIMERO') return null;
     const id = this.selectedAuxiliaryId();
     if (!id || id === 'none') return null;
     return (
@@ -573,7 +583,7 @@ export class TemplateStudioComponent implements OnInit, OnDestroy {
     if (this.studioMode() === 'visual') {
       if ((this.targetEnvironment() === 'JUEZ_EFIMERO' || this.targetEnvironment() === 'AMBOS') && !this.selectedRuntimeComponent()) {
         return {
-          reason: 'Seleccione un Lenguaje Principal en la Columna 1 para configurar la evaluación automática.',
+          reason: 'Seleccione un Lenguaje Principal para configurar la evaluación automática.',
           tone: 'neutral'
         };
       }
@@ -593,7 +603,7 @@ export class TemplateStudioComponent implements OnInit, OnDestroy {
       const selections = this.judgeLanguageSelections();
       if (selections.length === 0) {
         return {
-          reason: 'Seleccione al menos un lenguaje del evaluador en la Columna 1.',
+          reason: 'Seleccione al menos un lenguaje del evaluador.',
           tone: 'neutral'
         };
       }
@@ -646,6 +656,23 @@ export class TemplateStudioComponent implements OnInit, OnDestroy {
 
   readonly canPublishTemplate = computed<boolean>(
     () => !this.isVerifying() && !this.isSubmitting() && this.publishBlocker() === null
+  );
+
+  // Avance real del constructor: nombre válido, stack elegido y capacidad sin
+  // conflictos. El badge de cabecera no anuncia pasos que aún no están listos.
+  readonly stepCompletion = computed<boolean[]>(() => [
+    this.name().trim().length >= 3,
+    this.hasSelectedStack(),
+    this.hasSelectedStack() && !this.isRamBelowFloor() && !this.isRamExceedingHost()
+  ]);
+  readonly completedStepCount = computed<number>(
+    () => this.stepCompletion().filter(Boolean).length
+  );
+  readonly stepProgressLabel = computed<string>(
+    () => `${this.completedStepCount()} de 3 listos`
+  );
+  readonly hasJudgeCommand = computed<boolean>(
+    () => this.isJudgeTarget() && this.judgeLanguageSelections().length > 0
   );
 
   readonly intensiveRamMB = computed<number>(() =>
@@ -920,12 +947,17 @@ export class TemplateStudioComponent implements OnInit, OnDestroy {
 
   setTargetEnvironment(env: TargetEnvironment): void {
     this.targetEnvironment.set(env);
-    if (env === 'JUEZ_EFIMERO' || env === 'AMBOS') {
+    if (env === 'JUEZ_EFIMERO') {
+      // Sólo la evaluación pura descarta la web y los servicios satélite.
       this.selectedWebPlatformId.set(null);
       this.selectedDatabaseId.set('db-none');
       this.selectedAuxiliaryId.set(null);
-      // El lenguaje ya elegido para el laboratorio pasa a ser el primero del
-      // evaluador: el administrador no vuelve a elegirlo.
+      if (this.judgeLanguageIds().length === 0 && this.selectedRuntimeId()) {
+        this.judgeLanguageIds.set([this.selectedRuntimeId() as string]);
+      }
+    } else if (env === 'AMBOS') {
+      // Modo dual conserva el laboratorio completo (web y bases de datos) y
+      // añade ejecutores del evaluador sobre la misma plantilla.
       if (this.judgeLanguageIds().length === 0 && this.selectedRuntimeId()) {
         this.judgeLanguageIds.set([this.selectedRuntimeId() as string]);
       }

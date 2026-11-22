@@ -50,19 +50,10 @@
           </div>
         </div>
 
-        @if (targetEnvironment() === 'JUEZ_EFIMERO' || targetEnvironment() === 'AMBOS') {
+        @if (hasJudgeCommand()) {
           <div class="bp-block">
-            <span class="bp-label">Parámetros de Evaluación</span>
-            <div class="bp-judge-params">
-              <div class="judge-param-row">
-                <span class="param-label">Comando de ejecución:</span>
-                <span class="param-val" machineData>{{ entrypoint() || 'Pendiente' }}</span>
-              </div>
-              <div class="judge-param-row">
-                <span class="param-label">Límite sugerido:</span>
-                <span class="param-val"><span machineData>{{ timeoutMS() }}</span> ms</span>
-              </div>
-            </div>
+            <span class="bp-label">Comando del evaluador</span>
+            <code class="bp-command" machineData>{{ entrypoint() || 'Pendiente de comando' }}</code>
           </div>
         }
 
@@ -88,25 +79,31 @@
         </div>
 
         <div class="bp-block">
-          <div class="bp-row-between">
-            <span class="bp-label">Memoria por alumno</span>
-            @if (hasSelectedStack()) {
-              <strong class="bp-ram-val"><span machineData>{{ baseRamMB() }} MB</span></strong>
-            } @else {
-              <span class="bp-pending-text">Pendiente de selección</span>
-            }
-          </div>
-          <p class="bp-capacity-note">
-            @if (hasSelectedStack()) {
-              @if (nominalConcurrentStudents(); as nominal) {
-                Capacidad del aula: soporta ~<strong machineData>{{ nominal }}</strong> {{ targetEnvironment() === 'JUEZ_EFIMERO' ? 'evaluaciones simultáneas' : 'estudiantes simultáneos' }}.
+          <div class="bp-metric-grid">
+            <div class="bp-metric-card">
+              <span class="bp-label">RAM / alumno</span>
+              @if (hasSelectedStack()) {
+                <strong class="bp-metric-value"><span machineData>{{ baseRamMB() }} MB</span></strong>
               } @else {
-                Capacidad del aula: <span class="bp-pending-text">sin medición del servidor</span>
+                <span class="bp-pending-text">Pendiente</span>
               }
-            } @else {
-              Capacidad del aula: <span class="bp-pending-text">Seleccione tecnologías en el Paso 2</span>
-            }
-          </p>
+            </div>
+            <div class="bp-metric-card">
+              <span class="bp-label">Capacidad aula</span>
+              @if (hasSelectedStack()) {
+                @if (nominalConcurrentStudents(); as nominal) {
+                  <strong class="bp-metric-value">~<span machineData>{{ nominal }}</span></strong>
+                  <span class="bp-metric-note">
+                    {{ targetEnvironment() === 'JUEZ_EFIMERO' ? 'evaluaciones simultáneas' : 'estudiantes simultáneos' }}
+                  </span>
+                } @else {
+                  <span class="bp-pending-text">Sin medición del servidor</span>
+                }
+              } @else {
+                <span class="bp-pending-text">Paso 2 pendiente</span>
+              }
+            </div>
+          </div>
         </div>
 
         <div class="bp-block">
@@ -229,7 +226,7 @@
         }
       </div>
     } @else {
-      <div class="blueprint-body">
+      <div class="blueprint-body blueprint-body-manifest">
         <div class="manifest-header-row">
           <span class="bp-label">Contrato Técnico Generado</span>
           <div class="manifest-actions">

@@ -26,10 +26,11 @@
 }
 
 // En oscuro los logos conservan su imagen, pero el fondo deja de ser un bloque
-// pastel claro y pasa a la superficie neutra del tema.
+// pastel claro y pasa a una caja elevada: los logos de trazo oscuro (Rust,
+// Express, PostgreSQL) se leen sobre ella.
 :host-context([data-theme="dark"]) .tech-logo-container:not(.is-monogram) {
-  background-color: var(--bg-surface-subtle);
-  border-color: var(--border-strong);
+  background-color: var(--studio-icon-surface);
+  border-color: var(--studio-icon-border);
 }
 
 .tech-logo-img {

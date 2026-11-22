@@ -1,27 +1,14 @@
-.studio-card {
-  background-color: var(--bg-surface);
-  border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-md);
-  padding: var(--space-5);
+.capacity-step {
   display: flex;
   flex-direction: column;
-  gap: var(--space-4);
+  gap: var(--space-3);
 }
 
-.card-section-header {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: var(--space-4);
-  padding-bottom: var(--space-3);
-  border-bottom: 1px solid var(--border-subtle);
-  flex-wrap: wrap;
-}
-
-.section-subtitle {
+.capacity-intro {
+  margin: 0;
   font-size: var(--text-xs);
-  color: var(--text-secondary);
-  margin-top: var(--space-1);
+  color: var(--text-muted);
+  line-height: var(--leading-normal);
 }
 
 .field-group {
@@ -60,8 +47,12 @@
 
 .capacity-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
-  gap: var(--space-3);
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-2);
+
+  @media (max-width: 720px) {
+    grid-template-columns: minmax(0, 1fr);
+  }
 }
 
 .manual-ram-section {
@@ -87,20 +78,32 @@
   }
 }
 
+.custom-ram-field .form-input {
+  background-color: var(--studio-input-surface);
+  border-color: var(--studio-input-border);
+}
+
 .capacity-card {
   text-align: left;
   padding: var(--space-3);
-  border-radius: var(--radius-sm);
-  border: 1px solid var(--border-strong);
-  background-color: var(--bg-surface);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--studio-surface-2-border);
+  background-color: var(--studio-surface-2);
   cursor: pointer;
   display: flex;
   flex-direction: column;
   gap: var(--space-1);
+  transition: border-color var(--transition-fast), background-color var(--transition-fast);
+
+  &:hover {
+    border-color: var(--studio-surface-2-border);
+    background-color: var(--studio-surface-2-hover);
+  }
 
   &.selected {
     border-color: var(--tenant-primary);
     background-color: var(--tenant-primary-subtle);
+    box-shadow: inset 0 0 0 1px var(--tenant-primary);
   }
 }
 
@@ -113,7 +116,7 @@
 
 .cap-title {
   font-size: var(--text-sm);
-  font-weight: 700;
+  font-weight: 600;
   color: var(--text-primary);
 }
 
@@ -265,8 +268,7 @@
     color: var(--text-primary);
   }
 
-  &.bar-stack,
-  &.bar-satellite {
+  &.bar-stack {
     background-color: var(--tenant-primary-subtle);
     color: var(--tenant-primary);
   }

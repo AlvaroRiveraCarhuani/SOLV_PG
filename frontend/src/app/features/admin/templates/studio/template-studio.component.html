@@ -20,10 +20,9 @@
         <h1 class="page-title">
           {{ isEditMode() ? 'Editar Plantilla Oficial' : 'Registrar Nueva Plantilla Oficial' }}
         </h1>
-        <span class="studio-badge">Constructor de Entornos</span>
       </div>
       <p class="page-subtitle">
-        Seleccione las tecnologías y complementos que necesita para la materia o edite el manifiesto técnico directamente.
+        Defina el entorno reutilizable que los docentes podrán asignar a sus prácticas y evaluaciones.
       </p>
       @if (isEditMode() && publishedExerciseCount() > 0) {
         <p class="pin-usage-warning">
@@ -35,22 +34,45 @@
         </p>
       }
     </div>
+    <div class="head-side">
+      <span class="status-chip">
+        <span class="dot"></span>
+        {{ isEditMode() ? 'En edición' : 'Borrador' }}
+      </span>
+      <span class="head-tag" [class.head-tag-done]="completedStepCount() === 3">
+        <svg lucideLayers class="head-tag-icon"></svg>
+        {{ stepProgressLabel() }}
+      </span>
+    </div>
   </header>
 
   <div class="studio-grid">
     <div class="studio-left-column">
-      <studio-purpose-step
-        data-tour="studio-purpose"
-        [targetEnvironment]="targetEnvironment()"
-        [name]="name()"
-        [description]="description()"
-        [selectedCategoryId]="selectedCategoryId()"
-        [categoryOptions]="categoryOptions()"
-        (targetEnvironmentChange)="setTargetEnvironment($event)"
-        (nameChange)="onNameInput($event)"
-        (descriptionChange)="description.set($event)"
-        (categoryChange)="selectedCategoryId.set($event)"
-      />
+      <section class="studio-block">
+        <div class="block-head">
+          <div class="block-title">
+            <span class="step-num" aria-hidden="true">01</span>
+            <div>
+              <h2>Propósito y Datos del Entorno</h2>
+              <p>Para qué se usará el entorno y cómo lo reconocerán los docentes.</p>
+            </div>
+          </div>
+        </div>
+        <div class="block-body block-body-tight">
+          <studio-purpose-step
+            data-tour="studio-purpose"
+            [targetEnvironment]="targetEnvironment()"
+            [name]="name()"
+            [description]="description()"
+            [selectedCategoryId]="selectedCategoryId()"
+            [categoryOptions]="categoryOptions()"
+            (targetEnvironmentChange)="setTargetEnvironment($event)"
+            (nameChange)="onNameInput($event)"
+            (descriptionChange)="description.set($event)"
+            (categoryChange)="selectedCategoryId.set($event)"
+          />
+        </div>
+      </section>
 
       <!-- Banner de Diagnóstico y Reparación de la IA (Modo Avanzado) -->
       @if (repairDiagnosis(); as diag) {
@@ -69,60 +91,28 @@
         </div>
       }
 
-      <section class="studio-card">
-        <div class="card-section-header">
-          <div>
-            <div class="section-title-row">
-              <h2 class="section-title">2. Arquitectura y Tecnologías del Entorno</h2>
-              @if (targetEnvironment() === 'AMBOS') {
-                <button
-                  type="button"
-                  class="scope-chip-btn"
-                  (click)="openScopeInfoModal()"
-                  title="Ver especificación técnica de ejecución en Modo Dual"
-                >
-                  <svg lucideInfo class="chip-icon"></svg>
-                  <span>Modo Dual</span>
-                </button>
-              } @else if (targetEnvironment() === 'JUEZ_EFIMERO') {
-                <button
-                  type="button"
-                  class="scope-chip-btn"
-                  (click)="openScopeInfoModal()"
-                  title="Ver especificación técnica de la evaluación automática"
-                >
-                  <svg lucideInfo class="chip-icon"></svg>
-                  <span>{{ 'JUEZ_EFIMERO' | environmentLabel }}</span>
-                </button>
-              }
+      <section class="studio-block">
+        <div class="block-head">
+          <div class="block-title">
+            <span class="step-num" aria-hidden="true">02</span>
+            <div>
+              <h2><span class="sr-only">2. </span>Arquitectura y Tecnologías del Entorno</h2>
+              <p>Cada pieza ajusta la imagen, la memoria mínima y el resumen.</p>
             </div>
-            <p class="section-subtitle">
-              Combine el lenguaje principal, la interfaz web, los complementos y la base de datos. Ambos modos se mantienen sincronizados.
-            </p>
           </div>
-
-          <div class="header-actions-row">
-            <button
-              type="button"
-              class="btn-ai-section-trigger"
-              (click)="openTechGraph()"
-            >
-              <svg lucideNetwork class="btn-icon-xs"></svg>
-              <span>Mapa de Herramientas</span>
-            </button>
-
-            @if (aiEnabled()) {
+          <div class="block-aside">
+            @if (targetEnvironment() === 'JUEZ_EFIMERO') {
               <button
                 type="button"
-                class="btn-ai-section-trigger"
-                (click)="openAiCopilotModal()"
+                class="scope-chip-btn"
+                (click)="openScopeInfoModal()"
+                title="Ver especificación técnica de la evaluación automática"
               >
-                <svg lucideSparkles class="btn-icon-xs"></svg>
-                <span>Asistir con IA</span>
+                <svg lucideInfo class="chip-icon"></svg>
+                <span>{{ 'JUEZ_EFIMERO' | environmentLabel }}</span>
               </button>
             }
-
-            <div class="mode-toggle-group" role="tablist">
+            <div class="mode-toggle-group" role="tablist" aria-label="Modo de edición">
               <button
                 type="button"
                 class="mode-switch-btn"
@@ -145,17 +135,89 @@
           </div>
         </div>
 
+        <div class="block-body">
         @if (studioMode() === 'visual') {
-          <div class="studio-columns-grid" data-tour="studio-stack" [class.judge-cols]="targetEnvironment() === 'JUEZ_EFIMERO'">
-            <div class="studio-column">
-              <div class="column-header">
-                <div>
-                  <span class="column-step">Columna 1 · Principal</span>
-                  <h3 class="column-title">{{ targetEnvironment() === 'IDE_PERSISTENTE' ? 'Lenguaje y Web' : 'Lenguajes del Evaluador' }}</h3>
-                </div>
-              </div>
+          <div class="panel-tabs">
+            <div class="subtabs" role="tablist" aria-label="Tecnologías del entorno">
+              <button
+                type="button"
+                class="subtab"
+                id="tech-tab-lang"
+                role="tab"
+                aria-controls="tech-panel-lang"
+                [class.is-active]="activeTechTab() === 'lang'"
+                [attr.aria-selected]="activeTechTab() === 'lang'"
+                (click)="techTab.set('lang')"
+              >
+                <svg lucideCode class="tab-icon"></svg>
+                <span>{{ targetEnvironment() === 'JUEZ_EFIMERO' ? 'Lenguajes del evaluador' : 'Lenguajes y Web' }}</span>
+                <span class="tab-count">{{ isJudgeTarget() ? judgeLanguageSelections().length : (selectedRuntimeComponent() ? 1 : 0) + (selectedWebComponent() ? 1 : 0) }}</span>
+              </button>
+              <button
+                type="button"
+                class="subtab"
+                id="tech-tab-addons"
+                role="tab"
+                aria-controls="tech-panel-addons"
+                [class.is-active]="activeTechTab() === 'addons'"
+                [attr.aria-selected]="activeTechTab() === 'addons'"
+                (click)="techTab.set('addons')"
+              >
+                <svg lucidePackage class="tab-icon"></svg>
+                <span>Complementos</span>
+                <span class="tab-count">{{ selectedAddonComponents().length }}</span>
+              </button>
+              @if (targetEnvironment() !== 'JUEZ_EFIMERO') {
+                <button
+                  type="button"
+                  class="subtab"
+                  id="tech-tab-db"
+                  role="tab"
+                  aria-controls="tech-panel-db"
+                  [class.is-active]="activeTechTab() === 'db'"
+                  [attr.aria-selected]="activeTechTab() === 'db'"
+                  (click)="techTab.set('db')"
+                >
+                  <svg lucideDatabase class="tab-icon"></svg>
+                  <span>Base de datos</span>
+                  <span class="tab-count">{{ selectedDatabaseId() !== 'db-none' ? 1 : 0 }}</span>
+                </button>
+              }
+            </div>
 
-              @if (backendRuntimes().length + webPlatforms().length > 4 || col1SearchQuery().trim().length > 0) {
+            <div class="panel-tools">
+              <button
+                type="button"
+                class="btn-ghost btn-sm btn-ai-section-trigger"
+                (click)="openTechGraph()"
+              >
+                <svg lucideNetwork class="btn-icon-xs"></svg>
+                <span>Mapa de Herramientas</span>
+              </button>
+
+              @if (aiEnabled()) {
+                <button
+                  type="button"
+                  class="btn-ghost btn-sm btn-ai-section-trigger"
+                  (click)="openAiCopilotModal()"
+                >
+                  <svg lucideSparkles class="btn-icon-xs"></svg>
+                  <span>Asistir con IA</span>
+                </button>
+              }
+            </div>
+          </div>
+
+          <div class="studio-columns-grid" data-tour="studio-stack">
+            <div
+              class="studio-column"
+              id="tech-panel-lang"
+              role="tabpanel"
+              aria-labelledby="tech-tab-lang"
+              [hidden]="activeTechTab() !== 'lang'"
+            >
+              <div class="stack-toolbar">
+                <span class="sub-group-label stack-label">Lenguaje principal</span>
                 <div class="column-search-wrap">
                   <input
                     type="text"
@@ -165,19 +227,16 @@
                     (ngModelChange)="col1SearchQuery.set($event)"
                   />
                 </div>
-              }
+                <button
+                  type="button"
+                  class="btn-ghost btn-sm btn-inline-new"
+                  (click)="openNewComponentModal('runtime', 'backend')"
+                >
+                  + Nuevo lenguaje
+                </button>
+              </div>
 
               <div class="column-body">
-                <div class="sub-group-header">
-                  <span class="sub-group-label">{{ isJudgeTarget() ? 'Lenguajes del Evaluador (Elija 1 o más)' : 'Lenguaje Principal (Elija 1)' }}</span>
-                  <button
-                    type="button"
-                    class="btn-inline-new"
-                    (click)="openNewComponentModal('runtime', 'backend')"
-                  >
-                    + Nuevo lenguaje
-                  </button>
-                </div>
                 <div class="runtimes-grid">
                   @for (rt of filteredBackendRuntimes(); track rt.id) {
                     <div class="tech-card-wrap">
@@ -220,12 +279,12 @@
                   }
                 }
 
-                @if (targetEnvironment() === 'IDE_PERSISTENTE') {
+                @if (targetEnvironment() !== 'JUEZ_EFIMERO') {
                   <div class="sub-group-header mt-group">
                     <span class="sub-group-label">Interfaz Web / Frontend (Opcional)</span>
                     <button
                       type="button"
-                      class="btn-inline-new"
+                      class="btn-ghost btn-sm btn-inline-new"
                       (click)="openNewComponentModal('runtime', 'web')"
                     >
                       + Nueva web
@@ -281,20 +340,26 @@
               </div>
             </div>
 
-            <div class="studio-column">
+            <div
+              class="studio-column"
+              id="tech-panel-addons"
+              role="tabpanel"
+              aria-labelledby="tech-tab-addons"
+              [hidden]="activeTechTab() !== 'addons'"
+            >
               <div class="column-header">
                 <div>
-                  <span class="column-step">Columna 2 · Opcional (Múltiple)</span>
                   <div class="title-with-badge">
                     <h3 class="column-title">Complementos Compatibles</h3>
                     @if (selectedAddonComponents().length > 0) {
                       <span class="selected-count-badge">{{ selectedAddonComponents().length }} seleccionados</span>
                     }
                   </div>
+                  <span class="column-requirement">Opcional · máx. 1 framework</span>
                 </div>
                 <button
                   type="button"
-                  class="btn-inline-new"
+                  class="btn-ghost btn-sm btn-inline-new"
                   (click)="openNewComponentModal('addon')"
                 >
                   + Nuevo
@@ -363,13 +428,13 @@
                     }
                   </span>
 
-                  <!-- Grupo 1: Frameworks Principales (Elija hasta 1) -->
+                  <!-- Grupo 1: Frameworks Principales (máx. 1) -->
                   @if ((col2CategoryFilter() === 'all' || col2CategoryFilter() === 'framework') && filteredFrameworkAddons().length > 0) {
                     <div class="sub-group-header mt-group">
-                      <span class="sub-group-label">Frameworks Principales (Elija hasta 1)</span>
+                      <span class="sub-group-label">Frameworks Principales (máx. 1)</span>
                       <button
                         type="button"
-                        class="btn-inline-new"
+                        class="btn-ghost btn-sm btn-inline-new"
                         (click)="openNewComponentModal('addon', 'framework')"
                       >
                         + Nuevo framework
@@ -430,7 +495,7 @@
                       <span class="sub-group-label">ORMs y Conectores de Datos</span>
                       <button
                         type="button"
-                        class="btn-inline-new"
+                        class="btn-ghost btn-sm btn-inline-new"
                         (click)="openNewComponentModal('addon', 'orm')"
                       >
                         + Nuevo ORM
@@ -491,7 +556,7 @@
                       <span class="sub-group-label">Kits y Herramientas Académicas</span>
                       <button
                         type="button"
-                        class="btn-inline-new"
+                        class="btn-ghost btn-sm btn-inline-new"
                         (click)="openNewComponentModal('addon', 'toolkit')"
                       >
                         + Nueva herramienta
@@ -558,43 +623,32 @@
                   }
                 } @else {
                   <p class="empty-col-hint">
-                    Seleccione primero un lenguaje principal en la Columna 1 para ver sus complementos compatibles.
+                    Seleccione primero un lenguaje principal para ver sus complementos compatibles.
                   </p>
                 }
               </div>
             </div>
 
             @if (targetEnvironment() === 'IDE_PERSISTENTE' || targetEnvironment() === 'AMBOS') {
-              <div class="studio-column">
-                <div class="column-header">
-                  <div>
-                    <span class="column-step">Columna 3 · Servicio del Nodo</span>
-                    <h3 class="column-title">Base de Datos</h3>
-                  </div>
-                  @if (targetEnvironment() === 'IDE_PERSISTENTE') {
+              <div
+                class="studio-column"
+                id="tech-panel-db"
+                role="tabpanel"
+                aria-labelledby="tech-tab-db"
+                [hidden]="activeTechTab() !== 'db'"
+              >
+                <div class="column-body">
+                  <div class="sub-group-header">
+                    <span class="sub-group-label">Base de Datos Principal (Opcional)</span>
                     <button
                       type="button"
-                      class="btn-inline-new"
+                      class="btn-ghost btn-sm btn-inline-new"
                       title="Registrar o configurar un motor de base de datos en el catálogo"
                       (click)="openNewComponentModal('database')"
                     >
                       + Nuevo
                     </button>
-                  }
-                </div>
-
-                <div class="column-body">
-                  @if (targetEnvironment() === 'AMBOS') {
-                    <div class="col-scope-locked-notice">
-                      <svg lucideInfo class="notice-icon"></svg>
-                      <strong class="notice-title">Base de datos satélite no disponible en Modo Dual</strong>
-                      <p class="notice-desc">
-                        La corrección automática de ejercicios opera en un contenedor efímero aislado sin red.
-                        Para habilitar PostgreSQL, MySQL u otros motores de base de datos satélite, desmarque la casilla de evaluación automática en el Paso 1.
-                      </p>
-                    </div>
-                  } @else {
-                    <span class="sub-group-label">Base de Datos Principal (Elija 1)</span>
+                  </div>
                     <div class="databases-grid">
                       @for (db of primaryDatabaseOptions(); track db.id) {
                         <button
@@ -621,7 +675,7 @@
                     </div>
 
                     @if (auxiliaryServiceOptions().length > 0) {
-                      <span class="sub-group-label" style="margin-top: 1rem;">Servicios Auxiliares / Caché (Opcional)</span>
+                      <span class="sub-group-label mt-inline">Servicios Auxiliares / Caché (Opcional)</span>
                       <div class="databases-grid">
                         @for (aux of auxiliaryServiceOptions(); track aux.id) {
                           <button
@@ -664,7 +718,6 @@
                         </div>
                       }
                     }
-                  }
                 </div>
               </div>
             }
@@ -726,6 +779,28 @@
             </div>
           }
         } @else {
+          <div class="panel-tools panel-tools-code">
+            <button
+              type="button"
+              class="btn-ghost btn-sm btn-ai-section-trigger"
+              (click)="openTechGraph()"
+            >
+              <svg lucideNetwork class="btn-icon-xs"></svg>
+              <span>Mapa de Herramientas</span>
+            </button>
+
+            @if (aiEnabled()) {
+              <button
+                type="button"
+                class="btn-ghost btn-sm btn-ai-section-trigger"
+                (click)="openAiCopilotModal()"
+              >
+                <svg lucideSparkles class="btn-icon-xs"></svg>
+                <span>Asistir con IA</span>
+              </button>
+            }
+          </div>
+
           <div class="code-mode-panel">
             <div class="identity-fields-grid">
               <div class="field-group">
@@ -888,8 +963,25 @@
             }
           </div>
         }
+        </div>
       </section>
 
+      <section class="studio-block">
+        <div class="block-head">
+          <div class="block-title">
+            <span class="step-num" aria-hidden="true">03</span>
+            <div>
+              <h2>Capacidad del Aula</h2>
+              <p>La memoria por alumno define cuántos entornos caben en el nodo.</p>
+            </div>
+          </div>
+          <div class="block-aside">
+            @if (hostFreeRamMB(); as freeRam) {
+              <span class="block-note"><span machineData>{{ freeRam }}</span> MB libres en el nodo</span>
+            }
+          </div>
+        </div>
+        <div class="block-body block-body-tight">
       <studio-capacity-selector
         data-tour="studio-capacity"
         [targetEnvironment]="targetEnvironment()"
@@ -911,6 +1003,8 @@
         (toggleManualInput)="toggleManualRamInput()"
         (customRamChange)="onCustomRamChange($event)"
       />
+        </div>
+      </section>
     </div>
 
     <studio-summary-sidebar
@@ -921,7 +1015,7 @@
       [dockerImage]="dockerImage()"
       [needsLocalBuild]="needsLocalBuild()"
       [entrypoint]="entrypoint()"
-      [timeoutMS]="timeoutMS()"
+      [hasJudgeCommand]="isJudgeTarget() && judgeLanguageSelections().length > 0"
       [selectedStackComponents]="selectedStackComponents()"
       [hasSelectedStack]="hasSelectedStack()"
       [baseRamMB]="baseRamMB()"
@@ -1016,7 +1110,7 @@
             </li>
           </ul>
           <div class="scope-modal-note">
-            Las interfaces web frontend y bases de datos satélite requieren servicios interactivos y están disponibles únicamente en «Laboratorio de Práctica».
+            Este entorno admite interfaz web y bases de datos satélite porque conserva el laboratorio interactivo; la corrección automática las ignora al evaluar.
           </div>
         } @else {
           <p class="scope-modal-text">

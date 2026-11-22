@@ -29,6 +29,26 @@
   --text-tertiary:         #71717A;
   --text-inverse:          #FFFFFF;
 
+  // Constructor de Entornos — escala de profundidad de superficies.
+  // En claro cada nivel remite a la superficie que ya usaba el Studio.
+  --studio-surface-1:            var(--bg-surface);
+  --studio-surface-1-border:     var(--border-strong);
+  --studio-surface-1-shadow:     var(--shadow-card);
+  --studio-surface-2:            var(--bg-surface);
+  --studio-surface-2-hover:      var(--bg-surface-subtle);
+  --studio-surface-2-border:     var(--border-subtle);
+  --studio-surface-inset:        var(--bg-surface-subtle);
+  --studio-surface-inset-border: var(--border-subtle);
+  --studio-input-surface:        var(--bg-surface);
+  --studio-input-border:         var(--border-subtle);
+  --studio-icon-surface:         var(--bg-surface-subtle);
+  --studio-icon-border:          var(--border-strong);
+  --studio-text-secondary:       var(--text-secondary);
+  --studio-text-muted:           var(--text-muted);
+  --studio-primary-disabled-bg:     var(--bg-surface-subtle);
+  --studio-primary-disabled-text:   var(--text-muted);
+  --studio-primary-disabled-border: var(--border-subtle);
+
   // Semánticos Base + Alias de tokens huérfanos
   --color-success:         #16A34A;
   --color-success-dark:    #15803D;
@@ -114,6 +134,26 @@
   --text-muted:            #71717A;
   --text-tertiary:         #71717A;
   --text-inverse:          #09090B;
+
+  // Constructor de Entornos — cuatro niveles reales en oscuro:
+  // -1 insets, 1 tarjetas de paso/Resumen, 2 tarjetas seleccionables.
+  --studio-surface-1:            #131317;
+  --studio-surface-1-border:     #27272F;
+  --studio-surface-1-shadow:     inset 0 1px 0 rgba(255, 255, 255, 0.045), 0 1px 3px rgba(0, 0, 0, 0.35);
+  --studio-surface-2:            #1B1B21;
+  --studio-surface-2-hover:      #27272F;
+  --studio-surface-2-border:     #3E3E4A;
+  --studio-surface-inset:        #0C0C0F;
+  --studio-surface-inset-border: #30303A;
+  --studio-input-surface:        #0C0C0F;
+  --studio-input-border:         #30303A;
+  --studio-icon-surface:         #24242C;
+  --studio-icon-border:          #363642;
+  --studio-text-secondary:       #C4C4CF;
+  --studio-text-muted:           #8E8E9B;
+  --studio-primary-disabled-bg:     #1F1F26;
+  --studio-primary-disabled-text:   #71717E;
+  --studio-primary-disabled-border: #2D2D37;
 
   --color-success:         #4ADE80;
   --color-success-dark:    #4ADE80;

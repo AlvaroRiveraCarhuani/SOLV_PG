@@ -1,20 +1,15 @@
-<section class="studio-card">
-  <div class="card-section-header">
-    <div>
-      <h2 class="section-title">3. Capacidad del Aula y Memoria por Alumno</h2>
-      @if (hasSelectedStack()) {
-        <p class="section-subtitle">
-          Asignación de memoria optimizada según las tecnologías seleccionadas.
-          @if (nominalConcurrentStudents(); as nominal) {
-            Con esta capacidad el aula soporta aproximadamente
-            <strong><span machineData>{{ nominal }}</span> {{ targetEnvironment() === 'JUEZ_EFIMERO' ? 'evaluaciones simultáneas' : 'alumnos simultáneos' }}</strong> con el servidor disponible.
-          } @else {
-            La capacidad simultánea se informará cuando el servidor publique su memoria medida.
-          }
-        </p>
+<div class="capacity-step">
+  @if (hasSelectedStack()) {
+    <p class="capacity-intro">
+      Asignación de memoria optimizada según las tecnologías seleccionadas.
+      @if (nominalConcurrentStudents(); as nominal) {
+        Con esta capacidad el aula soporta aproximadamente
+        <strong><span machineData>{{ nominal }}</span> {{ targetEnvironment() === 'JUEZ_EFIMERO' ? 'evaluaciones simultáneas' : 'alumnos simultáneos' }}</strong> con el servidor disponible.
+      } @else {
+        La capacidad simultánea se informará cuando el servidor publique su memoria medida.
       }
-    </div>
-  </div>
+    </p>
+  }
 
   @if (!hasSelectedStack()) {
     <div class="capacity-empty-state">
@@ -172,4 +167,4 @@
       </div>
     </div>
   }
-</section>
+</div>

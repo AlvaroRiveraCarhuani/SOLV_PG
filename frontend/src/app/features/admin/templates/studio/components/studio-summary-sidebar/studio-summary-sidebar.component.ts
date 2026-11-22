@@ -50,7 +50,7 @@ export class StudioSummarySidebarComponent {
   readonly dockerImage = input<string>('');
   readonly needsLocalBuild = input<boolean>(false);
   readonly entrypoint = input<string>('');
-  readonly timeoutMS = input<number>(5000);
+  readonly hasJudgeCommand = input<boolean>(false);
   readonly selectedStackComponents = input<TemplateComponent[]>([]);
   readonly hasSelectedStack = input<boolean>(false);
   readonly baseRamMB = input<number>(512);

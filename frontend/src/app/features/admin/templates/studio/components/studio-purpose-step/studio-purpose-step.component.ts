@@ -4,10 +4,11 @@ import { ComboboxComponent, ComboboxOption } from '@shared/components/combobox/c
 import { TargetEnvironment } from '@features/admin/models/admin-templates.models';
 
 import { EnvironmentLabelPipe } from '@shared/pipes/environment-label.pipe';
+import { LucideCheck, LucideCode, LucideLayers, LucideTerminal } from '@lucide/angular';
 
 @Component({
   selector: 'studio-purpose-step',
-  imports: [EnvironmentLabelPipe, FormsModule, ComboboxComponent],
+  imports: [EnvironmentLabelPipe, FormsModule, ComboboxComponent, LucideCheck, LucideCode, LucideLayers, LucideTerminal],
   templateUrl: './studio-purpose-step.component.html',
   styleUrls: ['./studio-purpose-step.component.scss']
 })
@@ -23,15 +24,7 @@ export class StudioPurposeStepComponent {
   readonly descriptionChange = output<string>();
   readonly categoryChange = output<string | null>();
 
-  selectPrimaryMode(mode: 'IDE_PERSISTENTE' | 'JUEZ_EFIMERO'): void {
-    if (mode === 'JUEZ_EFIMERO') {
-      this.targetEnvironmentChange.emit('JUEZ_EFIMERO');
-    } else if (this.targetEnvironment() === 'JUEZ_EFIMERO') {
-      this.targetEnvironmentChange.emit('IDE_PERSISTENTE');
-    }
-  }
-
-  onToggleDual(enabled: boolean): void {
-    this.targetEnvironmentChange.emit(enabled ? 'AMBOS' : 'IDE_PERSISTENTE');
+  selectModality(mode: 'IDE_PERSISTENTE' | 'JUEZ_EFIMERO' | 'AMBOS'): void {
+    this.targetEnvironmentChange.emit(mode);
   }
 }

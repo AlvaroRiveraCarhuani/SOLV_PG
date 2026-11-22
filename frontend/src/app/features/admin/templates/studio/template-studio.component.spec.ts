@@ -388,7 +388,7 @@ describe('TemplateStudioComponent', () => {
     expect(component.selectedStackComponents()).toEqual([]);
 
     const text = (fixture.nativeElement as HTMLElement).textContent || '';
-    expect(text).toContain('Seleccione primero un lenguaje principal en la Columna 1 para ver sus complementos compatibles.');
+    expect(text).toContain('Seleccione primero un lenguaje principal para ver sus complementos compatibles.');
     expect(text).not.toContain('Combinaciones rápidas');
     expect(text).not.toContain('Carpetas iniciales listas para el estudiante');
   });
@@ -532,14 +532,13 @@ describe('TemplateStudioComponent', () => {
     expect(inspectorStrip?.querySelector('.inspector-desc')?.textContent).toContain('ciencia de datos');
   });
 
-  it('should open and close the scope info modal via scope-chip-btn in AMBOS mode', () => {
-    component.targetEnvironment.set('AMBOS');
+  it('should open and close the scope info modal via scope-chip-btn in JUEZ_EFIMERO mode', () => {
+    component.targetEnvironment.set('JUEZ_EFIMERO');
     fixture.detectChanges();
 
     const hostEl = fixture.nativeElement as HTMLElement;
     const scopeBtn = hostEl.querySelector<HTMLButtonElement>('.scope-chip-btn');
     expect(scopeBtn).toBeTruthy();
-    expect(scopeBtn?.textContent).toContain('Modo Dual');
 
     // Inicialmente cerrado
     expect(hostEl.querySelector('.scope-modal-body')).toBeNull();
@@ -603,7 +602,7 @@ describe('TemplateStudioComponent', () => {
 
   it('should render clean domain terminology in the UI without culinary metaphors', () => {
     const text = (fixture.nativeElement as HTMLElement).textContent || '';
-    expect(text).toContain('Constructor de Entornos');
+    expect(text).toContain('Volver al Catálogo de Plantillas');
     expect(text).toContain('2. Arquitectura y Tecnologías del Entorno');
     expect(text).toContain('Modo Visual');
     expect(text).toContain('Modo Avanzado (Dockerfile / Scripts)');
@@ -699,7 +698,7 @@ describe('TemplateStudioComponent', () => {
 
     // Panel derecho
     expect(hostEl.textContent).toContain('Pendiente de selección');
-    expect(hostEl.textContent).toContain('Seleccione tecnologías en el Paso 2');
+    expect(hostEl.textContent).toContain('Paso 2 pendiente');
   });
 
   it('no inventa RAM cuando el servidor no informó su memoria', () => {
@@ -1487,7 +1486,7 @@ describe('TemplateStudioComponent', () => {
 
     // 1. Without runtime selected, blocker specifies selecting runtime in Column 1
     expect(component.verificationBlocker()?.reason).toBe(
-      'Seleccione un Lenguaje Principal en la Columna 1 para configurar la evaluación automática.'
+      'Seleccione un Lenguaje Principal para configurar la evaluación automática.'
     );
     expect(component.verificationBlocker()?.tone).toBe('neutral');
     expect(component.canRunVerification()).toBe(false);
@@ -1545,7 +1544,7 @@ describe('TemplateStudioComponent', () => {
     );
   });
 
-  it('should handle targetEnvironment AMBOS: strips web/database, populates both setupScript and judge entrypoint, and prefixes name with Entorno Dual', () => {
+  it('keeps web and database in AMBOS while populating both setupScript and judge entrypoint', () => {
     component.techComponents.update(list => [
       ...list,
       {
@@ -1579,13 +1578,27 @@ describe('TemplateStudioComponent', () => {
 
     component.setTargetEnvironment('AMBOS');
     expect(component.targetEnvironment()).toBe('AMBOS');
+    // Modo dual conserva el laboratorio completo: web y base de datos siguen
+    // seleccionadas y visibles; sólo la evaluación pura las descarta.
+    expect(component.selectedWebPlatformId()).toBe('web-angular');
+    expect(component.selectedDatabaseId()).toBe('db-postgres');
+    expect(component.selectedWebComponent()?.id).toBe('web-angular');
+    expect(component.selectedDatabaseOption()).not.toBeNull();
+    expect(component.name()).toContain('Desarrollo y Evaluación: ');
+    expect(component.entrypoint()).toBe('python3 solution.py');
+    expect(component.setupScript()).toBe('echo "export PYTHONUNBUFFERED=1" >> ~/.bashrc');
+  });
+
+  it('drops web and database only when switching to a pure judge environment', () => {
+    component.selectRuntime('rt-python-312');
+    component.selectWebPlatform('web-angular');
+    component.selectDatabase('db-postgres');
+
+    component.setTargetEnvironment('JUEZ_EFIMERO');
     expect(component.selectedWebPlatformId()).toBeNull();
     expect(component.selectedDatabaseId()).toBe('db-none');
     expect(component.selectedWebComponent()).toBeNull();
     expect(component.selectedDatabaseOption()).toBeNull();
-    expect(component.name()).toContain('Desarrollo y Evaluación: ');
-    expect(component.entrypoint()).toBe('python3 solution.py');
-    expect(component.setupScript()).toBe('echo "export PYTHONUNBUFFERED=1" >> ~/.bashrc');
   });
 
   it('declara varios lenguajes en un entorno de evaluación y los envía como ejecutores', () => {

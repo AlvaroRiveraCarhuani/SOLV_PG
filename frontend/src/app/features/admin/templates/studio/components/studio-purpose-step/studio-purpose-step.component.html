@@ -1,89 +1,87 @@
-<section class="studio-card">
-  <div class="card-section-header">
-    <div>
-      <h2 class="section-title">1. Propósito y Datos del Entorno</h2>
-      <p class="section-subtitle">Elija el modo de trabajo y asigne un nombre claro para los docentes.</p>
-    </div>
-  </div>
-
-  <div class="purpose-selector-grid">
+<section class="purpose-step">
+  <div class="modality-grid" role="radiogroup" aria-label="Modalidad del entorno">
     <button
       type="button"
-      class="purpose-option-card"
-      [class.selected]="targetEnvironment() === 'IDE_PERSISTENTE' || targetEnvironment() === 'AMBOS'"
-      (click)="selectPrimaryMode('IDE_PERSISTENTE')"
+      class="modality"
+      role="radio"
+      [class.is-selected]="targetEnvironment() === 'IDE_PERSISTENTE'"
+      [attr.aria-checked]="targetEnvironment() === 'IDE_PERSISTENTE'"
+      (click)="selectModality('IDE_PERSISTENTE')"
     >
-      <div class="purpose-top">
-        <strong class="purpose-title">{{ 'IDE_PERSISTENTE' | environmentLabel }} (Con Editor VS Code)</strong>
-        @if (targetEnvironment() === 'IDE_PERSISTENTE' || targetEnvironment() === 'AMBOS') {
-          <span class="status-pill-active">Seleccionado</span>
-        }
-      </div>
-      <p class="purpose-desc">
-        El estudiante programa en un editor completo en el navegador, con terminal, carpetas persistentes y base de datos lista para conectar.
-      </p>
+      <span class="modality-check" aria-hidden="true">
+        <svg lucideCheck class="check-icon"></svg>
+      </span>
+      <span class="modality-top">
+        <span class="modality-ico" aria-hidden="true">
+          <svg lucideCode class="modality-icon"></svg>
+        </span>
+        <span class="modality-name">{{ 'IDE_PERSISTENTE' | environmentLabel }}</span>
+      </span>
+      <span class="modality-desc">Editor, terminal y carpetas persistentes para el trabajo del alumno.</span>
     </button>
 
     <button
       type="button"
-      class="purpose-option-card"
-      [class.selected]="targetEnvironment() === 'JUEZ_EFIMERO'"
-      (click)="selectPrimaryMode('JUEZ_EFIMERO')"
+      class="modality"
+      role="radio"
+      [class.is-selected]="targetEnvironment() === 'JUEZ_EFIMERO'"
+      [attr.aria-checked]="targetEnvironment() === 'JUEZ_EFIMERO'"
+      (click)="selectModality('JUEZ_EFIMERO')"
     >
-      <div class="purpose-top">
-        <strong class="purpose-title">{{ 'JUEZ_EFIMERO' | environmentLabel }} (Corrección Automática)</strong>
-        @if (targetEnvironment() === 'JUEZ_EFIMERO') {
-          <span class="status-pill-active">Seleccionado</span>
-        }
-      </div>
-      <p class="purpose-desc">
-        Califica entregas de código automáticamente contra casos de prueba en pocos segundos, sin interfaz gráfica.
-      </p>
+      <span class="modality-check" aria-hidden="true">
+        <svg lucideCheck class="check-icon"></svg>
+      </span>
+      <span class="modality-top">
+        <span class="modality-ico" aria-hidden="true">
+          <svg lucideTerminal class="modality-icon"></svg>
+        </span>
+        <span class="modality-name">{{ 'JUEZ_EFIMERO' | environmentLabel }}</span>
+      </span>
+      <span class="modality-desc">Corrección automática por consola, sin interfaz web.</span>
+    </button>
+
+    <button
+      type="button"
+      class="modality"
+      role="radio"
+      [class.is-selected]="targetEnvironment() === 'AMBOS'"
+      [attr.aria-checked]="targetEnvironment() === 'AMBOS'"
+      (click)="selectModality('AMBOS')"
+    >
+      <span class="modality-check" aria-hidden="true">
+        <svg lucideCheck class="check-icon"></svg>
+      </span>
+      <span class="modality-top">
+        <span class="modality-ico" aria-hidden="true">
+          <svg lucideLayers class="modality-icon"></svg>
+        </span>
+        <span class="modality-name">Modo dual</span>
+      </span>
+      <span class="modality-desc">Desarrollo y corrección automática sobre la misma plantilla.</span>
     </button>
   </div>
 
-  @if (targetEnvironment() === 'IDE_PERSISTENTE' || targetEnvironment() === 'AMBOS') {
-    <div class="dual-capability-container">
-      <label class="dual-capability-toggle" for="dual-evaluation-toggle">
-        <input
-          type="checkbox"
-          id="dual-evaluation-toggle"
-          class="dual-checkbox"
-          [checked]="targetEnvironment() === 'AMBOS'"
-          (change)="onToggleDual($any($event.target).checked)"
-        />
-        <div class="dual-text-wrap">
-          <div class="dual-title-row">
-            <strong class="dual-title">Habilitar también para {{ 'JUEZ_EFIMERO' | environmentLabel }} (Corrección de ejercicios)</strong>
-            @if (targetEnvironment() === 'AMBOS') {
-              <span class="status-pill-dual">Modo Dual Activo</span>
-            }
-          </div>
-          <p class="dual-desc">
-            Permite que esta misma plantilla oficial califique código por consola estándar (<code>stdin</code> / <code>stdout</code>) en exámenes y tareas.
-          </p>
-        </div>
-      </label>
-    </div>
-  }
-
-  <div class="identity-fields-grid">
-    <div class="field-group">
+  <div class="form-grid">
+    <div class="field is-wide">
       <label class="form-label" for="studio-tpl-name">
-        Nombre del Entorno * <span class="hint-inline">(Se sugiere automáticamente según las tecnologías elegidas)</span>
+        Nombre del entorno <span class="req" aria-hidden="true">*</span>
       </label>
       <input
         id="studio-tpl-name"
         type="text"
         class="form-input"
-        placeholder="Ej: Laboratorio: Python 3.12 + Angular + PostgreSQL"
+        placeholder="Nombre visible en el catálogo"
         [ngModel]="name()"
         (ngModelChange)="nameChange.emit($event)"
       />
+      <span class="field-hint">Mínimo 3 caracteres. Se sugiere a partir de las tecnologías mientras no lo edite.</span>
     </div>
 
-    <div class="field-group">
-      <label class="form-label" for="studio-tpl-category">Categoría Académica</label>
+    <div class="field">
+      <div class="field-label">
+        <label class="form-label" for="studio-tpl-category">Categoría académica</label>
+        <span class="optional">Opcional</span>
+      </div>
       <combobox
         id="studio-tpl-category"
         [options]="categoryOptions()"
@@ -95,18 +93,22 @@
         (valueChange)="categoryChange.emit($event || null)"
         (cleared)="categoryChange.emit(null)"
       />
+      <span class="field-hint">Ordene el catálogo; no bloquea la publicación.</span>
     </div>
-  </div>
 
-  <div class="field-group">
-    <label class="form-label" for="studio-tpl-desc">Descripción Pedagógica (Opcional)</label>
-    <input
-      id="studio-tpl-desc"
-      type="text"
-      class="form-input"
-      placeholder="Indique qué programas o librerías incluye para orientar a otros docentes..."
-      [ngModel]="description()"
-      (ngModelChange)="descriptionChange.emit($event)"
-    />
+    <div class="field">
+      <div class="field-label">
+        <label class="form-label" for="studio-tpl-desc">Descripción pedagógica</label>
+        <span class="optional">Opcional</span>
+      </div>
+      <input
+        id="studio-tpl-desc"
+        type="text"
+        class="form-input"
+        placeholder="Qué incluye el entorno y para qué sirve."
+        [ngModel]="description()"
+        (ngModelChange)="descriptionChange.emit($event)"
+      />
+    </div>
   </div>
 </section>

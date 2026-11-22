@@ -22,7 +22,7 @@
 }
 
 .blueprint-sidebar {
-  max-height: calc(100vh - 130px);
+  max-height: calc(100vh - 80px);
   display: flex;
   flex-direction: column;
 }
@@ -34,7 +34,7 @@
   overflow: hidden;
   display: flex;
   flex-direction: column;
-  max-height: calc(100vh - 130px);
+  max-height: calc(100vh - 80px);
   min-height: 0;
 }
 
@@ -483,6 +483,7 @@
   justify-content: space-between;
   gap: var(--space-2);
   margin-bottom: var(--space-2);
+  flex-wrap: wrap;
 }
 
 .btn-xs-outline {
@@ -537,3 +538,217 @@
   color: var(--text-muted);
   text-align: center;
 }
+
+/* --------------------------------------------------------------------------
+   Rediseño del panel lateral (mockup prototipo-constructor-plantillas.html)
+   -------------------------------------------------------------------------- */
+
+// Cabecera fija, cuerpo desplazable y pie fijo: los dos botones del pie
+// quedan visibles a 1366×768 sin desplazar el panel completo.
+:host {
+  max-height: calc(100vh - 80px);
+}
+
+.blueprint-card {
+  border-color: var(--studio-surface-1-border);
+  border-radius: var(--radius-lg);
+  background-color: var(--studio-surface-1);
+  box-shadow: var(--studio-surface-1-shadow);
+}
+
+.blueprint-header {
+  flex-direction: column;
+  align-items: stretch;
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-4);
+  background-color: transparent;
+  border-bottom: 1px solid var(--studio-surface-1-border);
+}
+
+.blueprint-heading {
+  font-size: var(--text-sm);
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  text-transform: none;
+}
+
+.blueprint-tabs {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  padding: 2px;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  background-color: var(--bg-surface-subtle);
+}
+
+.bp-tab-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-1);
+  height: 28px;
+  padding: 0 var(--space-2);
+  font-size: var(--text-2xs);
+  font-weight: 600;
+  color: var(--text-muted);
+
+  &.active {
+    background-color: var(--bg-surface);
+    color: var(--text-primary);
+    box-shadow: var(--shadow-card);
+  }
+}
+
+.blueprint-body {
+  padding: 0;
+  gap: 0;
+
+  .bp-empty-item {
+    padding: var(--space-2);
+  }
+}
+
+.blueprint-body-manifest {
+  padding: var(--space-3) var(--space-4);
+  gap: var(--space-2);
+}
+
+.bp-block {
+  padding: var(--space-2) var(--space-4);
+  gap: var(--space-1);
+}
+
+.bp-metric-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-2);
+}
+
+.bp-metric-card {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--studio-surface-2-border);
+  border-radius: var(--radius-sm);
+  background-color: var(--studio-surface-2);
+}
+
+.bp-metric-value {
+  font-size: var(--text-sm);
+  font-weight: 600;
+  color: var(--text-primary);
+  line-height: var(--leading-snug);
+}
+
+.bp-metric-note {
+  font-size: var(--text-2xs);
+  color: var(--text-muted);
+  line-height: var(--leading-snug);
+}
+
+.bp-command {
+  display: block;
+  padding: var(--space-2);
+  border: 1px solid var(--studio-surface-inset-border);
+  border-radius: var(--radius-xs);
+  background-color: var(--studio-surface-inset);
+  color: var(--text-primary);
+  font-size: var(--text-2xs);
+  overflow-wrap: anywhere;
+}
+
+.bp-label {
+  font-size: var(--text-2xs);
+  font-weight: 600;
+  letter-spacing: 0.09em;
+  color: var(--text-muted);
+}
+
+.bp-env-name {
+  font-size: var(--text-base);
+  font-weight: 600;
+  line-height: var(--leading-snug);
+  overflow-wrap: anywhere;
+}
+
+.bp-meta-pill {
+  padding: 1px var(--space-2);
+  border-radius: var(--radius-full);
+  border: 1px solid var(--border-subtle);
+  background-color: var(--bg-surface-subtle);
+  font-size: var(--text-2xs);
+  font-weight: 500;
+  color: var(--text-secondary);
+}
+
+.bp-image-row {
+  padding: var(--space-1) var(--space-2);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  background-color: var(--bg-surface-subtle);
+}
+
+.bp-stack-list {
+  gap: 2px;
+}
+
+.bp-stack-item {
+  min-height: 24px;
+  padding: 0;
+  border: 0;
+  background-color: transparent;
+}
+
+.bp-stack-left {
+  gap: var(--space-1);
+}
+
+.bp-comp-name {
+  font-size: var(--text-xs);
+  font-weight: 500;
+}
+
+.bp-comp-role {
+  font-size: var(--text-2xs);
+}
+
+.blueprint-footer {
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-4);
+  background-color: transparent;
+  border-top: 1px solid var(--studio-surface-1-border);
+}
+
+.blueprint-footer .btn-outline,
+.blueprint-footer .btn-primary {
+  height: 34px;
+}
+
+.publish-block-note {
+  padding: var(--space-1) var(--space-2);
+}
+
+// Un botón deshabilitado se lee como tal: zinc neutro, no un primario aguado
+// que parece disponible.
+.blueprint-footer .btn-primary:disabled,
+.blueprint-footer .btn-outline:disabled {
+  background-color: var(--studio-primary-disabled-bg);
+  border-color: var(--studio-primary-disabled-border);
+  color: var(--studio-primary-disabled-text);
+  box-shadow: none;
+  opacity: 1;
+}
+
+.blueprint-body .bp-empty-item {
+  background-color: transparent;
+  border-radius: var(--radius-sm);
+  padding: var(--space-3);
+}
+
+.publish-block-note {
+  font-size: var(--text-2xs);
+  line-height: var(--leading-snug);
+}
+
