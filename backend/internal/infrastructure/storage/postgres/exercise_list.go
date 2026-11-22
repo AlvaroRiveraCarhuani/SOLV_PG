@@ -14,9 +14,10 @@ const dueAssignmentsLimit = 100
 
 func (r *PostgresExerciseRepository) ListDueByStudent(ctx context.Context, tenantID, studentID string) ([]*domain.DueAssignment, error) {
 	// Una entrega pendiente es una práctica publicada, con plazo, de una materia
-	// vigente, que el alumno todavía no entregó. Antes la consulta no filtraba
-	// nada de eso: contaba borradores, prácticas ya entregadas y materias
-	// archivadas, y el inicio las anunciaba como "entregas pendientes".
+	// inscrita, que el alumno todavía no completó. Se usa la misma definición de
+	// "completada" que GetEvaluations (AC o nota >= 51): así el inicio, Mis
+	// materias y Evaluaciones no se contradicen. Las materias archivadas siguen
+	// visibles en el historial académico y también deben conservar sus cierres.
 	query := `
 		SELECT 
 			e.id AS exercise_id,
@@ -32,13 +33,13 @@ func (r *PostgresExerciseRepository) ListDueByStudent(ctx context.Context, tenan
 		JOIN enrollments en ON en.subject_id = s.id AND en.student_id = $2 AND en.tenant_id = $1
 		WHERE e.tenant_id = $1
 		  AND e.status = 'published'
-		  AND s.is_archived = FALSE
 		  AND e.due_date > NOW()
 		  AND NOT EXISTS (
 		      SELECT 1 FROM submissions sub
 		      WHERE sub.tenant_id = e.tenant_id
 		        AND sub.exercise_id = e.id
 		        AND sub.student_id = $2
+		        AND (sub.verdict = 'AC' OR sub.score >= 51)
 		  )
 		ORDER BY e.due_date ASC
 		LIMIT $3
