@@ -50,3 +50,4 @@
 - [ADR-043: Modalidad Dual y Gobernanza de Recursos vía Catálogo de Plantillas](./ADR-043-modalidad-dual-y-gobernanza-de-recursos.md)
 - [ADR-044: Piloto con Usuarios Reales](./ADR-044-piloto-con-usuarios-reales.md)
 - [ADR-045: Estrategia Dual de Persistencia y Perfil Académico de Base de Datos](./ADR-045-estrategia-persistencia-dual-sqlite-postgres-sintonizado.md)
+- [ADR-093: Fundaciones del Sistema de Diseño UI](./ADR-093-fundaciones-del-sistema-de-diseno-ui.md)

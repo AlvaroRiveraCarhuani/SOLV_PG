@@ -1,8 +1,9 @@
-import { Component, signal } from '@angular/core';
+import { Component, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterOutlet } from '@angular/router';
 import { TopbarComponent } from '@shared/components/topbar/topbar.component';
 import { SidebarComponent } from '@shared/components/sidebar/sidebar.component';
+import { SidebarRailService } from '@shared/components/sidebar/sidebar-rail.service';
 import { ToastHostComponent } from '@shared/components/toast-host/toast-host.component';
 import { HelpCenterComponent } from '@shared/help/help-center.component';
 import { TutorialPanelComponent } from '@shared/help/tutorial-panel.component';
@@ -12,17 +13,17 @@ export const ADMIN_NAV_SECTIONS: NavSection[] = [
   {
     title: 'INFRAESTRUCTURA',
     items: [
-      { label: 'Salud y Recursos', route: '/admin/dashboard', iconName: 'activity', exact: true },
-      { label: 'Catálogo de Entornos', route: '/admin/plantillas', iconName: 'layers' },
+      { label: 'Salud y recursos', route: '/admin/dashboard', iconName: 'activity', exact: true },
+      { label: 'Catálogo de entornos', route: '/admin/plantillas', iconName: 'layers' },
       { label: 'Solicitudes de entornos', route: '/admin/solicitudes-entorno', iconName: 'inbox' },
-      { label: 'Catálogo de Tecnologías', route: '/admin/tecnologias', iconName: 'boxes' },
+      { label: 'Catálogo de tecnologías', route: '/admin/tecnologias', iconName: 'boxes' },
       { label: 'Manual del administrador', route: '/admin/manual', iconName: 'book' }
     ]
   },
   {
     title: 'ACADÉMICO Y GESTIÓN',
     items: [
-      { label: 'Categorías Académicas', route: '/admin/categorias', iconName: 'tag' },
+      { label: 'Categorías académicas', route: '/admin/categorias', iconName: 'tag' },
       { label: 'Cursos', route: '/admin/cursos', iconName: 'book' },
       { label: 'Docentes', route: '/admin/docentes', iconName: 'users' },
       { label: 'Estudiantes', route: '/admin/estudiantes', iconName: 'graduation-cap' },
@@ -54,7 +55,7 @@ export const ADMIN_NAV_SECTIONS: NavSection[] = [
       <topbar [showHelpButton]="true" (toggleSidebar)="toggleSidebar()" />
       <div class="shell-body">
         <sidebar 
-          [collapsed]="isSidebarCollapsed()" 
+          [collapsed]="rail.isCollapsed()" 
           [sections]="adminSections" 
         />
         <main class="shell-content">
@@ -69,10 +70,10 @@ export const ADMIN_NAV_SECTIONS: NavSection[] = [
   styleUrl: './admin-layout.component.scss',
 })
 export class AdminLayoutComponent {
-  isSidebarCollapsed = signal<boolean>(false);
+  readonly rail = inject(SidebarRailService);
   adminSections = ADMIN_NAV_SECTIONS;
 
   toggleSidebar(): void {
-    this.isSidebarCollapsed.update(v => !v);
+    this.rail.toggle();
   }
 }

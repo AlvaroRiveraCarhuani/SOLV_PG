@@ -7,29 +7,31 @@
 
   .search-icon {
     position: absolute;
-    left: 0.75rem;
-    width: 15px;
-    height: 15px;
-    color: var(--text-muted, var(--color-gray-400));
+    left: 10px;
+    width: 14px;
+    height: 14px;
+    color: var(--text-muted);
     pointer-events: none;
     flex-shrink: 0;
   }
 
   .search-input {
     width: 100%;
-    height: 38px;
-    padding: 0 2rem 0 2.25rem;
+    height: 32px;
+    padding: 0 2rem 0 2.125rem;
     font-family: var(--font-sans);
     font-size: var(--text-sm);
     color: var(--text-primary);
     background-color: var(--bg-surface);
     border: 1px solid var(--border-subtle);
-    border-radius: var(--radius-sm, 6px);
+    border-radius: var(--radius-sm);
     outline: none;
-    transition: border-color 0.15s ease, box-shadow 0.15s ease;
+    transition:
+      border-color var(--motion-fast) var(--motion-ease-standard),
+      box-shadow var(--motion-fast) var(--motion-ease-standard);
 
     &::placeholder {
-      color: var(--text-muted, var(--color-gray-400));
+      color: var(--text-muted);
     }
 
     &:focus {
@@ -40,7 +42,7 @@
 
   .btn-clear {
     position: absolute;
-    right: 0.5rem;
+    right: 6px;
     display: inline-flex;
     align-items: center;
     justify-content: center;
@@ -49,13 +51,15 @@
     padding: 0;
     border: none;
     background: transparent;
-    color: var(--text-muted, var(--color-gray-400));
-    border-radius: var(--radius-sm, 4px);
+    color: var(--text-muted);
+    border-radius: var(--radius-xs);
     cursor: pointer;
-    transition: all 0.15s ease;
+    transition:
+      background-color var(--motion-fast) var(--motion-ease-standard),
+      color var(--motion-fast) var(--motion-ease-standard);
 
     &:hover {
-      background-color: var(--bg-canvas, var(--color-gray-100));
+      background-color: var(--bg-surface-subtle);
       color: var(--text-primary);
     }
 
@@ -65,21 +69,40 @@
     }
   }
 
+  .search-shortcut {
+    position: absolute;
+    right: 6px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 18px;
+    height: 18px;
+    padding: 0 4px;
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-xs);
+    background-color: var(--bg-surface-subtle);
+    color: var(--text-muted);
+    font-family: var(--font-mono);
+    font-size: var(--text-2xs);
+    line-height: 1;
+    pointer-events: none;
+  }
+
   &.compact {
     .search-icon {
-      left: 0.65rem;
-      width: 14px;
-      height: 14px;
+      left: 8px;
+      width: 13px;
+      height: 13px;
     }
 
     .search-input {
-      height: 34px;
+      height: 28px;
+      padding: 0 1.75rem 0 1.875rem;
       font-size: var(--text-xs);
-      padding: 0 1.85rem 0 2.1rem;
     }
 
     .btn-clear {
-      right: 0.4rem;
+      right: 4px;
       width: 18px;
       height: 18px;
 
@@ -87,6 +110,12 @@
         width: 12px;
         height: 12px;
       }
+    }
+
+    .search-shortcut {
+      right: 4px;
+      min-width: 16px;
+      height: 16px;
     }
   }
 }

@@ -5,20 +5,20 @@
 }
 
 .sidebar {
-  width: 240px;
+  width: 224px;
   height: 100%;
   background-color: var(--bg-surface);
   border-right: 1px solid var(--border-subtle);
   display: flex;
   flex-direction: column;
-  transition: width var(--transition-normal);
   overflow: hidden auto;
   user-select: none;
-
-
+  transition: width var(--motion-base) var(--motion-ease-standard);
+  scrollbar-width: thin;
+  scrollbar-color: var(--border-subtle) transparent;
 
   &.collapsed {
-    width: 64px;
+    width: 52px;
 
     .section-title,
     .nav-label {
@@ -27,7 +27,7 @@
 
     .nav-item {
       justify-content: center;
-      padding: var(--space-2) 0;
+      padding: 0;
     }
   }
 }
@@ -36,14 +36,14 @@
   display: flex;
   flex-direction: column;
   height: 100%;
-  padding: var(--space-4) var(--space-2);
+  padding: var(--space-3) 6px;
   gap: var(--space-4);
 }
 
 .nav-section {
   display: flex;
   flex-direction: column;
-  gap: var(--space-1);
+  gap: 2px;
 }
 
 .mt-auto {
@@ -51,41 +51,45 @@
 }
 
 .section-title {
+  padding: 0 var(--space-2) var(--space-1);
   font-size: var(--text-2xs);
-  font-weight: 700;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
   color: var(--text-muted);
-  letter-spacing: 0.05em;
-  padding: var(--space-1) var(--space-3);
-  margin-bottom: var(--space-1);
 }
 
 .divider {
   height: 1px;
   background-color: var(--border-subtle);
-  margin: var(--space-2) var(--space-2);
+  margin: var(--space-2);
 }
 
 .nav-item {
   display: flex;
   align-items: center;
-  gap: var(--space-3);
-  padding: var(--space-2) var(--space-3);
-  border-radius: var(--radius-md);
+  gap: 10px;
+  height: 32px;
+  padding: 0 var(--space-2);
+  border-radius: var(--radius-sm);
   color: var(--text-secondary);
   text-decoration: none;
+  font-family: var(--font-sans);
   font-size: var(--text-sm);
   font-weight: 500;
-  transition: all var(--transition-fast);
+  transition:
+    background-color var(--motion-fast) var(--motion-ease-standard),
+    color var(--motion-fast) var(--motion-ease-standard);
 
   &:hover {
-    background-color: var(--bg-canvas);
+    background-color: var(--bg-surface-subtle);
     color: var(--text-primary);
+    text-decoration: none;
   }
 
   &.active {
     background-color: var(--tenant-primary-subtle);
     color: var(--tenant-primary);
-    font-weight: 600;
 
     .nav-icon {
       color: var(--tenant-primary);
@@ -97,12 +101,20 @@
     height: 18px;
     flex-shrink: 0;
     color: var(--text-secondary);
-    transition: color var(--transition-fast);
+    transition: color var(--motion-fast) var(--motion-ease-standard);
   }
 
   .nav-label {
-    white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sidebar,
+  .nav-item,
+  .nav-item .nav-icon {
+    transition: none;
   }
 }

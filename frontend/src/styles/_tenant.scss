@@ -1,6 +1,7 @@
 // =============================================================================
 // SOLV DESIGN SYSTEM - TIER 3: TENANT & COMPONENT TOKENS
-// Tokens dinámicos de White-Labeling inyectados en runtime vía TenantService
+// Tokens dinámicos de White-Labeling inyectados en runtime vía TenantService.
+// Los derivados se calculan con luminosidad relativa para cualquier color base.
 // =============================================================================
 
 :root {
@@ -9,13 +10,15 @@
   --tenant-primary-s: 83%;
   --tenant-primary-l: 53%;
 
-  // Color primario resuelto
-  --tenant-primary: hsl(var(--tenant-primary-h), var(--tenant-primary-s), var(--tenant-primary-l));
+  --tenant-primary:        hsl(var(--tenant-primary-h), var(--tenant-primary-s), var(--tenant-primary-l));
+  --tenant-primary-hover:  hsl(var(--tenant-primary-h), var(--tenant-primary-s), clamp(24%, calc(var(--tenant-primary-l) - 6%), 75%));
+  --tenant-primary-active: hsl(var(--tenant-primary-h), var(--tenant-primary-s), clamp(18%, calc(var(--tenant-primary-l) - 12%), 68%));
+  --tenant-primary-subtle: hsla(var(--tenant-primary-h), var(--tenant-primary-s), var(--tenant-primary-l), 0.09);
+  --tenant-primary-border: hsla(var(--tenant-primary-h), var(--tenant-primary-s), var(--tenant-primary-l), 0.28);
+  --tenant-primary-text:   #FFFFFF; // Calculado en TenantService por luminosidad AA (#09090B en colores claros como Ámbar)
+}
 
-  // Derivados automáticos matemáticos en CSS puro (Sin Dirty JS)
-  --tenant-primary-hover:  hsl(var(--tenant-primary-h), var(--tenant-primary-s), 45%);
-  --tenant-primary-active: hsl(var(--tenant-primary-h), var(--tenant-primary-s), 38%);
-  --tenant-primary-subtle: hsla(var(--tenant-primary-h), var(--tenant-primary-s), var(--tenant-primary-l), 0.08);
-  --tenant-primary-border: hsla(var(--tenant-primary-h), var(--tenant-primary-s), var(--tenant-primary-l), 0.25);
-  --tenant-primary-text:   #FFFFFF;
+[data-theme="dark"] {
+  --tenant-primary-subtle: hsla(var(--tenant-primary-h), var(--tenant-primary-s), var(--tenant-primary-l), 0.15);
+  --tenant-primary-border: hsla(var(--tenant-primary-h), var(--tenant-primary-s), var(--tenant-primary-l), 0.35);
 }

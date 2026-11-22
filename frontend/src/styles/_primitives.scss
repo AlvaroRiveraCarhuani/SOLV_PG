@@ -4,17 +4,17 @@
 // =============================================================================
 
 :root {
-  // Paleta de Grises Neutros (Slate / Zinc balanceado)
-  --color-gray-50:  #F8FAFC;
-  --color-gray-100: #F1F5F9;
-  --color-gray-200: #E2E8F0;
-  --color-gray-300: #CBD5E1;
-  --color-gray-400: #94A3B8;
-  --color-gray-500: #64748B;
-  --color-gray-600: #475569;
-  --color-gray-700: #334155;
-  --color-gray-800: #1E293B;
-  --color-gray-900: #0F172A;
+  // Paleta de Grises Neutros (Zinc — sin tinte azulado)
+  --color-gray-50:  #FAFAFA;
+  --color-gray-100: #F4F4F5;
+  --color-gray-200: #E4E4E7;
+  --color-gray-300: #D4D4D8;
+  --color-gray-400: #A1A1AA;
+  --color-gray-500: #71717A;
+  --color-gray-600: #52525B;
+  --color-gray-700: #3F3F46;
+  --color-gray-800: #27272A;
+  --color-gray-900: #18181B;
 
   // Escala Púrpura (Métricas de Cómputo / IDE)
   --color-purple-50:  #FAF5FF;
@@ -101,17 +101,13 @@
   --z-modal: 1050;
   --z-toast: 1100;
 
-  // Verde Éxito Oscuro (hover de botones sólidos + insignias sobre superficies oscuras)
-  // Ambos valores sancionados por solv-design-system (Success: #16A34A / #15803D)
-  --color-success-dark: #15803D;
-
   // Superficies de Código / Terminal (visor de logs, auditoría dry-run, previsualizaciones)
-  // Escala propia para no contaminar la semántica claro del resto del sistema
-  --code-bg:      #0F172A; // Panel principal (slate-900)
-  --code-bg-deep: #020617; // Cabecera y franjas profundas (slate-950)
-  --code-border:  #1E293B; // Bordes sobre oscuro (slate-800)
-  --code-text:    #F8FAFC; // Texto principal sobre oscuro
-  --code-muted:   #94A3B8; // Texto atenuado sobre oscuro
+  // Escala propia sobre neutros Zinc para no contaminar la semántica clara del resto del sistema
+  --code-bg:      #18181B; // Panel principal (zinc-900)
+  --code-bg-deep: #09090B; // Cabecera y franjas profundas (zinc-950)
+  --code-border:  #27272A; // Bordes sobre oscuro (zinc-800)
+  --code-text:    #FAFAFA; // Texto principal sobre oscuro
+  --code-muted:   #A1A1AA; // Texto atenuado sobre oscuro
   --code-accent:  #38BDF8; // Acentos e info sobre oscuro
   --code-warning: #FBBF24; // Avisos sobre oscuro
   --code-error:   #EF4444; // Errores sobre oscuro

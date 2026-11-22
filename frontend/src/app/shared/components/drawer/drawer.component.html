@@ -1,0 +1,38 @@
+@if (open()) {
+  <div class="drawer-backdrop motion-backdrop" (click)="onBackdrop()" aria-hidden="true"></div>
+  <aside
+    #panel
+    class="drawer-panel motion-drawer"
+    role="dialog"
+    aria-modal="true"
+    tabindex="-1"
+    [attr.aria-label]="title()"
+    [style.width]="width()">
+    <header class="drawer-header">
+      <div class="drawer-titles">
+        <h2 class="drawer-title">{{ title() }}</h2>
+        @if (subtitle()) {
+          <p class="drawer-subtitle">{{ subtitle() }}</p>
+        }
+      </div>
+      <button
+        type="button"
+        class="drawer-close"
+        (click)="close()"
+        [attr.aria-label]="closeLabel()"
+        [title]="closeLabel()">
+        <svg lucideX class="drawer-close-icon"></svg>
+      </button>
+    </header>
+
+    <div class="drawer-body">
+      <ng-content />
+    </div>
+
+    @if (footer()) {
+      <footer class="drawer-footer">
+        <ng-content select="[drawer-footer]" />
+      </footer>
+    }
+  </aside>
+}

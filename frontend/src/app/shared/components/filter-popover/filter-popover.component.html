@@ -1,0 +1,36 @@
+<div class="filter-popover">
+  <button
+    #trigger
+    type="button"
+    class="btn-secondary filter-trigger"
+    [attr.aria-expanded]="open()"
+    [attr.aria-controls]="panelId"
+    [attr.aria-label]="triggerAriaLabel()"
+    (click)="toggle()">
+    <svg lucideSlidersHorizontal class="filter-trigger-icon" aria-hidden="true"></svg>
+    <span>{{ buttonLabel() }}</span>
+    @if (activeCount() > 0) {
+      <span class="filter-count" machineData>{{ activeCount() }}</span>
+    }
+  </button>
+
+  @if (open()) {
+    <div
+      class="filter-panel animate-dropdown"
+      [id]="panelId"
+      role="dialog"
+      [attr.aria-label]="buttonLabel()"
+      [style.width]="width()"
+      dismissible
+      [dismissExclude]="trigger"
+      (dismiss)="close()">
+      <header class="filter-panel-header">
+        <span class="filter-panel-title">FILTROS</span>
+        <button type="button" class="btn-ghost filter-clear" (click)="clear()">Limpiar</button>
+      </header>
+      <div class="filter-panel-body">
+        <ng-content />
+      </div>
+    </div>
+  }
+</div>

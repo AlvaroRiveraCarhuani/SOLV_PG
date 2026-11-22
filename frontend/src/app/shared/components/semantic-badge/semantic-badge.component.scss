@@ -1,0 +1,61 @@
+.semantic-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 8px;
+  border: 1px solid transparent;
+  border-radius: var(--radius-full);
+  font-family: var(--font-sans);
+  font-size: var(--text-2xs);
+  font-weight: 600;
+  line-height: 1.2;
+  white-space: nowrap;
+}
+
+.badge-dot {
+  width: 6px;
+  height: 6px;
+  flex-shrink: 0;
+  border-radius: var(--radius-full);
+  background-color: currentcolor;
+}
+
+.badge-label {
+  min-width: 0;
+}
+
+.tone-success {
+  background-color: var(--status-running-bg);
+  color: var(--status-running-color);
+  border-color: var(--status-running-border);
+}
+
+.tone-warning {
+  background-color: var(--status-pending-bg);
+  color: var(--status-pending-color);
+  border-color: var(--status-pending-border);
+}
+
+.tone-error {
+  background-color: var(--status-failed-bg);
+  color: var(--status-failed-color);
+  border-color: var(--status-failed-border);
+}
+
+.tone-neutral {
+  background-color: var(--status-hibernated-bg);
+  color: var(--status-hibernated-color);
+  border-color: var(--status-hibernated-border);
+}
+
+.tone-info {
+  background-color: var(--tenant-primary-subtle);
+  color: var(--tenant-primary);
+  border-color: var(--tenant-primary-border);
+}
+
+.semantic-badge.is-plain {
+  padding: 0;
+  background-color: transparent;
+  border-color: transparent;
+}

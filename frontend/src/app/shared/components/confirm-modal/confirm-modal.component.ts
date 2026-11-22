@@ -1,4 +1,4 @@
-import { Component, EventEmitter, Input, Output, HostListener } from '@angular/core';
+import { Component, HostListener, input, output } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { LucideAlertTriangle, LucideHelpCircle, LucideLoader2, LucideX } from '@lucide/angular';
 
@@ -8,44 +8,49 @@ import { LucideAlertTriangle, LucideHelpCircle, LucideLoader2, LucideX } from '@
   imports: [CommonModule, LucideAlertTriangle, LucideHelpCircle, LucideLoader2, LucideX],
   template: `
     <div class="modal-backdrop" (click)="onCancel()">
-      <div class="modal-card confirm-modal-card" (click)="$event.stopPropagation()">
+      <div
+        class="modal-card confirm-modal-card"
+        role="alertdialog"
+        aria-modal="true"
+        [attr.aria-label]="title()"
+        (click)="$event.stopPropagation()">
         <div class="modal-header">
           <div class="header-info">
-            <div class="header-icon-box" [class.danger-icon-box]="type === 'danger'">
-              @if (type === 'danger') {
+            <div class="header-icon-box" [class.danger-icon-box]="type() === 'danger'">
+              @if (type() === 'danger') {
                 <svg lucideAlertTriangle class="header-icon"></svg>
               } @else {
                 <svg lucideHelpCircle class="header-icon"></svg>
               }
             </div>
             <div>
-              <h2 class="modal-title">{{ title }}</h2>
-              <p class="modal-subtitle">Confirmación de seguridad</p>
+              <h2 class="modal-title">{{ title() }}</h2>
+              <p class="modal-subtitle">Revise el detalle antes de continuar.</p>
             </div>
           </div>
-          <button class="btn-close" (click)="onCancel()" title="Cerrar modal" aria-label="Cerrar">
+          <button class="btn-close" (click)="onCancel()" title="Cerrar" aria-label="Cerrar">
             <svg lucideX class="close-icon"></svg>
           </button>
         </div>
 
         <div class="modal-body">
-          <p class="confirm-message">{{ message }}</p>
+          <p class="confirm-message">{{ message() }}</p>
         </div>
 
         <div class="modal-footer">
-          <button class="btn-outline" (click)="onCancel()" [disabled]="isLoading">
-            {{ cancelText }}
+          <button class="btn-secondary" (click)="onCancel()" [disabled]="isLoading()">
+            {{ cancelText() }}
           </button>
-          <button 
-            class="btn-confirm-action" 
-            [class.btn-danger]="type === 'danger'"
-            [class.btn-primary]="type !== 'danger'"
-            [disabled]="isLoading"
+          <button
+            class="btn-confirm-action"
+            [class.btn-danger]="type() === 'danger'"
+            [class.btn-primary]="type() !== 'danger'"
+            [disabled]="isLoading()"
             (click)="onConfirm()">
-            @if (isLoading) {
+            @if (isLoading()) {
               <svg lucideLoader2 class="motion-spin"></svg>
             }
-            {{ confirmText }}
+            {{ confirmText() }}
           </button>
         </div>
       </div>
@@ -54,17 +59,17 @@ import { LucideAlertTriangle, LucideHelpCircle, LucideLoader2, LucideX } from '@
   styleUrl: './confirm-modal.component.scss',
 })
 export class ConfirmModalComponent {
-  @Input() title = '¿Confirmar acción?';
-  @Input() message = '';
-  @Input() confirmText = 'Confirmar';
-  @Input() cancelText = 'Cancelar';
-  @Input() type: 'danger' | 'primary' = 'primary';
-  @Input() isLoading = false;
+  readonly title = input<string>('¿Confirma esta acción?');
+  readonly message = input<string>('');
+  readonly confirmText = input<string>('Confirmar');
+  readonly cancelText = input<string>('Cancelar');
+  readonly type = input<'danger' | 'primary'>('primary');
+  readonly isLoading = input<boolean>(false);
 
-  @Output() confirm = new EventEmitter<void>();
+  readonly confirm = output<void>();
   // 'cancel' es parte de la API pública de este modal: renombrarlo rompe los templates consumidores.
   // eslint-disable-next-line @angular-eslint/no-output-native
-  @Output() cancel = new EventEmitter<void>();
+  readonly cancel = output<void>();
 
   @HostListener('document:keydown.escape')
   handleEscape(): void {

@@ -99,3 +99,4 @@ Este documento consolida todas las Decisiones de Arquitectura (ADRs) tomadas dur
 | 090 | [Proyecto Inicial de Árbol Grande como Artefacto Versionado](ADR-090-proyecto-inicial-en-almacen-de-objetos.md) | Propuesto | Docencia |
 | 091 | [Entornos de Evaluación Multilingües](ADR-091-entornos-de-evaluacion-multilingues.md) | Aceptado | Core |
 | 092 | [Atomicidad de las Escrituras que Tocan Varias Tablas](ADR-092-atomicidad-de-escrituras-multi-tabla.md) | Aceptado | Core |
+| 093 | [Fundaciones del Sistema de Diseño UI](ADR-093-fundaciones-del-sistema-de-diseno-ui.md) | Aceptado | Interfaz |

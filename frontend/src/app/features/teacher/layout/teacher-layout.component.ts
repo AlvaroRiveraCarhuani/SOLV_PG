@@ -1,8 +1,9 @@
-import { Component, signal } from '@angular/core';
+import { Component, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterOutlet } from '@angular/router';
 import { TopbarComponent } from '@shared/components/topbar/topbar.component';
 import { SidebarComponent } from '@shared/components/sidebar/sidebar.component';
+import { SidebarRailService } from '@shared/components/sidebar/sidebar-rail.service';
 import { NavSection } from '@shared/components/sidebar/sidebar.model';
 
 import { HotkeysModalComponent } from '@shared/components/hotkeys-modal/hotkeys-modal.component';
@@ -26,14 +27,14 @@ export const TEACHER_NAV_SECTIONS: NavSection[] = [
   {
     title: 'CONTENIDOS',
     items: [
-      { label: 'Banco de Ejercicios', route: '/teacher/exercises', iconName: 'boxes' },
-      { label: 'Catálogo de Entornos', route: '/teacher/templates', iconName: 'layers' }
+      { label: 'Banco de ejercicios', route: '/teacher/exercises', iconName: 'boxes' },
+      { label: 'Catálogo de entornos', route: '/teacher/templates', iconName: 'layers' }
     ]
   },
   {
     title: 'CUENTA',
     items: [
-      { label: 'Mi Inteligencia Artificial', route: '/teacher/configuracion', iconName: 'sparkles' }
+      { label: 'Mi inteligencia artificial', route: '/teacher/configuracion', iconName: 'sparkles' }
     ]
   }
 ];
@@ -55,7 +56,7 @@ export const TEACHER_NAV_SECTIONS: NavSection[] = [
       <topbar [showHelpButton]="true" (toggleSidebar)="toggleSidebar()" />
       <div class="shell-body">
         <sidebar 
-          [collapsed]="isSidebarCollapsed()" 
+          [collapsed]="rail.isCollapsed()" 
           [sections]="teacherSections" 
         />
         <main class="shell-content">
@@ -70,10 +71,10 @@ export const TEACHER_NAV_SECTIONS: NavSection[] = [
   styleUrl: './teacher-layout.component.scss',
 })
 export class TeacherLayoutComponent {
-  isSidebarCollapsed = signal<boolean>(false);
+  readonly rail = inject(SidebarRailService);
   teacherSections = TEACHER_NAV_SECTIONS;
 
   toggleSidebar(): void {
-    this.isSidebarCollapsed.update(v => !v);
+    this.rail.toggle();
   }
 }

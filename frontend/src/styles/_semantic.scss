@@ -1,40 +1,46 @@
 // =============================================================================
 // SOLV DESIGN SYSTEM - TIER 2: SEMANTIC TOKENS
-// Mapeo semántico de roles de interfaz, estados de contenedores y veredictos
+// Mapeo semántico de roles de interfaz, estados de contenedores y veredictos.
+// Escala neutra Zinc en tema claro y tema oscuro (sin tinte azulado).
 // =============================================================================
 
 :root {
-  // Superficies y Lienzos (Tema Claro Institucional por defecto)
-  --bg-canvas:        #F6F7F9;
-  --bg-surface:       #FFFFFF;
-  --bg-surface-subtle:#F8FAFC;
-  --bg-surface-active:#F1F5F9;
+  color-scheme: light;
 
-  // Overlays y fondos de modal (tokens semánticos, no hex sueltos)
-  --overlay-backdrop: rgba(15, 23, 42, 0.5);
-  --overlay-backdrop-soft: rgba(15, 23, 42, 0.4);
+  // Superficies (Light Neutro — cero tinte azulado)
+  --bg-canvas:             #FAFAFA;
+  --bg-surface:            #FFFFFF;
+  --bg-surface-subtle:     #F4F4F5;
+  --bg-surface-active:     #E4E4E7;
 
-  // Bordes Limpios (Separación visual mediante bordes, NO sombras pesadas)
-  --border-subtle:    #E2E8F0;
-  --border-strong:    #CBD5E1;
-  --border-focus:     var(--tenant-primary);
+  // Overlays
+  --overlay-backdrop:      rgba(9, 9, 11, 0.50);
+  --overlay-backdrop-soft: rgba(9, 9, 11, 0.35);
 
-  // Jerarquía de Textos
-  --text-primary:     #0F172A;
-  --text-secondary:   #475569;
-  --text-muted:       #64748B;
-  --text-tertiary:    #64748B;
-  --text-inverse:     #FFFFFF;
+  // Bordes (Border-first)
+  --border-subtle:         #E4E4E7;
+  --border-strong:         #D4D4D8;
+  --border-focus:          var(--tenant-primary);
 
-  // Semánticos Fijos Base
-  --color-success:    #16A34A;
-  --color-warning:    #D97706;
-  --color-error:      #DC2626;
-  --color-neutral:    #64748B;
+  // Tipografía
+  --text-primary:          #09090B;
+  --text-secondary:        #52525B;
+  --text-muted:            #71717A;
+  --text-tertiary:         #71717A;
+  --text-inverse:          #FFFFFF;
 
-  // ---------------------------------------------------------------------------
-  // Semántica de Estados de Environments (Inamovible ADR / solv-design-system)
-  // ---------------------------------------------------------------------------
+  // Semánticos Base + Alias de tokens huérfanos
+  --color-success:         #16A34A;
+  --color-success-dark:    #15803D;
+  --color-success-bg:      #DCFCE7;
+  --color-success-subtle:  rgba(22, 163, 74, 0.10);
+  --color-warning:         #D97706;
+  --color-error:           #DC2626;
+  --color-danger:          var(--color-error);
+  --color-danger-bg:       #FEE2E2;
+  --color-neutral:         #71717A;
+
+  // Estados de Environments (ADR inamovible)
   --status-running-color:      #16A34A;
   --status-running-bg:         #DCFCE7;
   --status-running-border:     #BBF7D0;
@@ -43,9 +49,9 @@
   --status-pending-bg:         #FEF3C7;
   --status-pending-border:     #FDE68A;
 
-  --status-hibernated-color:   #64748B;
-  --status-hibernated-bg:      #F1F5F9;
-  --status-hibernated-border:  #E2E8F0;
+  --status-hibernated-color:   #71717A;
+  --status-hibernated-bg:      #F4F4F5;
+  --status-hibernated-border:  #E4E4E7;
 
   --status-failed-color:       #DC2626;
   --status-failed-bg:          #FEE2E2;
@@ -55,38 +61,113 @@
   --status-oom-bg:             #FEE2E2;
   --status-oom-border:         #FECACA;
 
-  // ---------------------------------------------------------------------------
-  // Veredictos del Juez Virtual (ADR-012 / ADR-037 / solv-design-system)
-  // ---------------------------------------------------------------------------
-  --verdict-ac-color:          #16A34A; // Accepted
+  // Veredictos del Juez (ADR-012 / ADR-037)
+  --verdict-ac-color:          #16A34A;
   --verdict-ac-bg:             #DCFCE7;
   --verdict-ac-border:         #86EFAC;
 
-  --verdict-wa-color:          #DC2626; // Wrong Answer
+  --verdict-wa-color:          #DC2626;
   --verdict-wa-bg:             #FEE2E2;
   --verdict-wa-border:         #FCA5A5;
 
-  --verdict-tle-color:         #D97706; // Time Limit Exceeded
+  --verdict-tle-color:         #D97706;
   --verdict-tle-bg:            #FEF3C7;
   --verdict-tle-border:        #FCD34D;
 
-  --verdict-re-color:          #EA580C; // Runtime Error
+  --verdict-re-color:          #EA580C;
   --verdict-re-bg:             #FFEDD5;
   --verdict-re-border:         #FDBA74;
 
-  --verdict-ast-color:         #991B1B; // AST Blocked (Rojo Intenso)
+  --verdict-ast-color:         #991B1B;
   --verdict-ast-bg:            #FEE2E2;
   --verdict-ast-border:        #F87171;
 
-  // Alias base (color saturado) para uso directo en fill/stroke/texto
   --verdict-ac:  var(--verdict-ac-color);
   --verdict-wa:  var(--verdict-wa-color);
   --verdict-tle: var(--verdict-tle-color);
   --verdict-re:  var(--verdict-re-color);
   --verdict-ast: var(--verdict-ast-color);
 
-  // Sombras sutiles y profesionales (Prohibido sombras gigantes estilo SaaS)
-  --shadow-subtle: 0 1px 2px 0 rgba(0, 0, 0, 0.04);
-  --shadow-card:   0 1px 3px 0 rgba(0, 0, 0, 0.06), 0 1px 2px -1px rgba(0, 0, 0, 0.04);
-  --shadow-dropdown: 0 4px 6px -1px rgba(0, 0, 0, 0.08), 0 2px 4px -2px rgba(0, 0, 0, 0.04);
+  // Sombras discretas
+  --shadow-subtle:   0 1px 2px rgba(0, 0, 0, 0.04);
+  --shadow-card:     0 1px 2px rgba(0, 0, 0, 0.05);
+  --shadow-dropdown: 0 8px 24px -4px rgba(0, 0, 0, 0.12), 0 2px 6px -1px rgba(0, 0, 0, 0.06);
+}
+
+[data-theme="dark"] {
+  color-scheme: dark;
+
+  // Superficies carbón escalonadas (nunca negro puro uniforme)
+  --bg-canvas:             #09090B;
+  --bg-surface:            #111113;
+  --bg-surface-subtle:     #18181B;
+  --bg-surface-active:     #27272A;
+
+  --overlay-backdrop:      rgba(0, 0, 0, 0.70);
+  --overlay-backdrop-soft: rgba(0, 0, 0, 0.50);
+
+  --border-subtle:         #27272A;
+  --border-strong:         #3F3F46;
+
+  --text-primary:          #FAFAFA;
+  --text-secondary:        #A1A1AA;
+  --text-muted:            #71717A;
+  --text-tertiary:         #71717A;
+  --text-inverse:          #09090B;
+
+  --color-success:         #4ADE80;
+  --color-success-dark:    #4ADE80;
+  --color-success-bg:      rgba(74, 222, 128, 0.12);
+  --color-success-subtle:  rgba(74, 222, 128, 0.10);
+  --color-warning:         #FBBF24;
+  --color-error:           #F87171;
+  --color-danger:          var(--color-error);
+  --color-danger-bg:       rgba(248, 113, 113, 0.12);
+  --color-neutral:         #A1A1AA;
+
+  // Estados en Dark (tintes translúcidos, contraste AA)
+  --status-running-color:      #4ADE80;
+  --status-running-bg:         rgba(74, 222, 128, 0.12);
+  --status-running-border:     rgba(74, 222, 128, 0.28);
+
+  --status-pending-color:      #FBBF24;
+  --status-pending-bg:         rgba(251, 191, 36, 0.12);
+  --status-pending-border:     rgba(251, 191, 36, 0.28);
+
+  --status-hibernated-color:   #A1A1AA;
+  --status-hibernated-bg:      rgba(161, 161, 170, 0.10);
+  --status-hibernated-border:  rgba(161, 161, 170, 0.22);
+
+  --status-failed-color:       #F87171;
+  --status-failed-bg:          rgba(248, 113, 113, 0.12);
+  --status-failed-border:      rgba(248, 113, 113, 0.28);
+
+  --status-oom-color:          #F87171;
+  --status-oom-bg:             rgba(248, 113, 113, 0.12);
+  --status-oom-border:         rgba(248, 113, 113, 0.28);
+
+  // Veredictos en Dark
+  --verdict-ac-color:          #4ADE80;
+  --verdict-ac-bg:             rgba(74, 222, 128, 0.12);
+  --verdict-ac-border:         rgba(74, 222, 128, 0.28);
+
+  --verdict-wa-color:          #F87171;
+  --verdict-wa-bg:             rgba(248, 113, 113, 0.12);
+  --verdict-wa-border:         rgba(248, 113, 113, 0.28);
+
+  --verdict-tle-color:         #FBBF24;
+  --verdict-tle-bg:            rgba(251, 191, 36, 0.12);
+  --verdict-tle-border:        rgba(251, 191, 36, 0.28);
+
+  --verdict-re-color:          #FB923C;
+  --verdict-re-bg:             rgba(251, 146, 60, 0.12);
+  --verdict-re-border:         rgba(251, 146, 60, 0.28);
+
+  --verdict-ast-color:         #FCA5A5;
+  --verdict-ast-bg:            rgba(239, 68, 68, 0.16);
+  --verdict-ast-border:        rgba(248, 113, 113, 0.35);
+
+  --shadow-subtle:   0 1px 2px rgba(0, 0, 0, 0.30);
+  --shadow-card:     0 1px 3px rgba(0, 0, 0, 0.35);
+  --shadow-dropdown: 0 12px 32px -4px rgba(0, 0, 0, 0.65), 0 0 0 1px var(--border-strong);
 }

@@ -1,8 +1,9 @@
-import { Component, OnDestroy, OnInit, inject, signal } from '@angular/core';
+import { Component, OnDestroy, OnInit, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterOutlet } from '@angular/router';
 import { TopbarComponent } from '@shared/components/topbar/topbar.component';
 import { SidebarComponent } from '@shared/components/sidebar/sidebar.component';
+import { SidebarRailService } from '@shared/components/sidebar/sidebar-rail.service';
 import { ClassPresenceService } from '../services/class-presence.service';
 
 @Component({
@@ -13,7 +14,7 @@ import { ClassPresenceService } from '../services/class-presence.service';
     <div class="shell-container">
       <topbar (toggleSidebar)="toggleSidebar()" />
       <div class="shell-body">
-        <sidebar [collapsed]="isSidebarCollapsed()" />
+        <sidebar [collapsed]="rail.isCollapsed()" />
         <main class="shell-content">
           <router-outlet />
         </main>
@@ -24,8 +25,7 @@ import { ClassPresenceService } from '../services/class-presence.service';
 })
 export class StudentLayoutComponent implements OnInit, OnDestroy {
   private readonly presence = inject(ClassPresenceService);
-
-  isSidebarCollapsed = signal<boolean>(false);
+  readonly rail = inject(SidebarRailService);
 
   ngOnInit(): void {
     // La presencia en el aula sale de esta señal: sin ella el docente no puede
@@ -38,6 +38,6 @@ export class StudentLayoutComponent implements OnInit, OnDestroy {
   }
 
   toggleSidebar(): void {
-    this.isSidebarCollapsed.update(v => !v);
+    this.rail.toggle();
   }
 }

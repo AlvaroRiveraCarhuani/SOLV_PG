@@ -37,8 +37,8 @@ import { LucidePanelLeft, LucideBell, LucideLogOut, LucideUser, LucideType, Luci
         <button
           class="btn-icon"
           (click)="toggleSidebar.emit()"
-          title="Alternar Menú Lateral"
-          aria-label="Alternar Menú Lateral">
+          title="Alternar menú lateral"
+          aria-label="Alternar menú lateral">
           <svg lucidePanelLeft class="icon"></svg>
         </button>
 
@@ -55,7 +55,6 @@ import { LucidePanelLeft, LucideBell, LucideLogOut, LucideUser, LucideType, Luci
           }
           <div class="brand-info">
             <span class="brand-name">{{ tenantService.config()?.institution_name || 'Plataforma SOLV' }}</span>
-            <span class="brand-system">SOLV &bull; Laboratorios Virtuales</span>
           </div>
         </div>
       </div>
@@ -138,21 +137,27 @@ import { LucidePanelLeft, LucideBell, LucideLogOut, LucideUser, LucideType, Luci
 
         <!-- Perfil del Usuario -->
         <div class="profile-wrapper">
-          <div #profileBtn class="profile-trigger" (click)="toggleProfileMenu()">
-            <div class="profile-avatar">
+          <button
+            type="button"
+            #profileBtn
+            class="profile-trigger"
+            (click)="toggleProfileMenu()"
+            aria-haspopup="menu"
+            [attr.aria-expanded]="profileMenuOpen()">
+            <span class="profile-avatar">
               @if (authService.currentUser()?.avatar_url) {
                 <img [src]="authService.currentUser()?.avatar_url" alt="Avatar" />
               } @else {
                 <svg lucideUser class="avatar-fallback"></svg>
               }
-            </div>
-            <div class="profile-details">
+            </span>
+            <span class="profile-details">
               <span class="profile-name">
                 {{ formatTitleCase(authService.currentUser()?.first_name) || 'Usuario' }}
               </span>
               <span class="profile-role">{{ roleLabel() }}</span>
-            </div>
-          </div>
+            </span>
+          </button>
 
           @if (profileMenuOpen()) {
             <div
@@ -175,7 +180,7 @@ import { LucidePanelLeft, LucideBell, LucideLogOut, LucideUser, LucideType, Luci
               <div class="dropdown-divider"></div>
               <button class="dropdown-item logout" (click)="logout()">
                 <svg lucideLogOut class="dropdown-icon"></svg>
-                <span>Cerrar Sesión</span>
+                <span>Cerrar sesión</span>
               </button>
             </div>
           }

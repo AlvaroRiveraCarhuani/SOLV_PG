@@ -1,19 +1,19 @@
 import { Component, input } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterModule } from '@angular/router';
-import { 
-  LucideHome, 
-  LucideTerminal, 
+import {
+  LucideHome,
+  LucideTerminal,
   LucideCode,
-  LucideBookOpen, 
-  LucideAward, 
-  LucideHistory, 
+  LucideBookOpen,
+  LucideAward,
+  LucideHistory,
   LucideSettings,
   LucideActivity,
   LucideUsers,
-  LucideLayers, 
-  LucideSliders, 
-  LucideShieldAlert, 
+  LucideLayers,
+  LucideSliders,
+  LucideShieldAlert,
   LucideFileText,
   LucideGraduationCap,
   LucideBoxes,
@@ -30,7 +30,7 @@ export const DEFAULT_STUDENT_SECTIONS: NavSection[] = [
     items: [
       { label: 'Inicio', route: '/student', iconName: 'home', exact: true },
       { label: 'Aula', route: '/student/aula', iconName: 'presentation' },
-      { label: 'Mis Materias', route: '/student/courses', iconName: 'book' }
+      { label: 'Mis materias', route: '/student/courses', iconName: 'book' }
     ]
   },
   {
@@ -46,14 +46,14 @@ export const DEFAULT_STUDENT_SECTIONS: NavSection[] = [
   selector: 'sidebar',
   standalone: true,
   imports: [
-    CommonModule, 
-    RouterModule, 
-    LucideHome, 
-    LucideTerminal, 
+    CommonModule,
+    RouterModule,
+    LucideHome,
+    LucideTerminal,
     LucideCode,
-    LucideBookOpen, 
-    LucideAward, 
-    LucideHistory, 
+    LucideBookOpen,
+    LucideAward,
+    LucideHistory,
     LucideSettings,
     LucideActivity,
     LucideUsers,
@@ -70,7 +70,7 @@ export const DEFAULT_STUDENT_SECTIONS: NavSection[] = [
   ],
   template: `
     <aside class="sidebar" [class.collapsed]="collapsed()">
-      <nav class="nav-menu">
+      <nav class="nav-menu" aria-label="Navegación principal">
         @for (sec of sections(); track $index) {
           <div class="nav-section" [class.mt-auto]="sec.isFooter">
             @if (sec.isFooter) {
@@ -80,12 +80,14 @@ export const DEFAULT_STUDENT_SECTIONS: NavSection[] = [
               <span class="section-title">{{ sec.title }}</span>
             }
             @for (item of sec.items; track item.route) {
-              <a 
-                [routerLink]="item.route" 
-                routerLinkActive="active" 
+              <a
+                [routerLink]="item.route"
+                routerLinkActive="active"
+                #rla="routerLinkActive"
                 [routerLinkActiveOptions]="{ exact: item.exact ?? false }"
                 class="nav-item"
-                [title]="collapsed() ? item.label : ''">
+                [attr.title]="collapsed() ? item.label : null"
+                [attr.aria-current]="rla.isActive ? 'page' : null">
                 @switch (item.iconName) {
                   @case ('home') { <svg lucideHome class="nav-icon"></svg> }
                   @case ('terminal') { <svg lucideTerminal class="nav-icon"></svg> }

@@ -7,17 +7,20 @@
     [placeholder]="placeholder()"
     [value]="query()"
     [attr.aria-label]="ariaLabel()"
+    [attr.aria-keyshortcuts]="shortcut() || null"
     (input)="onInput($event)"
     (keydown.escape)="clear()"
   />
   @if (query().trim()) {
-    <button 
-      type="button" 
-      class="btn-clear" 
-      (click)="clear()" 
-      title="Limpiar búsqueda" 
+    <button
+      type="button"
+      class="btn-clear"
+      (click)="clear()"
+      title="Limpiar búsqueda"
       aria-label="Limpiar campo de búsqueda">
       <svg lucideX class="clear-icon" aria-hidden="true"></svg>
     </button>
+  } @else if (shortcut()) {
+    <kbd class="search-shortcut" aria-hidden="true">{{ shortcut() }}</kbd>
   }
 </div>

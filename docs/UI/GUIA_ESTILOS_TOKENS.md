@@ -24,6 +24,7 @@ Las propiedades `font-size` y `font-family` deben usar exclusivamente tokens CSS
 
 | Token | Valor relativo | Equivalente aproximado | Uso recomendado |
 | :--- | :---: | :---: | :--- |
+| `var(--text-2xs)` | `0.6875rem` | 11px | Micro-etiquetas, contadores y metadatos en mono de listas densas |
 | `var(--text-xs)` | `0.75rem` | 12px | Badges, micro-etiquetas, metadatos secundarios, timestamps |
 | `var(--text-sm)` | `0.875rem` | 14px | Texto general de tabla, inputs, ayuda secundaria, tooltips |
 | `var(--text-base)` | `1rem` | 16px | Párrafos principales, botones estándar, contenido de lectura |
@@ -51,14 +52,33 @@ Las propiedades `font-size` y `font-family` deben usar exclusivamente tokens CSS
      - `--tenant-contrast`: Texto sobre fondo primario.
    - Prohibido hardcodear colores de marca específicos (ej. azules corporativos hardcodeados `#2563EB`) en componentes genéricos.
 2. **Colores Semánticos del Sistema:**
-   - Éxito / AC: Verde semántico (`#15803D`, `--color-success`).
+   - Éxito / AC: Verde semántico (`#16A34A`, `--color-success`); el verde oscuro de los avisos de éxito es `#15803D` (`--color-success-dark`).
    - Advertencia / TLE: Ámbar semántico (`#D97706`, `--color-warning`).
    - Error / WA / RE: Rojo semántico (`#DC2626`, `--color-error`).
-   - Neutro / Hibernated: Gris semántico (`#64748B`, `--color-neutral`).
+   - Neutro / Hibernated: Gris semántico (`#71717A`, `--color-neutral`).
+   - Éxito oscuro para avisos de éxito: `#15803D` (`--color-success-dark`), con texto `--text-inverse`.
 
 3. **Gate de Colores en Stylelint (`color-no-hex: true`):**
    - Regla activa en `.stylelintrc.json` que prohíbe el uso de códigos hexadecimales literales en el SCSS de componentes.
    - Valores permitidos para color: `var(--tenant-*)`, `var(--color-*)`, `var(--border-color)`, `transparent` y `currentColor`.
+
+### 3.1 Superficies neutras y tema oscuro
+
+La interfaz usa la escala Zinc en lugar de Slate para que el matiz del color institucional no contamine los grises. Los nombres de los tokens no cambian; cambian sus valores y se agrega el bloque `[data-theme="dark"]`.
+
+| Token | Tema claro | Tema oscuro |
+| :--- | :---: | :---: |
+| `--bg-canvas` | `#FAFAFA` | `#09090B` |
+| `--bg-surface` | `#FFFFFF` | `#111113` |
+| `--bg-surface-subtle` | `#F4F4F5` | `#18181B` |
+| `--bg-surface-active` | `#E4E4E7` | `#27272A` |
+| `--border-subtle` | `#E4E4E7` | `#27272A` |
+| `--border-strong` | `#D4D4D8` | `#3F3F46` |
+| `--text-primary` | `#09090B` | `#FAFAFA` |
+| `--text-secondary` | `#52525B` | `#A1A1AA` |
+| `--text-muted` | `#71717A` | `#71717A` |
+
+En tema oscuro los estados y veredictos usan tintes translúcidos sobre las mismas variables; el consumidor no cambia sus selectores. El color institucional sale de los canales HSL de `_tenant.scss` y sus derivados se calculan con `clamp()` sobre la luminosidad, sin valores fijos por tenant.
 
 ---
 
@@ -217,4 +237,41 @@ Para evitar tamaños arbitrarios o números mágicos que degraden la legibilidad
 Los componentes históricos de administración que aún poseen colores hex pendientes de migración se encuentran aislados temporalmente en el archivo `.stylelintignore`, cada uno con su respectivo comentario `// TODO: salir de la lista exige limpiar el archivo en el mismo PR`.
 
 **Regla de salida:** Cuando un componente o módulo sea modificado o refactorizado, debe sanearse y eliminarse de `.stylelintignore` en el mismo PR. Todo archivo nuevo nace cumpliendo estrictamente sin poder ser añadido a la ignore-list.
+
+---
+
+## 7. Geometría del shell y primitivas base
+
+### 7.1 Shell
+
+| Elemento | Medida | Regla |
+| :--- | :---: | :--- |
+| Topbar | `48px` | Fondo `--bg-surface`, borde inferior `--border-subtle`; sin breadcrumbs ni acciones de sesión. |
+| Sidebar expandido | `224px` | Borde derecho `--border-subtle`; ítem activo con `--tenant-primary-subtle`, icono y texto en `--tenant-primary`, radio `6px`. |
+| Sidebar en rail | `52px` | Iconos de `18px`; la etiqueta pasa a `title` y la ruta activa lleva `aria-current="page"`. |
+| Controles de barra | `32px` | Botones, inputs, selects y toggles. En barras compactas, `28px` con `.btn-sm`. |
+
+El rail por defecto vive en `SidebarRailService` (`shared/components/sidebar/`). La lista de rutas se evalúa en cada `NavigationEnd`; los tres layouts consumen `isCollapsed()` y el botón del topbar llama a `toggle()`. Las rutas administrativas arrancan expandidas.
+
+### 7.2 Botones
+
+| Clase | Fondo | Borde | Uso |
+| :--- | :--- | :--- | :--- |
+| `.btn-primary` | `--tenant-primary` | Transparente | Acción principal; máximo una por pantalla. Texto `--tenant-primary-text`. |
+| `.btn-secondary` | `--bg-surface` | `--border-subtle` | Acciones neutras de barra. Hover `--bg-surface-subtle`. `.btn-outline` es su alias heredado. |
+| `.btn-ghost` | Transparente | Transparente | Acciones discretas de fila o tarjeta. Hover `--bg-surface-active`. |
+| `.btn-sm` | — | — | Modificador de altura `28px` para barras compactas. |
+
+### 7.3 Primitivas compartidas
+
+| Primitiva | Ubicación | Contrato |
+| :--- | :--- | :--- |
+| Badge semántico | `shared/components/semantic-badge/` | Tonos success, warning, error, neutral e info; variante `soft` o `plain`; punto de `6px` opcional. |
+| Lista densa | `styles.scss` (`.list-dense`, `.list-dense-row`, `.list-dense-meta`) | Filas de `40px` separadas por borde; el estado activo usa barra interior del tenant. |
+| Barra de búsqueda | `shared/components/search-bar/` | Altura `32px` (`28px` compacta), badge `/` y atajo que enfoca la primera instancia de la página. |
+| Popover de filtros | `shared/components/filter-popover/` | Disparador `.btn-secondary`, contador circular, panel de dos columnas, cierre por clic fuera o Escape y `Limpiar`. Las opciones usan `.filter-column` y `.filter-option`. |
+| Cajón lateral | `shared/components/drawer/` | Panel derecho de `380px`, fondo, Escape, foco al abrir y slots de cuerpo y pie (`[drawer-footer]`). |
+| Confirmación | `shared/components/confirm-modal/` | `alertdialog` con signals, botones del sistema y textos formales. |
+
+Los textos compartidos se escriben en español neutro formal, con trato de usted. Los estados de entorno y los veredictos conservan `status-badge` y `verdict-badge`; el badge genérico no los sustituye.
 

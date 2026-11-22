@@ -8,10 +8,10 @@
 }
 
 .confirm-message {
+  margin: 0;
   font-size: var(--text-sm);
   line-height: 1.5;
   color: var(--text-secondary);
-  margin: 0;
 }
 
 .btn-confirm-action {
@@ -19,23 +19,34 @@
   align-items: center;
   justify-content: center;
   gap: 6px;
-  padding: 6px 16px;
-  border: none;
-  border-radius: 6px;
-  font-size: var(--text-xs);
+  height: 32px;
+  padding: 0 var(--space-4);
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  font-family: var(--font-sans);
+  font-size: var(--text-sm);
   font-weight: 600;
-  color: var(--bg-surface);
+  color: var(--text-inverse);
   cursor: pointer;
-  transition: opacity 150ms ease, background-color 150ms ease;
+  transition:
+    background-color var(--motion-fast) var(--motion-ease-standard),
+    opacity var(--motion-fast) var(--motion-ease-standard);
 
   &.btn-primary {
     background-color: var(--tenant-primary);
-    &:hover { opacity: 0.92; }
+    color: var(--tenant-primary-text);
+
+    &:hover:not(:disabled) {
+      background-color: var(--tenant-primary-hover);
+    }
   }
 
   &.btn-danger {
     background-color: var(--color-error);
-    &:hover { background-color: var(--verdict-ast-color); }
+
+    &:hover:not(:disabled) {
+      background-color: var(--verdict-ast-color);
+    }
   }
 
   &:disabled {
