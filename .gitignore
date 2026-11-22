@@ -33,3 +33,13 @@ frontend/test-results//backup/
 
 # Adjuntos de conversaciones importadas por la herramienta de desarrollo
 /.cloud-attachments/
+
+# Prototipos y exploraciones visuales descartadas
+docs/UI/.prototipos/
+docs/UI/prototipo-*.html
+docs/UI/solv-*.html
+docs/UI/capturas-2026-11/
+.solv-run/
+*.log
+*.zip
+
