@@ -577,7 +577,7 @@ describe('StudentExerciseSolverComponent', () => {
 
   it('renderiza el botón volver con etiqueta limpia y dispara goBack al hacer clic', () => {
     const goBackSpy = vi.spyOn(component, 'goBack');
-    const backBtn = fixture.nativeElement.querySelector('.btn-back') as HTMLButtonElement | null;
+    const backBtn = fixture.nativeElement.querySelector('.breadcrumb-back') as HTMLButtonElement | null;
     expect(backBtn).not.toBeNull();
     expect(backBtn?.textContent?.trim()).toContain('Volver');
 

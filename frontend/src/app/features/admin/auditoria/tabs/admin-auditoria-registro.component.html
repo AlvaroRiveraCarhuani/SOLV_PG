@@ -30,8 +30,12 @@
     <div class="loading-state">Cargando eventos de auditoría...</div>
   } @else if (rows().length === 0) {
     <div class="empty-state">
-      <h3>Sin eventos</h3>
-      <p>No hay eventos de auditoría que coincidan con la búsqueda.</p>
+      <h3>{{ hasActiveFilters() ? 'Sin coincidencias' : 'Sin eventos' }}</h3>
+      <p>
+        {{ hasActiveFilters()
+          ? 'No hay eventos de auditoría que coincidan con la búsqueda.'
+          : 'Todavía no se registraron eventos de auditoría en esta institución.' }}
+      </p>
     </div>
   } @else {
     <div class="table-wrapper" data-tour="audit-table">

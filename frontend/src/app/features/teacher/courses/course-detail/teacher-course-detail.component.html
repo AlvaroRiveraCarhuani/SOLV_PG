@@ -1,11 +1,10 @@
 <div class="course-detail">
   <header class="course-header">
     <div class="header-left">
-      <a routerLink="/teacher/dashboard" class="btn-ghost btn-sm back-link">
-        <svg lucideArrowLeft class="btn-icon-sm" aria-hidden="true"></svg>
+      <a routerLink="/teacher/dashboard" class="breadcrumb-back">
+        <svg lucideArrowLeft aria-hidden="true"></svg>
         Hoy
       </a>
-      <span class="header-divider" aria-hidden="true"></span>
       <div class="course-identity">
         <div class="course-title-row">
           @if (courseInfo()?.code) {
@@ -214,7 +213,7 @@
                     </a>
 
                     @if (lab.due_date) {
-                      <time class="lab-due font-mono" [attr.datetime]="lab.due_date">{{ lab.due_date | dateText:'compact-datetime' }}</time>
+                      <time class="lab-due font-mono" [attr.datetime]="lab.due_date">{{ lab.due_date | dateText:'datetime' }}</time>
                     } @else {
                       <span class="lab-due lab-due-empty">Sin fecha límite</span>
                     }
@@ -469,7 +468,7 @@
                       </td>
                       <td class="font-mono" machineData>{{ sub.score !== undefined && sub.score !== null ? sub.score + ' / 100' : '—' }}</td>
                       <td>
-                        <time class="font-mono" [attr.datetime]="sub.submitted_at">{{ sub.submitted_at | dateText:'compact-datetime' }}</time>
+                        <time class="font-mono" [attr.datetime]="sub.submitted_at">{{ sub.submitted_at | dateText:'datetime' }}</time>
                       </td>
                       <td class="col-action">
                         <a [routerLink]="['/teacher/revision', sub.id]" class="btn-ghost btn-sm review-link">

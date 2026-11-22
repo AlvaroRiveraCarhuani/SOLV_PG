@@ -28,7 +28,7 @@ function pad2(n: number): string {
   return n < 10 ? `0${n}` : `${n}`;
 }
 
-interface YmdParts { y: number; m: number; day: number }
+export interface YmdParts { y: number; m: number; day: number }
 
 /**
  * Extrae la parte de fecha de un string ISO (con o sin hora) validando
@@ -44,6 +44,26 @@ function ymdFromString(raw: string): YmdParts | null {
   const d = new Date(y, mo - 1, day);
   if (d.getFullYear() !== y || d.getMonth() !== mo - 1 || d.getDate() !== day) return null;
   return { y, m: mo, day };
+}
+
+/**
+ * Día calendario literal de un valor ISO (YYYY-MM-DD), sin conversión de zona.
+ * Es la misma base que usan los estilos de fecha pura del pipe y la que debe
+ * usar cualquier etiqueta relativa para no desalinearse del día mostrado.
+ */
+export function isoCalendarDate(value: unknown): YmdParts | null {
+  if (typeof value === 'string') {
+    return ymdFromString(value.trim());
+  }
+  if (value instanceof Date && !isNaN(value.getTime())) {
+    return { y: value.getFullYear(), m: value.getMonth() + 1, day: value.getDate() };
+  }
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    const d = new Date(value);
+    if (isNaN(d.getTime())) return null;
+    return { y: d.getFullYear(), m: d.getMonth() + 1, day: d.getDate() };
+  }
+  return null;
 }
 
 /**

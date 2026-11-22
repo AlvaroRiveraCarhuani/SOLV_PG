@@ -54,6 +54,10 @@
       <div class="spinner motion-spin"></div>
       <span>Cargando directorio de estudiantes...</span>
     </div>
+  } @else if (totalRecords() === 0) {
+    <div class="empty-state">
+      <p>Aún no hay estudiantes registrados en la institución.</p>
+    </div>
   } @else if (students().length === 0) {
     <div class="empty-state">
       <p>No se encontraron estudiantes que coincidan con los criterios seleccionados.</p>

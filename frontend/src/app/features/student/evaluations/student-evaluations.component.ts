@@ -12,6 +12,7 @@ import { VerdictBadgeComponent } from '@shared/components/verdict-badge/verdict-
 import { SkeletonLoaderComponent } from '@shared/components/skeleton/skeleton-loader.component';
 import { MachineDataDirective } from '@shared/directives/machine-data.directive';
 import { DateTextPipe } from '@shared/pipes/date-text.pipe';
+import { relativeDayLabel } from '@shared/utils/relative-day.util';
 import {
   LucideCheck,
   LucideChevronDown,
@@ -198,16 +199,7 @@ export class StudentEvaluationsComponent implements OnInit {
   }
 
   getUrgencyLabel(dueDateStr?: string | null): string {
-    if (!dueDateStr) return '';
-    const now = new Date();
-    const due = new Date(dueDateStr);
-    const diffMs = due.getTime() - now.getTime();
-    if (diffMs < 0) return 'Vencida';
-    const diffHours = diffMs / (1000 * 60 * 60);
-    if (diffHours <= 24) return 'Hoy';
-    if (diffHours <= 48) return 'Mañana';
-    const days = Math.ceil(diffHours / 24);
-    return `En ${days} días`;
+    return relativeDayLabel(dueDateStr).label;
   }
 
   statusLabel(status: StudentAcademicStatus | 'all'): string {

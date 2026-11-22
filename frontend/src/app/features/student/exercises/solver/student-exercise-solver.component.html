@@ -1,18 +1,20 @@
 <div class="solver-page-container" [class.is-ide]="isIdeExercise()">
-  <!-- Barra superior compacta (48px, 1 sola línea) -->
+  <!-- Retorno en breadcrumb sobre el encabezado, sin franja propia -->
+  <div class="solver-breadcrumb">
+    <button
+      type="button"
+      (click)="goBack()"
+      class="breadcrumb-back"
+      title="Volver"
+      aria-label="Volver a la materia o inicio"
+    >
+      <svg lucideArrowLeft aria-hidden="true"></svg>
+      <span>Volver</span>
+    </button>
+  </div>
+
   <header class="solver-topbar">
     <div class="topbar-left">
-      <button
-        type="button"
-        (click)="goBack()"
-        class="btn-ghost btn-back"
-        title="Volver"
-        aria-label="Volver a la materia o inicio"
-      >
-        <svg lucideArrowLeft class="topbar-icon" aria-hidden="true"></svg>
-        <span>Volver</span>
-      </button>
-
       <div class="title-meta">
         <h1 class="page-title">{{ exercise()?.title || 'Cargando ejercicio...' }}</h1>
         @if (isExamProject()) {

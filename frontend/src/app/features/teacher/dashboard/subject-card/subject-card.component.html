@@ -52,7 +52,7 @@
         class="btn-ghost btn-sm"
         [routerLink]="['/teacher/por-calificar']"
         [queryParams]="{ subject_id: subject().id }"
-      >Calificar (<span machineData>{{ subject().pending_review }}</span>)</a>
+      ><span>Calificar (<span machineData>{{ subject().pending_review }}</span>)</span></a>
     } @else {
       <span></span>
     }

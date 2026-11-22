@@ -2,11 +2,10 @@
   <!-- Cabecera plana de la materia -->
   <header class="course-flat-header">
     <div class="header-left">
-      <a routerLink="/student/courses" class="btn-ghost btn-back">
-        <svg lucideArrowLeft class="btn-icon" aria-hidden="true"></svg>
+      <a routerLink="/student/courses" class="breadcrumb-back">
+        <svg lucideArrowLeft aria-hidden="true"></svg>
         <span>Mis materias</span>
       </a>
-      <span class="header-divider" aria-hidden="true"></span>
       <div class="course-title-group">
         <div class="title-with-code">
           @if (subjectCode()) {

@@ -125,6 +125,20 @@ export class StudentHistoryComponent implements OnInit {
     return list;
   });
 
+  readonly hasActiveFilters = computed(() =>
+    this.subjectFilter() !== 'all' ||
+    this.verdictFilter() !== 'all' ||
+    this.environmentFilter() !== 'all' ||
+    this.searchQuery().trim() !== ''
+  );
+
+  clearFilters(): void {
+    this.subjectFilter.set('all');
+    this.verdictFilter.set('all');
+    this.environmentFilter.set('all');
+    this.searchQuery.set('');
+  }
+
   onSortChange(event: { column: string; direction: SortDirection }): void {
     this.sortState.set({ column: event.column, direction: event.direction });
   }

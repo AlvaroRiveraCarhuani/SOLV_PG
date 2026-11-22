@@ -1,37 +1,33 @@
 <div class="submission-detail-container">
   @if (isLoading()) {
-    <header class="detail-topbar">
-      <div class="topbar-left">
-        <a routerLink="/student/history" class="btn-back" title="Volver al historial">
-          <svg lucideArrowLeft class="icon-back"></svg>
-          <span>Volver al historial</span>
-        </a>
-      </div>
+    <header class="detail-header">
+      <a routerLink="/student/history" class="breadcrumb-back" title="Volver al historial">
+        <svg lucideArrowLeft aria-hidden="true"></svg>
+        <span>Volver al historial</span>
+      </a>
     </header>
     <div class="detail-loading-state">
       <skeleton-loader variant="cards" [count]="3" />
     </div>
   } @else if (loadError()) {
-    <header class="detail-topbar">
-      <div class="topbar-left">
-        <a routerLink="/student/history" class="btn-back" title="Volver al historial">
-          <svg lucideArrowLeft class="icon-back"></svg>
-          <span>Volver al historial</span>
-        </a>
-      </div>
+    <header class="detail-header">
+      <a routerLink="/student/history" class="breadcrumb-back" title="Volver al historial">
+        <svg lucideArrowLeft aria-hidden="true"></svg>
+        <span>Volver al historial</span>
+      </a>
     </header>
     <div class="detail-error-card" role="alert">
       <svg lucideAlertCircle class="error-icon"></svg>
       <p class="error-text">{{ loadError() }}</p>
     </div>
   } @else if (submission(); as sub) {
-    <header class="detail-topbar">
-      <div class="topbar-left">
-        <a routerLink="/student/history" class="btn-back" title="Volver al historial">
-          <svg lucideArrowLeft class="icon-back"></svg>
-          <span>Volver al historial</span>
-        </a>
+    <header class="detail-header">
+      <a routerLink="/student/history" class="breadcrumb-back" title="Volver al historial">
+        <svg lucideArrowLeft aria-hidden="true"></svg>
+        <span>Volver al historial</span>
+      </a>
 
+      <div class="detail-head-row">
         <div class="title-group">
           <div class="title-with-badge">
             <h1 class="page-title">{{ sub.exercise_title || 'Detalle de entrega' }}</h1>
@@ -46,16 +42,16 @@
             <span class="subject-name">{{ sub.subject_name }}</span>
             <span class="meta-dot">·</span>
             <span class="date-label">Entregado el</span>
-            <time [attr.datetime]="sub.submitted_at">{{ sub.submitted_at | dateText:'compact-datetime' }}</time>
+            <time [attr.datetime]="sub.submitted_at">{{ sub.submitted_at | dateText:'datetime' }}</time>
           </p>
         </div>
-      </div>
 
-      <div class="topbar-right">
+        <div class="topbar-right">
         <a [routerLink]="['/student/exercises', sub.exercise_id]" class="btn-action">
           <svg lucideExternalLink class="btn-icon"></svg>
           <span>Ir a la práctica</span>
         </a>
+      </div>
       </div>
     </header>
 

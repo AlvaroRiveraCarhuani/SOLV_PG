@@ -7,6 +7,7 @@ import { VerdictBadgeComponent } from '@shared/components/verdict-badge/verdict-
 import { FieldMessageComponent } from '@shared/components/field-message/field-message.component';
 import { MachineDataDirective } from '@shared/directives/machine-data.directive';
 import { DateTextPipe } from '@shared/pipes/date-text.pipe';
+import { relativeDayLabel } from '@shared/utils/relative-day.util';
 import {
   LucideBookOpen,
   LucideHistory,
@@ -105,17 +106,8 @@ export class StudentDashboardComponent implements OnInit {
     return 'No tiene entregas pendientes.';
   });
 
-  getUrgencyLabel(dueDateStr?: string): string {
-    if (!dueDateStr) return '';
-    const now = new Date();
-    const due = new Date(dueDateStr);
-    const diffMs = due.getTime() - now.getTime();
-    if (diffMs < 0) return 'Vencida';
-    const diffHours = diffMs / (1000 * 60 * 60);
-    if (diffHours <= 24) return 'Hoy';
-    if (diffHours <= 48) return 'Mañana';
-    const days = Math.ceil(diffHours / 24);
-    return `En ${days} días`;
+  getUrgencyLabel(dueDateStr?: string | null): string {
+    return relativeDayLabel(dueDateStr).label;
   }
 
   isExam(item: unknown): boolean {

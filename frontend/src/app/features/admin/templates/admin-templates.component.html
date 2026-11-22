@@ -376,9 +376,11 @@
           <div class="empty-icon-box">
             <svg lucideBox class="empty-icon"></svg>
           </div>
-          <h3 class="empty-title">Sin coincidencias en el catálogo</h3>
+          <h3 class="empty-title">{{ currentTabTemplates().length === 0 ? 'Catálogo vacío' : 'Sin coincidencias en el catálogo' }}</h3>
           <p class="empty-description">
-            No se encontraron plantillas oficiales que coincidan con la modalidad, la tecnología o la búsqueda seleccionada.
+            {{ currentTabTemplates().length === 0
+              ? 'Todavía no hay plantillas aprobadas en el catálogo institucional.'
+              : 'No se encontraron plantillas oficiales que coincidan con la modalidad, la tecnología o la búsqueda seleccionada.' }}
           </p>
         </div>
       } @else if (viewMode() === 'cards') {

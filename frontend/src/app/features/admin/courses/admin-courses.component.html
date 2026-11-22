@@ -204,8 +204,10 @@
               <td colspan="5" class="empty-cell">
                 <div class="empty-state">
                   <svg lucideBookOpen class="empty-icon"></svg>
-                  <h3>No se encontraron cursos</h3>
-                  <p>No existen materias que coincidan con los filtros o el periodo seleccionado.</p>
+                  <h3>{{ coursesService.courses().length === 0 ? 'Sin materias registradas' : 'No se encontraron cursos' }}</h3>
+                  <p>{{ coursesService.courses().length === 0
+                    ? 'Aún no hay materias creadas en el catálogo institucional.'
+                    : 'No existen materias que coincidan con los filtros o el periodo seleccionado.' }}</p>
                 </div>
               </td>
             </tr>

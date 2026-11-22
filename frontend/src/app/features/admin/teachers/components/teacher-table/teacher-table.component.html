@@ -215,8 +215,10 @@
               <td colspan="6" class="empty-state">
                 <div class="empty-content">
                   <svg lucideUserPlus class="empty-icon"></svg>
-                  <p class="empty-title">No se encontraron docentes</p>
-                  <p class="empty-desc">No hay profesores que coincidan con los criterios de búsqueda o filtros seleccionados.</p>
+                  <p class="empty-title">{{ counts().all === 0 ? 'Sin docentes registrados' : 'No se encontraron docentes' }}</p>
+                  <p class="empty-desc">{{ counts().all === 0
+                    ? 'Aún no hay docentes en la institución. Registre el primero con «Registrar docente».'
+                    : 'No hay profesores que coincidan con los criterios de búsqueda o filtros seleccionados.' }}</p>
                 </div>
               </td>
             </tr>

@@ -124,7 +124,7 @@
                   <span machineData>{{ group.pending }}</span> de
                   <span machineData>{{ group.total }}</span>
                   <span aria-hidden="true">·</span>
-                  <time [attr.datetime]="group.oldest_submitted_at">{{ group.oldest_submitted_at | dateText:'compact-datetime' }}</time>
+                  <time [attr.datetime]="group.oldest_submitted_at">{{ group.oldest_submitted_at | dateText:'datetime' }}</time>
                 </span>
                 <span class="queue-progress" aria-hidden="true">
                   <span class="queue-progress-fill" [style.width.%]="progressPercent(group)"></span>
@@ -205,7 +205,7 @@
 
                     <div class="submission-date">
                       <time class="submission-when font-mono" [attr.datetime]="item.submitted_at">
-                        {{ item.submitted_at | dateText:'compact-datetime' }}
+                        {{ item.submitted_at | dateText:'datetime' }}
                       </time>
                       @if (item.review_status === 'in_review') {
                         <span class="review-flag">En revisión</span>

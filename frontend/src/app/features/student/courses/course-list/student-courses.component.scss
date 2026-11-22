@@ -2,9 +2,6 @@
   display: flex;
   flex-direction: column;
   gap: var(--space-4);
-  max-width: 1320px;
-  padding: var(--space-4) var(--space-6) var(--space-4);
-  margin: 0 auto;
 }
 
 .courses-header {
@@ -15,20 +12,9 @@
 
   .header-left {
     display: flex;
-    align-items: center;
-    gap: var(--space-3);
-  }
-
-  .btn-back {
-    height: 28px;
-    padding: 0 var(--space-2);
-    font-size: var(--text-xs);
-  }
-
-  .header-divider {
-    width: 1px;
-    height: 16px;
-    background: var(--border-subtle);
+    flex-direction: column;
+    align-items: flex-start;
+    gap: var(--space-1);
   }
 
   .header-titles {
@@ -76,10 +62,15 @@
   display: flex;
   align-items: center;
   gap: var(--space-3);
+  flex-wrap: wrap;
 }
 
 .courses-search {
-  width: 240px;
+  width: 300px;
+}
+
+.due-date {
+  white-space: nowrap;
 }
 
 .empty-state {

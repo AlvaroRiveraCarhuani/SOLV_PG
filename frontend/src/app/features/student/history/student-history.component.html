@@ -56,9 +56,18 @@
 
   @if (isLoading()) {
     <skeleton-loader variant="table" [rows]="4" [columns]="7" />
+  } @else if (submissions().length === 0) {
+    <div class="empty-state">
+      <p>Aún no registra entregas. Cuando envíe una solución, aparecerá aquí con su resultado.</p>
+    </div>
   } @else if (filteredSubmissions().length === 0) {
     <div class="empty-state">
       <p>No hay entregas que coincidan con los filtros.</p>
+      @if (hasActiveFilters()) {
+        <button type="button" class="btn-secondary btn-sm clear-filters-btn" (click)="clearFilters()">
+          Quitar filtros
+        </button>
+      }
     </div>
   } @else {
     <div class="table-responsive">
@@ -158,7 +167,7 @@
                 }
               </td>
               <td class="cell-date">
-                <time [attr.datetime]="sub.submitted_at">{{ sub.submitted_at | dateText:'compact-datetime' }}</time>
+                <time [attr.datetime]="sub.submitted_at">{{ sub.submitted_at | dateText:'datetime' }}</time>
               </td>
               <td class="cell-actions">
                 <a class="action-link" [routerLink]="['/student/history', sub.id]">

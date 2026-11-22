@@ -58,6 +58,8 @@ export class StudentTableComponent {
   readonly currentPage = input<number>(1);
   readonly totalPages = input<number>(1);
   readonly totalItems = input<number>(0);
+  /** Registros totales del directorio, antes de filtros y paginación. */
+  readonly totalRecords = input<number>(0);
   readonly paginationFrom = input<number>(0);
   readonly paginationTo = input<number>(0);
   readonly activeMenuStudentId = input<string | null>(null);

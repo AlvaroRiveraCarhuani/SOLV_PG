@@ -87,8 +87,13 @@
   } @else if (filteredTemplates().length === 0) {
     <div class="empty-state motion-fade">
       <svg lucideLayers class="empty-icon"></svg>
-      <h3>No se encontraron entornos</h3>
-      <p>Ajuste los filtros o solicite una nueva tecnología al administrador.</p>
+      @if (templates().length === 0) {
+        <h3>Aún no hay entornos publicados</h3>
+        <p>Cuando el administrador apruebe el primer entorno, aparecerá en este catálogo.</p>
+      } @else {
+        <h3>No se encontraron entornos</h3>
+        <p>Ajuste los filtros o solicite una nueva tecnología al administrador.</p>
+      }
       <button type="button" class="btn-secondary" (click)="openRequestModal()">
         <svg lucidePlus class="btn-icon"></svg>
         <span>Solicitar entorno</span>

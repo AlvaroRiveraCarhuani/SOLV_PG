@@ -116,7 +116,7 @@
             No tiene clase abierta en este momento. Las prácticas publicadas siguen disponibles sin aula abierta.
           </p>
           <div class="card-actions">
-            <a class="btn-primary" routerLink="/student/courses">
+            <a class="btn-secondary" routerLink="/student/courses">
               <svg lucideBookOpen class="btn-icon" aria-hidden="true"></svg>
               <span>Ver mis prácticas →</span>
             </a>
@@ -254,7 +254,7 @@
                       <span class="meta-sep">·</span>
                     }
                     <time class="recent-date font-mono" [attr.datetime]="sub.submitted_at">
-                      {{ sub.submitted_at | dateText:'compact-datetime' }}
+                      {{ sub.submitted_at | dateText:'datetime' }}
                     </time>
                   </div>
                 </div>

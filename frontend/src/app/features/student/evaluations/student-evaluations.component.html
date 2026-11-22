@@ -193,6 +193,12 @@
 
   @if (isLoading()) {
     <skeleton-loader variant="list" [count]="4" />
+  } @else if (evaluations().length === 0) {
+    <div class="empty-state">
+      <svg lucideInbox class="empty-icon" aria-hidden="true"></svg>
+      <p class="empty-title">Aún no tiene actividades asignadas</p>
+      <p class="empty-copy">Cuando sus docentes publiquen prácticas o exámenes, aparecerán en este radar.</p>
+    </div>
   } @else if (filteredCount() === 0) {
     <div class="empty-state">
       <svg lucideInbox class="empty-icon" aria-hidden="true"></svg>

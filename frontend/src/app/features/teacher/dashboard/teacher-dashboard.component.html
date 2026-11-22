@@ -30,7 +30,7 @@
       }
       @if (queue().pending > 0) {
         <a class="btn-primary btn-sm" [routerLink]="['/teacher/por-calificar']">
-          Calificar pendientes (<span machineData>{{ queue().pending }}</span>)
+          <span>Calificar pendientes (<span machineData>{{ queue().pending }}</span>)</span>
           <svg lucideArrowRight class="btn-icon-sm" aria-hidden="true"></svg>
         </a>
       }
@@ -86,7 +86,7 @@
                       <span machineData>{{ due.pending_review }}</span> por calificar
                     </span>
                     @if (due.due_at) {
-                      <time class="list-dense-meta" [attr.datetime]="due.due_at">{{ due.due_at | dateText:'compact-datetime' }}</time>
+                      <time class="list-dense-meta" [attr.datetime]="due.due_at">{{ due.due_at | dateText:'datetime' }}</time>
                     }
                     <a
                       class="btn-ghost btn-sm priority-action"
@@ -118,7 +118,7 @@
               @for (due of dueSoon(); track due.exercise_id) {
                 <li class="due-row">
                   @if (due.due_at) {
-                    <time class="due-when font-mono" [attr.datetime]="due.due_at">{{ due.due_at | dateText:'compact-datetime' }}</time>
+                    <time class="due-when font-mono" [attr.datetime]="due.due_at">{{ due.due_at | dateText:'datetime' }}</time>
                   }
                   <a
                     class="due-title"

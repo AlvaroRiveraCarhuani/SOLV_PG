@@ -154,7 +154,7 @@ describe('StudentHistoryComponent', () => {
 
     const time = rowFor('Recorrido de listas')?.querySelector('time');
     expect(time?.getAttribute('datetime')).toBe('2026-10-20T14:05:00');
-    expect(time?.textContent?.trim()).toBe('20/10 14:05:00');
+    expect(time?.textContent?.trim()).toBe('20/10/2026 14:05');
 
     const exerciseLink = rowFor('Recorrido de listas')?.querySelector<HTMLAnchorElement>('a.action-link');
     expect(exerciseLink?.getAttribute('href')).toBe('/student/history/sub-1');

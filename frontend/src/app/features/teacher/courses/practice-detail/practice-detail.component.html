@@ -12,11 +12,10 @@
   <div class="practice-detail">
     <header class="practice-header">
       <div class="header-left">
-        <a class="btn-ghost btn-sm back-link" [routerLink]="['/teacher/cursos', courseId()]">
-          <svg lucideArrowLeft class="btn-icon-sm" aria-hidden="true"></svg>
+        <a class="breadcrumb-back" [routerLink]="['/teacher/cursos', courseId()]">
+          <svg lucideArrowLeft aria-hidden="true"></svg>
           Materia
         </a>
-        <span class="header-divider" aria-hidden="true"></span>
         <div class="practice-identity">
           <div class="title-row">
             <h1 class="practice-title">{{ practice.title }}</h1>
@@ -29,7 +28,7 @@
             <span>{{ envBadge().label }}</span>
             @if (practice.due_date) {
               <span aria-hidden="true">·</span>
-              <span>Cierre <time [attr.datetime]="practice.due_date">{{ practice.due_date | dateText:'compact-datetime' }}</time></span>
+              <span>Cierre <time [attr.datetime]="practice.due_date">{{ practice.due_date | dateText:'datetime' }}</time></span>
             }
             @if (labStats(); as lab) {
               <span aria-hidden="true">·</span>
@@ -298,7 +297,7 @@
               @if (practice.due_date) {
                 <div class="control-row">
                   <dt>Cierre</dt>
-                  <dd class="font-mono"><time [attr.datetime]="practice.due_date">{{ practice.due_date | dateText:'compact-datetime' }}</time></dd>
+                  <dd class="font-mono"><time [attr.datetime]="practice.due_date">{{ practice.due_date | dateText:'datetime' }}</time></dd>
                 </div>
               }
               @if (labStats(); as lab) {
