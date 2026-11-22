@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"strings"
 	"time"
 )
 
@@ -75,6 +76,28 @@ type WorkspaceProjectDraft struct {
 	UpdatedBy     *string   `db:"updated_by" json:"updated_by,omitempty"`
 	CreatedAt     time.Time `db:"created_at" json:"created_at"`
 	UpdatedAt     time.Time `db:"updated_at" json:"updated_at"`
+
+	// Área de preparación del proyecto grande (ADR-090). Nula mientras el
+	// borrador sea texto; completa cuando es un artefacto en el depósito.
+	ArtifactKey    *string `db:"artifact_key" json:"artifact_key,omitempty"`
+	ArtifactSHA256 *string `db:"artifact_sha256" json:"artifact_sha256,omitempty"`
+	ArtifactBytes  *int64  `db:"artifact_bytes" json:"artifact_bytes,omitempty"`
+	ArtifactFiles  *int    `db:"artifact_files" json:"artifact_files,omitempty"`
+}
+
+// Artifact devuelve el artefacto del borrador, o nil si el borrador es texto.
+func (d WorkspaceProjectDraft) Artifact() *WorkspaceProjectArtifact {
+	if d.ArtifactKey == nil || strings.TrimSpace(*d.ArtifactKey) == "" || d.ArtifactSHA256 == nil {
+		return nil
+	}
+	artifact := &WorkspaceProjectArtifact{Key: *d.ArtifactKey, SHA256: *d.ArtifactSHA256}
+	if d.ArtifactBytes != nil {
+		artifact.Bytes = *d.ArtifactBytes
+	}
+	if d.ArtifactFiles != nil {
+		artifact.Files = *d.ArtifactFiles
+	}
+	return artifact
 }
 
 // WorkspaceProjectManifestEntry describe un archivo de una versión sin duplicar
@@ -101,6 +124,27 @@ type WorkspaceProjectVersion struct {
 	CreatedBy     *string         `db:"created_by" json:"created_by,omitempty"`
 	PublishedAt   time.Time       `db:"published_at" json:"published_at"`
 	CreatedAt     time.Time       `db:"created_at" json:"created_at"`
+
+	// Artefacto del proyecto grande (ADR-090). Nulo en el camino liviano.
+	ArtifactKey    *string `db:"artifact_key" json:"artifact_key,omitempty"`
+	ArtifactSHA256 *string `db:"artifact_sha256" json:"artifact_sha256,omitempty"`
+	ArtifactBytes  *int64  `db:"artifact_bytes" json:"artifact_bytes,omitempty"`
+	ArtifactFiles  *int    `db:"artifact_files" json:"artifact_files,omitempty"`
+}
+
+// Artifact devuelve el artefacto de la versión, o nil si la versión es texto.
+func (v WorkspaceProjectVersion) Artifact() *WorkspaceProjectArtifact {
+	if v.ArtifactKey == nil || strings.TrimSpace(*v.ArtifactKey) == "" || v.ArtifactSHA256 == nil {
+		return nil
+	}
+	artifact := &WorkspaceProjectArtifact{Key: *v.ArtifactKey, SHA256: *v.ArtifactSHA256}
+	if v.ArtifactBytes != nil {
+		artifact.Bytes = *v.ArtifactBytes
+	}
+	if v.ArtifactFiles != nil {
+		artifact.Files = *v.ArtifactFiles
+	}
+	return artifact
 }
 
 // WorkspaceLegacyProjectReference conserva el proyecto base histórico sin
@@ -130,6 +174,15 @@ type WorkspaceSeed struct {
 	VersionID     string
 	ContentSHA256 string
 	Files         []WorkspaceSeedFile
+
+	// Archive existe cuando la versión es un artefacto (ADR-090): el volumen se
+	// siembra extrayendo este tar.gz en lugar de escribir Files. La huella del
+	// artefacto es la que identifica la inicialización, así que el marcador
+	// sigue siendo comparable entre reaperturas.
+	Archive           []byte
+	ArchiveSHA256     string
+	ArchiveFileCount  int
+	ArchiveTotalBytes int64
 }
 
 // WorkspaceSeedVolumeStore es una capacidad opcional del orquestador. La
@@ -154,7 +207,10 @@ type WorkspaceProjectRepository interface {
 	CreateProject(ctx context.Context, project *WorkspaceProject) (*WorkspaceProject, error)
 	GetDraftByProject(ctx context.Context, tenantID, projectID string) (*WorkspaceProjectDraft, error)
 	SaveDraft(ctx context.Context, draft *WorkspaceProjectDraft, expectedRevision int64) (*WorkspaceProjectDraft, error)
-	Publish(ctx context.Context, tenantID, projectID, userID string) (*WorkspaceProjectVersion, error)
+	// Publish crea la versión a partir del borrador. manifest llega resuelto
+	// cuando el borrador es un artefacto (el servicio extrae el archivo); con
+	// texto en nil el repositorio lo arma desde el snapshot.
+	Publish(ctx context.Context, tenantID, projectID, userID string, manifest []WorkspaceProjectManifestEntry) (*WorkspaceProjectVersion, error)
 	ListVersions(ctx context.Context, tenantID, projectID string) ([]*WorkspaceProjectVersion, error)
 	GetVersion(ctx context.Context, tenantID, versionID string) (*WorkspaceProjectVersion, error)
 	GetLegacyReference(ctx context.Context, tenantID, exerciseID string) (*WorkspaceLegacyProjectReference, error)

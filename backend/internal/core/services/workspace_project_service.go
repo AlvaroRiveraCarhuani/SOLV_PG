@@ -32,6 +32,27 @@ type WorkspaceProjectService struct {
 	aiSettings        *AISettingsService
 	dependencyQueue   *DependencyPreparationQueue
 	publishingEnabled bool
+	// artifacts guarda el tar.gz del proyecto grande. Sin depósito la carga
+	// responde 503 y el camino liviano sigue igual (ADR-090).
+	artifacts domain.WorkspaceProjectArtifactStore
+	// archiveEnabled mantiene la carga cerrada por defecto. Se enciende solo
+	// con WORKSPACE_PROJECT_ARCHIVE_ENABLED=true.
+	archiveEnabled bool
+}
+
+// SetArtifactStore conecta el depósito de archivos del proyecto grande.
+func (s *WorkspaceProjectService) SetArtifactStore(store domain.WorkspaceProjectArtifactStore) {
+	if s != nil {
+		s.artifacts = store
+	}
+}
+
+// SetArchiveEnabled abre la carga de proyectos grandes. Apagada, el endpoint
+// responde 403 y el camino liviano no cambia.
+func (s *WorkspaceProjectService) SetArchiveEnabled(enabled bool) {
+	if s != nil {
+		s.archiveEnabled = enabled
+	}
 }
 
 func NewWorkspaceProjectService(repo domain.WorkspaceProjectRepository, publishingEnabled bool) *WorkspaceProjectService {
@@ -299,6 +320,9 @@ type WorkspaceProjectView struct {
 	// PublishingEnabled refleja el flag del servidor para que la interfaz no
 	// ofrezca una acción que el backend rechazará. No autoriza por sí mismo.
 	PublishingEnabled bool `json:"publishing_enabled"`
+	// ArchiveEnabled refleja WORKSPACE_PROJECT_ARCHIVE_ENABLED. Apagado, la
+	// interfaz no ofrece cargar un proyecto grande y el endpoint responde 403.
+	ArchiveEnabled bool `json:"archive_enabled"`
 	// Preparation describe la preparación de dependencias de la versión
 	// publicada vigente. Sin trabajo queda ausente: la versión se publicó antes
 	// de que la cola existiera.
@@ -320,6 +344,9 @@ type SaveWorkspaceDraftRequest struct {
 	TextSnapshot     string  `json:"text_snapshot"`
 	ExpectedRevision int64   `json:"expected_revision"`
 	BaseVersionID    *string `json:"base_version_id,omitempty"`
+	// Artifact reemplaza al texto cuando el proyecto es grande. Nunca se
+	// aceptan los dos a la vez: un borrador es de una forma o de la otra.
+	Artifact *domain.WorkspaceProjectArtifact `json:"artifact,omitempty"`
 }
 
 func (s *WorkspaceProjectService) GetProject(ctx context.Context, tenantID, exerciseID string) (*WorkspaceProjectView, error) {
@@ -331,11 +358,11 @@ func (s *WorkspaceProjectService) GetProject(ctx context.Context, tenantID, exer
 		if errors.Is(err, domain.ErrWorkspaceProjectNotFound) {
 			legacy, legacyErr := s.repo.GetLegacyReference(ctx, tenantID, exerciseID)
 			if legacyErr == nil {
-				return &WorkspaceProjectView{Legacy: legacy, Versions: []*domain.WorkspaceProjectVersion{}, PublishingEnabled: s.publishingEnabled}, nil
+				return &WorkspaceProjectView{Legacy: legacy, Versions: []*domain.WorkspaceProjectVersion{}, PublishingEnabled: s.publishingEnabled, ArchiveEnabled: s.archiveEnabled}, nil
 			}
 			// Un ejercicio IDE todavía sin proyecto es un estado válido: la
 			// interfaz necesita saber si puede publicar y ofrecer la importación.
-			return &WorkspaceProjectView{Versions: []*domain.WorkspaceProjectVersion{}, PublishingEnabled: s.publishingEnabled}, nil
+			return &WorkspaceProjectView{Versions: []*domain.WorkspaceProjectVersion{}, PublishingEnabled: s.publishingEnabled, ArchiveEnabled: s.archiveEnabled}, nil
 		}
 		return nil, err
 	}
@@ -347,7 +374,7 @@ func (s *WorkspaceProjectService) GetProject(ctx context.Context, tenantID, exer
 	if err != nil {
 		return nil, err
 	}
-	view := &WorkspaceProjectView{Project: project, Draft: draft, Versions: versions, PublishingEnabled: s.publishingEnabled}
+	view := &WorkspaceProjectView{Project: project, Draft: draft, Versions: versions, PublishingEnabled: s.publishingEnabled, ArchiveEnabled: s.archiveEnabled}
 	if err := s.attachPreparation(ctx, tenantID, view); err != nil {
 		return nil, err
 	}
@@ -450,7 +477,14 @@ func (s *WorkspaceProjectService) SaveDraft(ctx context.Context, tenantID, exerc
 	if _, err := uuid.Parse(strings.TrimSpace(exerciseID)); err != nil {
 		return nil, domain.ErrInvalidResourceID
 	}
-	if err := validateWorkspaceProjectSnapshot(req.TextSnapshot); err != nil {
+	if req.Artifact != nil {
+		if strings.TrimSpace(req.TextSnapshot) != "" {
+			return nil, fmt.Errorf("%w: un borrador no puede ser texto y archivo a la vez", domain.ErrWorkspaceProjectImportInvalid)
+		}
+		if err := req.Artifact.Valid(); err != nil {
+			return nil, err
+		}
+	} else if err := validateWorkspaceProjectSnapshot(req.TextSnapshot); err != nil {
 		return nil, err
 	}
 
@@ -480,6 +514,14 @@ func (s *WorkspaceProjectService) SaveDraft(ctx context.Context, tenantID, exerc
 		TextSnapshot:  req.TextSnapshot,
 		UpdatedBy:     optionalString(userID),
 	}
+	if req.Artifact != nil {
+		draft.TextSnapshot = ""
+		draft.ContentSHA256 = req.Artifact.SHA256
+		draft.ArtifactKey = &req.Artifact.Key
+		draft.ArtifactSHA256 = &req.Artifact.SHA256
+		draft.ArtifactBytes = &req.Artifact.Bytes
+		draft.ArtifactFiles = &req.Artifact.Files
+	}
 	return s.repo.SaveDraft(ctx, draft, req.ExpectedRevision)
 }
 
@@ -498,14 +540,32 @@ func (s *WorkspaceProjectService) Publish(ctx context.Context, tenantID, exercis
 	if err != nil {
 		return nil, err
 	}
-	if err := validateWorkspaceProjectSnapshot(draft.TextSnapshot); err != nil {
+	artifact := draft.Artifact()
+	if artifact == nil {
+		if err := validateWorkspaceProjectSnapshot(draft.TextSnapshot); err != nil {
+			return nil, err
+		}
+	} else if err := artifact.Valid(); err != nil {
 		return nil, err
 	}
-	version, err := s.repo.Publish(ctx, tenantID, project.ID, userID)
+	var manifest []domain.WorkspaceProjectManifestEntry
+	if artifact != nil {
+		manifest, err = s.baseManifest(ctx, artifact)
+		if err != nil {
+			return nil, err
+		}
+	}
+	version, err := s.repo.Publish(ctx, tenantID, project.ID, userID, manifest)
 	if err != nil {
 		return nil, err
 	}
-	if s.dependencyQueue != nil {
+	// La preparación de dependencias lee el snapshot de texto y todavía no sabe
+	// extraer un artefacto. Encolarla haría fallar el trabajo y dejaría la
+	// versión sin árbol: se omite hasta que el worker soporte el archivo.
+	if artifact != nil && s.dependencyQueue != nil {
+		log.Printf("aviso: la versión %s se publicó como artefacto sin preparar dependencias", version.ID)
+	}
+	if s.dependencyQueue != nil && artifact == nil {
 		if _, enqueueErr := s.dependencyQueue.Enqueue(ctx, tenantID, exerciseID, version.ID); enqueueErr != nil {
 			// La versión ya está publicada y no se deshace por un encolado fallido:
 			// el reconciliador de la cola la recupera en el siguiente arranque.

@@ -51,7 +51,7 @@ func (f *workspaceProjectRepoFake) SaveDraft(_ context.Context, draft *domain.Wo
 	return draft, nil
 }
 
-func (f *workspaceProjectRepoFake) Publish(context.Context, string, string, string) (*domain.WorkspaceProjectVersion, error) {
+func (f *workspaceProjectRepoFake) Publish(context.Context, string, string, string, []domain.WorkspaceProjectManifestEntry) (*domain.WorkspaceProjectVersion, error) {
 	f.publishCalls++
 	return &domain.WorkspaceProjectVersion{
 		ID:            "version-1",

@@ -63,6 +63,21 @@ func (v *phase3Volume) WritePracticeEnvironmentVolumeFiles(context.Context, stri
 	return nil
 }
 
+// SnapshotPracticeEnvironmentVolumeStrict reproduce el adaptador real: si el
+// árbol supera el tope, la entrega se rechaza en vez de recortarse.
+func (v *phase3Volume) SnapshotPracticeEnvironmentVolumeStrict(ctx context.Context, volumeName string, maxBytes int64) ([]domain.PracticeEnvironmentVolumeFile, error) {
+	v.mu.Lock()
+	total := int64(0)
+	for _, content := range v.files {
+		total += int64(len(content))
+	}
+	v.mu.Unlock()
+	if total > maxBytes {
+		return nil, domain.ErrPracticeEnvironmentSnapshotTooLarge
+	}
+	return v.SnapshotPracticeEnvironmentVolume(ctx, volumeName, maxBytes)
+}
+
 func phase3Context(tenantID string) context.Context {
 	return context.WithValue(context.Background(), domain.TenantIDKey, tenantID)
 }
@@ -115,7 +130,7 @@ func TestWorkspaceProjectPhase3AssignmentAndV1V2LiveDB(t *testing.T) {
 	}, 0); err != nil {
 		t.Fatalf("borrador V1: %v", err)
 	}
-	v1, err := workspaceRepo.Publish(ctx, seed.tenantID, project.ID, seed.teacherID)
+	v1, err := workspaceRepo.Publish(ctx, seed.tenantID, project.ID, seed.teacherID, nil)
 	if err != nil {
 		t.Fatalf("publicar V1: %v", err)
 	}
@@ -140,7 +155,7 @@ func TestWorkspaceProjectPhase3AssignmentAndV1V2LiveDB(t *testing.T) {
 	}, 1); err != nil {
 		t.Fatalf("borrador V2: %v", err)
 	}
-	v2, err := workspaceRepo.Publish(ctx, seed.tenantID, project.ID, seed.teacherID)
+	v2, err := workspaceRepo.Publish(ctx, seed.tenantID, project.ID, seed.teacherID, nil)
 	if err != nil {
 		t.Fatalf("publicar V2: %v", err)
 	}
@@ -274,7 +289,7 @@ func TestWorkspaceProjectPhase3QuarantineSurvivesReopenLiveDB(t *testing.T) {
 	if _, err := workspaceRepo.SaveDraft(ctx, &domain.WorkspaceProjectDraft{TenantID: seed.tenantID, ProjectID: project.ID, TextSnapshot: "# === FILE: main.py ===\nprint(1)\n"}, 0); err != nil {
 		t.Fatalf("borrador: %v", err)
 	}
-	if _, err := workspaceRepo.Publish(ctx, seed.tenantID, project.ID, seed.teacherID); err != nil {
+	if _, err := workspaceRepo.Publish(ctx, seed.tenantID, project.ID, seed.teacherID, nil); err != nil {
 		t.Fatalf("publicar: %v", err)
 	}
 	volume := &phase3Volume{prepareErr: domain.ErrWorkspaceSeedVolumeAmbiguous}

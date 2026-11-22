@@ -213,7 +213,7 @@ func TestWorkspaceProjectPublishRepositoryLiveDB(t *testing.T) {
 		t.Fatalf("segundo SaveDraft con revisión 0 debía conflictuar: %v", err)
 	}
 
-	v1, err := repo.Publish(ctx, seed.tenantID, project.ID, seed.teacherID)
+	v1, err := repo.Publish(ctx, seed.tenantID, project.ID, seed.teacherID, nil)
 	if err != nil {
 		t.Fatalf("Publish v1: %v", err)
 	}
@@ -242,7 +242,7 @@ func TestWorkspaceProjectPublishRepositoryLiveDB(t *testing.T) {
 	}, 1); err != nil {
 		t.Fatalf("SaveDraft v2: %v", err)
 	}
-	v2, err := repo.Publish(ctx, seed.tenantID, project.ID, seed.teacherID)
+	v2, err := repo.Publish(ctx, seed.tenantID, project.ID, seed.teacherID, nil)
 	if err != nil {
 		t.Fatalf("Publish v2: %v", err)
 	}

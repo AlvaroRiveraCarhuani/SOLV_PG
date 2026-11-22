@@ -3,7 +3,11 @@ package docker
 import (
 	"archive/tar"
 	"bytes"
+	"compress/gzip"
 	"context"
+	"crypto/sha256"
+	"encoding/base64"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -123,7 +127,8 @@ func (c *Client) PrepareWorkspaceVolume(ctx context.Context, volumeName string, 
 		}
 	}
 
-	existing, err := c.readWorkspaceVolumeTree(ctx, volumeName, "", workspaceSeedMaxTotalBytes+workspaceSeedMaxMetadata, workspaceSeedMaxFiles+16)
+	maxBytes, maxFiles := workspaceSeedReadLimits(files, totalBytes)
+	existing, err := c.readWorkspaceVolumeTree(ctx, volumeName, "", maxBytes, maxFiles)
 	if err != nil {
 		return err
 	}
@@ -223,7 +228,8 @@ func (c *Client) writeWorkspaceSeed(ctx context.Context, volumeName string, seed
 }
 
 func (c *Client) finishWorkspaceSeed(ctx context.Context, volumeName string, seed domain.WorkspaceSeed, files map[string]string, totalBytes int) error {
-	existing, err := c.readWorkspaceVolumeTree(ctx, volumeName, "", workspaceSeedMaxTotalBytes+workspaceSeedMaxMetadata, workspaceSeedMaxFiles+16)
+	maxBytes, maxFiles := workspaceSeedReadLimits(files, totalBytes)
+	existing, err := c.readWorkspaceVolumeTree(ctx, volumeName, "", maxBytes, maxFiles)
 	if err != nil {
 		return err
 	}
@@ -344,15 +350,30 @@ func (c *Client) readWorkspaceVolumeTree(ctx context.Context, volumeName, root s
 		// entrada de enlace.
 		archiveCmd = "tar -cf - -C " + shellQuote(environmentVolumeMountPoint) + " " + shellQuote(cleanRoot)
 	}
+	// El tar del volumen agrega una cabecera de 512 bytes por entrada y rellena
+	// cada archivo a bloques de 512, así que el presupuesto de contenido no
+	// alcanza para el archivo completo. El parser sigue midiendo el contenido
+	// contra maxBytes; este margen solo cubre el empaquetado.
+	readBudget := maxBytes + maxFiles*1024 + 2*1024*1024
 	// El proceso tar no debe volcar un volumen grande en memoria del backend.
 	// Si el archivo se trunca, el parser lo trata como estado ambiguo y no
 	// autoriza ninguna escritura.
-	archiveCmd += fmt.Sprintf(" | head -c %d", maxBytes+512*1024)
-	archive, err := c.runPracticeEnvironmentVolumeShell(ctx, volumeName, true, archiveCmd)
+	// El tar viaja por los logs del contenedor y el driver de logs no conserva
+	// bytes que no sean UTF-8: un proyecto con imágenes llegaba corrupto y el
+	// parser lo rechazaba. base64 lo vuelve ASCII de ida y vuelta.
+	archiveCmd += fmt.Sprintf(" | head -c %d | base64", readBudget)
+	encoded, err := c.runPracticeEnvironmentVolumeShell(ctx, volumeName, true, archiveCmd)
 	if err != nil {
-		return nil, fmt.Errorf("failed to read environment volume tree: %w", err)
+		// Sin lectura no se puede afirmar qué contiene el volumen: se trata
+		// como estado ambiguo para que quede en cuarentena y no se escriba
+		// encima de archivos que podrían existir.
+		return nil, fmt.Errorf("%w: no se pudo leer el tar del volumen: %v", domain.ErrWorkspaceSeedVolumeAmbiguous, err)
 	}
-	if len(archive) > maxBytes {
+	archive, err := base64.StdEncoding.DecodeString(strings.TrimSpace(string(encoded)))
+	if err != nil {
+		return nil, fmt.Errorf("%w: el tar del volumen no llegó íntegro", domain.ErrWorkspaceSeedVolumeAmbiguous)
+	}
+	if len(archive) > readBudget {
 		return nil, fmt.Errorf("%w: el contenido del volumen excede el límite de lectura", domain.ErrWorkspaceSeedVolumeAmbiguous)
 	}
 	return parseWorkspaceSeedTar(archive, cleanRoot, maxBytes, maxFiles)
@@ -369,7 +390,9 @@ func parseWorkspaceSeedTar(raw []byte, root string, maxBytes, maxFiles int) ([]d
 			break
 		}
 		if err != nil {
-			return nil, fmt.Errorf("failed to parse environment volume tree: %w", err)
+			// Un tar ilegible deja el contenido sin determinar: cuarentena, no
+			// un error interno genérico.
+			return nil, fmt.Errorf("%w: el tar del volumen no se pudo parsear: %v", domain.ErrWorkspaceSeedVolumeAmbiguous, err)
 		}
 		if header == nil {
 			continue
@@ -412,9 +435,115 @@ func parseWorkspaceSeedTar(raw []byte, root string, maxBytes, maxFiles int) ([]d
 	return files, nil
 }
 
+// extractWorkspaceSeedArchive expande el tar.gz de una versión de proyecto
+// grande aplicando las mismas reglas que el camino de texto: rutas relativas y
+// normalizadas, sin symlinks ni entradas especiales, sin duplicados y con topes
+// de tamaño comprobados sobre el contenido real. Nunca escribe en el sistema de
+// archivos: devuelve el mismo mapa que consume la escritura del volumen.
+func extractWorkspaceSeedArchive(seed domain.WorkspaceSeed) (map[string]string, int, error) {
+	if len(seed.Archive) > workspaceSeedArchiveMaxBytes {
+		return nil, 0, fmt.Errorf("%w: el artefacto supera %d bytes", domain.ErrWorkspaceSeedVersionInvalid, workspaceSeedArchiveMaxBytes)
+	}
+	sum := sha256.Sum256(seed.Archive)
+	if !strings.EqualFold(hex.EncodeToString(sum[:]), strings.TrimSpace(seed.ArchiveSHA256)) {
+		return nil, 0, fmt.Errorf("%w: el artefacto no coincide con su huella", domain.ErrWorkspaceSeedVersionInvalid)
+	}
+
+	gz, err := gzip.NewReader(bytes.NewReader(seed.Archive))
+	if err != nil {
+		return nil, 0, fmt.Errorf("%w: el artefacto no es un gzip válido", domain.ErrWorkspaceSeedVersionInvalid)
+	}
+	defer func() { _ = gz.Close() }()
+
+	reader := tar.NewReader(gz)
+	files := make(map[string]string, 64)
+	total := 0
+	for {
+		header, err := reader.Next()
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			return nil, 0, fmt.Errorf("%w: el artefacto está corrupto o truncado", domain.ErrWorkspaceSeedVersionInvalid)
+		}
+		if header.Typeflag == tar.TypeDir {
+			continue
+		}
+		if header.Typeflag != tar.TypeReg {
+			return nil, 0, fmt.Errorf("%w: la entrada %q no es un archivo regular", domain.ErrWorkspaceSeedVersionInvalid, header.Name)
+		}
+
+		raw := strings.TrimSuffix(strings.ReplaceAll(header.Name, "\\", "/"), "/")
+		clean := normalizePracticeEnvironmentPath(raw)
+		if clean == "" || clean != raw || clean == workspaceSeedMetadataDir || strings.HasPrefix(clean, workspaceSeedMetadataDir+"/") {
+			return nil, 0, fmt.Errorf("%w: ruta de proyecto inválida %q", domain.ErrWorkspaceSeedVersionInvalid, header.Name)
+		}
+		for _, r := range clean {
+			if r < 0x20 || r == 0x7f || unicode.IsControl(r) {
+				return nil, 0, fmt.Errorf("%w: la ruta %q contiene caracteres de control", domain.ErrWorkspaceSeedVersionInvalid, header.Name)
+			}
+		}
+		if _, duplicate := files[clean]; duplicate {
+			return nil, 0, fmt.Errorf("%w: ruta duplicada %q", domain.ErrWorkspaceSeedVersionInvalid, clean)
+		}
+		if header.Size < 0 || header.Size > workspaceSeedArchiveMaxFileSize {
+			return nil, 0, fmt.Errorf("%w: el archivo %q excede el tamaño permitido", domain.ErrWorkspaceSeedVersionInvalid, clean)
+		}
+		if len(files) >= workspaceSeedArchiveMaxFiles {
+			return nil, 0, fmt.Errorf("%w: el proyecto supera %d archivos", domain.ErrWorkspaceSeedVersionInvalid, workspaceSeedArchiveMaxFiles)
+		}
+		content, err := io.ReadAll(io.LimitReader(reader, header.Size+1))
+		if err != nil {
+			return nil, 0, fmt.Errorf("%w: no se pudo leer %q", domain.ErrWorkspaceSeedVersionInvalid, clean)
+		}
+		if int64(len(content)) != header.Size {
+			return nil, 0, fmt.Errorf("%w: el tamaño declarado de %q no coincide con su contenido", domain.ErrWorkspaceSeedVersionInvalid, clean)
+		}
+		total += len(content)
+		if total > workspaceSeedArchiveMaxTotal {
+			return nil, 0, fmt.Errorf("%w: el proyecto expandido excede el tamaño permitido", domain.ErrWorkspaceSeedVersionInvalid)
+		}
+		files[clean] = string(content)
+	}
+
+	if len(files) == 0 {
+		return nil, 0, fmt.Errorf("%w: el artefacto no contiene archivos", domain.ErrWorkspaceSeedVersionInvalid)
+	}
+	if seed.ArchiveFileCount > 0 && seed.ArchiveFileCount != len(files) {
+		return nil, 0, fmt.Errorf("%w: la cantidad de archivos no coincide con la versión", domain.ErrWorkspaceSeedVersionInvalid)
+	}
+	if seed.ArchiveTotalBytes > 0 && seed.ArchiveTotalBytes != int64(total) {
+		return nil, 0, fmt.Errorf("%w: el tamaño expandido no coincide con la versión", domain.ErrWorkspaceSeedVersionInvalid)
+	}
+	for name := range files {
+		segments := strings.Split(name, "/")
+		for i := 1; i < len(segments); i++ {
+			parent := strings.Join(segments[:i], "/")
+			if _, collision := files[parent]; collision {
+				return nil, 0, fmt.Errorf("%w: la ruta %q colisiona con el archivo %q", domain.ErrWorkspaceSeedVersionInvalid, name, parent)
+			}
+		}
+	}
+	return files, total, nil
+}
+
+// workspaceSeedArchiveLimits acota la extracción del proyecto grande. Es más
+// amplio que el camino liviano porque un repositorio real no cabe en 300
+// archivos, y más bajo que la propuesta del ADR porque todavía se expande en
+// memoria antes de escribir el volumen.
+const (
+	workspaceSeedArchiveMaxBytes    = 32 * 1024 * 1024
+	workspaceSeedArchiveMaxFiles    = 20000
+	workspaceSeedArchiveMaxFileSize = 4 * 1024 * 1024
+	workspaceSeedArchiveMaxTotal    = 128 * 1024 * 1024
+)
+
 func validateWorkspaceSeed(seed domain.WorkspaceSeed) (map[string]string, int, error) {
 	if strings.TrimSpace(seed.VersionID) == "" || strings.TrimSpace(seed.ContentSHA256) == "" {
 		return nil, 0, fmt.Errorf("%w: falta la identidad de la versión", domain.ErrWorkspaceSeedVersionInvalid)
+	}
+	if len(seed.Archive) > 0 {
+		return extractWorkspaceSeedArchive(seed)
 	}
 	if len(seed.Files) == 0 {
 		return nil, 0, fmt.Errorf("%w: la versión no contiene archivos", domain.ErrWorkspaceSeedVersionInvalid)
@@ -456,6 +585,22 @@ func validateWorkspaceSeed(seed domain.WorkspaceSeed) (map[string]string, int, e
 		}
 	}
 	return files, total, nil
+}
+
+// workspaceSeedReadLimits devuelve topes de lectura para verificar la semilla
+// escrita. Un proyecto grande legítimamente supera el 1 MiB del camino de
+// texto; con los topes fijos la lectura se truncaba y el volumen entero caía en
+// cuarentena como ambiguo.
+func workspaceSeedReadLimits(files map[string]string, totalBytes int) (int, int) {
+	maxBytes := workspaceSeedMaxTotalBytes + workspaceSeedMaxMetadata
+	if totalBytes+workspaceSeedMaxMetadata > maxBytes {
+		maxBytes = totalBytes + workspaceSeedMaxMetadata
+	}
+	maxFiles := workspaceSeedMaxFiles + 16
+	if len(files)+16 > maxFiles {
+		maxFiles = len(files) + 16
+	}
+	return maxBytes, maxFiles
 }
 
 func workspaceSeedAllowedEntries(files map[string]string) map[string]struct{} {

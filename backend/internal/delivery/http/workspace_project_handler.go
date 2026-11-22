@@ -265,6 +265,70 @@ func (h *WorkspaceProjectHandler) ImportZip(w http.ResponseWriter, r *http.Reque
 	SendJSON(w, http.StatusCreated, result, "ZIP importado al borrador")
 }
 
+// ImportArchive recibe el tar.gz de un proyecto grande, lo valida y lo deja
+// como borrador. No publica y no siembra: esas etapas siguen su camino.
+func (h *WorkspaceProjectHandler) ImportArchive(w http.ResponseWriter, r *http.Request) {
+	if !workspaceTeacherOrAdmin(w, r) {
+		return
+	}
+	exerciseID := r.PathValue("id")
+	if strings.TrimSpace(exerciseID) == "" {
+		SendError(w, http.StatusBadRequest, "exercise_id_required", "Falta el identificador del ejercicio")
+		return
+	}
+	tenantID := workspaceTenantID(r)
+	if !h.authorize(w, r, tenantID, exerciseID) {
+		return
+	}
+	if !strings.HasPrefix(r.Header.Get("Content-Type"), "multipart/form-data") {
+		SendError(w, http.StatusUnsupportedMediaType, "multipart_required", "La importación debe usar multipart/form-data")
+		return
+	}
+
+	r.Body = http.MaxBytesReader(w, r.Body, 33*1024*1024)
+	if err := r.ParseMultipartForm(33 * 1024 * 1024); err != nil {
+		SendError(w, http.StatusRequestEntityTooLarge, "project_archive_too_large", "El archivo supera el cuerpo HTTP permitido")
+		return
+	}
+	defer r.MultipartForm.RemoveAll()
+
+	expectedRevision, err := parseWorkspaceRevision(r.FormValue("expected_revision"))
+	if err != nil {
+		SendError(w, http.StatusUnprocessableEntity, "invalid_expected_revision", err.Error())
+		return
+	}
+	archive, err := readMultipartFile(r, "archive", 32*1024*1024)
+	if err != nil {
+		SendError(w, http.StatusUnprocessableEntity, "invalid_project_archive", err.Error())
+		return
+	}
+	for field := range r.MultipartForm.File {
+		if field != "archive" {
+			SendError(w, http.StatusUnprocessableEntity, "unexpected_import_file", "El formulario contiene archivos adicionales")
+			return
+		}
+	}
+
+	userID, _ := r.Context().Value(domain.UserIDKey).(string)
+	result, err := h.service.ImportArchive(r.Context(), tenantID, exerciseID, userID, expectedRevision, archive)
+	if err != nil {
+		switch {
+		case errors.Is(err, domain.ErrWorkspaceProjectArchiveTooLarge):
+			SendError(w, http.StatusRequestEntityTooLarge, "project_archive_too_large", "El archivo del proyecto excede el tamaño permitido")
+		case errors.Is(err, domain.ErrWorkspaceProjectArchiveInvalid):
+			SendError(w, http.StatusUnprocessableEntity, "invalid_project_archive", err.Error())
+		case errors.Is(err, domain.ErrWorkspaceProjectArchiveDisabled):
+			SendError(w, http.StatusForbidden, "project_archive_disabled", "La carga de proyectos grandes está deshabilitada")
+		case errors.Is(err, domain.ErrWorkspaceProjectArchiveStoreUnavailable):
+			SendError(w, http.StatusServiceUnavailable, "project_archive_store_unavailable", "El depósito de archivos del proyecto no está disponible")
+		default:
+			h.writeError(w, err, "No se pudo importar el archivo del proyecto")
+		}
+		return
+	}
+	SendJSON(w, http.StatusCreated, result, "Archivo del proyecto importado al borrador")
+}
+
 func (h *WorkspaceProjectHandler) authorize(w http.ResponseWriter, r *http.Request, tenantID, exerciseID string) bool {
 	userID, _ := r.Context().Value(domain.UserIDKey).(string)
 	if err := h.service.AuthorizeExercise(r.Context(), tenantID, userID, requestRole(r), exerciseID); err != nil {

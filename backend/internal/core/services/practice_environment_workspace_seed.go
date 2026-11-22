@@ -210,7 +210,7 @@ func (s *PracticeEnvironmentService) loadAssignedWorkspaceSeed(ctx context.Conte
 		_ = s.setWorkspaceInitStatus(ctx, instance, domain.WorkspaceInitStatusQuarantined)
 		return domain.WorkspaceSeed{}, fmt.Errorf("%w: la versión asignada no pertenece al proyecto del ejercicio", domain.ErrWorkspaceSeedVersionInvalid)
 	}
-	seed, err := workspaceSeedFromVersion(version)
+	seed, err := s.workspaceSeedForVersion(ctx, version)
 	if err != nil {
 		// Una versión inmutable con hash o snapshot inválido no se arregla
 		// reintentando: requiere revisión y no se escribe nada.
@@ -303,6 +303,50 @@ func (s *PracticeEnvironmentService) setWorkspaceInitStatus(ctx context.Context,
 
 // workspaceSeedFromVersion valida y convierte la versión inmutable en archivos.
 // La fuente es text_snapshot, nunca exercises.boilerplate ni el borrador actual.
+// SetWorkspaceArtifactStore conecta el depósito que entrega el tar.gz de las
+// versiones de proyecto grande. Es opcional: sin él solo se siembran versiones
+// de texto y un artefacto queda en cuarentena, nunca a medio escribir.
+func (s *PracticeEnvironmentService) SetWorkspaceArtifactStore(store domain.WorkspaceProjectArtifactStore) {
+	if s != nil {
+		s.workspaceArtifacts = store
+	}
+}
+
+// workspaceSeedForVersion decide la forma de la siembra según la versión. El
+// artefacto se descarga completo y se verifica contra su huella antes de tocar
+// el volumen: una descarga truncada no siembra nada.
+func (s *PracticeEnvironmentService) workspaceSeedForVersion(ctx context.Context, version *domain.WorkspaceProjectVersion) (domain.WorkspaceSeed, error) {
+	if version == nil {
+		return domain.WorkspaceSeed{}, fmt.Errorf("%w: la versión está vacía", domain.ErrWorkspaceSeedVersionInvalid)
+	}
+	artifact := version.Artifact()
+	if artifact == nil {
+		return workspaceSeedFromVersion(version)
+	}
+	data, err := downloadVerifiedArtifact(ctx, s.workspaceArtifacts, artifact, maxWorkspaceProjectArchiveBytes)
+	if err != nil {
+		return domain.WorkspaceSeed{}, err
+	}
+	// `version.TotalBytes` guarda el tamaño del tar.gz comprimido; la extracción
+	// valida el árbol expandido. Los números de la semilla salen del archivo real
+	// para que esa comparación no rechace una versión válida.
+	fileCount, totalBytes, err := inspectWorkspaceProjectArchive(data)
+	if err != nil {
+		return domain.WorkspaceSeed{}, err
+	}
+	if version.FileCount > 0 && version.FileCount != fileCount {
+		return domain.WorkspaceSeed{}, fmt.Errorf("%w: la cantidad de archivos del artefacto no coincide con la versión", domain.ErrWorkspaceSeedVersionInvalid)
+	}
+	return domain.WorkspaceSeed{
+		VersionID:         version.ID,
+		ContentSHA256:     artifact.SHA256,
+		Archive:           data,
+		ArchiveSHA256:     artifact.SHA256,
+		ArchiveFileCount:  fileCount,
+		ArchiveTotalBytes: totalBytes,
+	}, nil
+}
+
 func workspaceSeedFromVersion(version *domain.WorkspaceProjectVersion) (domain.WorkspaceSeed, error) {
 	if version == nil || strings.TrimSpace(version.TextSnapshot) == "" {
 		return domain.WorkspaceSeed{}, fmt.Errorf("%w: la versión está vacía", domain.ErrWorkspaceSeedVersionInvalid)

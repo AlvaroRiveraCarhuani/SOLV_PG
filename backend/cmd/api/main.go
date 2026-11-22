@@ -70,6 +70,15 @@ func main() {
 		workspaceProjectRepo,
 		os.Getenv("WORKSPACE_PROJECTS_PUBLISH_ENABLED") == "true",
 	)
+	// ADR-090: el proyecto grande viaja como tar.gz al depósito de objetos. Sin
+	// depósito configurado la carga responde 503 y el camino liviano no cambia.
+	workspaceArtifacts := newWorkspaceProjectArtifactStore(context.Background())
+	if workspaceArtifacts != nil {
+		workspaceProjectService.SetArtifactStore(workspaceArtifacts)
+	}
+	// La carga de proyectos grandes queda cerrada salvo que se pida explícito:
+	// la siembra por extracción todavía no está probada de punta a punta.
+	workspaceProjectService.SetArchiveEnabled(os.Getenv("WORKSPACE_PROJECT_ARCHIVE_ENABLED") == "true")
 	workspaceProjectHandler := httpdelivery.NewWorkspaceProjectHandler(workspaceProjectService)
 	environmentRepo := postgres.NewPostgresPracticeEnvironmentRepository(db.GetDB())
 	tenantRepo := postgres.NewPostgresTenantRepository(db.GetDB())
@@ -139,11 +148,15 @@ func main() {
 	evaluationService.SetGeneratedCaseSnapshotRepository(generatedCaseSnapshotRepo)
 	scriptSandboxRunner := docker.NewDockerScriptSandboxRunner(cli)
 	evaluationService.SetScriptSandboxRunner(scriptSandboxRunner)
+	evaluationService.SetSubmissionRepository(submissionRepo)
 	templateRepo := postgres.NewPostgresTemplateRepository(db.GetDB())
 	environmentService := services.NewPracticeEnvironmentService(environmentRepo, dockerClient, hostMonitor).
 		WithProvisioning(subjectRepo, templateRepo).
 		WithExerciseSubmission(exerciseRepo, submissionRepo).
 		SetWorkspaceProjects(workspaceProjectRepo)
+	if workspaceArtifacts != nil {
+		environmentService.SetWorkspaceArtifactStore(workspaceArtifacts)
+	}
 	if dependencyPreparationQueue != nil {
 		environmentService.SetDependencyPreparation(dependencyPreparationQueue)
 	}
@@ -379,6 +392,9 @@ func main() {
 	classAdvanceHandler := httpdelivery.NewClassAdvanceHandler(classAdvanceService)
 
 	teacherService := services.NewTeacherService(teacherRepo, submissionRepo)
+	// Revisión de entregas: el proyecto base de un artefacto se resuelve desde el
+	// depósito en vez del espejo de texto (ADR-090).
+	teacherService.SetWorkspaceBase(workspaceProjectService)
 	teacherService.SetClassSessionStore(classSessionRepo)
 	teacherService.SetKeystrokeRepository(keystrokeRepo)
 	teacherService.SetEvaluationService(evaluationService)
@@ -752,6 +768,40 @@ func envList(name, fallback string) []string {
 		}
 	}
 	return out
+}
+
+// newWorkspaceProjectArtifactStore arma el almacén de proyectos grandes con la
+// misma configuración de SeaweedFS que los avances. Sin configuración devuelve
+// nil: el borrador liviano sigue funcionando y la carga de archivo responde 503.
+func newWorkspaceProjectArtifactStore(ctx context.Context) *seaweedfs.WorkspaceProjectArtifactStore {
+	endpoint := strings.TrimSpace(os.Getenv("SEAWEEDFS_ENDPOINT"))
+	bucket := strings.TrimSpace(os.Getenv("SEAWEEDFS_BUCKET"))
+	accessKey := strings.TrimSpace(os.Getenv("SEAWEEDFS_ACCESS_KEY"))
+	secretKey := strings.TrimSpace(os.Getenv("SEAWEEDFS_SECRET_KEY"))
+	if endpoint == "" || bucket == "" || accessKey == "" || secretKey == "" {
+		return nil
+	}
+
+	maxBytes := int64(32 << 20)
+	if raw := strings.TrimSpace(os.Getenv("WORKSPACE_PROJECT_ARCHIVE_MAX_BYTES")); raw != "" {
+		if parsed, err := strconv.ParseInt(raw, 10, 64); err == nil && parsed > 0 {
+			maxBytes = parsed
+		}
+	}
+
+	store, err := seaweedfs.NewWorkspaceProjectArtifactStore(ctx, seaweedfs.Config{
+		Endpoint:  endpoint,
+		Region:    strings.TrimSpace(os.Getenv("SEAWEEDFS_REGION")),
+		Bucket:    bucket,
+		AccessKey: accessKey,
+		SecretKey: secretKey,
+		MaxBytes:  maxBytes,
+	})
+	if err != nil {
+		log.Printf("[WorkspaceProject] no se pudo inicializar el depósito de archivos: %v", err)
+		return nil
+	}
+	return store
 }
 
 // newAdvanceSnapshotStore arma el almacén de snapshots de avances con la

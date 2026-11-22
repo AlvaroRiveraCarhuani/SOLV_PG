@@ -73,7 +73,8 @@ func (r *PostgresWorkspaceProjectRepository) CreateProject(ctx context.Context, 
 func (r *PostgresWorkspaceProjectRepository) GetDraftByProject(ctx context.Context, tenantID, projectID string) (*domain.WorkspaceProjectDraft, error) {
 	var draft domain.WorkspaceProjectDraft
 	query := `
-		SELECT id, tenant_id, project_id, base_version_id, text_snapshot, content_sha256, revision, updated_by, created_at, updated_at
+		SELECT id, tenant_id, project_id, base_version_id, text_snapshot, content_sha256, revision, updated_by, created_at, updated_at,
+		       artifact_key, artifact_sha256, artifact_bytes, artifact_files
 		FROM workspace_project_drafts
 		WHERE tenant_id = $1 AND project_id = $2
 	`
@@ -93,14 +94,19 @@ func (r *PostgresWorkspaceProjectRepository) SaveDraft(ctx context.Context, draf
 	if draft.ID == "" {
 		draft.ID = uuid.NewString()
 	}
-	draft.ContentSHA256 = hashWorkspaceProjectText(draft.TextSnapshot)
+	if draft.ArtifactKey == nil {
+		draft.ContentSHA256 = hashWorkspaceProjectText(draft.TextSnapshot)
+	}
 	if expectedRevision <= 0 {
 		query := `
 			INSERT INTO workspace_project_drafts
-				(id, tenant_id, project_id, base_version_id, text_snapshot, content_sha256, revision, updated_by, created_at, updated_at)
+				(id, tenant_id, project_id, base_version_id, text_snapshot, content_sha256, revision, updated_by, created_at, updated_at,
+				 artifact_key, artifact_sha256, artifact_bytes, artifact_files)
 			VALUES
-				(:id, :tenant_id, :project_id, :base_version_id, :text_snapshot, :content_sha256, 1, :updated_by, NOW(), NOW())
-			RETURNING id, tenant_id, project_id, base_version_id, text_snapshot, content_sha256, revision, updated_by, created_at, updated_at
+				(:id, :tenant_id, :project_id, :base_version_id, :text_snapshot, :content_sha256, 1, :updated_by, NOW(), NOW(),
+				 :artifact_key, :artifact_sha256, :artifact_bytes, :artifact_files)
+			RETURNING id, tenant_id, project_id, base_version_id, text_snapshot, content_sha256, revision, updated_by, created_at, updated_at,
+			          artifact_key, artifact_sha256, artifact_bytes, artifact_files
 		`
 		rows, err := r.db.NamedQueryContext(ctx, query, draft)
 		if err != nil {
@@ -126,13 +132,18 @@ func (r *PostgresWorkspaceProjectRepository) SaveDraft(ctx context.Context, draf
 		SET base_version_id = :base_version_id,
 		    text_snapshot = :text_snapshot,
 		    content_sha256 = :content_sha256,
+		    artifact_key = :artifact_key,
+		    artifact_sha256 = :artifact_sha256,
+		    artifact_bytes = :artifact_bytes,
+		    artifact_files = :artifact_files,
 		    revision = revision + 1,
 		    updated_by = :updated_by,
 		    updated_at = NOW()
 		WHERE tenant_id = :tenant_id
 		  AND project_id = :project_id
 		  AND revision = :expected_revision
-		RETURNING id, tenant_id, project_id, base_version_id, text_snapshot, content_sha256, revision, updated_by, created_at, updated_at
+		RETURNING id, tenant_id, project_id, base_version_id, text_snapshot, content_sha256, revision, updated_by, created_at, updated_at,
+		          artifact_key, artifact_sha256, artifact_bytes, artifact_files
 	`
 	args := map[string]interface{}{
 		"tenant_id":         draft.TenantID,
@@ -140,6 +151,10 @@ func (r *PostgresWorkspaceProjectRepository) SaveDraft(ctx context.Context, draf
 		"base_version_id":   draft.BaseVersionID,
 		"text_snapshot":     draft.TextSnapshot,
 		"content_sha256":    draft.ContentSHA256,
+		"artifact_key":      draft.ArtifactKey,
+		"artifact_sha256":   draft.ArtifactSHA256,
+		"artifact_bytes":    draft.ArtifactBytes,
+		"artifact_files":    draft.ArtifactFiles,
 		"updated_by":        draft.UpdatedBy,
 		"expected_revision": expectedRevision,
 	}
@@ -161,7 +176,7 @@ func (r *PostgresWorkspaceProjectRepository) SaveDraft(ctx context.Context, draf
 // Publish serializa las publicaciones con FOR UPDATE del proyecto, crea la
 // versión, actualiza el espejo del ejercicio y mueve el puntero del proyecto en
 // una sola transacción.
-func (r *PostgresWorkspaceProjectRepository) Publish(ctx context.Context, tenantID, projectID, userID string) (*domain.WorkspaceProjectVersion, error) {
+func (r *PostgresWorkspaceProjectRepository) Publish(ctx context.Context, tenantID, projectID, userID string, manifest []domain.WorkspaceProjectManifestEntry) (*domain.WorkspaceProjectVersion, error) {
 	tx, err := r.db.BeginTxx(ctx, nil)
 	if err != nil {
 		return nil, fmt.Errorf("failed to begin workspace publish: %w", err)
@@ -183,7 +198,8 @@ func (r *PostgresWorkspaceProjectRepository) Publish(ctx context.Context, tenant
 
 	var draft domain.WorkspaceProjectDraft
 	if err := tx.GetContext(ctx, &draft, `
-		SELECT id, tenant_id, project_id, base_version_id, text_snapshot, content_sha256, revision, updated_by, created_at, updated_at
+		SELECT id, tenant_id, project_id, base_version_id, text_snapshot, content_sha256, revision, updated_by, created_at, updated_at,
+		       artifact_key, artifact_sha256, artifact_bytes, artifact_files
 		FROM workspace_project_drafts
 		WHERE project_id = $1 AND tenant_id = $2
 		FOR UPDATE
@@ -193,29 +209,60 @@ func (r *PostgresWorkspaceProjectRepository) Publish(ctx context.Context, tenant
 		}
 		return nil, fmt.Errorf("failed to lock workspace project draft: %w", err)
 	}
-	if strings.TrimSpace(draft.TextSnapshot) == "" {
-		return nil, domain.ErrWorkspaceDraftEmpty
+	artifact := draft.Artifact()
+	var (
+		textSnapshot  string
+		contentHash   string
+		manifestBytes []byte
+		fileCount     int
+		totalBytes    int
+	)
+	if artifact != nil {
+		if err := artifact.Valid(); err != nil {
+			return nil, err
+		}
+		// Una versión con artefacto no tiene texto: su identidad es el hash del
+		// tar.gz y sus números salen del archivo validado al importarlo. El
+		// manifiesto por archivo lo resuelve el servicio extrayendo el tar.gz.
+		textSnapshot = ""
+		contentHash = artifact.SHA256
+		encoded, err := json.Marshal(manifest)
+		if err != nil {
+			return nil, fmt.Errorf("failed to encode artifact manifest: %w", err)
+		}
+		if manifest == nil {
+			manifestBytes = []byte("[]")
+		} else {
+			manifestBytes = encoded
+		}
+		fileCount = artifact.Files
+		totalBytes = int(artifact.Bytes)
+	} else {
+		if strings.TrimSpace(draft.TextSnapshot) == "" {
+			return nil, domain.ErrWorkspaceDraftEmpty
+		}
+		files, ok := domain.ParseProjectSnapshot(draft.TextSnapshot, "")
+		if !ok || len(files) == 0 {
+			return nil, fmt.Errorf("%w: snapshot de proyecto inválido", domain.ErrWorkspaceDraftEmpty)
+		}
+		manifestEntries := make([]domain.WorkspaceProjectManifestEntry, 0, len(files))
+		for _, file := range files {
+			totalBytes += len(file.Content)
+			manifestEntries = append(manifestEntries, domain.WorkspaceProjectManifestEntry{
+				Path:  file.Path,
+				Bytes: len(file.Content),
+				Lines: file.LineCount,
+			})
+		}
+		encoded, err := json.Marshal(manifestEntries)
+		if err != nil {
+			return nil, fmt.Errorf("failed to encode project manifest: %w", err)
+		}
+		textSnapshot = draft.TextSnapshot
+		contentHash = hashWorkspaceProjectText(draft.TextSnapshot)
+		manifestBytes = encoded
+		fileCount = len(files)
 	}
-
-	files, ok := domain.ParseProjectSnapshot(draft.TextSnapshot, "")
-	if !ok || len(files) == 0 {
-		return nil, fmt.Errorf("%w: snapshot de proyecto inválido", domain.ErrWorkspaceDraftEmpty)
-	}
-	manifestEntries := make([]domain.WorkspaceProjectManifestEntry, 0, len(files))
-	totalBytes := 0
-	for _, file := range files {
-		totalBytes += len(file.Content)
-		manifestEntries = append(manifestEntries, domain.WorkspaceProjectManifestEntry{
-			Path:  file.Path,
-			Bytes: len(file.Content),
-			Lines: file.LineCount,
-		})
-	}
-	manifestBytes, err := json.Marshal(manifestEntries)
-	if err != nil {
-		return nil, fmt.Errorf("failed to encode project manifest: %w", err)
-	}
-	contentHash := hashWorkspaceProjectText(draft.TextSnapshot)
 
 	var nextVersion int
 	if err := tx.GetContext(ctx, &nextVersion, `
@@ -232,30 +279,45 @@ func (r *PostgresWorkspaceProjectRepository) Publish(ctx context.Context, tenant
 		ProjectID:     project.ID,
 		ExerciseID:    project.ExerciseID,
 		VersionNumber: nextVersion,
-		TextSnapshot:  draft.TextSnapshot,
+		TextSnapshot:  textSnapshot,
 		Manifest:      json.RawMessage(manifestBytes),
 		ContentSHA256: contentHash,
-		FileCount:     len(files),
+		FileCount:     fileCount,
 		TotalBytes:    totalBytes,
 		CreatedBy:     nullableString(userID),
 	}
 
+	if artifact != nil {
+		version.ArtifactKey = &artifact.Key
+		version.ArtifactSHA256 = &artifact.SHA256
+		artifactBytes := artifact.Bytes
+		artifactFiles := artifact.Files
+		version.ArtifactBytes = &artifactBytes
+		version.ArtifactFiles = &artifactFiles
+	}
 	if _, err := tx.NamedExecContext(ctx, `
 		INSERT INTO workspace_project_versions
-			(id, tenant_id, project_id, exercise_id, version_number, text_snapshot, manifest, content_sha256, file_count, total_bytes, created_by, published_at, created_at)
+			(id, tenant_id, project_id, exercise_id, version_number, text_snapshot, manifest, content_sha256, file_count, total_bytes, created_by, published_at, created_at,
+			 artifact_key, artifact_sha256, artifact_bytes, artifact_files)
 		VALUES
-			(:id, :tenant_id, :project_id, :exercise_id, :version_number, :text_snapshot, :manifest, :content_sha256, :file_count, :total_bytes, :created_by, NOW(), NOW())
+			(:id, :tenant_id, :project_id, :exercise_id, :version_number, :text_snapshot, :manifest, :content_sha256, :file_count, :total_bytes, :created_by, NOW(), NOW(),
+			 :artifact_key, :artifact_sha256, :artifact_bytes, :artifact_files)
 	`, version); err != nil {
 		return nil, fmt.Errorf("failed to insert project version: %w", err)
 	}
 
+	// El espejo guarda texto y una versión con artefacto no tiene: se deja vacío
+	// y atado a la versión nueva. El trigger de 00053 exige que el espejo
+	// coincida con el snapshot de su origen, y para el artefacto ese snapshot es
+	// vacío; así el espejo no miente sobre lo que hay en la base.
+	mirrorText := textSnapshot
 	if _, err := tx.ExecContext(ctx, `
 		UPDATE exercises
 		SET boilerplate = $1,
 		    boilerplate_sha256 = $2,
 		    boilerplate_source_version_id = $3
 		WHERE id = $4 AND tenant_id = $5
-	`, draft.TextSnapshot, contentHash, version.ID, project.ExerciseID, tenantID); err != nil {
+	`, mirrorText, hashWorkspaceProjectText(mirrorText), version.ID, project.ExerciseID, tenantID); err != nil {
 		return nil, fmt.Errorf("failed to update exercise boilerplate mirror: %w", err)
 	}
 
@@ -287,7 +349,8 @@ func (r *PostgresWorkspaceProjectRepository) Publish(ctx context.Context, tenant
 func (r *PostgresWorkspaceProjectRepository) ListVersions(ctx context.Context, tenantID, projectID string) ([]*domain.WorkspaceProjectVersion, error) {
 	var versions []*domain.WorkspaceProjectVersion
 	query := `
-		SELECT id, tenant_id, project_id, exercise_id, version_number, text_snapshot, manifest, content_sha256, file_count, total_bytes, created_by, published_at, created_at
+		SELECT id, tenant_id, project_id, exercise_id, version_number, text_snapshot, manifest, content_sha256, file_count, total_bytes, created_by, published_at, created_at,
+		       artifact_key, artifact_sha256, artifact_bytes, artifact_files
 		FROM workspace_project_versions
 		WHERE tenant_id = $1 AND project_id = $2
 		ORDER BY version_number DESC
@@ -304,7 +367,8 @@ func (r *PostgresWorkspaceProjectRepository) ListVersions(ctx context.Context, t
 func (r *PostgresWorkspaceProjectRepository) GetVersion(ctx context.Context, tenantID, versionID string) (*domain.WorkspaceProjectVersion, error) {
 	var version domain.WorkspaceProjectVersion
 	query := `
-		SELECT id, tenant_id, project_id, exercise_id, version_number, text_snapshot, manifest, content_sha256, file_count, total_bytes, created_by, published_at, created_at
+		SELECT id, tenant_id, project_id, exercise_id, version_number, text_snapshot, manifest, content_sha256, file_count, total_bytes, created_by, published_at, created_at,
+		       artifact_key, artifact_sha256, artifact_bytes, artifact_files
 		FROM workspace_project_versions
 		WHERE tenant_id = $1 AND id = $2
 	`
