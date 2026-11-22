@@ -36,10 +36,12 @@
             (cancelled)="cancelSuggest.emit()"
           />
         } @else {
-          <span class="ai-shortcut-hint">Presioná <kbd>Ctrl</kbd> + <kbd>Enter</kbd> para generar</span>
+          <span class="ai-shortcut-hint">Presione <kbd>Ctrl</kbd> + <kbd>Enter</kbd> para generar</span>
           <button
             type="button"
-            class="btn-primary btn-ai-submit"
+            class="btn-ai-submit"
+            [class.btn-primary]="!proposalView()"
+            [class.btn-secondary]="proposalView()"
             (click)="suggest.emit()"
             [disabled]="prompt().trim().length < 3"
           >

@@ -1,3 +1,8 @@
+:host button:focus-visible {
+  outline: 2px solid var(--tenant-primary);
+  outline-offset: 2px;
+}
+
 $p: var(--tenant-primary);
 $p-bg: var(--tenant-primary-subtle);
 $p-bdr: var(--tenant-primary-border);

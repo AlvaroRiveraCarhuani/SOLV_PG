@@ -1,3 +1,8 @@
+:host button:focus-visible {
+  outline: 2px solid var(--tenant-primary);
+  outline-offset: 2px;
+}
+
 .courses-page {
   display: flex;
   flex-direction: column;
@@ -70,6 +75,7 @@
     text-transform: uppercase;
     letter-spacing: 0.05em;
     color: var(--text-muted);
+    white-space: nowrap;
   }
 
   tbody tr {

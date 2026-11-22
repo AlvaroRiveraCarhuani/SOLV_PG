@@ -212,7 +212,7 @@
       height: 32px;
       border-radius: 50%;
       background: var(--tenant-primary);
-      color: var(--text-inverse);
+      color: var(--tenant-primary-text);
       display: flex;
       align-items: center;
       justify-content: center;
@@ -242,7 +242,7 @@
           padding: 0 var(--space-2);
           border-radius: var(--radius-sm);
           background: var(--tenant-primary);
-          color: var(--text-inverse);
+          color: var(--tenant-primary-text);
           font-weight: 500;
         }
       }
@@ -306,7 +306,7 @@
   gap: var(--space-2);
   padding: var(--space-2) var(--space-4);
   background: var(--tenant-primary);
-  color: var(--text-inverse);
+  color: var(--tenant-primary-text);
   border: 1px solid transparent;
   border-radius: var(--radius-md);
   font-family: var(--font-sans);
@@ -438,6 +438,7 @@
     &:focus {
       outline: none;
       border-color: var(--tenant-primary);
+      box-shadow: 0 0 0 2px var(--tenant-primary-border);
     }
   }
 

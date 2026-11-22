@@ -179,7 +179,8 @@
                   <button 
                     class="btn-action-icon" 
                     (click)="openEditCourseModal(course)" 
-                    title="Editar datos de la materia">
+                    title="Editar datos de la materia"
+                    [attr.aria-label]="'Editar datos de ' + course.name">
                     <svg lucidePencil class="action-icon"></svg>
                   </button>
 
@@ -187,7 +188,8 @@
                     class="btn-action-icon" 
                     [class.is-archived]="course.is_archived"
                     (click)="requestToggleArchive(course)" 
-                    [title]="course.is_archived ? 'Desarchivar curso' : 'Archivar curso'">
+                    [title]="course.is_archived ? 'Desarchivar curso' : 'Archivar curso'"
+                    [attr.aria-label]="course.is_archived ? 'Desarchivar ' + course.name : 'Archivar ' + course.name">
                     @if (course.is_archived) {
                       <svg lucideArchiveRestore class="action-icon"></svg>
                     } @else {

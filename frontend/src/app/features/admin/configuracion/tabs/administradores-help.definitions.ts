@@ -31,7 +31,7 @@ export function buildAdministradoresTutorial(
         id: 'team',
         title: 'Quiénes tienen privilegios hoy',
         body:
-          'La tabla muestra a todo el equipo con rol administrador, desde cuándo tiene el acceso y cuándo entró por última vez. La fila marcada como «Tú» es la cuenta con la que se está operando.',
+          'La tabla muestra a todo el equipo con rol administrador, desde cuándo tiene el acceso y cuándo entró por última vez. La fila marcada como «Su cuenta» es la cuenta con la que se está operando.',
         selector: '[data-tour="admins-list"]',
         side: 'top'
       },

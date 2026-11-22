@@ -253,6 +253,7 @@ export class LoadHistoryChartComponent {
   tooltipPercent = computed(() => {
     const ap = this.activePoint();
     if (!ap) return 0;
-    return (ap.x / 800) * 100;
+    // Mantiene el tooltip dentro del área visible en los extremos del rango.
+    return Math.min(85, Math.max(15, (ap.x / 800) * 100));
   });
 }

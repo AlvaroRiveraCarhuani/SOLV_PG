@@ -361,7 +361,7 @@
     @if (deletingHasCourses()) {
       <div class="form-error-banner" role="alert">
         <svg lucideAlertTriangle class="error-icon"></svg>
-        <span>Este período tiene {{ courseCountByPeriod()[target.id] }} materia(s) asociada(s). El backend rechazará la eliminación (409): desasócialas primero.</span>
+        <span>Este período tiene {{ courseCountByPeriod()[target.id] }} materia(s) asociada(s). El backend rechazará la eliminación (409): desasócielas primero.</span>
       </div>
     } @else {
       <p class="delete-copy">

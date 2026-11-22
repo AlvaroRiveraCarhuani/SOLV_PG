@@ -223,6 +223,7 @@
                         type="button"
                         class="btn-copy-tag"
                         (click)="copyDockerTag(item.docker_image, $event)"
+                        [attr.aria-label]="copiedTag() === item.docker_image ? 'Etiqueta copiada' : 'Copiar etiqueta de imagen'"
                         [title]="copiedTag() === item.docker_image ? 'Copiado' : 'Copiar tag'">
                         @if (copiedTag() === item.docker_image) {
                           <svg lucideCheck class="copy-icon text-success"></svg>
@@ -317,6 +318,7 @@
                         type="button"
                         class="btn-copy-tag"
                         (click)="copyDockerTag(item.docker_image, $event)"
+                        [attr.aria-label]="copiedTag() === item.docker_image ? 'Etiqueta copiada' : 'Copiar etiqueta de imagen'"
                         [title]="copiedTag() === item.docker_image ? 'Copiado' : 'Copiar tag'">
                         @if (copiedTag() === item.docker_image) {
                           <svg lucideCheck class="copy-icon text-success"></svg>
@@ -429,6 +431,7 @@
                         type="button"
                         class="btn-copy-tag"
                         (click)="copyDockerTag(item.docker_image, $event)"
+                        [attr.aria-label]="copiedTag() === item.docker_image ? 'Etiqueta copiada' : 'Copiar etiqueta de imagen'"
                         [title]="copiedTag() === item.docker_image ? 'Copiado' : 'Copiar tag'">
                         @if (copiedTag() === item.docker_image) {
                           <svg lucideCheck class="copy-icon text-success"></svg>
@@ -592,6 +595,7 @@
                         type="button"
                         class="btn-copy-tag"
                         (click)="copyDockerTag(item.docker_image, $event)"
+                        [attr.aria-label]="copiedTag() === item.docker_image ? 'Etiqueta copiada' : 'Copiar etiqueta de imagen'"
                         [title]="copiedTag() === item.docker_image ? 'Copiado' : 'Copiar tag'">
                         @if (copiedTag() === item.docker_image) {
                           <svg lucideCheck class="copy-icon text-success"></svg>
@@ -777,6 +781,7 @@
                         type="button"
                         class="btn-copy-tag"
                         (click)="copyDockerTag(item.docker_image, $event)"
+                        [attr.aria-label]="copiedTag() === item.docker_image ? 'Etiqueta copiada' : 'Copiar etiqueta de imagen'"
                         [title]="copiedTag() === item.docker_image ? 'Copiado' : 'Copiar tag'">
                         @if (copiedTag() === item.docker_image) {
                           <svg lucideCheck class="copy-icon text-success"></svg>
@@ -841,6 +846,7 @@
                         type="button"
                         class="btn-copy-tag"
                         (click)="copyDockerTag(item.docker_image, $event)"
+                        [attr.aria-label]="copiedTag() === item.docker_image ? 'Etiqueta copiada' : 'Copiar etiqueta de imagen'"
                         [title]="copiedTag() === item.docker_image ? 'Copiado' : 'Copiar tag'">
                         @if (copiedTag() === item.docker_image) {
                           <svg lucideCheck class="copy-icon text-success"></svg>

@@ -2,6 +2,11 @@
   display: block;
 }
 
+:host button:focus-visible {
+  outline: 2px solid var(--tenant-primary);
+  outline-offset: 2px;
+}
+
 // Filters Bar
 .filters-bar {
   display: flex;
@@ -69,6 +74,7 @@
     outline: none;
     border-color: var(--tenant-primary);
     background-color: var(--bg-surface);
+    box-shadow: 0 0 0 2px var(--tenant-primary-border);
   }
 
   option {
@@ -113,6 +119,7 @@
     text-transform: uppercase;
     letter-spacing: 0.05em;
     border-bottom: 1px solid var(--border-subtle);
+    white-space: nowrap;
   }
 
   td {

@@ -120,7 +120,7 @@
   border: 1px solid var(--tenant-primary-border);
   border-radius: var(--radius-sm);
   background-color: var(--tenant-primary-subtle);
-  color: var(--tenant-primary);
+  color: var(--text-primary);
   font-family: var(--font-sans);
   font-size: var(--text-2xs);
   font-weight: 500;
@@ -129,6 +129,11 @@
 
   &:hover {
     border-color: var(--tenant-primary);
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--tenant-primary);
+    outline-offset: 2px;
   }
 }
 
@@ -437,6 +442,11 @@
     color: var(--text-primary);
   }
 
+  &:focus-visible {
+    outline: 2px solid var(--tenant-primary);
+    outline-offset: 2px;
+  }
+
   .copy-icon {
     width: 12px;
     height: 12px;
@@ -568,6 +578,11 @@
   &.active {
     background-color: var(--bg-surface-active);
     color: var(--text-primary);
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--tenant-primary);
+    outline-offset: 2px;
   }
 }
 

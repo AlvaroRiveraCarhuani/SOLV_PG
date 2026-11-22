@@ -25,6 +25,13 @@
   }
 }
 
+// En oscuro los logos conservan su imagen, pero el fondo deja de ser un bloque
+// pastel claro y pasa a la superficie neutra del tema.
+:host-context([data-theme="dark"]) .tech-logo-container:not(.is-monogram) {
+  background-color: var(--bg-surface-subtle);
+  border-color: var(--border-strong);
+}
+
 .tech-logo-img {
   width: 100%;
   height: 100%;

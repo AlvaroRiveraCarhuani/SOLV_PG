@@ -168,6 +168,11 @@ export class AdminTemplatesComponent implements OnInit, OnDestroy {
   isWarmingAll = signal<boolean>(false);
   warmingTemplateIds = signal<Set<string>>(new Set());
 
+  @HostListener('document:keydown.escape')
+  onEscapeKey(): void {
+    this.openMenuId.set(null);
+  }
+
   @HostListener('document:click', ['$event'])
   onDocumentClick(event: MouseEvent): void {
     const target = event.target as HTMLElement;

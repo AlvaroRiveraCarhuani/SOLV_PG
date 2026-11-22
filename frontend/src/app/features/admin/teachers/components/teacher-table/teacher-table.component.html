@@ -172,7 +172,8 @@
                     <button
                       class="btn-row-action revoke"
                       (click)="revokeInvitation.emit(teacher)"
-                      title="Cancelar invitación pendiente">
+                      title="Cancelar invitación pendiente"
+                      aria-label="Cancelar invitación pendiente">
                       <svg lucideTrash2 class="btn-icon"></svg>
                     </button>
                   } @else if (teacher.status === 'expired') {
@@ -186,7 +187,8 @@
                     <button
                       class="btn-row-action revoke"
                       (click)="revokeInvitation.emit(teacher)"
-                      title="Eliminar registro de invitación expirada">
+                      title="Eliminar registro de invitación expirada"
+                      aria-label="Eliminar registro de invitación expirada">
                       <svg lucideTrash2 class="btn-icon"></svg>
                     </button>
                   } @else {
@@ -200,7 +202,8 @@
                     <button
                       class="btn-row-action revoke"
                       (click)="requestDeleteTeacher.emit(teacher)"
-                      title="Dar de baja docente y revocar materias asignadas">
+                      title="Dar de baja docente y revocar materias asignadas"
+                      aria-label="Dar de baja docente y revocar materias asignadas">
                       <svg lucideTrash2 class="btn-icon"></svg>
                     </button>
                   }

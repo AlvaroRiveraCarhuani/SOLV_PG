@@ -106,7 +106,7 @@
         }
         <span>{{ feedbackMessage()!.text }}</span>
       </div>
-      <button class="btn-close-feedback" (click)="feedbackMessage.set(null)" title="Cerrar aviso">
+      <button type="button" class="btn-close-feedback" (click)="feedbackMessage.set(null)" title="Cerrar aviso" aria-label="Cerrar aviso">
         <svg lucideX class="close-icon"></svg>
       </button>
     </div>

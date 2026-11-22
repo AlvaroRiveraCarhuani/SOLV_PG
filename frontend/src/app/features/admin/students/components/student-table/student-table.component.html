@@ -135,6 +135,7 @@
                     <button 
                       class="btn-copy-email" 
                       (click)="onCopyEmail(student.email)" 
+                      [attr.aria-label]="copiedEmail() === student.email ? 'Correo copiado' : 'Copiar correo institucional'"
                       [title]="copiedEmail() === student.email ? 'Copiado' : 'Copiar correo'">
                       @if (copiedEmail() === student.email) {
                         <svg lucideCheck class="copy-icon text-success"></svg>
@@ -223,7 +224,8 @@
                     type="button" 
                     class="btn-action-icon more"
                     (click)="onToggleMenu(student.id, $event)"
-                    title="Acciones de cuenta">
+                    title="Acciones de cuenta"
+                    aria-label="Acciones de cuenta">
                     <svg lucideMoreVertical class="action-icon"></svg>
                   </button>
 

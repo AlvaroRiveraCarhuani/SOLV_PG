@@ -147,7 +147,7 @@
           <div class="switch-saved-key-banner">
             <svg lucideLock class="banner-icon"></svg>
             <div class="banner-text">
-              Este proveedor ya tiene su API Key cifrada guardada (<code class="font-mono">{{ savedKey().masked }}</code>). No necesitás volver a ingresarla: verificá el modelo seleccionado y pulsá «Guardar Configuración de IA» para activarlo como motor de la institución.
+              Este proveedor ya tiene su API Key cifrada guardada (<code class="font-mono">{{ savedKey().masked }}</code>). No necesita volver a ingresarla: verifique el modelo seleccionado y pulse «Guardar Configuración de IA» para activarlo como motor de la institución.
             </div>
           </div>
         }
@@ -250,7 +250,7 @@
             <div class="saved-key-badge">
               <span class="key-label">Clave guardada:</span>
               <code class="font-mono">{{ savedKey().masked }}</code>
-              <span class="key-hint font-sans">(No necesitás volver a escribirla)</span>
+              <span class="key-hint font-sans">(No necesita volver a escribirla)</span>
               <button type="button" class="btn-link" (click)="clearApiKey.set(true)">
                 Cambiar / Borrar clave guardada
               </button>

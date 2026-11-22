@@ -130,7 +130,7 @@
   &.active .chip-count {
     border-color: var(--tenant-primary);
     background-color: var(--tenant-primary);
-    color: var(--text-inverse);
+    color: var(--tenant-primary-text);
   }
 }
 

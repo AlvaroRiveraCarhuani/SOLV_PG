@@ -61,6 +61,11 @@ $txt: var(--text-primary);
   color: $txt;
   padding: 6px 8px;
   outline: none;
+
+  &:focus-visible {
+    box-shadow: 0 0 0 2px var(--tenant-primary-border);
+    border-radius: var(--radius-xs);
+  }
 }
 
 .btn-copy {
@@ -73,7 +78,7 @@ $txt: var(--text-primary);
   border-radius: var(--radius-sm);
   font-size: var(--text-xs);
   font-weight: 600;
-  color: var(--text-inverse);
+  color: var(--tenant-primary-text);
   cursor: pointer;
   transition: all 120ms;
   &:hover {

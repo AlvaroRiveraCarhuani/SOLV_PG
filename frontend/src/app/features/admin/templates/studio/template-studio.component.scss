@@ -1,3 +1,9 @@
+:host button:focus-visible,
+:host [role='button']:focus-visible {
+  outline: 2px solid var(--tenant-primary);
+  outline-offset: 2px;
+}
+
 .studio-page-container {
   display: flex;
   flex-direction: column;
@@ -167,7 +173,7 @@
 
   &:hover {
     background-color: var(--tenant-primary);
-    color: var(--text-inverse);
+    color: var(--tenant-primary-text);
   }
 
   .btn-icon-xs {
@@ -233,7 +239,7 @@
 
   &:hover {
     background-color: var(--tenant-primary);
-    color: var(--text-inverse);
+    color: var(--tenant-primary-text);
   }
 
   .chip-icon {
@@ -289,7 +295,7 @@
 
   &:hover {
     background-color: var(--tenant-primary);
-    color: var(--text-inverse);
+    color: var(--tenant-primary-text);
   }
 
   .btn-icon-xs {
@@ -489,7 +495,7 @@
 
   &:hover {
     background-color: var(--tenant-primary);
-    color: var(--text-inverse);
+    color: var(--tenant-primary-text);
     border-style: solid;
   }
 }
@@ -589,6 +595,7 @@
 
   &:focus {
     border-color: var(--tenant-primary);
+    box-shadow: 0 0 0 2px var(--tenant-primary-border);
   }
 }
 
@@ -772,7 +779,7 @@
       align-items: center;
       justify-content: center;
       flex-shrink: 0;
-      color: var(--text-inverse);
+      color: var(--tenant-primary-text);
 
       .check-icon {
         width: 12px;

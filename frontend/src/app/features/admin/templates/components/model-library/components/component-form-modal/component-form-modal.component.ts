@@ -780,7 +780,7 @@ export class ComponentFormModalComponent implements OnInit {
     }
     const paths = splitProfileList(form.paths);
     if (paths.length === 0) {
-      return 'Indicá al menos una ruta que produzca la instalación.';
+      return 'Indique al menos una ruta que produzca la instalación.';
     }
     if (form.materialize === 'tree' && paths.some(path => path.startsWith('/') || path.startsWith('~'))) {
       return 'Con materialización dentro del proyecto, las rutas tienen que ser relativas.';
