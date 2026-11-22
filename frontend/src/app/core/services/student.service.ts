@@ -155,6 +155,7 @@ export interface StudentPublicExerciseDTO {
   public_test_cases?: StudentPublicTestCaseDTO[];
   allow_resubmit?: boolean;
   auto_checkpoint?: boolean;
+  due_date?: string | null;
 }
 
 export interface PracticeEnvironmentProjectSubmissionDTO {
@@ -171,6 +172,7 @@ export interface StudentCaseResultDTO {
   verdict: 'AC' | 'WA' | 'TLE' | 'RE' | 'AST_BLOCKED' | 'AST_VIOLATION' | 'SYSTEM_ERROR';
   duration_ms: number;
   message?: string;
+  actual_output?: string;
 }
 
 export interface StudentEvaluationResultDTO {
@@ -186,6 +188,7 @@ export interface StudentEvaluationResultDTO {
   generated_cases?: unknown;
   /** Firma del servidor que respalda el veredicto al registrar la entrega. */
   evaluation_receipt?: string;
+  is_test_run?: boolean;
 }
 
 export interface CreateStudentSubmissionPayload {
@@ -400,6 +403,7 @@ export class StudentService {
     exercise_id: string;
     language: string;
     source_code_b64: string;
+    mode?: 'test' | 'submit';
   }): Promise<StudentEvaluationResultDTO> {
     const resp = await firstValueFrom(
       this.http.post<{ data?: StudentEvaluationResultDTO } | StudentEvaluationResultDTO>(

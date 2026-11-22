@@ -18,6 +18,11 @@ export interface WorkspaceProjectDraftDTO {
   content_sha256: string;
   revision: number;
   updated_at: string;
+  // Proyecto grande (ADR-090): presentes solo cuando el borrador es un tar.gz.
+  artifact_key?: string | null;
+  artifact_sha256?: string | null;
+  artifact_bytes?: number | null;
+  artifact_files?: number | null;
 }
 
 export interface WorkspaceProjectVersionDTO {
@@ -28,6 +33,10 @@ export interface WorkspaceProjectVersionDTO {
   file_count: number;
   total_bytes: number;
   published_at: string;
+  artifact_key?: string | null;
+  artifact_sha256?: string | null;
+  artifact_bytes?: number | null;
+  artifact_files?: number | null;
 }
 
 export interface WorkspaceLegacyProjectDTO {
@@ -56,6 +65,7 @@ export interface WorkspaceProjectViewDTO {
   versions: WorkspaceProjectVersionDTO[];
   legacy?: WorkspaceLegacyProjectDTO | null;
   publishing_enabled: boolean;
+  archive_enabled: boolean;
   preparation?: WorkspacePreparationDTO | null;
 }
 
@@ -144,6 +154,18 @@ export class TeacherProjectService {
     return this.http
       .post<ApiEnvelope<WorkspaceProjectImportResultDTO>>(
         `/api/v1/teacher/exercises/${exerciseId}/project/import/zip`,
+        formData,
+      )
+      .pipe(map((response) => response.data));
+  }
+
+  importArchive(
+    exerciseId: string,
+    formData: FormData,
+  ): Observable<WorkspaceProjectImportResultDTO> {
+    return this.http
+      .post<ApiEnvelope<WorkspaceProjectImportResultDTO>>(
+        `/api/v1/teacher/exercises/${exerciseId}/project/import/archive`,
         formData,
       )
       .pipe(map((response) => response.data));

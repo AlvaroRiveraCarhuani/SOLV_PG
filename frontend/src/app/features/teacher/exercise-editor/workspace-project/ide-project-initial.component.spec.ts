@@ -27,6 +27,7 @@ function projectView(overrides: Partial<WorkspaceProjectViewDTO> = {}): Workspac
     },
     versions: [],
     publishing_enabled: false,
+    archive_enabled: false,
     ...overrides
   };
 }
@@ -39,6 +40,7 @@ describe('IdeProjectInitialComponent', () => {
   let saveDraft: ReturnType<typeof vi.fn>;
   let importFolder: ReturnType<typeof vi.fn>;
   let importZip: ReturnType<typeof vi.fn>;
+  let importArchive: ReturnType<typeof vi.fn>;
   let publish: ReturnType<typeof vi.fn>;
   let generateProject: ReturnType<typeof vi.fn>;
   let retryPreparation: ReturnType<typeof vi.fn>;
@@ -66,6 +68,7 @@ describe('IdeProjectInitialComponent', () => {
     saveDraft = vi.fn().mockReturnValue(of(projectView().draft));
     importFolder = vi.fn().mockReturnValue(of({ draft: projectView().draft, file_count: 1, total_bytes: 10 }));
     importZip = vi.fn().mockReturnValue(of({ draft: projectView().draft, file_count: 1, total_bytes: 10 }));
+    importArchive = vi.fn().mockReturnValue(of({ draft: projectView().draft, file_count: 1, total_bytes: 10 }));
     publish = vi.fn().mockReturnValue(of({ id: 'version-1', version_number: 1, text_snapshot: '', content_sha256: '', file_count: 1, total_bytes: 10, published_at: '2026-11-10T10:00:00Z' }));
     generateProject = vi.fn().mockReturnValue(of(proposal()));
     retryPreparation = vi.fn().mockReturnValue(
@@ -93,6 +96,7 @@ describe('IdeProjectInitialComponent', () => {
             saveDraft,
             importFolder,
             importZip,
+            importArchive,
             publish,
             generateProject,
             retryPreparation
@@ -203,6 +207,22 @@ describe('IdeProjectInitialComponent', () => {
     expect(component.conflict()).toBe(true);
     expect(component.selectedFile()?.content).toBe('print(2)\n');
     expect(component.errorMessage()).toContain('revisión');
+  });
+
+  it('envía el tar.gz al endpoint de proyecto grande solo con la bandera encendida', () => {
+    const archive = new File(['gz'], 'semestre.tar.gz', { type: 'application/gzip' });
+
+    component.view.set(projectView({ archive_enabled: false }));
+    component.prepareArchive(archive);
+    expect(importArchive).not.toHaveBeenCalled();
+    expect(component.errorMessage()).toContain('deshabilitada');
+
+    component.view.set(projectView({ archive_enabled: true }));
+    component.prepareArchive(archive);
+    expect(importArchive).toHaveBeenCalledTimes(1);
+    const [exerciseId, form] = importArchive.mock.calls[0];
+    expect(exerciseId).toBe('exercise-1');
+    expect((form as FormData).get('archive')).toBeInstanceOf(File);
   });
 
   it('abre la confirmación de publicación solo cuando el flag está habilitado', () => {

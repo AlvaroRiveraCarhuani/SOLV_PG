@@ -13,6 +13,8 @@ export const WORKSPACE_PROJECT_MAX_BYTES = 1024 * 1024;
 export const WORKSPACE_PROJECT_MAX_FILES = 300;
 export const WORKSPACE_PROJECT_MAX_FILE_BYTES = 512 * 1024;
 export const WORKSPACE_PROJECT_MAX_ZIP_BYTES = 10 * 1024 * 1024;
+// Proyecto grande (ADR-090): tar.gz que el backend guarda en el depósito.
+export const WORKSPACE_PROJECT_MAX_ARCHIVE_BYTES = 32 * 1024 * 1024;
 export const WORKSPACE_PROJECT_MAX_PATH_BYTES = 1024;
 
 const SNAPSHOT_HEADER_PREFIX = '# === FILE: ';

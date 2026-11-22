@@ -1,53 +1,31 @@
 import { marked } from 'marked';
+import { escapeHtml, parseTree, type TreeNode } from '@shared/utils/markdown-tree.utils';
 
 /**
- * Línea de un árbol de carpetas escrito a mano: guías, rama y nombre.
- * `proyecto/`, `│   ├── src/`, `    └── main.ts`.
+ * Fila del árbol. Angular descarta los `<svg>` al sanitizar `[innerHTML]`, así
+ * que la fila deja un marcador y el ícono lo dibuja el SCSS con una máscara:
+ * el árbol conserva el diseño del panel docente sin abrir la consigna a HTML
+ * sin sanitizar.
  */
-const TREE_BRANCH = /^([\s│]*)([├└]── )(.+)$/u;
-const TREE_GLYPH = /[├└]── /u;
-
-function escapeHtml(value: string): string {
-  return value
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;');
-}
-
-/**
- * Un bloque es un árbol cuando tiene al menos dos ramas: una sola línea con
- * `├──` puede ser un ejemplo cualquiera y se deja como código.
- */
-function isTreeBlock(text: string): boolean {
-  return text.split('\n').filter((line) => TREE_GLYPH.test(line)).length >= 2;
-}
-
-function renderTreeRow(line: string): string {
-  const match = line.match(TREE_BRANCH);
-  if (!match) {
-    const name = line.trim();
-    if (!name) {
-      return '';
-    }
-    const kind = name.endsWith('/') ? 'is-dir' : 'is-file';
-    return `<div class="tree-row"><span class="tree-node ${kind}">${escapeHtml(name)}</span></div>`;
-  }
-
-  const [, guides, branch, name] = match;
-  const kind = name.trim().endsWith('/') ? 'is-dir' : 'is-file';
+function renderTreeNode(node: TreeNode): string {
+  const isDir = node.isDir || node.children.length > 0;
+  const nested = node.children.length > 0
+    ? `<ul class="tree-list">${node.children.map(renderTreeNode).join('')}</ul>`
+    : '';
+  const kind = isDir ? 'tree-dir' : 'tree-file';
   return (
-    `<div class="tree-row">` +
-    `<span class="tree-guide">${escapeHtml(guides + branch)}</span>` +
-    `<span class="tree-node ${kind}">${escapeHtml(name)}</span>` +
-    `</div>`
+    `<li class="tree-item ${kind}">` +
+    `<span class="tree-row"><span class="tree-icon" aria-hidden="true"></span>` +
+    `<span class="tree-name">${escapeHtml(node.name)}</span></span>` +
+    `${nested}</li>`
   );
 }
 
 /**
- * Consigna pública renderizada. Marked entrega un `<pre>` plano para la
- * estructura de carpetas; acá cada rama se marca como fila y se distingue
- * carpeta de archivo, para que el árbol se lea como el del entorno.
+ * Consigna pública renderizada. Un bloque que representa una estructura de
+ * carpetas se resuelve con el parser compartido y se dibuja como árbol
+ * semántico, en lugar de mostrar los conectores ASCII como código plano. El
+ * resto del código queda en un `<pre>` normal.
  */
 export function renderStatementMarkdown(raw: string): string {
   if (!raw.trim()) {
@@ -56,13 +34,12 @@ export function renderStatementMarkdown(raw: string): string {
 
   const renderer = new marked.Renderer();
   renderer.code = ({ text, lang }) => {
-    if (isTreeBlock(text)) {
-      const rows = text
-        .replace(/\n+$/, '')
-        .split('\n')
-        .map(renderTreeRow)
-        .join('');
-      return `<div class="file-tree" role="group">${rows}</div>`;
+    const tree = parseTree(text.split('\n'));
+    if (tree && tree.length > 0) {
+      return (
+        `<div class="tree" role="group" aria-label="Estructura de archivos y carpetas">` +
+        `<ul class="tree-list">${tree.map(renderTreeNode).join('')}</ul></div>`
+      );
     }
 
     const language = (lang ?? '').trim().toLowerCase();

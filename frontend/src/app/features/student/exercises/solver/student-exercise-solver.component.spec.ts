@@ -1,5 +1,6 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
-import { provideRouter, ActivatedRoute } from '@angular/router';
+import { provideRouter, ActivatedRoute, Router } from '@angular/router';
+import { Location } from '@angular/common';
 import { of } from 'rxjs';
 import { StudentExerciseSolverComponent } from './student-exercise-solver.component';
 import { StudentService } from '@core/services/student.service';
@@ -131,7 +132,7 @@ describe('StudentExerciseSolverComponent', () => {
     await TestBed.configureTestingModule({
       imports: [StudentExerciseSolverComponent],
       providers: [
-        provideRouter([]),
+        provideRouter([{ path: '**', children: [] }]),
         { provide: StudentService, useValue: mockStudentService },
         { provide: AuthService, useValue: mockAuthService },
         { provide: ClassAdvanceNoticeService, useValue: mockNotices },
@@ -246,6 +247,55 @@ describe('StudentExerciseSolverComponent', () => {
     openSpy.mockRestore();
   });
 
+  it('explica la pausa de la clase cuando el laboratorio de práctica quedó en solo lectura', async () => {
+    const current = component.exercise();
+    component.exercise.set({
+      ...current!,
+      type: 'project',
+      environment_type: 'IDE_PERSISTENTE'
+    });
+    const openSpy = vi.spyOn(window, 'open').mockReturnValue(null);
+    const startSpy = vi.spyOn(mockStudentService, 'startEnvironment').mockRejectedValueOnce({
+      error: {
+        error: 'environment_frozen_class',
+        message: 'El docente pausó la clase: tu entorno quedó en solo lectura'
+      }
+    });
+
+    await component.openEnvironment();
+    fixture.detectChanges();
+
+    expect(component.isExamProject()).toBe(false);
+    expect(component.classPaused()).toBe(true);
+    expect(component.examClosed()).toBe(false);
+    expect(fixture.nativeElement.textContent).toContain('El docente pausó la clase');
+    expect(fixture.nativeElement.textContent).not.toContain('El examen terminó');
+    expect(fixture.nativeElement.textContent).not.toContain('Tu espacio está en solo lectura');
+
+    startSpy.mockRestore();
+    openSpy.mockRestore();
+  });
+
+  it('deja abrir el laboratorio de una práctica pausada en solo lectura y bloquea la entrega', () => {
+    component.exercise.set({
+      ...component.exercise()!,
+      type: 'project',
+      environment_type: 'IDE_PERSISTENTE'
+    });
+    component.environment.set({
+      id: 'ws-1',
+      status: 'frozen',
+      access_url: 'http://localhost:3998'
+    } as unknown as PracticeEnvironment);
+    fixture.detectChanges();
+
+    expect(component.isExamProject()).toBe(false);
+    expect(component.showsClassPausedNotice()).toBe(true);
+    expect(component.canSubmitProject()).toBe(false);
+    expect(fixture.nativeElement.textContent).toContain('El docente pausó la clase');
+    expect(fixture.nativeElement.textContent).not.toContain('El examen terminó');
+  });
+
   it('no muestra el aviso de examen en una práctica', () => {
     component.environment.set({ id: 'ws-1', status: 'running' } as unknown as PracticeEnvironment);
     fixture.detectChanges();
@@ -357,6 +407,20 @@ describe('StudentExerciseSolverComponent', () => {
     expect(component.lastSubmissionId()).toBe('sub-909');
   });
 
+  it('testCode ejecuta en modo test con casos de ejemplo sin registrar entrega', async () => {
+    evaluateCalls = [];
+    submitCalls = [];
+
+    await component.testCode();
+
+    expect(evaluateCalls.length).toBe(1);
+    expect((evaluateCalls[0] as { mode?: string }).mode).toBe('test');
+    expect(submitCalls.length).toBe(0);
+    expect(component.isTestRun()).toBe(true);
+    expect(component.lastSubmissionId()).toBe('');
+    expect(component.isExamSubmitted()).toBe(false);
+  });
+
   it('dibuja la estructura de carpetas de la consigna como árbol y no como bloque plano', () => {
     component.exercise.set({
       ...component.exercise()!,
@@ -377,10 +441,11 @@ describe('StudentExerciseSolverComponent', () => {
     fixture.detectChanges();
 
     const host = fixture.nativeElement as HTMLElement;
-    expect(host.querySelectorAll('.file-tree .tree-row').length).toBe(5);
-    expect(host.querySelector('.file-tree .tree-node.is-dir')?.textContent).toContain('proyecto/');
-    expect(host.querySelector('.file-tree .tree-node.is-file')?.textContent).toContain('package.json');
-    expect(host.querySelector('.file-tree .tree-guide')?.textContent).toContain('├──');
+    expect(host.querySelectorAll('.tree .tree-row').length).toBe(5);
+    expect(host.querySelector('.tree .tree-item.tree-dir .tree-name')?.textContent).toContain('proyecto');
+    expect(host.querySelector('.tree .tree-item.tree-file .tree-name')?.textContent).toContain('package.json');
+    expect(host.querySelector('.tree .tree-icon')).not.toBeNull();
+    expect(host.textContent).not.toContain('├──');
     expect(host.querySelector('.markdown-body pre')).toBeNull();
   });
 
@@ -480,5 +545,43 @@ describe('StudentExerciseSolverComponent', () => {
     component.onCodeChange('int main() { return 0; }');
     component.onLanguageChange('python');
     expect(component.sourceCode()).toBe('int main() { return 0; }');
+  });
+
+  it('el botón de volver usa Location.back() cuando hay navegación previa en la app', () => {
+    const location = TestBed.inject(Location);
+    const locationSpy = vi.spyOn(location, 'back');
+    const originalHistoryState = window.history.state;
+
+    try {
+      history.replaceState({ navigationId: 2 }, '');
+      component.goBack();
+      expect(locationSpy).toHaveBeenCalled();
+    } finally {
+      history.replaceState(originalHistoryState, '');
+    }
+  });
+
+  it('el botón de volver navega a la materia cuando no hay historial interno', () => {
+    const router = TestBed.inject(Router);
+    const routerSpy = vi.spyOn(router, 'navigate').mockResolvedValue(true);
+    const originalHistoryState = window.history.state;
+
+    try {
+      history.replaceState({ navigationId: 1 }, '');
+      component.goBack();
+      expect(routerSpy).toHaveBeenCalledWith(['/student/courses', 'subj-101']);
+    } finally {
+      history.replaceState(originalHistoryState, '');
+    }
+  });
+
+  it('renderiza el botón volver con etiqueta limpia y dispara goBack al hacer clic', () => {
+    const goBackSpy = vi.spyOn(component, 'goBack');
+    const backBtn = fixture.nativeElement.querySelector('.btn-back') as HTMLButtonElement | null;
+    expect(backBtn).not.toBeNull();
+    expect(backBtn?.textContent?.trim()).toContain('Volver');
+
+    backBtn?.click();
+    expect(goBackSpy).toHaveBeenCalled();
   });
 });

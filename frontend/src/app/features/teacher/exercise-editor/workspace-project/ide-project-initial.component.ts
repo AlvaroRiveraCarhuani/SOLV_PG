@@ -37,6 +37,7 @@ import {
 import type { ApprovedTemplate } from '../steps/step-ide-environment/step-ide-environment.component';
 import {
   WorkspaceProjectFile,
+  WORKSPACE_PROJECT_MAX_ARCHIVE_BYTES,
   WORKSPACE_PROJECT_MAX_FILES,
   WORKSPACE_PROJECT_MAX_ZIP_BYTES,
   canonicalizeProjectContent,
@@ -98,6 +99,7 @@ export class IdeProjectInitialComponent {
 
   @ViewChild('folderInput') private folderInput?: ElementRef<HTMLInputElement>;
   @ViewChild('zipInput') private zipInput?: ElementRef<HTMLInputElement>;
+  @ViewChild('archiveInput') private archiveInput?: ElementRef<HTMLInputElement>;
 
   readonly view = signal<WorkspaceProjectViewDTO | null>(null);
   readonly files = signal<WorkspaceProjectFile[]>([]);
@@ -206,6 +208,7 @@ export class IdeProjectInitialComponent {
   readonly draft = computed(() => this.view()?.draft ?? null);
   readonly versions = computed(() => this.view()?.versions ?? []);
   readonly publishingEnabled = computed(() => !!this.view()?.publishing_enabled);
+  readonly archiveEnabled = computed(() => !!this.view()?.archive_enabled);
   readonly publishedVersion = computed(() => {
     const project = this.project();
     if (!project?.current_published_version_id) return null;
@@ -223,7 +226,21 @@ export class IdeProjectInitialComponent {
   readonly canSave = computed(
     () => this.dirty() && !this.saving() && this.snapshotError() === null,
   );
+  // Proyecto grande (ADR-090): el borrador puede ser un tar.gz en lugar de
+  // texto. Ese borrador se publica tal cual y no se edita en el árbol.
+  readonly archiveDraft = computed<{ files: number; bytes: number; sha256: string } | null>(() => {
+    const draft = this.draft();
+    if (!draft?.artifact_key) return null;
+    return {
+      files: draft.artifact_files ?? 0,
+      bytes: draft.artifact_bytes ?? 0,
+      sha256: draft.artifact_sha256 ?? draft.content_sha256,
+    };
+  });
+  readonly fileCount = computed(() => this.archiveDraft()?.files ?? this.files().length);
   readonly hasPublishableChanges = computed(() => {
+    const archive = this.archiveDraft();
+    if (archive) return archive.sha256 !== (this.publishedVersion()?.artifact_sha256 ?? null);
     const version = this.publishedVersion();
     return !version || this.currentSnapshot() !== version.text_snapshot;
   });
@@ -238,9 +255,14 @@ export class IdeProjectInitialComponent {
   readonly selectedFile = computed(
     () => this.files().find((file) => file.path === this.selectedPath()) ?? null,
   );
-  readonly totalBytes = computed(() =>
-    this.files().reduce((total, file) => total + new TextEncoder().encode(file.content).length, 0),
-  );
+  readonly totalBytes = computed(() => {
+    const archive = this.archiveDraft();
+    if (archive) return archive.bytes;
+    return this.files().reduce(
+      (total, file) => total + new TextEncoder().encode(file.content).length,
+      0,
+    );
+  });
   readonly fileTree = computed<ProjectFile[]>(() =>
     this.files().map((file) => ({
       path: file.path,
@@ -338,6 +360,13 @@ export class IdeProjectInitialComponent {
     if (file) this.prepareZip(file);
   }
 
+  onArchiveInput(event: Event): void {
+    const input = event.target as HTMLInputElement;
+    const file = input.files?.[0];
+    input.value = '';
+    if (file) this.prepareArchive(file);
+  }
+
   importFolderFiles(files: WorkspaceProjectFile[]): void {
     const error = validateProjectFiles(files);
     if (error) {
@@ -368,6 +397,33 @@ export class IdeProjectInitialComponent {
       return;
     }
     this.prepareImport({ kind: 'zip', file });
+  }
+
+  // Proyecto grande (ADR-090): el navegador no descomprime nada, solo envía el
+  // tar.gz. El servidor valida rutas, symlinks y tamaños antes de guardarlo.
+  prepareArchive(file: File): void {
+    const name = file.name.toLowerCase();
+    if (!name.endsWith('.tar.gz') && !name.endsWith('.tgz')) {
+      this.errorMessage.set('Selecciona un archivo con extensión .tar.gz o .tgz.');
+      return;
+    }
+    if (!this.archiveEnabled()) {
+      this.errorMessage.set('La carga de proyectos grandes está deshabilitada.');
+      return;
+    }
+    if (file.size > WORKSPACE_PROJECT_MAX_ARCHIVE_BYTES) {
+      this.errorMessage.set(
+        `El archivo supera el máximo de ${formatBytes(WORKSPACE_PROJECT_MAX_ARCHIVE_BYTES)}.`,
+      );
+      return;
+    }
+    this.prepareImport({ kind: 'archive', file });
+  }
+
+  private prepareArchiveOrZip(file: File): void {
+    const name = file.name.toLowerCase();
+    if (name.endsWith('.tar.gz') || name.endsWith('.tgz')) this.prepareArchive(file);
+    else this.prepareZip(file);
   }
 
   prepareImport(selection: WorkspaceImportSelection): void {
@@ -559,8 +615,15 @@ export class IdeProjectInitialComponent {
     }
 
     form.append('archive', selection.file, selection.file.name);
-    this.service.importZip(id, form).subscribe({
-      next: (result) => this.onImported(`${result.file_count} archivos importados desde el ZIP.`),
+    const isArchive = selection.kind === 'archive';
+    const request = isArchive
+      ? this.service.importArchive(id, form)
+      : this.service.importZip(id, form);
+    request.subscribe({
+      next: (result) =>
+        this.onImported(
+          `${result.file_count} archivos importados desde ${isArchive ? 'el archivo del proyecto' : 'el ZIP'}.`,
+        ),
       error: (error) => this.onImportError(error),
     });
   }
@@ -595,19 +658,18 @@ export class IdeProjectInitialComponent {
 
     if (entries.length > 0) {
       readDroppedEntries(entries)
-        .then((selection) =>
-          selection.kind === 'zip'
-            ? this.prepareZip(selection.file)
-            : this.importFolderFiles(selection.files),
-        )
+        .then((selection) => {
+          if (selection.kind === 'folder') this.importFolderFiles(selection.files);
+          else this.prepareArchiveOrZip(selection.file);
+        })
         .catch((error: unknown) =>
           this.errorMessage.set(projectErrorMessage(error, 'No se pudo leer lo que arrastraste.')),
         );
       return;
     }
     const dropped = dataTransfer.files[0];
-    if (dropped) this.prepareZip(dropped);
-    else this.errorMessage.set('Arrastra una carpeta o un único archivo ZIP.');
+    if (dropped) this.prepareArchiveOrZip(dropped);
+    else this.errorMessage.set('Arrastra una carpeta, un único archivo ZIP o un tar.gz.');
   }
 
   onDragOver(event: DragEvent): void {

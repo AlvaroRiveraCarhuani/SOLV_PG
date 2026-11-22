@@ -111,4 +111,81 @@ describe('ExerciseEditorStore', () => {
     expect(store.metadata().language).toBe('python');
     expect(store.metadata().allowed_languages).toEqual(['python', 'cpp']);
   });
+
+  it('permite alternar lenguajes adicionales admitidos y vincula la plantilla multilingue', () => {
+    store.loadRunnerTemplates();
+    http.expectOne(request => request.url.startsWith('/api/v1/templates')).flush({
+      data: {
+        data: [
+          {
+            id: 'tpl-python-single',
+            name: 'Python Runner Base',
+            target_environment: 'JUEZ_EFIMERO',
+            status: 'approved',
+            docker_image: 'python:3.11-slim',
+            base_ram_mb: 128,
+            language_runners: [{ language: 'python', entrypoint: 'python3 solution.py' }]
+          },
+          {
+            id: 'tpl-multi-all',
+            name: 'Runner Multilenguaje Base',
+            target_environment: 'JUEZ_EFIMERO',
+            status: 'approved',
+            docker_image: 'python:3.11-slim',
+            base_ram_mb: 256,
+            language_runners: [
+              { language: 'python', entrypoint: 'python3 solution.py' },
+              { language: 'cpp', entrypoint: 'g++ solution.cpp -o solution' },
+              { language: 'java', entrypoint: 'javac Main.java' }
+            ]
+          }
+        ]
+      }
+    });
+
+    store.setLanguageAndSyncTemplate('python');
+    expect(store.metadata().allowed_languages).toEqual(['python']);
+
+    // Tildar C++ adicional
+    store.toggleAllowedLanguage('cpp');
+    expect(store.metadata().allowed_languages).toEqual(['python', 'cpp']);
+    expect(store.metadata().template_id).toBe('tpl-multi-all');
+
+    // Intentar destildar el lenguaje principal no tiene efecto
+    store.toggleAllowedLanguage('python');
+    expect(store.metadata().allowed_languages).toContain('python');
+
+    // Destildar C++ vuelve al estado monolenguaje
+    store.toggleAllowedLanguage('cpp');
+    expect(store.metadata().allowed_languages).toEqual(['python']);
+  });
+
+  it('resuelve una plantilla multilingue para un lenguaje secundario que no tiene plantilla individual', () => {
+    store.loadRunnerTemplates();
+    http.expectOne(request => request.url.startsWith('/api/v1/templates')).flush({
+      data: {
+        data: [
+          {
+            id: 'tpl-multi-modern',
+            name: 'Entorno Multilingue Moderno',
+            target_environment: 'JUEZ_EFIMERO',
+            status: 'approved',
+            docker_image: 'solv-runners/modern:1.0',
+            base_ram_mb: 256,
+            language_runners: [
+              { language: 'python', entrypoint: 'python3 solution.py' },
+              { language: 'julia', entrypoint: 'julia solution.jl' }
+            ]
+          }
+        ]
+      }
+    });
+
+    const resolved = store.findTemplateForLanguage('julia');
+    expect(resolved?.id).toBe('tpl-multi-modern');
+
+    store.setLanguageAndSyncTemplate('julia');
+    expect(store.metadata().template_id).toBe('tpl-multi-modern');
+    expect(store.metadata().language).toBe('julia');
+  });
 });

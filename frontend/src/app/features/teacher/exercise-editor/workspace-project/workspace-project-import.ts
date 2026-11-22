@@ -17,7 +17,8 @@ export interface WorkspaceDropEntryLike {
 
 export type WorkspaceImportSelection =
   | { kind: 'folder'; files: WorkspaceProjectFile[] }
-  | { kind: 'zip'; file: File };
+  | { kind: 'zip'; file: File }
+  | { kind: 'archive'; file: File };
 
 interface DirectoryPickerWindow {
   showDirectoryPicker?: () => Promise<WorkspaceFileHandleLike>;

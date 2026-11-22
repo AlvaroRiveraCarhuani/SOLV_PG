@@ -7,7 +7,7 @@
     "build": "ng build",
     "watch": "ng build --watch --configuration development",
     "test": "ng test",
-    "test:ci": "ng test --watch=false && vitest run scripts/date-format-gate.test.mjs scripts/machine-data-gate.test.mjs scripts/machine-data-catalog.test.mjs scripts/motion-gate.test.mjs scripts/terminology-gate.test.mjs",
+    "test:ci": "ng test --watch=false && vitest run scripts/date-format-gate.test.mjs scripts/machine-data-gate.test.mjs scripts/machine-data-catalog.test.mjs scripts/motion-gate.test.mjs scripts/terminology-gate.test.mjs scripts/entorno-page.test.mjs",
     "test:e2e:typography": "playwright test --config=playwright.config.mjs",
     "test:e2e:flows": "playwright test --config=playwright.e2e.config.mjs",
     "test:e2e:flows:watch": "E2E_SLOW_MO=\"${E2E_SLOW_MO:-3000}\" playwright test --config=playwright.e2e.config.mjs --headed",

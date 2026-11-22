@@ -1,7 +1,7 @@
 import { Component, DestroyRef, OnInit, computed, inject, signal } from '@angular/core';
-import { CommonModule } from '@angular/common';
+import { CommonModule, Location } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { ActivatedRoute, RouterLink } from '@angular/router';
+import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import {
   LucideArrowLeft,
@@ -100,6 +100,8 @@ export function formatCPUQuota(cpuMillis: number): string {
 })
 export class StudentExerciseSolverComponent implements OnInit {
   private readonly route = inject(ActivatedRoute);
+  private readonly router = inject(Router);
+  private readonly location = inject(Location);
   private readonly studentService = inject(StudentService);
   private readonly authService = inject(AuthService);
   private readonly destroyRef = inject(DestroyRef);
@@ -112,7 +114,9 @@ export class StudentExerciseSolverComponent implements OnInit {
 
   readonly selectedLanguage = signal<string>('python');
   readonly sourceCode = signal<string>('');
+  readonly isTesting = signal<boolean>(false);
   readonly isSubmitting = signal<boolean>(false);
+  readonly isTestRun = signal<boolean>(false);
   readonly submitError = signal<string | null>(null);
   readonly lastResult = signal<StudentEvaluationResultDTO | null>(null);
   readonly lastSubmissionId = signal<string>('');
@@ -205,6 +209,13 @@ export class StudentExerciseSolverComponent implements OnInit {
    * cargado. Sin esto el alumno solo veía un error y nunca "Examen cerrado".
    */
   readonly examClosed = signal<boolean>(false);
+
+  /**
+   * La clase está en pausa: el laboratorio de una práctica quedó en solo
+   * lectura aunque no sea un examen. La escritura vuelve cuando el docente
+   * reanuda el aula.
+   */
+  readonly classPaused = signal<boolean>(false);
 
   /**
    * Aviso de espacio antes del bloqueo: la cuota es blanda y el alumno tiene que
@@ -310,12 +321,37 @@ export class StudentExerciseSolverComponent implements OnInit {
 
   readonly isExamProject = computed<boolean>(() => (this.exercise()?.purpose ?? 'class') === 'exam');
 
+  /** El aviso de solo lectura de una práctica pausada no es el de un examen. */
+  readonly showsClassPausedNotice = computed<boolean>(() => {
+    if (this.isExamProject()) {
+      return false;
+    }
+    return this.classPaused() || this.environment()?.status === 'frozen';
+  });
+
+  readonly isExamExpired = computed<boolean>(() => {
+    const due = this.exercise()?.due_date;
+    if (!due) return false;
+    return new Date(due).getTime() < Date.now();
+  });
+
   /**
-   * Entrega de examen en el Entorno de Evaluación: ahí el código se envía una
-   * vez. El proyecto del IDE es otro camino y admite reentregas.
+   * Entrega de examen en el Entorno de Evaluación: si el examen venció o si
+   * no admite reentregas y ya tiene entrega, se bloquea. Con reentregas permitidas
+   * y dentro del plazo, el estudiante puede corregir y volver a entregar.
    */
   readonly isExamSubmitted = computed<boolean>(() => {
-    return this.isExamProject() && !this.isIdeExercise() && !!this.lastSubmissionId();
+    if (!this.isExamProject() || this.isIdeExercise()) {
+      return false;
+    }
+    if (this.isExamExpired()) {
+      return true;
+    }
+    const hasSubmitted = !!this.lastSubmissionId();
+    if (!hasSubmitted) {
+      return false;
+    }
+    return !this.canResubmitProject();
   });
 
   /** Identificador de la entrega del proyecto, para abrir su historial. */
@@ -329,9 +365,10 @@ export class StudentExerciseSolverComponent implements OnInit {
     if (!this.environmentIsRunning() || this.isSubmittingProject()) {
       return false;
     }
-    // En un examen se puede reentregar mientras el aula siga abierta: el cierre
-    // es el que deja el volumen en solo lectura, no la entrega (ADR-005 §5.2).
-    if (this.projectSubmission() && !this.isExamProject() && !this.canResubmitProject()) {
+    if (this.isExamProject() && this.isExamExpired()) {
+      return false;
+    }
+    if (this.projectSubmission() && !this.canResubmitProject()) {
       return false;
     }
     return true;
@@ -373,6 +410,14 @@ export class StudentExerciseSolverComponent implements OnInit {
     const subjectId = this.exercise()?.subject_id;
     return subjectId ? ['/student/courses', subjectId] : ['/student'];
   });
+
+  goBack(): void {
+    if (typeof window !== 'undefined' && (window.history.state?.navigationId ?? 0) > 1) {
+      this.location.back();
+    } else {
+      void this.router.navigate(this.backCourseLink());
+    }
+  }
 
   ngOnInit(): void {
     // El aviso llega a la pantalla donde el alumno trabaja la práctica, no solo
@@ -534,6 +579,7 @@ export class StudentExerciseSolverComponent implements OnInit {
     this.isStartingEnvironment.set(true);
     this.environmentError.set(null);
     this.examClosed.set(false);
+    this.classPaused.set(false);
 
     try {
       const environment = await this.studentService.startEnvironment(subjectId, ex.id);
@@ -552,10 +598,24 @@ export class StudentExerciseSolverComponent implements OnInit {
       tab.location.href = url;
     } catch (error) {
       tab?.close();
-      const body = (error as { error?: { message?: unknown; error?: { code?: unknown } } } | null)?.error;
-      if (body?.error?.code === 'environment_frozen') {
-        // El examen terminó: el aviso de estado lo explica, no un error suelto.
-        this.examClosed.set(true);
+      const body = (error as { error?: { message?: unknown; error?: unknown } } | null)?.error;
+      // El backend responde { error: <código>, message } y algunos clientes lo
+      // envuelven como { error: { code } }: se aceptan las dos formas.
+      const rawCode = body?.error;
+      const code = typeof rawCode === 'string'
+        ? rawCode
+        : (rawCode as { code?: unknown } | null | undefined)?.code;
+      if (
+        code === 'environment_frozen' ||
+        code === 'environment_frozen_exam_paused' ||
+        code === 'environment_frozen_class'
+      ) {
+        // El volumen congelado tiene su propio aviso de estado, no un error suelto.
+        if (this.isExamProject()) {
+          this.examClosed.set(true);
+        } else {
+          this.classPaused.set(true);
+        }
         return;
       }
       const backendMessage = body?.message;
@@ -616,10 +676,48 @@ export class StudentExerciseSolverComponent implements OnInit {
     }
   }
 
+  async testCode(): Promise<void> {
+    const ex = this.exercise();
+    const code = this.sourceCode();
+    if (!ex || !code.trim() || this.isTesting() || this.isSubmitting()) {
+      return;
+    }
+    if (this.isExamProject() && this.isExamExpired()) {
+      this.submitError.set('El plazo de entrega para este examen ha finalizado.');
+      return;
+    }
+
+    this.isTesting.set(true);
+    this.submitError.set(null);
+
+    try {
+      const evalResult = await this.studentService.evaluateExercise({
+        exercise_id: ex.id,
+        language: this.selectedLanguage(),
+        source_code_b64: encodeUtf8Base64(code),
+        mode: 'test'
+      });
+      this.lastResult.set(evalResult);
+      this.isTestRun.set(true);
+    } catch {
+      this.submitError.set('No se pudo probar la solución con los casos de ejemplo.');
+    } finally {
+      this.isTesting.set(false);
+    }
+  }
+
   async submitSolution(): Promise<void> {
     const ex = this.exercise();
     const code = this.sourceCode();
-    if (!ex || !code.trim() || this.isSubmitting()) {
+    if (!ex || !code.trim() || this.isSubmitting() || this.isTesting()) {
+      return;
+    }
+    if (this.isExamProject() && this.isExamExpired()) {
+      this.submitError.set('El plazo de entrega para este examen ha finalizado.');
+      return;
+    }
+    if (this.isExamProject() && !this.canResubmitProject() && this.lastSubmissionId()) {
+      this.submitError.set('Este examen no admite reentregas.');
       return;
     }
 
@@ -630,9 +728,11 @@ export class StudentExerciseSolverComponent implements OnInit {
       const evalResult = await this.studentService.evaluateExercise({
         exercise_id: ex.id,
         language: this.selectedLanguage(),
-        source_code_b64: encodeUtf8Base64(code)
+        source_code_b64: encodeUtf8Base64(code),
+        mode: 'submit'
       });
       this.lastResult.set(evalResult);
+      this.isTestRun.set(false);
 
       const studentId = this.authService.currentUser()?.id || '00000000-0000-0000-0000-000000000301';
       const subResp = await this.studentService.submitExercise({

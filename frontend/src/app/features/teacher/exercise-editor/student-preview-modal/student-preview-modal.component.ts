@@ -133,9 +133,9 @@ export class StudentPreviewModalComponent {
   readonly allowedLanguages = computed(() => {
     const meta = this.store.metadata();
     if (meta.allowed_languages && meta.allowed_languages.length > 0) {
-      return meta.allowed_languages;
+      return meta.allowed_languages.map(l => (l || '').trim().toLowerCase()).filter(Boolean);
     }
-    return [meta.language || 'python'];
+    return [(meta.language || 'python').trim().toLowerCase()];
   });
 
   readonly languageOptions = computed<ComboboxOption[]>(() => {
@@ -151,12 +151,13 @@ export class StudentPreviewModalComponent {
   });
 
   readonly currentBoilerplate = computed(() => {
-    const lang = this.selectedLanguage();
+    const lang = this.selectedLanguage().trim().toLowerCase();
     const map = this.store.boilerplates();
     if (map && map[lang]) {
       return map[lang];
     }
-    if (lang === this.store.metadata().language && this.store.boilerplate()) {
+    const primary = (this.store.metadata().language || '').trim().toLowerCase();
+    if (lang === primary && this.store.boilerplate()) {
       return this.store.boilerplate();
     }
     return this.getDefaultBoilerplate(lang);

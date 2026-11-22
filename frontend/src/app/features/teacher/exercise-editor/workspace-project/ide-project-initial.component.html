@@ -58,6 +58,18 @@
         <svg lucideFileArchive class="action-icon"></svg>
         <span>Importar ZIP</span>
       </button>
+      @if (archiveEnabled()) {
+        <button
+          type="button"
+          class="btn-outline project-action"
+          [disabled]="!exerciseId() || importing()"
+          (click)="archiveInput.click()"
+          title="Proyecto grande en tar.gz de hasta 32 MiB"
+        >
+          <svg lucideUploadCloud class="action-icon"></svg>
+          <span>Proyecto grande</span>
+        </button>
+      }
     </div>
   </header>
 
@@ -68,6 +80,13 @@
     multiple
     hidden
     (change)="onFolderInput($event)"
+  />
+  <input
+    #archiveInput
+    type="file"
+    accept=".tar.gz,.tgz,application/gzip"
+    hidden
+    (change)="onArchiveInput($event)"
   />
   <input #zipInput type="file" accept=".zip,application/zip" hidden (change)="onZipInput($event)" />
 
@@ -109,7 +128,7 @@
       </div>
       <div class="status-cell">
         <span class="status-label">Archivos</span>
-        <strong class="status-value" machineData>{{ files().length }} / {{ maxFiles }}</strong>
+        <strong class="status-value" machineData>{{ fileCount() }} / {{ maxFiles }}</strong>
         <span class="status-hint" machineData>{{ formatBytes(totalBytes()) }}</span>
       </div>
       <div class="status-cell">
@@ -366,7 +385,7 @@
           <field-message variant="warning" [message]="warning" />
         }
         <span>
-          Se importará {{ pending.kind === 'folder' ? 'la carpeta seleccionada' : 'el ZIP seleccionado' }}
+          Se importará {{ pending.kind === 'folder' ? 'la carpeta seleccionada' : pending.kind === 'archive' ? 'el archivo del proyecto' : 'el ZIP seleccionado' }}
           al proyecto inicial. Los cambios sin guardar se perderán.
         </span>
         <div class="confirm-actions">
@@ -380,7 +399,48 @@
       </div>
     }
 
-    @if (files().length === 0) {
+    @if (archiveDraft(); as archive) {
+      <div class="empty-project archive-project" aria-label="Proyecto grande importado">
+        <svg lucideFileArchive class="empty-icon" aria-hidden="true"></svg>
+        <h4>Proyecto importado como archivo</h4>
+        <p>
+          El borrador es un tar.gz con <span machineData>{{ archive.files }}</span> archivos
+          (<span machineData>{{ formatBytes(archive.bytes) }}</span>). Se publica tal cual: el
+          servidor extrae el archivo en el entorno del estudiante y no se edita archivo por
+          archivo desde acá.
+        </p>
+        @if (!publishingEnabled()) {
+          <p class="publish-note publish-note-disabled">
+            La publicación de proyectos está deshabilitada en este servidor.
+          </p>
+        }
+        <div class="save-bar">
+          <div class="save-status">
+            <span class="saved-text"
+              ><svg lucideCheck class="action-icon"></svg> Borrador sincronizado</span
+            >
+            <span class="save-hint">Revisión <span machineData>{{ revision() }}</span></span>
+          </div>
+          <div class="save-actions">
+            @if (hasPublishableChanges()) {
+              <span class="saved-state">Hay cambios para publicar</span>
+            }
+            @if (publishingEnabled()) {
+              <button
+                type="button"
+                class="btn-outline"
+                [disabled]="!canPublish()"
+                (click)="openPublish()"
+                title="Publicar el archivo importado como versión inmutable"
+              >
+                <svg lucideGlobe class="action-icon"></svg>
+                <span>Publicar versión</span>
+              </button>
+            }
+          </div>
+        </div>
+      </div>
+    } @else if (files().length === 0) {
       <div class="empty-project">
         <svg lucideUploadCloud class="empty-icon" aria-hidden="true"></svg>
         <h4>Importa el proyecto con el que empezará el estudiante</h4>
@@ -659,7 +719,15 @@
               Cerrar
             </button>
           </header>
-          <pre class="version-snapshot">{{ version.text_snapshot }}</pre>
+          @if (version.artifact_key) {
+            <p class="publish-change-summary">
+              Esta versión es un archivo del proyecto con
+              <span machineData>{{ version.artifact_files ?? version.file_count }}</span> archivos
+              (<span machineData>{{ formatBytes(version.artifact_bytes ?? version.total_bytes) }}</span>).
+            </p>
+          } @else {
+            <pre class="version-snapshot">{{ version.text_snapshot }}</pre>
+          }
         </div>
       }
     }
@@ -688,10 +756,15 @@
       <div class="publish-preview">
         <p>
           Se publicará la versión <strong machineData>v{{ nextVersionNumber() }}</strong> con
-          <strong machineData>{{ files().length }} archivos</strong> y
+          <strong machineData>{{ fileCount() }} archivos</strong> y
           <strong machineData>{{ formatBytes(totalBytes()) }}</strong> de contenido.
         </p>
-        @if (publishedVersion()) {
+        @if (archiveDraft()) {
+          <p class="publish-change-summary">
+            Será la versión del archivo importado: el servidor lo extrae en el entorno del
+            estudiante tal como fue cargado.
+          </p>
+        } @else if (publishedVersion()) {
           <p class="publish-change-summary">
             Respecto de la versión publicada:
             <span machineData>{{ changeSummary().added.length }}</span> agregados,

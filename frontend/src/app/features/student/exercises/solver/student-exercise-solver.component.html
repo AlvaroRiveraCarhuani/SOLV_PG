@@ -1,10 +1,16 @@
 <div class="solver-page-container">
   <header class="solver-topbar">
     <div class="topbar-left">
-      <a [routerLink]="backCourseLink()" class="btn-back" title="Volver a la materia">
-        <svg lucideArrowLeft class="topbar-icon"></svg>
-        <span>Volver a la materia</span>
-      </a>
+      <button
+        type="button"
+        (click)="goBack()"
+        class="btn-back"
+        title="Volver"
+        aria-label="Volver a la vista anterior"
+      >
+        <svg lucideArrowLeft class="topbar-icon" aria-hidden="true"></svg>
+        <span>Volver</span>
+      </button>
 
       <div class="title-meta">
         <h1 class="page-title">{{ exercise()?.title || 'Cargando ejercicio...' }}</h1>
@@ -238,6 +244,13 @@
                 }
               }
 
+              @if (showsClassPausedNotice()) {
+                <p class="empty-note practice-state" role="status">
+                  El docente pausó la clase: tu entorno quedó en solo lectura. Cuando la reanude,
+                  podés volver a escribir.
+                </p>
+              }
+
               @if (environmentIsRunning()) {
                 <p class="ide-ready">
                   <svg lucideCheckCircle2 class="ide-ready-icon" aria-hidden="true"></svg>
@@ -437,10 +450,12 @@
 
             <div class="toolbar-actions">
               @if (isExamSubmitted()) {
-                <span class="exam-locked-pill">Examen entregado</span>
-                <a [routerLink]="['/student/history', lastSubmissionId()]" class="btn-outline btn-view-submission">
-                  Ver entrega enviada
-                </a>
+                <span class="exam-locked-pill">{{ isExamExpired() && !lastSubmissionId() ? 'Examen finalizado' : 'Examen entregado' }}</span>
+                @if (lastSubmissionId()) {
+                  <a [routerLink]="['/student/history', lastSubmissionId()]" class="btn-outline btn-view-submission">
+                    Ver entrega enviada
+                  </a>
+                }
               } @else {
                 <button
                   type="button"
@@ -454,17 +469,34 @@
 
                 <button
                   type="button"
+                  class="btn-outline btn-test-code"
+                  data-testid="btn-test-code"
+                  (click)="testCode()"
+                  [disabled]="isTesting() || isSubmitting() || !sourceCode().trim()"
+                  title="Probar con casos de ejemplo sin registrar entrega"
+                >
+                  @if (isTesting()) {
+                    <svg lucideLoader2 class="btn-icon motion-spin"></svg>
+                    <span>Probando...</span>
+                  } @else {
+                    <svg lucidePlay class="btn-icon"></svg>
+                    <span>Probar código</span>
+                  }
+                </button>
+
+                <button
+                  type="button"
                   class="btn-primary btn-submit-solution"
                   data-testid="btn-submit-solution"
                   (click)="submitSolution()"
-                  [disabled]="isSubmitting() || !sourceCode().trim()"
+                  [disabled]="isTesting() || isSubmitting() || !sourceCode().trim()"
                 >
                   @if (isSubmitting()) {
                     <svg lucideLoader2 class="btn-icon motion-spin"></svg>
                     <span>Evaluando...</span>
                   } @else {
-                    <svg lucidePlay class="btn-icon"></svg>
-                    <span>Enviar a Evaluación</span>
+                    <svg lucideCheckCircle2 class="btn-icon"></svg>
+                    <span>{{ isExamProject() ? 'Entregar Examen' : 'Enviar a Evaluación' }}</span>
                   }
                 </button>
               }
@@ -475,7 +507,11 @@
             @if (isExamSubmitted()) {
               <div class="exam-locked-banner" role="status">
                 <svg lucideCheckCircle2 class="locked-icon"></svg>
-                <span>Has entregado este examen. Las entregas de examen son definitivas y el código se encuentra en modo solo lectura.</span>
+                <span>
+                  {{ isExamExpired() && !lastSubmissionId()
+                    ? 'El plazo de entrega para este examen ha finalizado. El editor se encuentra en modo solo lectura.'
+                    : 'Has entregado este examen. Las entregas de examen son definitivas y el código se encuentra en modo solo lectura.' }}
+                </span>
               </div>
             }
 
@@ -512,8 +548,11 @@
             <div class="verdict-header">
               <div class="verdict-title-group">
                 <svg lucideTerminal class="verdict-icon"></svg>
-                <h3 class="card-title">Resultado de la Evaluación</h3>
+                <h3 class="card-title">{{ isTestRun() ? 'Resultado de Prueba (Casos de Ejemplo)' : 'Resultado de la Evaluación' }}</h3>
                 <verdict-badge [verdict]="res.verdict" />
+                @if (isTestRun()) {
+                  <span class="test-run-pill">Prueba sin calificar</span>
+                }
               </div>
 
               <div class="verdict-metrics">
@@ -524,6 +563,12 @@
 
             <p class="verdict-message">{{ res.message }}</p>
 
+            @if (isTestRun()) {
+              <p class="test-run-note">
+                Ejecución preliminar sobre los casos de ejemplo. Tu código no ha sido entregado formalmente y podés seguir editando.
+              </p>
+            }
+
             @if (res.case_results && res.case_results.length > 0) {
               <div class="cases-summary-list">
                 @for (cr of res.case_results; track cr.index) {
@@ -531,12 +576,15 @@
                     <span class="font-mono" machineData>Caso #{{ cr.index + 1 }}</span>
                     <verdict-badge [verdict]="cr.verdict" />
                     <span class="font-mono" machineData>{{ cr.duration_ms }} ms</span>
+                    @if (cr.actual_output) {
+                      <span class="case-output-preview font-mono" machineData title="Salida obtenida">Salida: {{ cr.actual_output.trim() }}</span>
+                    }
                   </div>
                 }
               </div>
             }
 
-            @if (lastSubmissionId()) {
+            @if (!isTestRun() && lastSubmissionId()) {
               <div class="submission-saved-banner">
                 <svg lucideCheckCircle2 class="saved-icon"></svg>
                 <span>Entrega registrada (<code class="font-mono" machineData>{{ lastSubmissionId() }}</code>)</span>

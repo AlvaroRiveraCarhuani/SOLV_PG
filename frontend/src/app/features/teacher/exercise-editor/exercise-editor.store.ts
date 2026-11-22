@@ -749,8 +749,45 @@ export class ExerciseEditorStore {
     });
   }
 
+  findTemplateForLanguage(language: string): ExerciseTemplateSummary | undefined {
+    if (!language) return undefined;
+    const target = language.trim().toLowerCase();
+
+    // 1. Prefer dedicated single-language runner template
+    const dedicated = this.runnerTemplates().find(r => {
+      const runners = r.language_runners ?? [];
+      if (runners.length === 1) {
+        return (runners[0].language || '').trim().toLowerCase() === target;
+      }
+      if (runners.length === 0) {
+        return this.deriveLanguageCode(r) === target;
+      }
+      return false;
+    });
+    if (dedicated) return dedicated;
+
+    // 2. Fallback to any template declaring this language in its runners (e.g. multi-language runner)
+    const withRunner = this.runnerTemplates().find(r =>
+      (r.language_runners ?? []).some(lr => (lr.language || '').trim().toLowerCase() === target)
+    );
+    if (withRunner) return withRunner;
+
+    // 3. Fallback to derived language code
+    return this.runnerTemplates().find(r => this.deriveLanguageCode(r) === target);
+  }
+
   setLanguageAndSyncTemplate(language: string): void {
-    const match = language ? this.runnerTemplates().find(r => this.deriveLanguageCode(r) === language) : undefined;
+    const currentAllowed = this.metadata().allowed_languages ?? [];
+    if (currentAllowed.length > 1) {
+      const updatedAllowed = currentAllowed.includes(language)
+        ? currentAllowed
+        : [language, ...currentAllowed];
+      this.updateMetadata({ language });
+      this.setAllowedLanguages(updatedAllowed);
+      return;
+    }
+
+    const match = this.findTemplateForLanguage(language);
     const runnerLanguages = (match?.language_runners ?? [])
       .map(runner => (runner.language || '').trim().toLowerCase())
       .filter(Boolean);
@@ -780,8 +817,61 @@ export class ExerciseEditorStore {
     }
   }
 
+  setAllowedLanguages(languages: string[]): void {
+    const current = this.metadata();
+    const primary = current.language || 'python';
+    const cleaned = Array.from(new Set(
+      languages.map(l => (l || '').trim().toLowerCase()).filter(Boolean)
+    ));
+    const finalAllowed = cleaned.includes(primary) ? cleaned : [primary, ...cleaned];
+
+    if (finalAllowed.length > 1) {
+      const multiTemplate = this.runnerTemplates().find(r => {
+        const rLangs = (r.language_runners ?? []).map(lr => (lr.language || '').trim().toLowerCase());
+        return finalAllowed.every(al => rLangs.includes(al));
+      }) || this.runnerTemplates().find(r => (r.language_runners ?? []).length > 1);
+
+      if (multiTemplate) {
+        const baseRam = multiTemplate.base_ram_mb || 256;
+        const isDual = (multiTemplate.target_environment || multiTemplate.environment_type) === 'AMBOS';
+        this.updateMetadata({
+          allowed_languages: finalAllowed,
+          template_id: multiTemplate.id,
+          template: multiTemplate,
+          memory_limit_mb: isDual ? (baseRam <= 384 ? 128 : 256) : baseRam
+        });
+        return;
+      }
+    } else {
+      this.syncLanguageWithTemplate(primary);
+    }
+
+    this.updateMetadata({
+      allowed_languages: finalAllowed
+    });
+  }
+
+  toggleAllowedLanguage(lang: string): void {
+    const current = this.metadata();
+    const primary = current.language || 'python';
+    const canonical = lang.trim().toLowerCase();
+    const currentAllowed = current.allowed_languages?.length ? [...current.allowed_languages] : [primary];
+
+    if (canonical === primary) {
+      return;
+    }
+
+    let updated: string[];
+    if (currentAllowed.includes(canonical)) {
+      updated = currentAllowed.filter(l => l !== canonical);
+    } else {
+      updated = [...currentAllowed, canonical];
+    }
+    this.setAllowedLanguages(updated);
+  }
+
   private syncLanguageWithTemplate(lang: string): void {
-    const match = this.runnerTemplates().find(r => this.deriveLanguageCode(r) === lang);
+    const match = this.findTemplateForLanguage(lang);
     if (match) {
       const baseRam = match.base_ram_mb || 128;
       const isDual = (match.target_environment || match.environment_type) === 'AMBOS';

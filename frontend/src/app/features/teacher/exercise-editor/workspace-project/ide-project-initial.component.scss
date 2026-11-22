@@ -467,6 +467,14 @@
   }
 }
 
+// El borrador de artefacto no tiene árbol de archivos: el aviso central y la
+// barra de publicación comparten el bloque del estado vacío.
+.archive-project .save-bar {
+  width: 100%;
+  margin-top: var(--space-2);
+  text-align: left;
+}
+
 .save-bar {
   display: flex;
   align-items: center;
