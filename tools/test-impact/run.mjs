@@ -123,7 +123,8 @@ function runGates(repoRoot, options) {
       'scripts/machine-data-gate.test.mjs',
       'scripts/machine-data-catalog.test.mjs',
       'scripts/motion-gate.test.mjs',
-      'scripts/terminology-gate.test.mjs'
+      'scripts/terminology-gate.test.mjs',
+      'scripts/entorno-page.test.mjs'
     ],
     { cwd: frontend, ...options }
   );
@@ -437,7 +438,7 @@ const RUNNERS = {
 function describeSuiteCommand(suiteId, entry) {
   switch (suiteId) {
     case 'gates':
-      return 'npm run lint:styles && npx vitest run scripts/{date-format,machine-data,machine-data-catalog,motion,terminology}-gate.test.mjs';
+      return 'npm run lint:styles && npx vitest run scripts/{date-format,machine-data,machine-data-catalog,motion,terminology}-gate.test.mjs scripts/entorno-page.test.mjs';
     case 'asset-validation':
       return entry.full
         ? 'asset-validation --full frontend/public'
