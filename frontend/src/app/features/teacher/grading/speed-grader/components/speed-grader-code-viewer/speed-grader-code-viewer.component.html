@@ -20,11 +20,25 @@
         } @else if (showDiffView()) {
           Diferencias respecto al {{ activeFile() ? 'proyecto base' : 'código base' }} del ejercicio
         } @else {
-          Código entregado (Haga clic o arrastre para comentar <kbd>C</kbd>)
+          Código entregado
         }
       </span>
-      <span class="code-time">
-        Entregado: <time>{{ review().submitted_at | dateText:'datetime' }}</time>
+      <span class="code-header-right">
+        @if (displayedComments().length > 0) {
+          <button
+            type="button"
+            class="btn-ghost btn-sm comment-jump"
+            (click)="scrollToComments()"
+            title="Ir a los comentarios de este archivo"
+          >
+            <svg lucideMessageSquare class="inline-icon" aria-hidden="true"></svg>
+            <span class="font-mono" machineData>{{ displayedComments().length }}</span>
+          </button>
+        }
+        <span class="readonly-chip">Solo lectura</span>
+        <span class="code-time">
+          Entregado: <time [attr.datetime]="review().submitted_at">{{ review().submitted_at | dateText:'datetime' }}</time>
+        </span>
       </span>
     </div>
 
@@ -65,7 +79,7 @@
               </div>
               <textarea
                 rows="2"
-                placeholder="Escribí un comentario pedagógico para {{ commentTargetLabel() }} (Ctrl+Enter para guardar)..."
+                placeholder="Escriba un comentario pedagógico para {{ commentTargetLabel() }} (Ctrl+Enter para guardar)…"
                 [ngModel]="newCommentText()"
                 (ngModelChange)="newCommentTextChange.emit($event)"
                 class="form-textarea"
@@ -87,7 +101,7 @@
 
         <!-- Comentarios Existentes en el Archivo Visible -->
         @if (displayedComments().length > 0) {
-          <div class="comments-list-section">
+          <div class="comments-list-section" #commentsAnchor>
             <div class="comments-list-header">
               <span class="comments-count-badge font-mono">{{ displayedComments().length }} comentarios pedagógicos</span>
             </div>

@@ -1,339 +1,352 @@
 <aside class="evaluation-panel" data-tour="review-eval-panel">
   @if (mode() === 'project') {
-    <!-- Panel de Evaluación por Rúbrica (IDE Persistente) -->
-    @if (rubric(); as rub) {
-    <div class="rubric-grader-box" data-tour="review-eval-rubric">
-      <div class="rubric-header">
-        <svg lucideClipboardList class="btn-icon-sm"></svg>
-        <span>Evaluación por Rúbrica</span>
-      </div>
+    <header class="panel-head">
+      <span class="panel-head-title">Calificación</span>
+      @if (rubric()) {
+        <div class="mode-switch" role="tablist" aria-label="Modo de calificación">
+          <button
+            type="button"
+            role="tab"
+            class="mode-switch-option"
+            [class.is-active]="showRubric()"
+            [attr.aria-selected]="showRubric()"
+            (click)="setPanelMode('rubric')"
+          >
+            Rúbrica
+          </button>
+          <button
+            type="button"
+            role="tab"
+            class="mode-switch-option"
+            [class.is-active]="!showRubric()"
+            [attr.aria-selected]="!showRubric()"
+            (click)="setPanelMode('direct')"
+          >
+            Nota directa
+          </button>
+        </div>
+      }
+    </header>
 
+    <div class="panel-body">
       @if (rubricErrorMessage()) {
-        <div class="error-banner-sm">
-          <span>{{ rubricErrorMessage() }}</span>
-        </div>
+        <p class="panel-banner panel-banner--error" role="alert">{{ rubricErrorMessage() }}</p>
       }
-
       @if (rubricSuccessMessage()) {
-        <div class="success-banner-sm">
-          <span>{{ rubricSuccessMessage() }}</span>
-        </div>
+        <p class="panel-banner panel-banner--success" role="status">{{ rubricSuccessMessage() }}</p>
       }
 
-      <div class="criteria-eval-list">
-        @for (criterion of rub.criteria; track criterion.id || $index) {
-          <div class="criterion-eval-card">
-            <div class="criterion-eval-header">
-              <span class="criterion-name">{{ criterion.name }}</span>
-              <span class="criterion-weight font-mono" machineData>{{ criterion.weight }}%</span>
-            </div>
-            <p class="criterion-desc">{{ criterion.description }}</p>
+      @if (showRubric()) {
+        @if (rubric(); as rub) {
+          <section class="rubric-section" data-tour="review-eval-rubric">
+            @for (criterion of rub.criteria; track criterion.id || $index) {
+              <article class="criterion">
+                <header class="criterion-head">
+                  <span class="criterion-name">{{ criterion.name }}</span>
+                  <span class="criterion-state">
+                    @if (selections()[criterion.id || '']; as chosen) {
+                      <span class="font-mono" machineData>{{ chosen }}</span>
+                    } @else {
+                      Sin evaluar
+                    }
+                  </span>
+                  <span class="criterion-weight font-mono" machineData>{{ criterion.weight }}%</span>
+                </header>
 
-            <select
-              class="form-select level-select"
-              [ngModel]="selections()[criterion.id || '']"
-              (ngModelChange)="levelSelected.emit({ criterionId: criterion.id || '', levelName: $event })"
-            >
-              @for (level of criterion.levels; track level.name) {
-                <option [value]="level.name">
-                  {{ level.name }} ({{ level.score }} pts) — {{ level.description }}
-                </option>
-              }
-            </select>
-          </div>
+                <div class="level-grid" role="radiogroup" [attr.aria-label]="criterion.name">
+                  @for (level of criterion.levels; track level.name) {
+                    <button
+                      type="button"
+                      class="level-option"
+                      [class.is-active]="isLevelSelected(criterion, level.name)"
+                      [attr.aria-checked]="isLevelSelected(criterion, level.name)"
+                      role="radio"
+                      (click)="levelSelected.emit({ criterionId: criterion.id || '', levelName: level.name })"
+                    >
+                      <span class="level-score font-mono" machineData>{{ level.score }}</span>
+                      <span class="level-name">{{ level.name }}</span>
+                    </button>
+                  }
+                </div>
+
+                <p class="level-description">{{ levelDescription(criterion) }}</p>
+              </article>
+            }
+
+            <label class="field">
+              <span class="field-label">Comentarios generales</span>
+              <textarea
+                class="field-textarea"
+                rows="3"
+                placeholder="Observaciones para el alumno sobre el proyecto…"
+                [ngModel]="rubricComments()"
+                (ngModelChange)="rubricCommentsChange.emit($event)"
+              ></textarea>
+            </label>
+          </section>
         }
-      </div>
+      } @else {
+        <section class="direct-section" data-tour="review-eval-direct">
+          <p class="direct-copy">
+            Esta práctica se califica sin rúbrica de criterios: asigne un puntaje global y deje sus observaciones.
+          </p>
 
-      <div class="form-group margin-top-sm">
-        <label class="form-label">Comentarios Generales</label>
-        <textarea
-          class="form-textarea"
-          rows="2"
-          placeholder="Retroalimentación docente para la entrega..."
-          [ngModel]="rubricComments()"
-          (ngModelChange)="rubricCommentsChange.emit($event)"
-        ></textarea>
-      </div>
+          <label class="field">
+            <span class="field-label">Puntaje asignado</span>
+            <span class="score-input-row">
+              <input
+                type="number"
+                min="0"
+                max="100"
+                class="field-input font-mono"
+                [ngModel]="directScore()"
+                (ngModelChange)="directScoreChange.emit($event)"
+              />
+              <span class="score-scale font-mono">/ 100</span>
+            </span>
+          </label>
 
-      <div class="score-summary-box">
-        <span>Score Ponderado:</span>
-        <strong class="score-val font-mono" machineData>{{ calculatedRubricScore() }} / 100 pts</strong>
-      </div>
+          <label class="field">
+            <span class="field-label">Comentarios generales</span>
+            <textarea
+              class="field-textarea"
+              rows="4"
+              placeholder="Observaciones generales para el alumno…"
+              [ngModel]="rubricComments()"
+              (ngModelChange)="rubricCommentsChange.emit($event)"
+            ></textarea>
+          </label>
+        </section>
+      }
+    </div>
 
+    <footer class="panel-footer">
+      <div class="footer-summary">
+        <span class="footer-label">{{ showRubric() ? 'Calificación ponderada' : 'Nota asignada' }}</span>
+        <span class="footer-score font-mono" machineData>
+          @if (displayedScore() !== null) {
+            {{ displayedScore() }} / 100
+          } @else {
+            — / 100
+          }
+        </span>
+      </div>
       <button
         type="button"
-        class="btn-primary btn-save-rubric"
+        class="btn-primary btn-save"
         data-tour="review-grade-action"
         [disabled]="isSubmittingRubric()"
-        (click)="saveRubricEvaluation.emit()"
+        (click)="showRubric() ? saveRubricEvaluation.emit() : saveDirectEvaluation.emit()"
       >
-        <span>{{ isSubmittingRubric() ? 'Guardando...' : 'Guardar Calificación' }}</span>
+        {{ isSubmittingRubric() ? 'Guardando…' : 'Guardar Calificación' }}
       </button>
-    </div>
-    } @else {
-      <div class="direct-grader-box" data-tour="review-eval-direct">
-        <div class="direct-header">
-          <svg lucideEdit3 class="btn-icon-sm"></svg>
-          <span>Calificación Directa</span>
-        </div>
-
-        @if (rubricErrorMessage()) {
-          <div class="error-banner-sm">
-            <span>{{ rubricErrorMessage() }}</span>
-          </div>
-        }
-
-        @if (rubricSuccessMessage()) {
-          <div class="success-banner-sm">
-            <span>{{ rubricSuccessMessage() }}</span>
-          </div>
-        }
-
-        <p class="direct-desc">
-          Esta práctica no utiliza rúbrica de criterios. Calificá el proyecto de forma directa asignando un puntaje global y tu devolución.
-        </p>
-
-        <div class="form-group margin-top-sm">
-          <label class="form-label" for="direct-score-input">Puntaje Asignado (0 - 100 pts)</label>
-          <input
-            id="direct-score-input"
-            type="number"
-            min="0"
-            max="100"
-            class="form-input font-mono"
-            machineData
-            [ngModel]="directScore()"
-            (ngModelChange)="directScoreChange.emit($event)"
-            placeholder="Ej: 85"
-          />
-        </div>
-
-        <div class="form-group margin-top-sm">
-          <label class="form-label" for="direct-feedback-input">Devolución Docente</label>
-          <textarea
-            id="direct-feedback-input"
-            class="form-textarea"
-            rows="3"
-            placeholder="Retroalimentación general para el alumno..."
-            [ngModel]="rubricComments()"
-            (ngModelChange)="rubricCommentsChange.emit($event)"
-          ></textarea>
-        </div>
-
-        <button
-          type="button"
-          class="btn-primary btn-save-direct margin-top-sm"
-          data-tour="review-grade-action"
-          [disabled]="isSubmittingRubric()"
-          (click)="saveDirectEvaluation.emit()"
-        >
-          <span>{{ isSubmittingRubric() ? 'Guardando...' : 'Guardar Calificación' }}</span>
-        </button>
-      </div>
-    }
+    </footer>
   }
 
   @if (mode() === 'judge') {
-  <!-- Veredicto General -->
-  <div class="verdict-card" [class]="'card-' + review().verdict.toLowerCase().replace('_', '-')">
-    <div class="verdict-header">
-      <span class="verdict-title">Veredicto Oficial</span>
-      <verdict-badge [verdict]="review().verdict" [origin]="review().verdict_origin" size="md" />
-    </div>
+    <header class="panel-head">
+      <span class="panel-head-title">Revisión</span>
+      <time class="panel-head-meta font-mono" [attr.datetime]="review().submitted_at">{{ review().submitted_at | dateText:'compact-datetime' }}</time>
+    </header>
 
-    <div class="verdict-meta">
-      <div class="meta-row">
-        <span>Puntaje:</span>
-        <strong class="font-mono">{{ review().score !== undefined && review().score !== null ? review().score + ' / 100 pts' : '—' }}</strong>
-      </div>
-      <div class="meta-row">
-        <span>Tiempo de ejecución:</span>
-        <span class="font-mono">
-          {{ review().metrics_available ? review().execution_time_ms + ' ms' : '—' }}
-        </span>
-      </div>
-      <div class="meta-row">
-        <span>Memoria utilizada:</span>
-        <span class="font-mono">
-          {{ review().metrics_available ? review().memory_used_mb + ' MB' : '—' }}
-        </span>
-      </div>
-      @if (review().manual_override) {
-        <div class="override-info">
-          <span class="override-tag">CALIFICACIÓN MANUAL</span>
-          <p class="override-text"><strong>Motivo:</strong> {{ review().override_reason }}</p>
-          <span class="override-author">Por: {{ review().graded_by_name || 'Docente' }}</span>
+    <div class="panel-body">
+      <!-- Veredicto oficial -->
+      <section class="panel-section verdict-section">
+        <div class="verdict-line">
+          <verdict-badge [verdict]="review().verdict" [origin]="review().verdict_origin" size="sm" />
+          <span class="verdict-score font-mono" machineData>
+            @if (review().score !== undefined && review().score !== null) {
+              {{ review().score }} / 100
+            } @else {
+              — / 100
+            }
+          </span>
         </div>
-      }
-    </div>
-  </div>
 
-  <!-- Panel de Análisis de Complejidad Asintótica (Espejo Forense) -->
-  @if (review().complexity_analysis; as ca) {
-    <div class="ast-violations-box complexity-analysis-box">
-      <div class="ast-header">
-        <svg lucideTrendingUp class="btn-icon-sm"></svg>
-        <span>Análisis de Complejidad (Espejo Forense)</span>
-      </div>
-      <div class="ast-body">
-        <div class="complexity-badges-grid">
-          <div class="badge-item">
-            <span class="badge-label">Tiempo:</span>
-            <span class="verdict-pill" [class]="getComplexityClass()(ca.time_complexity)">
-              <code class="font-mono">{{ ca.time_complexity }}</code>
+        <p class="verdict-metrics font-mono">
+          @if (review().metrics_available) {
+            <span machineData>{{ review().execution_time_ms }}</span> ms
+            <span aria-hidden="true">·</span>
+            <span machineData>{{ review().memory_used_mb }}</span> MB
+          } @else {
+            Sin métricas de ejecución
+          }
+          @if (review().language) {
+            <span aria-hidden="true">·</span>
+            {{ review().language }}
+          }
+        </p>
+
+        <p class="verdict-date font-mono">
+          Registrado el
+          <time [attr.datetime]="review().submitted_at">{{ review().submitted_at | dateText:'datetime' }}</time>
+        </p>
+
+        @if (review().manual_override) {
+          <div class="override-block">
+            <span class="override-tag">Ajuste manual</span>
+            <p class="override-reason">{{ review().override_reason }}</p>
+            <span class="override-author">Registrado por {{ review().graded_by_name || 'el docente' }}</span>
+          </div>
+        }
+      </section>
+
+      <!-- Prueba rápida: solo existe cuando se ejecutó -->
+      @if (ephemeralResult(); as ephemeral) {
+        <section class="quick-test">
+          <header class="quick-test-head">
+            <span class="quick-test-title">Prueba rápida · temporal</span>
+            <span class="font-mono" machineData>{{ ephemeral.execution_time_ms }} ms</span>
+          </header>
+          <div class="quick-test-result">
+            <verdict-badge [verdict]="ephemeral.verdict" size="sm" />
+          </div>
+          @if (ephemeral.message) {
+            <pre class="quick-test-message font-mono">{{ ephemeral.message }}</pre>
+          }
+          <p class="quick-test-note">Esta prueba no modifica el veredicto oficial de la entrega.</p>
+        </section>
+      }
+
+      <!-- Análisis de complejidad: informativo y neutro -->
+      @if (review().complexity_analysis; as analysis) {
+        <section class="panel-section complexity-section" [class.is-attention]="complexityNeedsAttention(analysis)">
+          <header class="section-head">
+            <span class="section-title">Análisis de complejidad</span>
+            <span class="section-tag">Informativo</span>
+          </header>
+
+          <div class="complexity-values">
+            <span class="complexity-item font-mono">
+              <span machineData>{{ analysis.time_complexity }}</span> tiempo
+            </span>
+            <span class="complexity-item font-mono">
+              <span machineData>{{ analysis.space_complexity }}</span> espacio
             </span>
           </div>
-          <div class="badge-item">
-            <span class="badge-label">Espacio:</span>
-            <span class="verdict-pill" [class]="getComplexityClass()(ca.space_complexity)">
-              <code class="font-mono">{{ ca.space_complexity }}</code>
-            </span>
-          </div>
-        </div>
 
-        @if (review().expected_complexity && ca.time_complexity !== review().expected_complexity && ca.time_complexity !== 'unknown') {
-          <div class="complexity-mismatch-warning text-danger">
-            <svg lucideAlertTriangle class="btn-icon-sm"></svg>
-            <span>Esperado: <code class="font-mono">{{ review().expected_complexity }}</code> | Detectado: <code class="font-mono">{{ ca.time_complexity }}</code></span>
-          </div>
-        }
+          @if (review().expected_complexity) {
+            <p class="complexity-reference font-mono">
+              <span aria-hidden="true">✓</span>
+              Esperado: <span machineData>{{ review().expected_complexity }}</span>
+            </p>
+          }
 
-        @if (ca.confidence < 0.7 && ca.time_complexity !== 'unknown') {
-          <div class="low-confidence-warning text-warning">
-            <svg lucideAlertTriangle class="btn-icon-sm"></svg>
-            <span>Análisis de baja confianza ({{ (ca.confidence * 100) | number:'1.1-0' }}%)</span>
-          </div>
-        }
-
-        @if (ca.measurements && ca.measurements.length >= 3) {
-          <div class="measurements-summary">
-            <span class="rule-label">Muestras ({{ ca.measurements.length }} puntos):</span>
-            <div class="measurements-list">
-              @for (m of ca.measurements; track m.input_size) {
-                <span class="meas-chip font-mono">N={{ m.input_size }}: {{ m.time_ms | number:'1.1-2' }}ms</span>
-              }
-            </div>
-          </div>
-        } @else if (ca.time_complexity === 'unknown') {
-          <p class="ast-desc">Análisis de complejidad no disponible.</p>
-        }
-      </div>
-    </div>
-  }
-
-  <!-- Panel de Infracción de Restricciones de Código -->
-  @if (astViolation(); as violation) {
-    <div class="ast-violations-box">
-      <div class="ast-header">
-        <svg lucideAlertTriangle class="btn-icon-sm text-danger"></svg>
-        <span>Infracción de Restricciones de Código</span>
-        <span class="ast-badge-blocked">Regla no cumplida</span>
-      </div>
-      <div class="ast-body">
-        <p class="ast-desc">El código enviado infringió las restricciones estáticas de seguridad o sintaxis definidas para este laboratorio.</p>
-        <div class="ast-rule-card">
-          <div class="rule-title-row">
-            <span class="rule-label">Regla violada:</span>
-            <code class="font-mono text-danger" machineData>{{ violation.ruleId }}</code>
-          </div>
-          <p class="rule-detail">{{ violation.detail }}</p>
-        </div>
-      </div>
-    </div>
-  }
-
-  <!-- Resultado de Prueba Rápida en Contenedor (si existe) -->
-  @if (ephemeralResult(); as eph) {
-    <div class="ephemeral-result-box">
-      <div class="eph-header">
-        <svg lucideTerminal class="btn-icon-sm"></svg>
-        <span>Prueba Rápida en Contenedor</span>
-      </div>
-      <div class="eph-body">
-        <div class="meta-row">
-          <span>Veredicto:</span>
-          <verdict-badge [verdict]="eph.verdict" size="sm" />
-        </div>
-        <div class="meta-row">
-          <span>Tiempo:</span>
-          <span class="font-mono">{{ eph.execution_time_ms }} ms</span>
-        </div>
-        @if (eph.message) {
-          <pre class="eph-msg font-mono">{{ eph.message }}</pre>
-        }
-      </div>
-    </div>
-  }
-
-  <!-- Casos de Prueba (Públicos y Ocultos) -->
-  <div class="test-cases-panel">
-    <h3 class="panel-section-title">
-      Casos de Prueba ({{ review().test_cases.length }})
-      @if (review().generated_cases) {
-        <span class="badge-unmasked">Variante generada por examen</span>
-      } @else {
-        <span class="badge-unmasked">Casos ocultos visibles para docente</span>
-      }
-    </h3>
-
-    <div class="test-cases-scroll">
-      @if (orderedTestCases().length === 0) {
-        <div class="empty-cases-box">
-          <p>No se encontraron casos de prueba automáticos registrados para este ejercicio.</p>
-        </div>
-      } @else {
-        @for (tc of orderedTestCases(); track tc.originalIndex) {
-          <div class="test-case-card" [class.tc-passed]="tc.passed" [class.tc-failed]="!tc.passed">
-            <div class="tc-header">
-              <div class="tc-title-box">
-                @if (tc.passed) {
-                  <svg lucideCheckCircle class="tc-icon text-success"></svg>
-                } @else {
-                  <svg lucideXCircle class="tc-icon text-danger"></svg>
-                }
-                <strong>Caso #{{ tc.originalIndex + 1 }}</strong>
-                @if (!tc.passed) {
-                  <span class="status-chip chip-error">Fallido</span>
-                }
-              </div>
-              <div class="tc-header-right">
-                @if (tc.is_hidden) {
-                  <span class="badge-hidden">Oculto</span>
-                } @else {
-                  <span class="badge-public">Público</span>
-                }
-                <button
-                  type="button"
-                  class="btn-copy-input"
-                  (click)="copyCaseInput.emit({ input: tc.input, index: tc.originalIndex })"
-                  title="Copiar entrada al portapapeles"
-                >
-                  <svg lucideCopy class="copy-icon"></svg>
-                  <span>{{ copiedIndex() === tc.originalIndex ? '¡Copiado!' : 'Copiar' }}</span>
-                </button>
-              </div>
-            </div>
-
-            <div class="tc-body">
-              <div class="io-block">
-                <span class="io-label">Entrada (Input):</span>
-                <pre class="io-content font-mono">{{ tc.input }}</pre>
-              </div>
-              <div class="io-block">
-                <span class="io-label">Salida Esperada:</span>
-                <pre class="io-content font-mono">{{ tc.expected_output }}</pre>
-              </div>
-              @if (tc.actual_output) {
-                <div class="io-block">
-                  <span class="io-label">Salida Obtenida:</span>
-                  <pre class="io-content font-mono" [class.error-out]="!tc.passed">{{ tc.actual_output }}</pre>
+          @if (analysis.measurements && analysis.measurements.length > 0) {
+            <div class="complexity-samples">
+              @for (measurement of analysis.measurements; track measurement.input_size) {
+                <div class="complexity-sample font-mono">
+                  <span>N = <span machineData>{{ measurement.input_size | number:'1.0-0' }}</span></span>
+                  <span machineData>{{ measurement.time_ms | number:'1.1-2' }} ms</span>
                 </div>
               }
             </div>
-          </div>
-        }
+          }
+
+          @if (complexityNeedsAttention(analysis)) {
+            <p class="complexity-note">
+              <svg lucideAlertTriangle class="inline-icon" aria-hidden="true"></svg>
+              @if (analysis.confidence < 0.7) {
+                Análisis de baja confianza: tómelo como referencia.
+              } @else {
+                La complejidad detectada difiere de la esperada para esta práctica.
+              }
+            </p>
+          }
+
+          <p class="complexity-footnote">Información complementaria: no modifica la nota.</p>
+        </section>
       }
+
+      <!-- Restricciones de código incumplidas -->
+      @if (astViolation(); as violation) {
+        <section class="panel-section restriction-section">
+          <header class="section-head">
+            <span class="section-title">Restricciones de código</span>
+            <svg lucideAlertTriangle class="inline-icon" aria-hidden="true"></svg>
+          </header>
+          <p class="restriction-copy">El código enviado no cumple una restricción definida para esta práctica.</p>
+          <p class="restriction-rule font-mono" machineData>{{ violation.ruleId }}</p>
+          <p class="restriction-detail">{{ violation.detail }}</p>
+        </section>
+      }
+
+      <!-- Casos de prueba colapsables -->
+      <section class="panel-section cases-section">
+        <header class="section-head">
+          <span class="section-title">Casos de prueba</span>
+          <span class="section-meta font-mono">
+            <span machineData>{{ orderedTestCases().length }}</span> casos
+            <span aria-hidden="true">·</span>
+            <span machineData>{{ hiddenCases() }}</span> ocultos
+          </span>
+        </header>
+
+        @if (orderedTestCases().length === 0) {
+          <p class="cases-empty">Esta entrega no registra casos de prueba.</p>
+        } @else {
+          @if (!hasRecordedOutputs()) {
+            <p class="cases-honesty">
+              El resultado por caso no está registrado en esta entrega; solo se conserva el veredicto oficial.
+            </p>
+          }
+
+          <ul class="case-list">
+            @for (testCase of orderedTestCases(); track testCase.originalIndex) {
+              <li>
+                <details class="case-row">
+                  <summary class="case-summary">
+                    <span class="case-id font-mono">#<span machineData>{{ testCase.originalIndex + 1 }}</span></span>
+                    <span class="case-visibility" [class.is-hidden]="testCase.is_hidden">
+                      {{ testCase.is_hidden ? 'Oculto' : 'Público' }}
+                    </span>
+                    <span
+                      class="case-state"
+                      [class.case-state--ok]="caseStateTone(testCase) === 'ok'"
+                      [class.case-state--diff]="caseStateTone(testCase) === 'diff'"
+                    >
+                      {{ caseStateLabel(testCase) }}
+                    </span>
+                    <svg lucideChevronDown class="case-chevron" aria-hidden="true"></svg>
+                  </summary>
+
+                  <div class="case-body">
+                    <div class="io-block">
+                      <header class="io-head">
+                        <span class="io-label">Entrada</span>
+                        <button
+                          type="button"
+                          class="btn-ghost btn-sm io-copy"
+                          (click)="copyCaseInput.emit({ input: testCase.input, index: testCase.originalIndex })"
+                        >
+                          <svg lucideCopy class="inline-icon" aria-hidden="true"></svg>
+                          {{ copiedIndex() === testCase.originalIndex ? 'Copiado' : 'Copiar' }}
+                        </button>
+                      </header>
+                      <pre class="io-content font-mono">{{ testCase.input }}</pre>
+                    </div>
+
+                    <div class="io-block">
+                      <span class="io-label">Salida esperada</span>
+                      <pre class="io-content font-mono">{{ testCase.expected_output }}</pre>
+                    </div>
+
+                    @if (testCase.actual_output) {
+                      <div class="io-block">
+                        <span class="io-label">Salida obtenida</span>
+                        <pre
+                          class="io-content font-mono"
+                          [class.io-content--diff]="!testCase.passed"
+                        >{{ testCase.actual_output }}</pre>
+                      </div>
+                    }
+                  </div>
+                </details>
+              </li>
+            }
+          </ul>
+        }
+      </section>
     </div>
-  </div>
   }
 </aside>

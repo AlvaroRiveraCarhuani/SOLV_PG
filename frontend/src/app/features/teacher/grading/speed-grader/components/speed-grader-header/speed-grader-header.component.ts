@@ -8,7 +8,6 @@ import {
   LucideChevronDown,
   LucidePlay,
   LucideHistory,
-  LucideTrendingUp,
   LucideGitCompare,
   LucideEdit3,
   LucideKeyboard,
@@ -34,7 +33,6 @@ import { EnvironmentLabelPipe } from '@shared/pipes/environment-label.pipe';
     LucideChevronDown,
     LucidePlay,
     LucideHistory,
-    LucideTrendingUp,
     LucideGitCompare,
     LucideEdit3,
     LucideKeyboard,
@@ -50,7 +48,6 @@ export class SpeedGraderHeaderComponent {
   readonly review = input.required<TeacherSubmissionReviewDTO>();
   readonly mode = input.required<ReviewMode>();
   readonly showReplayPlayer = input<boolean>(false);
-  readonly showBenchmark = input<boolean>(false);
   readonly showDiffView = input<boolean>(false);
   /** Hay una base real contra la que comparar (boilerplate o archivo base IDE). */
   readonly diffAvailable = input<boolean>(true);
@@ -59,13 +56,25 @@ export class SpeedGraderHeaderComponent {
 
   showToolsMenu = signal<boolean>(false);
 
-  readonly goBack = output<void>();
   readonly openKeystrokeReplay = output<void>();
   readonly toggleReplay = output<void>();
-  readonly toggleBenchmark = output<void>();
   readonly runEphemeral = output<void>();
   readonly openLiveApp = output<void>();
   readonly openOverrideModal = output<void>();
   readonly openShortcutsGuide = output<void>();
   readonly toggleDiff = output<void>();
+
+  /** Iniciales del alumno para el avatar del paginador. */
+  initials(name: string): string {
+    const parts = (name || '')
+      .trim()
+      .split(/\s+/)
+      .filter(Boolean);
+    if (parts.length === 0) {
+      return '—';
+    }
+    const first = parts[0].charAt(0);
+    const second = parts.length > 1 ? parts[1].charAt(0) : '';
+    return `${first}${second}`.toUpperCase();
+  }
 }

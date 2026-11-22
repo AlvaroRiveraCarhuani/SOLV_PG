@@ -1,6 +1,6 @@
 <modal-shell animate.leave="motion-modal-out"
   title="Auditoría de Escritura y Replay"
-  subtitle="Reproducción interactiva de la escritura de código y análisis forense de inserciones."
+  subtitle="Reproducción de la escritura de código y de los eventos de pegado registrados."
   intent="info"
   maxWidth="1020px"
   [showClose]="true"
@@ -24,7 +24,7 @@
       </div>
     } @else {
       <div class="forensic-replay-container">
-      <!-- Barra superior de Métricas Forenses -->
+      <!-- Barra superior de métricas de escritura -->
       <div class="metrics-grid">
         <div class="metric-card">
           <div class="metric-header">
@@ -53,21 +53,22 @@
         <div class="metric-card">
           <div class="metric-header">
             <svg lucideCheckCircle class="metric-icon text-success"></svg>
-            <span class="metric-label">Caracteres Tipeados</span>
+            <span class="metric-label">Caracteres escritos</span>
           </div>
           <span class="metric-value font-mono" machineData>{{ rep.total_chars_typed }}</span>
         </div>
       </div>
 
-      <!-- Alerta Forense si hubo pegados masivos -->
+      <!-- Resumen de pegados registrados -->
       @if (rep.paste_count > 0) {
         <div class="forensic-alert" [class.alert-critical]="rep.paste_percentage > 50">
           <svg lucideAlertTriangle class="alert-icon"></svg>
           <div class="alert-content">
-            <strong class="alert-title">Se detectaron eventos de pegado en la sesión</strong>
+            <strong class="alert-title">Eventos de pegado registrados en la sesión</strong>
             <p class="alert-desc">
-              El alumno pegó un total de {{ rep.total_chars_pasted }} caracteres en {{ rep.paste_count }} eventos de portapapeles.
-              Los fragmentos pegados están resaltados en rojo en el visor temporal.
+              Se registraron <span machineData>{{ rep.total_chars_pasted }}</span> caracteres pegados en
+              <span machineData>{{ rep.paste_count }}</span> eventos de portapapeles.
+              Los fragmentos aparecen resaltados en el visor temporal.
             </p>
           </div>
         </div>

@@ -1,528 +1,523 @@
-<div class="course-detail-container">
-  <!-- Header del Curso -->
+<div class="course-detail">
   <header class="course-header">
     <div class="header-left">
-      <a routerLink="/teacher/dashboard" class="btn-back-nav">
-        <svg lucideArrowLeft class="btn-icon-sm"></svg>
-        <span>Volver a Cursos</span>
+      <a routerLink="/teacher/dashboard" class="btn-ghost btn-sm back-link">
+        <svg lucideArrowLeft class="btn-icon-sm" aria-hidden="true"></svg>
+        Hoy
       </a>
-      <h1 class="page-title">{{ courseInfo()?.name || 'Detalle del Curso' }}</h1>
-      <div class="course-meta-row">
-        @if (courseInfo()?.code) {
-          <span class="course-code-badge" machineData>{{ courseInfo()?.code }}</span>
-        }
-        <button
-          type="button"
-          class="meta-item meta-item-action"
-          (click)="activeTab.set('students')"
-          title="Ver y gestionar los estudiantes matriculados"
-        >
-          <span machineData>{{ studentsCount() }}</span> Estudiantes
-        </button>
-        @if (courseInfo()?.active_now) {
-          <span class="meta-sep">·</span>
-          <span class="meta-item text-success">
-            <span machineData>{{ courseInfo()?.active_now }}</span> Activos ahora
-          </span>
-        }
-        @if (courseInfo()?.pending_review) {
-          <span class="meta-sep">·</span>
-          <span class="meta-item text-warning">
-            <span machineData>{{ courseInfo()?.pending_review }}</span> Por revisar
-          </span>
-        }
+      <span class="header-divider" aria-hidden="true"></span>
+      <div class="course-identity">
+        <div class="course-title-row">
+          @if (courseInfo()?.code) {
+            <code class="course-code font-mono" machineData>{{ courseInfo()?.code }}</code>
+          }
+          <h1 class="course-name">{{ courseInfo()?.name || 'Detalle del Curso' }}</h1>
+        </div>
+        <p class="course-metrics font-mono">
+          <span machineData>{{ studentsCount() }}</span> estudiantes
+          <span aria-hidden="true">·</span>
+          <span machineData>{{ labs().length }}</span> laboratorios
+          <span aria-hidden="true">·</span>
+          @if (coursePending() > 0) {
+            <span class="metric-pending"><span machineData>{{ coursePending() }}</span> por revisar</span>
+          } @else {
+            <span machineData>{{ coursePending() }}</span> por revisar
+          }
+        </p>
       </div>
     </div>
 
     <div class="header-actions">
-      <button class="btn-primary btn-new-lab" (click)="openCreateExerciseModal()">
-        <svg lucidePlus class="btn-icon-sm"></svg>
-        <span>Nuevo Laboratorio</span>
+      <button type="button" class="btn-secondary btn-sm" (click)="openImportModal()" title="Importar ejercicios desde JSON o YAML">
+        <svg lucideUploadCloud class="btn-icon-sm" aria-hidden="true"></svg>
+        Importar
       </button>
 
-      <button class="btn-outline btn-import-lab" (click)="openImportModal()" title="Importar ejercicios masivamente desde JSON o YAML">
-        <svg lucideUploadCloud class="btn-icon-sm"></svg>
-        <span>Importar</span>
-      </button>
-
-      @if (activeTab() !== 'students') {
-        <button class="btn-outline btn-enroll-student" (click)="openEnrollModal()" title="Agregar estudiante matriculado a la materia">
-          <svg lucideUserPlus class="btn-icon-sm"></svg>
-          <span>Agregar Estudiante</span>
-        </button>
-      }
-
-      <a [routerLink]="['/teacher/cursos', subjectId(), 'analytics']" class="btn-outline btn-analytics" title="Ver analítica y métricas del curso">
-        <svg lucideBarChart3 class="btn-icon-sm"></svg>
-        <span>Métricas</span>
+      <a [routerLink]="['/teacher/cursos', subjectId(), 'analytics']" class="btn-secondary btn-sm" title="Ver analítica de la materia">
+        <svg lucideBarChart3 class="btn-icon-sm" aria-hidden="true"></svg>
+        Métricas
       </a>
 
-      <!-- Menú Desplegable de Gestión -->
-      <div
-        class="more-actions-dropdown"
-        dismissible
-        (dismiss)="showMoreActions.set(false)"
-      >
-        <button 
-          type="button" 
-          class="btn-outline btn-more-toggle" 
-          (click)="showMoreActions.update(v => !v)"
-          title="Opciones adicionales de gestión del curso"
-        >
-          <span>Más acciones</span>
-          <svg lucideChevronDown class="btn-icon-xs"></svg>
+      <div class="more-actions-dropdown" dismissible (dismiss)="showMoreActions.set(false)">
+        <button type="button" class="btn-secondary btn-sm" (click)="showMoreActions.update(v => !v)" title="Opciones adicionales de la materia">
+          Más acciones
+          <svg lucideChevronDown class="btn-icon-sm" aria-hidden="true"></svg>
         </button>
 
         @if (showMoreActions()) {
           <div class="dropdown-menu animate-dropdown" animate.leave="motion-dropdown-out">
             <button type="button" class="dropdown-item" (click)="openPlagiarismModal(); showMoreActions.set(false)">
-              <svg lucideShieldAlert class="btn-icon-xs"></svg>
-              <span>Auditoría Anti-Plagio AST</span>
+              <svg lucideShieldAlert class="btn-icon-sm" aria-hidden="true"></svg>
+              Auditoría de Similitud
             </button>
             <button type="button" class="dropdown-item" (click)="openPauseConfirmModal(); showMoreActions.set(false)">
-              <svg lucidePauseCircle class="btn-icon-xs text-warning"></svg>
-              <span>Pausar Entornos de Clase</span>
+              <svg lucidePauseCircle class="btn-icon-sm" aria-hidden="true"></svg>
+              Pausar Entornos de Clase
             </button>
             <button type="button" class="dropdown-item" [disabled]="isExporting()" (click)="exportGrades(); showMoreActions.set(false)">
-              <svg lucideDownload class="btn-icon-xs"></svg>
-              <span>{{ isExporting() ? 'Exportando...' : 'Exportar Notas (CSV)' }}</span>
+              <svg lucideDownload class="btn-icon-sm" aria-hidden="true"></svg>
+              Exportar Notas (CSV)
             </button>
           </div>
         }
       </div>
+
+      <button type="button" class="btn-primary btn-sm" (click)="openCreateExerciseModal()">
+        <svg lucidePlus class="btn-icon-sm" aria-hidden="true"></svg>
+        Nuevo Laboratorio
+      </button>
     </div>
   </header>
 
   @if (pauseSuccessMessage()) {
-    <div class="success-banner">
-      <svg lucideCheckCircle class="success-icon"></svg>
+    <div class="banner banner-success" role="status">
+      <svg lucideCheckCircle class="banner-icon" aria-hidden="true"></svg>
       <span>{{ pauseSuccessMessage() }}</span>
     </div>
   }
 
   @if (publishSuccessMessage()) {
-    <div class="success-banner animate-fade">
-      <svg lucideCheck class="success-icon"></svg>
+    <div class="banner banner-success" role="status">
+      <svg lucideCheck class="banner-icon" aria-hidden="true"></svg>
       <span>{{ publishSuccessMessage() }}</span>
     </div>
   }
 
   @if (publishError()) {
-    <div class="error-banner animate-fade">
-      <svg lucideAlertTriangle class="error-icon"></svg>
+    <div class="banner banner-error" role="alert">
+      <svg lucideAlertTriangle class="banner-icon" aria-hidden="true"></svg>
       <span>{{ publishError() }}</span>
     </div>
   }
 
-  <!-- Pestañas de Vista -->
-  <div class="tabs-nav">
-    <button
-      class="tab-btn"
-      [class.active]="activeTab() === 'labs'"
-      (click)="activeTab.set('labs')"
-    >
-      <svg lucideBookOpen class="btn-icon-sm"></svg>
-      <span>Guías y Laboratorios ({{ labs().length }})</span>
-    </button>
-    <button
-      class="tab-btn"
-      [class.active]="activeTab() === 'modules'"
-      (click)="activeTab.set('modules')"
-    >
-      <svg lucideLayers class="btn-icon-sm"></svg>
-      <span>Módulos y Currícula ({{ modules().length }})</span>
-    </button>
-    <button
-      class="tab-btn"
-      [class.active]="activeTab() === 'students'"
-      (click)="activeTab.set('students')"
-    >
-      <svg lucideUserPlus class="btn-icon-sm"></svg>
-      <span>Estudiantes ({{ studentsCount() }})</span>
-    </button>
-    <button
-      class="tab-btn"
-      [class.active]="activeTab() === 'submissions'"
-      (click)="activeTab.set('submissions')"
-    >
-      <svg lucideListChecks class="btn-icon-sm"></svg>
-      <span>Entregas ({{ submissions().length }})</span>
-    </button>
-    <button
-      class="tab-btn"
-      [class.active]="activeTab() === 'gradebook'"
-      (click)="activeTab.set('gradebook')"
-    >
-      <svg lucideAward class="btn-icon-sm"></svg>
-      <span>Libreta</span>
-    </button>
-  </div>
+  <div class="course-layout">
+    <nav class="course-sections" aria-label="Secciones de la materia">
+      <span class="sections-label">Secciones</span>
 
-  <!-- Contenido: Pestaña Laboratorios -->
-  @if (activeTab() === 'labs') {
-    <div class="labs-view">
-      @if (isLoading()) {
-        <skeleton-loader variant="cards" [count]="3" />
-      } @else if (labs().length === 0) {
-        <div class="empty-state">
-          <svg lucideFolderPlus class="empty-icon"></svg>
-          <p>No hay laboratorios creados en esta materia todavía.</p>
-          <button class="btn-primary" (click)="openCreateExerciseModal()">
-            Crear Primer Laboratorio
-          </button>
-        </div>
-      } @else {
-        <div class="labs-list">
-          @for (lab of labs(); track lab.id) {
-            <div class="lab-card" [class.lab-draft]="lab.status === 'draft'">
-              <div class="lab-main">
-                <div class="lab-badges">
-                  <span class="status-badge" [class.badge-draft]="lab.status === 'draft'" [class.badge-published]="lab.status === 'published'">
-                    {{ lab.status === 'draft' ? 'Borrador' : 'Publicado' }}
-                  </span>
-                  @if (lab.due_date) {
-                    <span class="due-badge">
-                      <svg lucideCalendar class="btn-icon-sm"></svg>
-                      <span>Límite: <time>{{ lab.due_date | dateText:'compact-datetime' }}</time></span>
-                    </span>
-                  }
-                </div>
-                <h3 class="lab-title">
-                  <a
-                    class="lab-open"
-                    [routerLink]="['/teacher/cursos', subjectId(), 'practicas', lab.id]"
-                    [attr.aria-label]="'Abrir la ficha de ' + lab.title"
-                  >
-                    {{ lab.title }}
-                  </a>
-                </h3>
-                
-                <div class="lab-metrics">
-                  <span class="metric-item">
-                    <strong>{{ lab.submissions_count }}</strong> entregas
-                  </span>
-                  <span class="metric-item">
-                    <strong class="text-success">{{ lab.auto_graded }}</strong> calificadas auto
-                  </span>
-                  <span class="metric-item">
-                    <strong class="text-warning">{{ lab.pending_review }}</strong> revisión manual
-                  </span>
-                  @if (lab.at_risk > 0) {
-                    <span class="metric-item text-danger">
-                      <strong>{{ lab.at_risk }}</strong> alumnos en riesgo
-                    </span>
-                  }
-                </div>
+      <button type="button" class="section-item" [class.is-active]="activeTab() === 'labs'" (click)="activeTab.set('labs')">
+        <svg lucideBookOpen class="section-icon" aria-hidden="true"></svg>
+        <span class="section-name">Prácticas</span>
+        <span class="section-count font-mono" machineData>{{ labs().length }}</span>
+      </button>
+
+      <button type="button" class="section-item" [class.is-active]="activeTab() === 'submissions'" (click)="activeTab.set('submissions')">
+        <svg lucideListChecks class="section-icon" aria-hidden="true"></svg>
+        <span class="section-name">Entregas</span>
+        <span class="section-count font-mono" machineData>{{ submissions().length }}</span>
+      </button>
+
+      <button type="button" class="section-item" [class.is-active]="activeTab() === 'students'" (click)="activeTab.set('students')">
+        <svg lucideUserPlus class="section-icon" aria-hidden="true"></svg>
+        <span class="section-name">Estudiantes</span>
+        <span class="section-count font-mono" machineData>{{ studentsCount() }}</span>
+      </button>
+
+      <button type="button" class="section-item" [class.is-active]="activeTab() === 'gradebook'" (click)="activeTab.set('gradebook')">
+        <svg lucideAward class="section-icon" aria-hidden="true"></svg>
+        <span class="section-name">Notas</span>
+        <span class="section-tag">Auxiliar</span>
+      </button>
+    </nav>
+
+    <div class="course-content">
+      @if (activeTab() === 'labs') {
+        <div class="practices-view">
+          <div class="practices-toolbar">
+            <div class="toolbar-left">
+              <div class="search-slot">
+                <search-bar
+                  [query]="labSearch()"
+                  (queryChange)="labSearch.set($event)"
+                  placeholder="Buscar práctica"
+                  ariaLabel="Buscar práctica en la materia"
+                />
               </div>
 
-              @if (lab.status === 'draft') {
-                <div class="lab-actions">
-                  <button
-                    class="btn-publish"
-                    (click)="requestPublishExercise(lab)"
-                    [disabled]="isPublishingLab() && selectedLabToPublish()?.id === lab.id"
-                    title="Publicar para los estudiantes"
-                  >
-                    @if (isPublishingLab() && selectedLabToPublish()?.id === lab.id) {
-                      <svg lucideLoader2 class="btn-icon-sm motion-spin"></svg>
-                      <span>Publicando...</span>
-                    } @else {
-                      <svg lucideGlobe class="btn-icon-sm"></svg>
-                      <span>Publicar</span>
-                    }
+              <filter-popover [activeCount]="activeLabFilters()" (cleared)="clearLabFilters()">
+                <div class="filter-column">
+                  <span class="filter-column-title">Estado</span>
+                  <button type="button" class="filter-option" [class.is-active]="labStatusFilter() === 'all'" (click)="labStatusFilter.set('all')">
+                    <span>Todos</span>
+                    <span class="filter-option-count font-mono" machineData>{{ labs().length }}</span>
                   </button>
+                  <button type="button" class="filter-option" [class.is-active]="labStatusFilter() === 'published'" (click)="labStatusFilter.set('published')">
+                    <span>Publicados</span>
+                    <span class="filter-option-count font-mono" machineData>{{ publishedLabs() }}</span>
+                  </button>
+                  <button type="button" class="filter-option" [class.is-active]="labStatusFilter() === 'draft'" (click)="labStatusFilter.set('draft')">
+                    <span>Borradores</span>
+                    <span class="filter-option-count font-mono" machineData>{{ draftLabs() }}</span>
+                  </button>
+                </div>
+
+                <div class="filter-column">
+                  <span class="filter-column-title">Modalidad</span>
+                  <button type="button" class="filter-option" [class.is-active]="labModalityFilter() === 'all'" (click)="labModalityFilter.set('all')">
+                    <span>Todas</span>
+                  </button>
+                  <button type="button" class="filter-option" [class.is-active]="labModalityFilter() === 'IDE_PERSISTENTE'" (click)="labModalityFilter.set('IDE_PERSISTENTE')">
+                    <span>{{ 'IDE_PERSISTENTE' | environmentLabel }}</span>
+                  </button>
+                  <button type="button" class="filter-option" [class.is-active]="labModalityFilter() === 'JUEZ_EFIMERO'" (click)="labModalityFilter.set('JUEZ_EFIMERO')">
+                    <span>{{ 'JUEZ_EFIMERO' | environmentLabel }}</span>
+                  </button>
+                </div>
+              </filter-popover>
+            </div>
+
+            <div class="view-switch" role="tablist" aria-label="Vista de prácticas">
+              <button type="button" role="tab" class="view-option" [class.is-active]="practiceView() === 'list'" [attr.aria-selected]="practiceView() === 'list'" (click)="setPracticeView('list')">
+                Lista
+              </button>
+              <button type="button" role="tab" class="view-option" [class.is-active]="practiceView() === 'modules'" [attr.aria-selected]="practiceView() === 'modules'" (click)="setPracticeView('modules')">
+                Por módulos
+              </button>
+            </div>
+          </div>
+
+          @if (practiceView() === 'list') {
+            @if (isLoading()) {
+              <skeleton-loader variant="list" [count]="4" />
+            } @else if (filteredLabs().length === 0) {
+              <div class="empty-state">
+                <svg lucideFolderPlus class="empty-icon" aria-hidden="true"></svg>
+                <p>
+                  @if (labs().length === 0) {
+                    No hay laboratorios creados en esta materia todavía.
+                  } @else {
+                    Ninguna práctica coincide con los filtros.
+                  }
+                </p>
+                @if (labs().length === 0) {
+                  <button type="button" class="btn-secondary btn-sm" (click)="openCreateExerciseModal()">Crear primera práctica</button>
+                }
+              </div>
+            } @else {
+              <ul class="lab-list">
+                @for (lab of filteredLabs(); track lab.id) {
+                  <li class="lab-row">
+                    <span class="lab-modality" [attr.title]="lab.environment_type ? (lab.environment_type | environmentLabel) : 'Sin modalidad'">
+                      @if (lab.environment_type === 'IDE_PERSISTENTE') {
+                        <svg lucideLaptop class="lab-icon" aria-hidden="true"></svg>
+                      } @else {
+                        <svg lucideTerminal class="lab-icon" aria-hidden="true"></svg>
+                      }
+                    </span>
+
+                    <span class="lab-state" [class.is-published]="lab.status === 'published'">
+                      <span class="state-dot" aria-hidden="true"></span>
+                      {{ lab.status === 'published' ? 'Publicado' : 'Borrador' }}
+                    </span>
+
+                    <a class="lab-title" [routerLink]="['/teacher/cursos', subjectId(), 'practicas', lab.id]">
+                      {{ lab.title }}
+                    </a>
+
+                    @if (lab.due_date) {
+                      <time class="lab-due font-mono" [attr.datetime]="lab.due_date">{{ lab.due_date | dateText:'compact-datetime' }}</time>
+                    } @else {
+                      <span class="lab-due lab-due-empty">Sin fecha límite</span>
+                    }
+
+                    <span class="lab-ratio">
+                      <span class="lab-bar" aria-hidden="true">
+                        <span class="lab-bar-fill" [style.width.%]="labDeliveryPercent(lab)"></span>
+                      </span>
+                      <span class="lab-ratio-value font-mono">
+                        <span machineData>{{ lab.submissions_count }}</span> / <span machineData>{{ lab.students_count }}</span>
+                      </span>
+                    </span>
+
+                    @if (lab.pending_review > 0) {
+                      <span class="lab-pending">
+                        <span machineData>{{ lab.pending_review }}</span> pendientes
+                      </span>
+                    }
+
+                    <span class="lab-actions">
+                      @if (lab.status === 'draft') {
+                        <button type="button" class="btn-ghost btn-sm" (click)="requestPublishExercise(lab)" [disabled]="isPublishingLab() && selectedLabToPublish()?.id === lab.id">
+                          {{ isPublishingLab() && selectedLabToPublish()?.id === lab.id ? 'Publicando…' : 'Publicar' }}
+                        </button>
+                      }
+                      <button type="button" class="btn-ghost btn-sm" (click)="viewLabSubmissions(lab.id)">Revisar</button>
+                      <button type="button" class="btn-ghost btn-sm" (click)="openAulaFor(lab)">Aula</button>
+                    </span>
+                  </li>
+                }
+              </ul>
+            }
+          } @else {
+            <div class="modules-view">
+              <div class="modules-toolbar">
+                <div>
+                  <h2 class="section-title">Estructura de módulos y prerrequisitos</h2>
+                  <p class="section-subtitle">Defina las unidades del curso, el puntaje mínimo de aprobación y los prerrequisitos de desbloqueo.</p>
+                </div>
+                <button type="button" class="btn-secondary btn-sm" (click)="openCreateModuleModal()">
+                  <svg lucidePlus class="btn-icon-sm" aria-hidden="true"></svg>
+                  Nuevo módulo
+                </button>
+              </div>
+
+              @if (moduleSuccessMessage()) {
+                <div class="banner banner-success" role="status">
+                  <svg lucideCheckCircle class="banner-icon" aria-hidden="true"></svg>
+                  <span>{{ moduleSuccessMessage() }}</span>
+                </div>
+              }
+
+              @if (moduleErrorMessage()) {
+                <div class="banner banner-error" role="alert">
+                  <svg lucideAlertTriangle class="banner-icon" aria-hidden="true"></svg>
+                  <span>{{ moduleErrorMessage() }}</span>
+                </div>
+              }
+
+              @if (modules().length === 0) {
+                <div class="empty-state">
+                  <svg lucideLayers class="empty-icon" aria-hidden="true"></svg>
+                  <p>No hay módulos definidos en este curso todavía.</p>
+                  <button type="button" class="btn-secondary btn-sm" (click)="openCreateModuleModal()">Crear primer módulo</button>
+                </div>
+              } @else {
+                <div class="modules-grid">
+                  @for (mod of modules(); track mod.id) {
+                    <article class="module-card">
+                      <header class="module-head">
+                        <span class="module-index font-mono" machineData>Módulo {{ mod.order_index }}</span>
+                        <h3 class="module-title">{{ mod.title }}</h3>
+                        @if (mod.description) {
+                          <p class="module-desc">{{ mod.description }}</p>
+                        }
+                        <div class="module-meta">
+                          <span class="module-pill">Aprobación mínima: <strong machineData>{{ mod.pass_score }}%</strong></span>
+                          <a
+                            class="btn-secondary btn-sm"
+                            [routerLink]="['/teacher/cursos', subjectId(), 'ejercicios', 'nuevo']"
+                            [queryParams]="{ module_id: mod.id }"
+                            title="Crear una práctica dentro de esta unidad"
+                          >
+                            <svg lucidePlus class="btn-icon-sm" aria-hidden="true"></svg>
+                            Agregar práctica
+                          </a>
+                          <button type="button" class="btn-ghost btn-sm module-delete" (click)="deleteModule(mod.id)" title="Eliminar módulo">
+                            <svg lucideTrash2 class="btn-icon-sm" aria-hidden="true"></svg>
+                          </button>
+                        </div>
+                      </header>
+
+                      <div class="module-section">
+                        <h4 class="module-label">
+                          <svg lucideLock class="label-icon" aria-hidden="true"></svg>
+                          Prerrequisitos de desbloqueo
+                        </h4>
+                        <div class="prereq-options">
+                          @for (other of modules(); track other.id) {
+                            @if (other.id !== mod.id) {
+                              <label class="checkbox-label">
+                                <input
+                                  type="checkbox"
+                                  [checked]="mod.prerequisites?.includes(other.id)"
+                                  (change)="togglePrerequisite(mod.id, other.id)"
+                                />
+                                <span>M{{ other.order_index }}: {{ other.title }}</span>
+                              </label>
+                            }
+                          } @empty {
+                            <span class="muted-text">Cree otros módulos para configurar prerrequisitos.</span>
+                          }
+                        </div>
+                      </div>
+
+                      <div class="module-section">
+                        <h4 class="module-label">
+                          <svg lucideBookOpen class="label-icon" aria-hidden="true"></svg>
+                          Prácticas en este módulo
+                        </h4>
+                        <div class="assigned-list">
+                          @for (lab of labs(); track lab.id) {
+                            <div class="assign-row">
+                              <span class="assign-name">{{ lab.title }}</span>
+                              <button
+                                type="button"
+                                class="btn-ghost btn-sm"
+                                [class.is-assigned]="mod.exercise_ids?.includes(lab.id)"
+                                (click)="assignExerciseToModule(lab.id, mod.exercise_ids?.includes(lab.id) ? null : mod.id)"
+                              >
+                                {{ mod.exercise_ids?.includes(lab.id) ? 'Asignada' : 'Asignar' }}
+                              </button>
+                            </div>
+                          } @empty {
+                            <span class="muted-text">No hay prácticas creadas aún en la materia.</span>
+                          }
+                        </div>
+                      </div>
+                    </article>
+                  }
                 </div>
               }
             </div>
           }
         </div>
       }
-    </div>
-  }
 
-  <!-- Contenido: Sección Entregas (historial) -->
-  @if (activeTab() === 'submissions') {
-    <div class="submissions-view">
-      <div class="filters-bar">
-        <div class="filter-group">
-          <label class="filter-label">Laboratorio:</label>
-          <div class="filter-combobox-wrapper">
-            <combobox
-              [options]="labOptions()"
-              [value]="labFilter()"
-              (valueChange)="labFilter.set($event)"
-              [compact]="true"
-              [showSearchIcon]="false"
-              placeholder="Todos los laboratorios"
-            />
+      @if (activeTab() === 'submissions') {
+        <div class="submissions-view">
+          @if (labFilter() !== 'all') {
+            <div class="filter-chip-row">
+              <span class="filter-chip">
+                <span class="chip-label">Filtrado por</span>
+                <span class="chip-value">{{ labFilterTitle() }}</span>
+                <button type="button" class="chip-clear" (click)="clearLabFilterChip()" aria-label="Quitar filtro de práctica">×</button>
+              </span>
+            </div>
+          }
+
+          <div class="filters-bar">
+            <div class="filter-group">
+              <span class="filter-label">Laboratorio</span>
+              <combobox
+                [options]="labOptions()"
+                [value]="labFilter()"
+                (valueChange)="labFilter.set($event)"
+                [compact]="true"
+                [showSearchIcon]="false"
+                placeholder="Todos los laboratorios"
+                inputAriaLabel="Filtrar por laboratorio"
+              />
+            </div>
+
+            <div class="filter-group">
+              <span class="filter-label">Estado de revisión</span>
+              <combobox
+                [options]="reviewStatusOptions"
+                [value]="reviewStatusFilter()"
+                (valueChange)="reviewStatusFilter.set($any($event))"
+                [compact]="true"
+                [showSearchIcon]="false"
+                placeholder="Todos los estados"
+                inputAriaLabel="Filtrar por estado de revisión"
+              />
+            </div>
+
+            <div class="filter-group">
+              <span class="filter-label">Resultado</span>
+              <combobox
+                [options]="verdictOptions"
+                [value]="verdictFilter()"
+                (valueChange)="verdictFilter.set($event)"
+                [compact]="true"
+                [showSearchIcon]="false"
+                placeholder="Todos los resultados"
+                inputAriaLabel="Filtrar por resultado"
+              />
+            </div>
           </div>
-        </div>
 
-        <div class="filter-group">
-          <label class="filter-label">Estado de revisión:</label>
-          <div class="filter-combobox-wrapper">
-            <combobox
-              [options]="reviewStatusOptions"
-              [value]="reviewStatusFilter()"
-              (valueChange)="reviewStatusFilter.set($any($event))"
-              [compact]="true"
-              [showSearchIcon]="false"
-              placeholder="Todos los estados"
-            />
-          </div>
-        </div>
-
-        <div class="filter-group">
-          <label class="filter-label">Veredicto:</label>
-          <div class="filter-combobox-wrapper">
-            <combobox
-              [options]="verdictOptions"
-              [value]="verdictFilter()"
-              (valueChange)="verdictFilter.set($event)"
-              [compact]="true"
-              [showSearchIcon]="false"
-              placeholder="Todos los resultados"
-            />
-          </div>
-        </div>
-      </div>
-
-      @if (isLoading()) {
-        <skeleton-loader variant="table" [rows]="4" [columns]="7" />
-      } @else if (filteredSubmissions().length === 0) {
-        <div class="empty-state">
-          <p>No se encontraron entregas con el filtro seleccionado.</p>
-        </div>
-      } @else {
-        <table class="data-table">
-          <thead>
-            <tr>
-              <th>
-                <sort-header
-                  column="student"
-                  [activeColumn]="sortState().column"
-                  [direction]="sortState().direction"
-                  (sortChange)="onSortChange($event)"
-                >
-                  Estudiante
-                </sort-header>
-              </th>
-              <th>
-                <sort-header
-                  column="exercise"
-                  [activeColumn]="sortState().column"
-                  [direction]="sortState().direction"
-                  (sortChange)="onSortChange($event)"
-                >
-                  Laboratorio
-                </sort-header>
-              </th>
-              <th>Veredicto</th>
-              <th>
-                <sort-header
-                  column="score"
-                  [activeColumn]="sortState().column"
-                  [direction]="sortState().direction"
-                  (sortChange)="onSortChange($event)"
-                >
-                  Puntaje
-                </sort-header>
-              </th>
-              <th>
-                <sort-header
-                  column="date"
-                  [activeColumn]="sortState().column"
-                  [direction]="sortState().direction"
-                  (sortChange)="onSortChange($event)"
-                >
-                  Fecha Entrega
-                </sort-header>
-              </th>
-              <th class="text-center">Comentarios</th>
-              <th>Acción</th>
-            </tr>
-          </thead>
-          <tbody>
-            @for (sub of filteredSubmissions(); track sub.id) {
-              <tr>
-                <td>
-                  <div class="student-cell">
-                    <strong>{{ sub.student_name }}</strong>
-                    <span class="student-email">{{ sub.student_email }}</span>
-                  </div>
-                </td>
-                <td>{{ sub.exercise_title }}</td>
-                <td>
-                  @if (sub.verdict || sub.verdict_origin) {
-                    <verdict-badge [verdict]="sub.verdict" [origin]="sub.verdict_origin" size="sm" />
+          @if (isLoading()) {
+            <skeleton-loader variant="table" [rows]="4" [columns]="6" />
+          } @else if (filteredSubmissions().length === 0) {
+            <div class="empty-state">
+              <p>No se encontraron entregas con el filtro seleccionado.</p>
+            </div>
+          } @else {
+            <div class="table-shell">
+              <table class="data-table">
+                <thead>
+                  <tr>
+                    <th>
+                      <sort-header column="student" [activeColumn]="sortState().column" [direction]="sortState().direction" (sortChange)="onSortChange($event)">
+                        Estudiante
+                      </sort-header>
+                    </th>
+                    <th>
+                      <sort-header column="exercise" [activeColumn]="sortState().column" [direction]="sortState().direction" (sortChange)="onSortChange($event)">
+                        Práctica
+                      </sort-header>
+                    </th>
+                    <th>Resultado</th>
+                    <th>
+                      <sort-header column="score" [activeColumn]="sortState().column" [direction]="sortState().direction" (sortChange)="onSortChange($event)">
+                        Puntaje
+                      </sort-header>
+                    </th>
+                    <th>
+                      <sort-header column="date" [activeColumn]="sortState().column" [direction]="sortState().direction" (sortChange)="onSortChange($event)">
+                        Entrega
+                      </sort-header>
+                    </th>
+                    <th class="col-action">Acción</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  @for (sub of filteredSubmissions(); track sub.id) {
+                    <tr>
+                      <td>
+                        <span class="student-cell">
+                          <span class="student-name">{{ sub.student_name }}</span>
+                          <span class="student-email font-mono">{{ sub.student_email }}</span>
+                        </span>
+                      </td>
+                      <td>{{ sub.exercise_title }}</td>
+                      <td>
+                        @if (sub.verdict || sub.verdict_origin) {
+                          <verdict-badge [verdict]="sub.verdict" [origin]="sub.verdict_origin" size="sm" />
+                        } @else {
+                          <span class="muted-text">Pendiente de revisión</span>
+                        }
+                      </td>
+                      <td class="font-mono" machineData>{{ sub.score !== undefined && sub.score !== null ? sub.score + ' / 100' : '—' }}</td>
+                      <td>
+                        <time class="font-mono" [attr.datetime]="sub.submitted_at">{{ sub.submitted_at | dateText:'compact-datetime' }}</time>
+                      </td>
+                      <td class="col-action">
+                        <a [routerLink]="['/teacher/revision', sub.id]" class="btn-ghost btn-sm review-link">
+                          Revisar
+                          <svg lucideArrowRight class="btn-icon-sm" aria-hidden="true"></svg>
+                        </a>
+                      </td>
+                    </tr>
                   }
-                </td>
-                <td><span machineData>{{ sub.score !== undefined && sub.score !== null ? sub.score + ' pts' : '—' }}</span></td>
-                <td>
-                  <time>{{ sub.submitted_at | dateText:'datetime' }}</time>
-                </td>
-                <td class="text-center">
-                  <span class="comments-badge font-mono" machineData>{{ sub.comments_count }}</span>
-                </td>
-                <td>
-                  @if (sub.score === undefined || sub.score === null) {
-                    <a [routerLink]="['/teacher/revision', sub.id]" class="btn-grade btn-pending" title="Calificar entrega y rúbrica">
-                      <span>Calificar</span>
-                      <svg lucideEdit3 class="btn-icon-xs"></svg>
-                    </a>
-                  } @else {
-                    <a [routerLink]="['/teacher/revision', sub.id]" class="btn-grade btn-evaluated" title="Ver entrega y detalles de calificación">
-                      <span>Ver entrega</span>
-                      <svg lucideExternalLink class="btn-icon-xs"></svg>
-                    </a>
-                  }
-                </td>
-              </tr>
-            }
-          </tbody>
-        </table>
-      }
-    </div>
-  }
-
-  <!-- Contenido: Pestaña Estudiantes -->
-  @if (activeTab() === 'students') {
-    <course-students-panel
-      [subjectId]="subjectId()"
-      [openEnrollRequest]="enrollRequested()"
-      (enrollRequestHandled)="enrollRequested.set(false)"
-      (changed)="onStudentsChanged($event)"
-    />
-  }
-
-  <!-- Contenido: Pestaña Libreta -->
-  @if (activeTab() === 'gradebook') {
-    <course-gradebook [subjectId]="subjectId()" (enrollRequested)="openEnrollModal()" />
-  }
-
-  @if (activeTab() === 'modules') {
-    <div class="modules-view">
-      <div class="modules-toolbar">
-        <div>
-          <h2 class="section-title section-title-flush">Estructura de Módulos y Prerrequisitos</h2>
-          <p class="section-subtitle">Define las unidades del curso, el puntaje mínimo de aprobación y los prerrequisitos de desbloqueo.</p>
-        </div>
-        <button class="btn-primary" (click)="openCreateModuleModal()">
-          <svg lucidePlus class="btn-icon-sm"></svg>
-          <span>Nuevo Módulo</span>
-        </button>
-      </div>
-
-      @if (moduleSuccessMessage()) {
-        <div class="success-banner">
-          <svg lucideCheckCircle class="success-icon"></svg>
-          <span>{{ moduleSuccessMessage() }}</span>
-        </div>
-      }
-
-      @if (moduleErrorMessage()) {
-        <div class="error-banner">
-          <svg lucideAlertTriangle class="error-icon"></svg>
-          <span>{{ moduleErrorMessage() }}</span>
-        </div>
-      }
-
-      @if (modules().length === 0) {
-        <div class="empty-state">
-          <svg lucideLayers class="empty-icon"></svg>
-          <p>No hay módulos definidos en este curso todavía.</p>
-          <button class="btn-primary" (click)="openCreateModuleModal()">
-            Crear Primer Módulo
-          </button>
-        </div>
-      } @else {
-        <div class="modules-grid">
-          @for (mod of modules(); track mod.id) {
-            <div class="module-card-manage">
-              <div class="module-card-header">
-                <div class="module-id-badge" machineData>Módulo {{ mod.order_index }}</div>
-                <h3 class="mod-title">{{ mod.title }}</h3>
-                @if (mod.description) {
-                  <p class="mod-desc">{{ mod.description }}</p>
-                }
-                <div class="mod-meta-row">
-                  <span class="mod-pill">Aprobación mínima: <strong machineData>{{ mod.pass_score }}%</strong></span>
-                  <a
-                    class="btn-secondary btn-module-practice"
-                    [routerLink]="['/teacher/cursos', subjectId(), 'ejercicios', 'nuevo']"
-                    [queryParams]="{ module_id: mod.id }"
-                    title="Crear una práctica dentro de esta unidad"
-                  >
-                    <svg lucidePlus class="btn-icon-sm"></svg>
-                    <span>Agregar práctica</span>
-                  </a>
-                  <button type="button" class="btn-icon-danger" (click)="deleteModule(mod.id)" title="Eliminar módulo">
-                    <svg lucideTrash2 class="btn-icon-sm"></svg>
-                  </button>
-                </div>
-              </div>
-
-              <!-- Configuración de Prerrequisitos -->
-              <div class="module-card-section">
-                <h4 class="section-label">
-                  <svg lucideLock class="label-icon"></svg>
-                  <span>Prerrequisitos de desbloqueo:</span>
-                </h4>
-                <div class="prereq-options">
-                  @for (other of modules(); track other.id) {
-                    @if (other.id !== mod.id) {
-                      <label class="checkbox-label">
-                        <input
-                          type="checkbox"
-                          [checked]="mod.prerequisites?.includes(other.id)"
-                          (change)="togglePrerequisite(mod.id, other.id)"
-                        />
-                        <span>M{{ other.order_index }}: {{ other.title }}</span>
-                      </label>
-                    }
-                  } @empty {
-                    <span class="muted-text">Crea otros módulos para configurar prerrequisitos.</span>
-                  }
-                </div>
-              </div>
-
-              <!-- Ejercicios Asignados -->
-              <div class="module-card-section">
-                <h4 class="section-label">
-                  <svg lucideBookOpen class="label-icon"></svg>
-                  <span>Ejercicios en este módulo:</span>
-                </h4>
-                <div class="assigned-exercises-list">
-                  @for (lab of labs(); track lab.id) {
-                    <div class="exercise-assign-item">
-                      <span class="ex-name">{{ lab.title }}</span>
-                      <button
-                        type="button"
-                        class="btn-assign"
-                        [class.active]="mod.exercise_ids?.includes(lab.id)"
-                        (click)="assignExerciseToModule(lab.id, mod.exercise_ids?.includes(lab.id) ? null : mod.id)"
-                      >
-                        {{ mod.exercise_ids?.includes(lab.id) ? 'Asignado ✓' : 'Asignar' }}
-                      </button>
-                    </div>
-                  } @empty {
-                    <span class="muted-text">No hay ejercicios creados aún en el curso.</span>
-                  }
-                </div>
-              </div>
+                </tbody>
+              </table>
             </div>
           }
         </div>
       }
+
+      @if (activeTab() === 'students') {
+        <course-students-panel
+          [subjectId]="subjectId()"
+          [openEnrollRequest]="enrollRequested()"
+          (enrollRequestHandled)="enrollRequested.set(false)"
+          (changed)="onStudentsChanged($event)"
+        />
+      }
+
+      @if (activeTab() === 'gradebook') {
+        <div class="grades-view">
+          <header class="grades-head">
+            <div>
+              <h2 class="section-title">Notas</h2>
+              <p class="section-subtitle">
+                Planilla auxiliar en escala 0–100. Registra únicamente los puntajes de laboratorios en SOLV;
+                no sustituye la libreta institucional.
+              </p>
+            </div>
+            <button type="button" class="btn-secondary btn-sm" (click)="exportGrades()">Exportar CSV</button>
+          </header>
+          <course-gradebook [subjectId]="subjectId()" (enrollRequested)="openEnrollModal()" />
+        </div>
+      }
     </div>
-  }
+  </div>
 </div>
 
-<!-- Modal para Crear Módulo con Shell Estándar -->
 @if (showCreateModuleModal()) {
   <modal-shell animate.leave="motion-modal-out"
     title="Nuevo Módulo Curricular"
-    subtitle="Agrupe ejercicios por unidades temáticas y configure prerrequisitos"
+    subtitle="Agrupe prácticas por unidades temáticas y configure prerrequisitos"
     intent="info"
     [maxWidth]="'540px'"
     (close)="closeCreateModuleModal()"
@@ -530,21 +525,21 @@
     <svg modal-icon lucideLayers class="modal-icon-svg"></svg>
 
     @if (moduleErrorMessage()) {
-      <div class="error-banner">
-        <svg lucideAlertTriangle class="error-icon"></svg>
+      <div class="banner banner-error" role="alert">
+        <svg lucideAlertTriangle class="banner-icon" aria-hidden="true"></svg>
         <span>{{ moduleErrorMessage() }}</span>
       </div>
     }
 
     <div class="form-group">
-      <label for="moduleTitle" class="form-label">Título del Módulo *</label>
+      <label for="moduleTitle" class="form-label">Título del módulo *</label>
       <input
         id="moduleTitle"
         type="text"
         class="form-input"
         [ngModel]="newModuleTitle()"
         (ngModelChange)="newModuleTitle.set($event)"
-        placeholder="Ej. Introducción a la Programación"
+        placeholder="Ej. Introducción a la programación"
       />
     </div>
 
@@ -574,19 +569,17 @@
     </div>
 
     <ng-container modal-footer>
-      <button type="button" class="btn-outline" (click)="closeCreateModuleModal()">Cancelar</button>
-      <button type="button" class="btn-primary" [disabled]="!newModuleTitle().trim()" (click)="submitCreateModule()">Crear Módulo</button>
+      <button type="button" class="btn-secondary btn-sm" (click)="closeCreateModuleModal()">Cancelar</button>
+      <button type="button" class="btn-primary btn-sm" [disabled]="!newModuleTitle().trim()" (click)="submitCreateModule()">Crear módulo</button>
     </ng-container>
   </modal-shell>
 }
 
-
-
 @if (showPauseConfirmModal()) {
   <confirm-modal
     title="¿Pausar todos los entornos de la clase?"
-    message="Esta acción hibernará de forma masiva los contenedores de los estudiantes para liberar recursos de memoria en el servidor."
-    confirmText="Pausar Entornos"
+    message="Esta acción hibernará de forma masiva los contenedores de los estudiantes para liberar memoria en el servidor."
+    confirmText="Pausar entornos"
     cancelText="Cancelar"
     type="danger"
     (confirm)="confirmPauseAllEnvironments()"
@@ -597,7 +590,7 @@
 @if (selectedLabToPublish(); as lab) {
   <confirm-modal
     title="Publicar práctica"
-    [message]="'¿Confirmas publicar «' + lab.title + '»? Quedará disponible inmediatamente para todos los estudiantes inscritos en el curso.'"
+    [message]="'¿Confirma publicar «' + lab.title + '»? Quedará disponible de inmediato para los estudiantes inscritos.'"
     confirmText="Publicar ahora"
     cancelText="Cancelar"
     type="primary"
@@ -631,6 +624,3 @@
     (imported)="onExercisesImported($event)"
   ></import-exercises-modal>
 }
-
-
-

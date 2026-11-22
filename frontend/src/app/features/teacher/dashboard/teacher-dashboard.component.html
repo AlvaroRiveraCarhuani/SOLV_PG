@@ -1,8 +1,18 @@
 <div class="hoy">
   <header class="hoy-header">
-    <div class="header-title">
+    <div class="header-titles">
       <h1 class="page-title">Hoy</h1>
-      <time class="header-date" [attr.datetime]="todayIso">{{ today | dateText:'daymonthyear' }}</time>
+      <time class="header-date font-mono" [attr.datetime]="todayIso">{{ today | dateText:'daymonthyear' }}</time>
+      @if (overview()) {
+        <p class="header-meta font-mono">
+          <span machineData>{{ subjects().length }}</span>
+          {{ subjects().length === 1 ? 'materia' : 'materias' }}
+          <span aria-hidden="true">·</span>
+          <span machineData>{{ queue().pending }}</span> entregas por calificar
+          <span aria-hidden="true">·</span>
+          <span machineData>{{ dueSoon().length }}</span> cierres próximos
+        </p>
+      }
     </div>
 
     <div class="header-actions">
@@ -18,39 +28,19 @@
           inputAriaLabel="Período académico"
         />
       }
-      <a class="btn-aula" [routerLink]="['/teacher/aula']">Abrir aula</a>
+      @if (queue().pending > 0) {
+        <a class="btn-primary btn-sm" [routerLink]="['/teacher/por-calificar']">
+          Calificar pendientes (<span machineData>{{ queue().pending }}</span>)
+          <svg lucideArrowRight class="btn-icon-sm" aria-hidden="true"></svg>
+        </a>
+      }
     </div>
   </header>
-
-  @if (session(); as aula) {
-    <a class="hoy-session motion-rise" [routerLink]="['/teacher/aula']" aria-live="polite">
-      <span class="session-subject">
-        <code>{{ aula.subject_code }}</code>
-        <span class="session-sep" aria-hidden="true">·</span>
-        <time [attr.datetime]="aula.opens_at">{{ aula.opens_at | dateText:'time' }}</time>
-        <span aria-hidden="true">–</span>
-        <time [attr.datetime]="aula.ends_at">{{ aula.ends_at | dateText:'time' }}</time>
-        @if (aula.exercise_title) {
-          <span class="session-sep" aria-hidden="true">·</span>
-          <span class="session-practice">{{ aula.exercise_title }}</span>
-        }
-      </span>
-      <span class="session-presence">
-        <span machineData>{{ aula.present }}</span> de
-        <span machineData>{{ aula.enrolled }}</span> dentro
-      </span>
-      <span class="session-cta">Ir al aula</span>
-    </a>
-  }
-
-  @if (!hasPending() && !showSkeleton() && !showEmpty() && !loadError()) {
-    <p class="hoy-quiet">Nada pendiente en el período.</p>
-  }
 
   @if (loadError(); as error) {
     <div class="state-panel" role="alert">
       <p class="state-copy">{{ error }}</p>
-      <button type="button" class="btn-outline" (click)="reload()">Reintentar</button>
+      <button type="button" class="btn-secondary btn-sm" (click)="reload()">Reintentar</button>
     </div>
   } @else if (showSkeleton()) {
     <div class="hoy-skeleton" aria-hidden="true">
@@ -59,39 +49,149 @@
   } @else if (showEmpty()) {
     <div class="state-panel">
       <h2 class="state-title">Sin materias en este período</h2>
-      <p class="state-copy">Elige otro período para ver tus materias y su trabajo pendiente.</p>
+      <p class="state-copy">Elija otro período para ver sus materias y su trabajo pendiente.</p>
     </div>
   } @else {
     <div class="hoy-layout">
-      @if (hasPending()) {
-        <pending-column
-          class="hoy-aside motion-rise"
-          [session]="session()"
-          [queue]="queue()"
-          [dueSoon]="dueSoon()"
-          [dueSoonHidden]="dueSoonHidden()"
-        />
-      }
+      <div class="hoy-main">
+        <section class="canvas" aria-label="Materias del período">
+          <header class="section-head">
+            <h2 class="section-title">Mis materias</h2>
+            <span class="section-count font-mono" machineData>{{ subjects().length }}</span>
+          </header>
 
-      <section class="hoy-canvas" aria-label="Materias del período">
-        <header class="canvas-header">
-          <h2 class="canvas-title">Materias</h2>
-          <span class="canvas-count">
-            <span machineData>{{ subjects().length }}</span> en el período
-          </span>
-        </header>
+          <div class="cards-grid">
+            @for (subject of subjects(); track subject.id) {
+              <subject-card class="motion-rise motion-stagger" [style.--motion-index]="$index" [subject]="subject" />
+            }
+          </div>
+        </section>
 
-        <div class="canvas-grid">
-          @for (subject of subjects(); track subject.id) {
-            <subject-card
-              class="motion-rise motion-stagger"
-              [style.--motion-index]="$index"
-              [subject]="subject"
-              [openSessionSubjectId]="session()?.subject_id ?? null"
-            />
+        @if (reviewPriorities().length > 0) {
+          <section class="priorities" aria-labelledby="priorities-title">
+            <header class="section-head">
+              <h2 class="section-title" id="priorities-title">Prioridades de revisión</h2>
+              <span class="section-count font-mono" machineData>{{ reviewPriorities().length }}</span>
+            </header>
+
+            <ul class="list-dense">
+              @for (due of reviewPriorities(); track due.exercise_id) {
+                <li class="list-dense-row priority-row">
+                  <span class="priority-main">
+                    <span class="priority-subject">{{ due.subject_name }}</span>
+                    <span class="list-dense-primary">{{ due.exercise_title }}</span>
+                  </span>
+                  <span class="list-dense-aside">
+                    <span class="priority-pending">
+                      <span machineData>{{ due.pending_review }}</span> por calificar
+                    </span>
+                    @if (due.due_at) {
+                      <time class="list-dense-meta" [attr.datetime]="due.due_at">{{ due.due_at | dateText:'compact-datetime' }}</time>
+                    }
+                    <a
+                      class="btn-ghost btn-sm priority-action"
+                      [routerLink]="['/teacher/cursos', due.subject_id]"
+                      [queryParams]="{ tab: 'submissions', labId: due.exercise_id }"
+                    >
+                      Calificar
+                      <svg lucideArrowRight class="btn-icon-sm" aria-hidden="true"></svg>
+                    </a>
+                  </span>
+                </li>
+              }
+            </ul>
+          </section>
+        }
+      </div>
+
+      <aside class="hoy-aside">
+        <section class="aside-card" aria-labelledby="due-title">
+          <header class="aside-head">
+            <h2 class="aside-title" id="due-title">Cierres próximos</h2>
+            <span class="aside-count font-mono" machineData>{{ dueSoon().length }}</span>
+          </header>
+
+          @if (dueSoon().length === 0) {
+            <p class="aside-empty">Sin cierres próximos configurados</p>
+          } @else {
+            <ul class="due-list">
+              @for (due of dueSoon(); track due.exercise_id) {
+                <li class="due-row">
+                  @if (due.due_at) {
+                    <time class="due-when font-mono" [attr.datetime]="due.due_at">{{ due.due_at | dateText:'compact-datetime' }}</time>
+                  }
+                  <a
+                    class="due-title"
+                    [routerLink]="['/teacher/cursos', due.subject_id]"
+                    [queryParams]="{ tab: 'submissions', labId: due.exercise_id }"
+                  >{{ due.exercise_title }}</a>
+                  <span class="due-meta">
+                    {{ due.subject_name }}
+                    @if (due.pending_review > 0) {
+                      <span aria-hidden="true">·</span>
+                      <span class="due-pending"><span machineData>{{ due.pending_review }}</span> por calificar</span>
+                    }
+                  </span>
+                </li>
+              }
+            </ul>
           }
-        </div>
-      </section>
+        </section>
+
+        <section class="aside-card" aria-labelledby="quick-aula-title">
+          <header class="aside-head">
+            <h2 class="aside-title" id="quick-aula-title">Acceso rápido al Aula en vivo</h2>
+          </header>
+
+          <div class="quick-body">
+            @if (session(); as aula) {
+              <p class="quick-session">
+                <span class="quick-live-dot" aria-hidden="true"></span>
+                Aula abierta:
+                <code class="font-mono">{{ aula.subject_code }}</code>
+                <span machineData>{{ aula.present }}</span> de <span machineData>{{ aula.enrolled }}</span> dentro
+              </p>
+            }
+
+            <label class="field">
+              <span class="field-label">Materia</span>
+              <combobox
+                [options]="subjectOptions()"
+                [value]="quickSubjectId()"
+                (valueChange)="onQuickSubjectChange($event)"
+                placeholder="Elegir materia"
+                [compact]="true"
+                [showSearchIcon]="false"
+                inputAriaLabel="Materia para abrir el aula"
+              />
+            </label>
+
+            <label class="field">
+              <span class="field-label">Práctica publicada</span>
+              <combobox
+                [options]="quickPracticeOptions()"
+                [value]="quickExerciseId()"
+                (valueChange)="onQuickExerciseChange($event)"
+                placeholder="Sin práctica asignada"
+                [compact]="true"
+                [showSearchIcon]="false"
+                [allowClear]="true"
+                [disabled]="quickPracticeOptions().length === 0"
+                inputAriaLabel="Práctica para abrir el aula"
+              />
+            </label>
+
+            <button
+              type="button"
+              class="btn-secondary btn-sm quick-open"
+              [disabled]="!quickSubjectId()"
+              (click)="openAula()"
+            >
+              Abrir aula
+            </button>
+          </div>
+        </section>
+      </aside>
     </div>
   }
 </div>

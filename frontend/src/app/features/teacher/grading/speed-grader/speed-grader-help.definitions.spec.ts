@@ -15,20 +15,20 @@ describe('SpeedGraderHelpDefinitions', () => {
       expect(tour.steps[1].selector).toBe('[data-tour="review-code-viewer"]');
       expect(tour.steps[2].selector).toBe('[data-tour="review-diff-tool"]');
       expect(tour.steps[3].selector).toBe('[data-tour="review-eval-panel"]');
-      expect(tour.steps[3].title).toContain('Resultados del Juez');
+      expect(tour.steps[3].title).toContain('Resultados de la evaluación');
       expect(tour.steps[4].selector).toBe('[data-tour="review-forensic-tools"]');
       expect(tour.steps[5].selector).toBe('[data-tour="review-grade-action"]');
-      expect(tour.steps[5].title).toBe('Convalidar o Ajustar Nota');
+      expect(tour.steps[5].title).toBe('Convalidar o ajustar la nota');
     });
 
     it('debe adaptar los títulos del tour para Entorno de Desarrollo (project) con y sin rúbrica', () => {
       const tourWithRubric = buildSpeedGraderTour('project', true);
       expect(tourWithRubric.id).toBe('speed-grader-tour-project');
-      expect(tourWithRubric.steps[3].title).toBe('Evaluación por Rúbrica Ponderada');
+      expect(tourWithRubric.steps[3].title).toBe('Evaluación por rúbrica');
       expect(tourWithRubric.steps[5].title).toBe('Guardar Calificación');
 
       const tourDirect = buildSpeedGraderTour('project', false);
-      expect(tourDirect.steps[3].title).toBe('Calificación Directa y Devolución');
+      expect(tourDirect.steps[3].title).toBe('Nota directa y devolución');
       expect(tourDirect.steps[5].title).toBe('Guardar Calificación');
     });
   });

@@ -1,98 +1,98 @@
 <header class="grader-header">
   <div class="header-left">
-    <a [routerLink]="['/teacher/cursos', review().subject_id]" class="back-link">
-      <svg lucideArrowLeft class="btn-icon-sm"></svg>
-      <span>Volver al Curso</span>
+    <a [routerLink]="['/teacher/cursos', review().subject_id]" class="btn-ghost btn-sm back-link">
+      <svg lucideArrowLeft class="btn-icon-sm" aria-hidden="true"></svg>
+      <span>Curso</span>
     </a>
+    <span class="header-divider" aria-hidden="true"></span>
     <div class="exercise-info">
-      <h1 class="page-title">{{ review().exercise_title }}</h1>
-      <span class="subject-subtitle">
+      <h1 class="exercise-title">{{ review().exercise_title }}</h1>
+      <p class="exercise-meta">
         {{ review().subject_name }}
-        <span class="mode-badge">{{ (mode() === 'project' ? 'IDE_PERSISTENTE' : 'JUEZ_EFIMERO') | environmentLabel }}</span>
-      </span>
+        <span aria-hidden="true">·</span>
+        {{ (mode() === 'project' ? 'IDE_PERSISTENTE' : 'JUEZ_EFIMERO') | environmentLabel }}
+      </p>
     </div>
   </div>
 
   <div class="header-nav" data-tour="review-header-nav">
     <button
       type="button"
-      class="nav-arrow-btn"
+      class="btn-ghost nav-arrow"
       [disabled]="!review().prev_submission_id"
       [routerLink]="review().prev_submission_id ? ['/teacher/revision', review().prev_submission_id] : null"
-      title="Entrega anterior (Atajo: K)"
+      title="Entrega anterior (atajo K)"
       aria-label="Entrega anterior"
     >
-      <svg lucideChevronLeft class="btn-icon-sm"></svg>
+      <svg lucideChevronLeft class="btn-icon-sm" aria-hidden="true"></svg>
     </button>
 
-    <div class="student-badge">
-      <strong class="student-name">{{ review().student_name }}</strong>
-      <span class="student-email">{{ review().student_email }}</span>
-    </div>
+    <span class="nav-avatar font-mono" aria-hidden="true">{{ initials(review().student_name) }}</span>
+    <span class="nav-student">
+      <span class="nav-name">{{ review().student_name }}</span>
+      <span class="nav-email font-mono">{{ review().student_email }}</span>
+    </span>
 
     <button
       type="button"
-      class="nav-arrow-btn"
+      class="btn-ghost nav-arrow"
       [disabled]="!review().next_submission_id"
       [routerLink]="review().next_submission_id ? ['/teacher/revision', review().next_submission_id] : null"
-      title="Siguiente entrega (Atajo: J)"
+      title="Siguiente entrega (atajo J)"
       aria-label="Siguiente entrega"
     >
-      <svg lucideChevronRight class="btn-icon-sm"></svg>
+      <svg lucideChevronRight class="btn-icon-sm" aria-hidden="true"></svg>
     </button>
   </div>
 
   <div class="header-actions">
-    <!-- Re-ejecutar prueba rápida: solo el juez ejecuta casos I/O. -->
     @if (mode() === 'judge') {
+      <!-- Entorno de Evaluación: re-ejecutar, herramientas y Calificar como único primario. -->
       <button
         type="button"
-        class="btn-outline"
+        class="btn-secondary btn-sm"
         [disabled]="isRunningEphemeral()"
         (click)="runEphemeral.emit()"
-        title="Ejecutar prueba rápida en contenedor"
+        title="Ejecutar una prueba rápida en un contenedor temporal"
       >
         @if (isRunningEphemeral()) {
-          <svg lucideLoader2 class="btn-icon-sm motion-spin"></svg>
-          <span>Ejecutando...</span>
+          <svg lucideLoader2 class="btn-icon-sm motion-spin" aria-hidden="true"></svg>
+          <span>Ejecutando…</span>
         } @else {
-          <svg lucidePlay class="btn-icon-sm"></svg>
+          <svg lucidePlay class="btn-icon-sm" aria-hidden="true"></svg>
           <span>Re-ejecutar</span>
         }
       </button>
-    }
-
-    <!-- Probar la app del proyecto: se abre en pestaña nueva, nunca en iframe. -->
-    @if (mode() === 'project') {
+    } @else {
+      <!-- Entorno de Desarrollo: la app viva se abre en otra pestaña. -->
       <button
         type="button"
-        class="btn-primary"
+        class="btn-secondary btn-sm"
         [disabled]="isStartingLiveApp()"
         (click)="openLiveApp.emit()"
-        title="Ejecutar la entrega en un contenedor efímero y abrir la app en una pestaña nueva"
+        title="Ejecutar la entrega en un contenedor temporal y abrir la app en otra pestaña"
       >
         @if (isStartingLiveApp()) {
-          <svg lucideLoader2 class="btn-icon-sm motion-spin"></svg>
-          <span>Iniciando app...</span>
+          <svg lucideLoader2 class="btn-icon-sm motion-spin" aria-hidden="true"></svg>
+          <span>Iniciando…</span>
         } @else {
-          <svg lucideExternalLink class="btn-icon-sm"></svg>
+          <svg lucideExternalLink class="btn-icon-sm" aria-hidden="true"></svg>
           <span>Probar aplicación viva</span>
         }
       </button>
     }
 
-    <!-- Menú Desplegable: Herramientas de Análisis -->
     <div class="tools-dropdown" data-tour="review-forensic-tools">
       <button
         type="button"
-        class="btn-outline btn-tools-toggle"
+        class="btn-secondary btn-sm btn-tools-toggle"
         (click)="showToolsMenu.update(v => !v)"
-        [class.active]="showReplayPlayer() || showBenchmark() || showDiffView()"
-        title="Herramientas adicionales de inspección y auditoría"
+        [class.active]="showReplayPlayer() || showDiffView()"
+        title="Herramientas de inspección del código"
       >
-        <svg lucideSlidersHorizontal class="btn-icon-sm"></svg>
+        <svg lucideSlidersHorizontal class="btn-icon-sm" aria-hidden="true"></svg>
         <span>Herramientas</span>
-        <svg lucideChevronDown class="btn-icon-xs"></svg>
+        <svg lucideChevronDown class="btn-icon-xs" aria-hidden="true"></svg>
       </button>
 
       @if (showToolsMenu()) {
@@ -103,12 +103,10 @@
               class="dropdown-item"
               [class.active]="showDiffView()"
               (click)="toggleDiff.emit(); showToolsMenu.set(false)"
-              [title]="mode() === 'judge' ? 'Comparar código con la plantilla base (Atajo: D)' : 'Comparar el archivo con el proyecto base (Atajo: D)'"
+              [title]="mode() === 'judge' ? 'Comparar el código con la plantilla base (atajo D)' : 'Comparar el archivo con el proyecto base (atajo D)'"
             >
-              <svg lucideGitCompare class="btn-icon-sm"></svg>
-              <span>
-                {{ showDiffView() ? 'Ver Código Completo' : (mode() === 'judge' ? 'Comparar con Plantilla' : 'Comparar con Proyecto Base') }}
-              </span>
+              <svg lucideGitCompare class="btn-icon-sm" aria-hidden="true"></svg>
+              <span>{{ showDiffView() ? 'Ver código completo' : (mode() === 'judge' ? 'Comparar con plantilla' : 'Comparar con proyecto base') }}</span>
               <kbd>D</kbd>
             </button>
           }
@@ -118,10 +116,10 @@
             class="dropdown-item"
             [class.active]="showReplayPlayer()"
             (click)="toggleReplay.emit(); showToolsMenu.set(false)"
-            title="Ver evolución temporal paso a paso (Atajo: T)"
+            title="Ver la evolución temporal del código (atajo T)"
           >
-            <svg lucideHistory class="btn-icon-sm"></svg>
-            <span>Evolución Temporal del Código</span>
+            <svg lucideHistory class="btn-icon-sm" aria-hidden="true"></svg>
+            <span>Evolución temporal</span>
             <kbd>T</kbd>
           </button>
 
@@ -129,45 +127,50 @@
             type="button"
             class="dropdown-item"
             (click)="openKeystrokeReplay.emit(); showToolsMenu.set(false)"
-            title="Abrir auditoría forense de tipeo y pegados"
+            title="Abrir el registro de actividad de escritura y pegados"
           >
-            <svg lucideFilm class="btn-icon-sm"></svg>
-            <span>Auditoría de Escritura (Replay)</span>
+            <svg lucideFilm class="btn-icon-sm" aria-hidden="true"></svg>
+            <span>Auditoría de escritura</span>
           </button>
 
-          @if (mode() === 'judge') {
+          @if (mode() === 'project') {
+            <span class="dropdown-separator" role="presentation"></span>
             <button
               type="button"
               class="dropdown-item"
-              [class.active]="showBenchmark()"
-              (click)="toggleBenchmark.emit(); showToolsMenu.set(false)"
-              title="Análisis de complejidad algorítmica (Atajo: B)"
+              (click)="openOverrideModal.emit(); showToolsMenu.set(false)"
+              title="Ajuste manual excepcional de la nota (atajo A)"
             >
-              <svg lucideTrendingUp class="btn-icon-sm"></svg>
-              <span>Análisis de Complejidad Asintótica</span>
-              <kbd>B</kbd>
+              <svg lucideEdit3 class="btn-icon-sm" aria-hidden="true"></svg>
+              <span>Ajuste manual</span>
+              <kbd>A</kbd>
             </button>
           }
         </div>
       }
     </div>
 
-    <!-- En IDE la acción primaria es guardar la rúbrica; el override es la excepción. -->
+    @if (mode() === 'judge') {
+      <button
+        type="button"
+        class="btn-primary btn-sm"
+        data-tour="review-grade-action"
+        (click)="openOverrideModal.emit()"
+        title="Ajustar la calificación o el veredicto (atajo A)"
+      >
+        <span>Calificar</span>
+        <kbd>A</kbd>
+      </button>
+    }
+
     <button
       type="button"
-      [attr.data-tour]="mode() === 'judge' ? 'review-grade-action' : null"
-      [class]="mode() === 'project' ? 'btn-outline' : 'btn-primary'"
-      (click)="openOverrideModal.emit()"
-      [title]="mode() === 'project' ? 'Ajuste manual excepcional de la nota (Atajo: A)' : 'Ajustar calificación o veredicto (Atajo: A)'"
+      class="btn-ghost btn-sm btn-icon-only"
+      (click)="openShortcutsGuide.emit()"
+      title="Guía de atajos de teclado (?)"
+      aria-label="Guía de atajos de teclado"
     >
-      <svg lucideEdit3 class="btn-icon-sm"></svg>
-      <span>{{ mode() === 'project' ? 'Ajuste manual' : 'Calificar' }}</span>
-      <kbd>A</kbd>
-    </button>
-
-    <!-- Atajos de teclado -->
-    <button type="button" class="btn-icon-only" (click)="openShortcutsGuide.emit()" title="Guía de Atajos de Teclado (?)">
-      <svg lucideKeyboard class="btn-icon-sm"></svg>
+      <svg lucideKeyboard class="btn-icon-sm" aria-hidden="true"></svg>
     </button>
   </div>
 </header>

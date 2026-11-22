@@ -113,7 +113,13 @@ describe('AulaComponent — Abrir mi IDE', () => {
         { provide: ClassSessionService, useValue: sessionService },
         { provide: ClassAdvanceService, useValue: advanceService },
         { provide: TeacherDashboardService, useValue: { courses: signal([]), getCourses: () => of([]) } },
-        { provide: TeacherCourseService, useValue: { getExerciseBank: () => of([]) } },
+        {
+          provide: TeacherCourseService,
+          useValue: {
+            getExerciseBank: () => of([]),
+            getExercise: () => of({ environment_type: 'IDE_PERSISTENTE' })
+          }
+        },
         { provide: TeacherLiveService, useValue: liveService },
         { provide: TeacherEnvironmentService, useValue: environmentService }
       ]
@@ -168,13 +174,15 @@ describe('AulaComponent — Abrir mi IDE', () => {
     expect(new Date(until).getTime()).toBe(from.getTime() + 20 * 60_000);
   });
 
-  it('deshabilita la acción y explica por qué cuando el aula no tiene práctica', () => {
+  it('no ofrece IDE cuando el aula no tiene práctica asignada', () => {
     aula.set(sessionWith({ exercise_id: null, exercise_title: undefined }));
 
     fixture.detectChanges();
 
-    const button = ideButton();
-    expect(button.disabled).toBe(true);
-    expect(button.title).toBe('Abrí el aula con una práctica para usar tu IDE');
+    const labels = Array.from(
+      fixture.nativeElement.querySelectorAll('button') as NodeListOf<HTMLButtonElement>,
+      button => button.textContent ?? ''
+    );
+    expect(labels.some(label => label.includes('Abrir mi IDE'))).toBe(false);
   });
 });

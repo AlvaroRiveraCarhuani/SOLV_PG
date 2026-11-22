@@ -17,9 +17,8 @@ const SUBJECT: TeacherOverviewSubject = {
 describe('SubjectCardComponent', () => {
   let fixture: ComponentFixture<SubjectCardComponent>;
 
-  function render(subject: Partial<TeacherOverviewSubject>, openSessionSubjectId: string | null = null): void {
+  function render(subject: Partial<TeacherOverviewSubject>): void {
     fixture.componentRef.setInput('subject', { ...SUBJECT, ...subject });
-    fixture.componentRef.setInput('openSessionSubjectId', openSessionSubjectId);
     fixture.detectChanges();
   }
 
@@ -34,41 +33,36 @@ describe('SubjectCardComponent', () => {
 
   afterEach(() => fixture.destroy());
 
-  it('sin cola ni aula no lleva acciones y dice que está al día', () => {
+  it('sin cola no ofrece calificar y deja abrir el curso', () => {
     render({});
 
-    expect(fixture.nativeElement.querySelectorAll('.action').length).toBe(0);
-    expect(fixture.nativeElement.querySelector('.figure-clear')).not.toBeNull();
+    expect(fixture.nativeElement.querySelector('.card-pending')).toBeNull();
+    expect(fixture.nativeElement.textContent).not.toContain('Calificar');
+    expect(fixture.nativeElement.querySelector('.card-open')?.textContent).toContain('Abrir curso');
   });
 
-  function actionLabels(): Array<string | undefined> {
-    const actions = fixture.nativeElement.querySelectorAll('.action') as NodeListOf<HTMLElement>;
-    return Array.from(actions, action => action.textContent?.trim());
-  }
-
-  it('con cola ofrece calificar y abrir el aula de esa materia', () => {
+  it('con cola muestra pendientes y envía a la cola filtrada por materia', () => {
     render({ pending_review: 15 });
 
-    expect(actionLabels()).toEqual(['Calificar', 'Abrir aula']);
-  });
-
-  it('con el aula abierta en esa materia cambia la acción a ir al aula', () => {
-    render({ pending_review: 15 }, 's1');
-
-    expect(actionLabels()).toEqual(['Calificar', 'Ir al aula']);
+    const action = fixture.nativeElement.querySelector('a[href*="/teacher/por-calificar"]') as HTMLAnchorElement;
+    expect(fixture.nativeElement.querySelector('.card-pending')?.textContent).toContain('15');
+    expect(action.textContent).toContain('Calificar');
+    expect(action.getAttribute('href')).toContain('subject_id=s1');
   });
 
   it('omite la cifra de faltantes cuando el servidor no la calcula', () => {
     render({ without_submission: null });
 
     expect(fixture.nativeElement.textContent).not.toContain('sin entregar');
+    expect(fixture.nativeElement.querySelector('.delivery')).toBeNull();
   });
 
-  it('no afirma estar al día cuando hay alumnos sin entregar', () => {
-    render({ pending_review: 0, without_submission: 2 });
+  it('dibuja el avance de entregas cuando hay faltantes', () => {
+    render({ without_submission: 2 });
 
-    expect(fixture.nativeElement.querySelector('.figure-clear')).toBeNull();
+    expect(fixture.nativeElement.textContent).toContain('2');
     expect(fixture.nativeElement.textContent).toContain('sin entregar');
+    expect(fixture.nativeElement.querySelector('.delivery-value')?.textContent).toContain('93');
   });
 
   it('nombra la práctica que vence junto a su fecha', () => {

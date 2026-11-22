@@ -73,23 +73,23 @@
 
 .grader-body {
   display: grid;
-  grid-template-columns: 1.4fr 1fr;
-  gap: var(--space-4);
+  grid-template-columns: minmax(0, 1fr) minmax(320px, 380px);
+  gap: 0;
   flex: 1;
   min-height: 0;
 }
 
 /* IDE: código flexible y rúbrica fija; sin archivos reconocibles no hay árbol. */
 .grader-body-project {
-  grid-template-columns: minmax(0, 1fr) minmax(360px, 420px);
+  grid-template-columns: minmax(0, 1fr) minmax(320px, 380px);
 }
 
 .grader-body-tree {
-  grid-template-columns: minmax(220px, 260px) minmax(0, 1fr) minmax(360px, 420px);
+  grid-template-columns: minmax(220px, 260px) minmax(0, 1fr) minmax(320px, 380px);
 }
 
 .grader-body-tree-collapsed {
-  grid-template-columns: 44px minmax(0, 1fr) minmax(360px, 420px);
+  grid-template-columns: 44px minmax(0, 1fr) minmax(320px, 380px);
 }
 
 .tree-rail {
@@ -116,7 +116,7 @@
 
 @media (max-width: 1280px) {
   .grader-body-tree {
-    grid-template-columns: minmax(200px, 220px) minmax(0, 1fr) minmax(340px, 380px);
+    grid-template-columns: minmax(200px, 220px) minmax(0, 1fr) minmax(320px, 360px);
   }
 }
 

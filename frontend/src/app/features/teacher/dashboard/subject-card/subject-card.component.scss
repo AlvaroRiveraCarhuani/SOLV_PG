@@ -1,100 +1,62 @@
 :host {
   display: block;
-  height: 100%;
 }
 
 .subject-card {
-  position: relative;
   display: flex;
   flex-direction: column;
-  gap: var(--space-2);
-  height: 100%;
-  padding: var(--space-4);
+  gap: var(--space-1);
+  padding: 14px var(--space-4);
   background-color: var(--bg-surface);
   border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-lg);
-  transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
-
-  /* Filete del tenant: da identidad a la tarjeta sin un color por materia. */
-  &::before {
-    content: '';
-    position: absolute;
-    inset: 0 auto 0 0;
-    width: 3px;
-    background-color: var(--tenant-primary);
-    border-radius: var(--radius-lg) 0 0 var(--radius-lg);
-  }
-
-  &:hover {
-    border-color: var(--border-strong);
-  }
-
-  &:focus-within {
-    border-color: var(--tenant-primary);
-    box-shadow: var(--shadow-card);
-  }
+  border-radius: var(--radius-md);
+  min-width: 0;
 }
 
 .card-head {
   display: flex;
-  align-items: flex-start;
-  gap: var(--space-3);
-}
-
-.card-icon {
-  display: inline-flex;
-  flex: 0 0 36px;
   align-items: center;
-  justify-content: center;
-  width: 36px;
-  height: 36px;
-  background-color: var(--tenant-primary-subtle);
-  border: 1px solid var(--tenant-primary-subtle);
-  border-radius: var(--radius-md);
-  color: var(--tenant-primary);
-
-  svg {
-    width: var(--space-4);
-    height: var(--space-4);
-  }
-}
-
-.card-identity {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  min-width: 0;
+  justify-content: space-between;
+  gap: var(--space-2);
 }
 
 .card-code {
-  font-size: var(--text-xs);
-  font-weight: 500;
+  font-size: var(--text-2xs);
   color: var(--text-muted);
-  letter-spacing: 0.04em;
+}
+
+.card-pending {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  font-size: var(--text-2xs);
+  font-weight: 600;
+  color: var(--status-pending-color);
+  white-space: nowrap;
+}
+
+.pending-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: var(--radius-full);
+  background-color: var(--status-pending-color);
 }
 
 .card-name {
   margin: 0;
-  font-size: var(--text-base);
+  font-size: var(--text-sm);
   font-weight: 600;
-  line-height: var(--leading-tight);
-  color: var(--text-primary);
+  line-height: var(--leading-snug);
 }
 
-/* El enlace cubre la tarjeta: un solo tab stop y la materia entera como destino. */
 .card-link {
-  display: -webkit-box;
-  overflow: hidden;
-  color: inherit;
+  color: var(--text-primary);
   text-decoration: none;
-  -webkit-box-orient: vertical;
-  -webkit-line-clamp: 2;
 
-  &::after {
-    content: '';
-    position: absolute;
-    inset: 0;
-    border-radius: var(--radius-lg);
+  &:hover {
+    color: var(--text-primary);
+    text-decoration: underline;
+    text-underline-offset: 2px;
   }
 
   &:focus-visible {
@@ -103,105 +65,83 @@
   }
 }
 
-.card-figures {
+.card-counts {
+  margin: 0;
   display: flex;
   flex-wrap: wrap;
-  align-items: baseline;
-  gap: var(--space-1) var(--space-3);
-  margin: 0;
+  gap: var(--space-1);
   font-size: var(--text-xs);
   color: var(--text-secondary);
 }
 
-.figure {
-  display: inline-flex;
-  align-items: baseline;
-  gap: var(--space-1);
-
-  strong {
-    font-weight: 600;
-    color: var(--text-primary);
-  }
+.delivery {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin-top: var(--space-1);
 }
 
-.figure-queue {
-  padding: 1px var(--space-2);
-  background-color: var(--status-pending-bg);
-  border: 1px solid var(--status-pending-border);
-  border-radius: var(--radius-full);
-  color: var(--status-pending-color);
-
-  strong {
-    color: var(--status-pending-color);
-  }
+.delivery-bar {
+  flex: 1;
+  height: 4px;
+  border-radius: 2px;
+  background-color: var(--bg-surface-active);
+  overflow: hidden;
 }
 
-.figure-clear {
-  padding: 1px var(--space-2);
-  background-color: var(--status-running-bg);
-  border: 1px solid var(--status-running-border);
-  border-radius: var(--radius-full);
-  font-weight: 600;
-  color: var(--color-success-dark);
+.delivery-fill {
+  display: block;
+  height: 100%;
+  background-color: var(--tenant-primary);
+}
+
+.delivery-value {
+  font-size: var(--text-2xs);
+  color: var(--text-muted);
+  white-space: nowrap;
 }
 
 .card-due {
+  margin: var(--space-1) 0 0;
   display: flex;
   flex-wrap: wrap;
   align-items: baseline;
   gap: var(--space-1);
-  margin: 0;
   font-size: var(--text-xs);
+  color: var(--text-muted);
+}
+
+.due-date {
   color: var(--text-secondary);
 }
 
 .due-practice {
   overflow: hidden;
-  max-width: 100%;
-  color: var(--text-primary);
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.card-actions {
-  position: relative;
-  z-index: 1;
+.card-footer {
   display: flex;
-  justify-content: flex-end;
+  align-items: center;
+  justify-content: space-between;
   gap: var(--space-2);
-  margin-top: auto;
-  padding-top: var(--space-1);
+  margin-top: var(--space-2);
+  padding-top: 10px;
+  border-top: 1px solid var(--border-subtle);
 }
 
-.action {
-  padding: var(--space-1) var(--space-3);
-  background-color: var(--bg-surface);
-  border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-sm);
+.card-footer .btn-ghost {
+  height: 26px;
   font-size: var(--text-xs);
-  font-weight: 600;
-  color: var(--text-primary);
-  text-decoration: none;
-  transition: border-color var(--transition-fast), color var(--transition-fast);
-
-  &:hover {
-    border-color: var(--tenant-primary);
-    color: var(--tenant-primary);
-  }
-
-  &:focus-visible {
-    outline: 2px solid var(--border-focus);
-    outline-offset: 2px;
-  }
+  padding: 0 var(--space-1);
 }
 
-.action-primary {
-  background-color: var(--tenant-primary);
-  border-color: var(--tenant-primary);
-  color: var(--text-inverse);
+.card-open {
+  white-space: nowrap;
+}
 
-  &:hover {
-    color: var(--text-inverse);
-    opacity: 0.94;
-  }
+.open-arrow {
+  width: 12px;
+  height: 12px;
 }

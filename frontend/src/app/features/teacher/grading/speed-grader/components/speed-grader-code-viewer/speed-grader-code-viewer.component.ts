@@ -1,4 +1,4 @@
-import { Component, computed, input, output } from '@angular/core';
+import { Component, ElementRef, computed, input, output, viewChild } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { DateTextPipe } from '@shared/pipes/date-text.pipe';
@@ -6,6 +6,7 @@ import { MachineDataDirective } from '@shared/directives/machine-data.directive'
 import { CodeEditorComponent } from '@shared/components/code-editor/code-editor.component';
 import { TimeTravelReplayComponent } from '@shared/components/time-travel-replay/time-travel-replay.component';
 import { CodeDiffViewerComponent } from '@shared/components/code-diff-viewer/code-diff-viewer.component';
+import { LucideMessageSquare } from '@lucide/angular';
 import {
   BenchmarkReport,
   ProjectFile,
@@ -30,7 +31,8 @@ import {
     MachineDataDirective,
     CodeEditorComponent,
     CodeDiffViewerComponent,
-    TimeTravelReplayComponent
+    TimeTravelReplayComponent,
+    LucideMessageSquare
   ],
   templateUrl: './speed-grader-code-viewer.component.html',
   styleUrl: './speed-grader-code-viewer.component.scss'
@@ -145,6 +147,13 @@ export class SpeedGraderCodeViewerComponent {
     if (target === null) return null;
     return file ? localToGlobalLine(file, target) : target;
   });
+
+  private readonly commentsAnchor = viewChild<ElementRef<HTMLElement>>('commentsAnchor');
+
+  /** Lleva el foco visual al hilo de comentarios del archivo abierto. */
+  scrollToComments(): void {
+    this.commentsAnchor()?.nativeElement.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
 
   readonly displayedComments = computed(() => {
     const file = this.activeFile();

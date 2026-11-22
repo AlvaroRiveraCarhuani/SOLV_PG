@@ -32,50 +32,50 @@ export function buildSpeedGraderTour(mode: ReviewMode, hasRubric: boolean): Tour
         selector: '[data-tour="review-header-nav"]',
         title: 'Navegación e Identidad de la Entrega',
         description:
-          'Identificá al estudiante, la práctica y la modalidad. Utilizá las flechas o los atajos J (siguiente) y K (anterior) para recorrer las entregas de tus alumnos con fluidez.',
+          'Identifique al estudiante, la práctica y la modalidad. Utilice las flechas o los atajos J (siguiente) y K (anterior) para recorrer las entregas de sus alumnos con fluidez.',
         side: 'bottom'
       },
       {
         selector: '[data-tour="review-code-viewer"]',
         title: 'Inspección de Código y Comentarios',
         description:
-          'Examiná el código enviado por el alumno. Podés hacer clic en cualquier número de línea (o presionar C) para dejar una retroalimentación puntual sobre esa parte del código.',
+          'Examine el código enviado por el alumno. Puede hacer clic en cualquier número de línea (o presionar C) para dejar una observación puntual sobre esa parte del código.',
         side: 'right'
       },
       {
         selector: '[data-tour="review-diff-tool"]',
         title: 'Comparador con la Base',
         description:
-          'Alterná la vista de diferencias (atajo D) para contrastar el código del estudiante contra la plantilla inicial o los archivos base del proyecto, identificando qué cambió con claridad.',
+          'Alterne la vista de diferencias (atajo D) para contrastar el código del estudiante con la plantilla inicial o los archivos base del proyecto e identificar qué cambió.',
         side: 'bottom'
       },
       {
         selector: '[data-tour="review-eval-panel"]',
         title: isJudge
-          ? 'Resultados del Juez y Casos de Prueba'
+          ? 'Resultados de la evaluación y casos de prueba'
           : hasRubric
-            ? 'Evaluación por Rúbrica Ponderada'
-            : 'Calificación Directa y Devolución',
+            ? 'Evaluación por rúbrica'
+            : 'Nota directa y devolución',
         description: isJudge
-          ? 'Observá el veredicto pedagógico («Cumple», «No cumple», etc.), el tiempo de ejecución y los casos de prueba ejecutados con sus entradas y salidas esperadas.'
+          ? 'Observe el veredicto humanizado, el tiempo de ejecución y los casos de prueba con sus entradas y salidas esperadas.'
           : hasRubric
-            ? 'Seleccioná el nivel de desempeño alcanzado en cada criterio. El sistema calcula el puntaje ponderado automáticamente en tiempo real.'
-            : 'Ingresá la calificación numérica (0 a 100 pts) y redactá tu retroalimentación general para la entrega de forma directa.',
+            ? 'Seleccione el nivel alcanzado en cada criterio. El sistema calcula la calificación ponderada en tiempo real.'
+            : 'Ingrese la calificación numérica (0 a 100) y redacte su retroalimentación general para la entrega.',
         side: 'left'
       },
       {
         selector: '[data-tour="review-forensic-tools"]',
-        title: 'Herramientas Forenses y Evolución',
+        title: 'Herramientas de inspección y evolución temporal',
         description:
-          'En el menú «Herramientas» podés activar la Evolución Temporal (atajo T) para ver cómo fue creciendo el código paso a paso, o abrir la Auditoría de Escritura para inspeccionar la cadencia de tipeo.',
+          'En el menú «Herramientas» puede activar la Evolución temporal (atajo T) para ver cómo creció el código paso a paso, o abrir la Auditoría de escritura para revisar la actividad de tipeo.',
         side: 'bottom'
       },
       {
         selector: '[data-tour="review-grade-action"]',
-        title: isJudge ? 'Convalidar o Ajustar Nota' : 'Guardar Calificación',
+        title: isJudge ? 'Convalidar o ajustar la nota' : 'Guardar Calificación',
         description: isJudge
-          ? 'Pulsá «Calificar» (o atajo A) para abrir el modal de ajuste manual si necesitás convalidar un caso especial, corregir un veredicto o ingresar una nota personalizada.'
-          : 'Confirmá la nota asignada y tu devolución pulsando «Guardar Calificación». El resultado queda registrado en la libreta de la materia de forma inmediata.',
+          ? 'Pulse «Calificar» (atajo A) para abrir el ajuste manual si necesita corregir un veredicto o registrar una nota personalizada.'
+          : 'Confirme la nota y su devolución con «Guardar Calificación». El resultado queda registrado en la libreta de la materia.',
         side: 'left'
       }
     ]
@@ -97,24 +97,24 @@ export function buildSpeedGraderTutorial(
         id: 'inspect-code',
         title: '1. Inspeccionar el código',
         body:
-          'Revisá el código fuente del estudiante en el visor central. Podés explorar los archivos del proyecto o pulsar sobre una línea para insertar un comentario puntual con el atajo C.',
+          'Revise el código fuente del estudiante en el visor central. Puede explorar los archivos del proyecto o pulsar sobre una línea para insertar un comentario puntual con el atajo C.',
         selector: '[data-tour="review-code-viewer"]',
         side: 'right',
         check: {
           isComplete: () => context.hasCodeLoaded(),
-          pendingHint: 'Esperá a que cargue el código de la entrega.'
+          pendingHint: 'Espere a que cargue el código de la entrega.'
         }
       },
       {
         id: 'check-diff',
         title: '2. Contrastar con la base',
         body:
-          'Pulsá la tecla D o hacé clic en «Herramientas > Comparar» para contrastar las modificaciones del estudiante respecto al código inicial de la cátedra.',
+          'Pulse la tecla D o haga clic en «Herramientas > Comparar» para contrastar las modificaciones del estudiante con el código inicial de la cátedra.',
         selector: '[data-tour="review-diff-tool"]',
         side: 'bottom',
         check: {
           isComplete: () => context.isDiffActive() || context.hasCodeLoaded(),
-          pendingHint: 'Probá activar el visor de diferencias con la tecla D.'
+          pendingHint: 'Pruebe activar el visor de diferencias con la tecla D.'
         }
       },
       {
@@ -122,8 +122,8 @@ export function buildSpeedGraderTutorial(
         title: '3. Evaluar el desempeño',
         body:
           context.mode() === 'judge'
-            ? 'Examiná el veredicto pedagógico y los casos de prueba ejecutados en el panel derecho. Si encontrás discrepancias, podés rectificar la nota con el atajo A.'
-            : 'Completá los criterios de la rúbrica o ingresá la nota directa junto con tus comentarios pedagógicos en el panel lateral.',
+            ? 'Examine el veredicto y los casos de prueba del panel derecho. Si encuentra discrepancias, puede rectificar la nota con el atajo A.'
+            : 'Complete los criterios de la rúbrica o ingrese la nota directa junto con sus comentarios en el panel lateral.',
         selector: '[data-tour="review-eval-panel"]',
         side: 'left',
         check: {
@@ -135,12 +135,12 @@ export function buildSpeedGraderTutorial(
         id: 'finalize-grade',
         title: '4. Asentar la calificación',
         body:
-          'Guardá la nota asignada para que quede registrada en la libreta de la materia. Si estás en modo de evaluación, podés aplicar el ajuste manual si fue necesario.',
+          'Guarde la nota asignada para que quede registrada en la libreta de la materia. En Entorno de Evaluación puede aplicar el ajuste manual si fue necesario.',
         selector: '[data-tour="review-grade-action"]',
         side: 'left',
         check: {
           isComplete: () => context.isGraded(),
-          pendingHint: 'Pulsá el botón para guardar o convalidar la calificación.'
+          pendingHint: 'Pulse el botón para guardar o convalidar la calificación.'
         }
       }
     ]

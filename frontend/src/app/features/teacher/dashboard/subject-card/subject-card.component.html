@@ -1,76 +1,64 @@
 <article class="subject-card">
   <header class="card-head">
-    <span class="card-icon" aria-hidden="true">
-      <svg lucideBookOpen></svg>
-    </span>
-
-    <div class="card-identity">
-      <code class="card-code">{{ subject().code }}</code>
-
-      <h2 class="card-name">
-        <a
-          class="card-link"
-          [routerLink]="subjectLink()"
-          [attr.title]="subject().name"
-          [attr.aria-label]="linkLabel()"
-        >{{ subject().name }}</a>
-      </h2>
-    </div>
+    <code class="card-code font-mono">{{ subject().code }}</code>
+    @if (hasQueue()) {
+      <span class="card-pending">
+        <span class="pending-dot" aria-hidden="true"></span>
+        <span machineData>{{ subject().pending_review }}</span> por calificar
+      </span>
+    }
   </header>
 
-  <p class="card-figures">
-    @if (subject().enrolled > 0) {
-      <span class="figure">
-        <strong machineData>{{ subject().enrolled }}</strong>
-        {{ subject().enrolled === 1 ? 'inscrito' : 'inscritos' }}
-      </span>
-    }
-    @if (hasQueue()) {
-      <span class="figure figure-queue">
-        <strong machineData>{{ subject().pending_review }}</strong> por calificar
-      </span>
-    }
+  <h2 class="card-name">
+    <a
+      class="card-link"
+      [routerLink]="subjectLink()"
+      [attr.title]="subject().name"
+      [attr.aria-label]="linkLabel()"
+    >{{ subject().name }}</a>
+  </h2>
+
+  <p class="card-counts">
+    <span><span machineData>{{ subject().enrolled }}</span> inscritos</span>
     @if (hasMissing()) {
-      <span class="figure">
-        <strong machineData>{{ subject().without_submission }}</strong> sin entregar
-      </span>
-    }
-    @if (isClear()) {
-      <span class="figure figure-clear">Al día</span>
+      <span aria-hidden="true">·</span>
+      <span><span machineData>{{ subject().without_submission }}</span> sin entregar</span>
     }
   </p>
 
+  @if (hasDeliveryData()) {
+    <div class="delivery">
+      <span class="delivery-bar" aria-hidden="true">
+        <span class="delivery-fill" [style.width.%]="deliveryPercent()"></span>
+      </span>
+      <span class="delivery-value font-mono"><span machineData>{{ deliveryPercent() }}</span> % entregado</span>
+    </div>
+  }
+
   @if (subject().next_due_at; as dueAt) {
     <p class="card-due">
-      <span>Vence</span>
-      <time class="due-date" [attr.datetime]="dueAt">{{ dueAt | dateText:'daymonth' }}</time>
+      Cierre
+      <time class="due-date font-mono" [attr.datetime]="dueAt">{{ dueAt | dateText:'daymonth' }}</time>
       @if (subject().next_due_title) {
-        <span class="due-sep" aria-hidden="true">·</span>
+        <span aria-hidden="true">·</span>
         <span class="due-practice">{{ subject().next_due_title }}</span>
       }
     </p>
   }
 
-  @if (showGradeAction() || showAulaAction()) {
-    <div class="card-actions">
-      @if (showGradeAction()) {
-        <a
-          class="action action-primary"
-          [routerLink]="['/teacher/por-calificar']"
-          [queryParams]="{ subject_id: subject().id }"
-        >Calificar</a>
-      }
-      @if (showAulaAction()) {
-        @if (hasAula()) {
-          <a class="action" [routerLink]="['/teacher/aula']">Ir al aula</a>
-        } @else {
-          <a
-            class="action"
-            [routerLink]="['/teacher/aula']"
-            [queryParams]="{ subject_id: subject().id }"
-          >Abrir aula</a>
-        }
-      }
-    </div>
-  }
+  <footer class="card-footer">
+    @if (hasQueue()) {
+      <a
+        class="btn-ghost btn-sm"
+        [routerLink]="['/teacher/por-calificar']"
+        [queryParams]="{ subject_id: subject().id }"
+      >Calificar (<span machineData>{{ subject().pending_review }}</span>)</a>
+    } @else {
+      <span></span>
+    }
+    <a class="btn-ghost btn-sm card-open" [routerLink]="subjectLink()">
+      Abrir curso
+      <svg lucideArrowRight class="open-arrow" aria-hidden="true"></svg>
+    </a>
+  </footer>
 </article>

@@ -5,11 +5,14 @@ import { ActivatedRoute } from '@angular/router';
 import {
   LucideAlertTriangle,
   LucideCheckCircle2,
+  LucideChevronDown,
+  LucideHistory,
   LucideLaptop,
   LucideLoader2,
   LucideLock,
   LucideLockOpen,
   LucideMoreHorizontal,
+  LucidePanelRightOpen,
   LucideRotateCcw,
   LucideSend,
   LucidePause,
@@ -21,11 +24,13 @@ import { MachineDataDirective } from '@shared/directives/machine-data.directive'
 import { DismissibleDirective } from '@shared/directives/dismissible.directive';
 import { ComboboxComponent, ComboboxOption } from '@shared/components/combobox/combobox.component';
 import { SearchBarComponent } from '@shared/components/search-bar/search-bar.component';
-import { StatusTabItem, StatusTabsComponent } from '@shared/components/status-tabs/status-tabs.component';
+import { SemanticBadgeComponent } from '@shared/components/semantic-badge/semantic-badge.component';
+import { DrawerComponent } from '@shared/components/drawer/drawer.component';
 import { VerdictBadgeComponent } from '@shared/components/verdict-badge/verdict-badge.component';
 import { SortHeaderComponent } from '@shared/components/sort-header/sort-header.component';
 import { SortDirection, SortState } from '@shared/components/sort-header/sort-header.types';
 import { ConfirmModalComponent } from '@shared/components/confirm-modal/confirm-modal.component';
+import { getVerdictOutcome } from '@core/models/verdict.model';
 
 import { ClassSessionService } from '../services/class-session.service';
 import { ClassAdvanceService } from '../services/class-advance.service';
@@ -43,7 +48,13 @@ import { AdvanceRecipientsModalComponent } from './advance-recipients-modal/adva
 import { ClassHistoryComponent } from './class-history/class-history.component';
 import { UnfreezeStudentModalComponent } from './unfreeze-student-modal/unfreeze-student-modal.component';
 
-const REFRESH_MS = 5000;
+/**
+ * El tablero se relee cada minuto y el pie muestra la hora del último refresco.
+ * Sin segundero: el aula se mira por excepción, no por cronómetro.
+ */
+const REFRESH_MS = 60_000;
+/** El reloj de la sesión sí avanza cada segundo; no dispara peticiones. */
+const CLOCK_MS = 1_000;
 
 /** Duraciones de clase que el docente elige al abrir. Al vencer, el aula se cierra sola. */
 const DURATION_OPTIONS: ComboboxOption[] = [
@@ -65,12 +76,28 @@ const MIN_GRACE_MINUTES = 1;
 const MAX_GRACE_MINUTES = 480;
 
 const STATE_LABELS: Record<ClassSessionStudentState, string> = {
-  trabajando: 'Trabajando',
+  trabajando: 'En aula',
   entregado: 'Entregó',
   trabado: 'Se trabó',
   sin_empezar: 'Sin empezar',
   ausente: 'Salió'
 };
+
+const RECIPIENT_STATUS_LABELS: Record<string, string> = {
+  applied: 'Aplicó',
+  pending: 'Pendiente',
+  dismissed: 'Descartó',
+  failed: 'Falló',
+  expired: 'Venció'
+};
+
+/** Pestaña de filtro por estado del tablero. */
+interface StatusTabItem {
+  id: string;
+  label: string;
+  count: number;
+  badgeVariant?: 'default' | 'error';
+}
 
 /**
  * Pantalla "Aula": responde "¿quién está, quién falta y quién se trabó?" mientras
@@ -86,7 +113,6 @@ const STATE_LABELS: Record<ClassSessionStudentState, string> = {
   imports: [
     CommonModule,
     FormsModule,
-    LucideAlertTriangle,
     LucideCheckCircle2,
     LucideLaptop,
     LucideLoader2,
@@ -102,8 +128,8 @@ const STATE_LABELS: Record<ClassSessionStudentState, string> = {
     DismissibleDirective,
     ComboboxComponent,
     SearchBarComponent,
-    StatusTabsComponent,
-    VerdictBadgeComponent,
+    SemanticBadgeComponent,
+    DrawerComponent,
     SortHeaderComponent,
     ClassAdvanceModalComponent,
     AdvanceRecipientsModalComponent,
@@ -165,8 +191,16 @@ export class AulaComponent implements OnInit, OnDestroy {
   readonly ideError = signal<string | null>(null);
   /** Menú del cierre: la acción que no se usa en caliente no ocupa un botón fijo. */
   readonly isMenuOpen = signal<boolean>(false);
+  readonly isHistoryOpen = signal<boolean>(false);
+  /** Hora del último refresco del tablero, mostrada en el pie. */
+  readonly updatedAt = signal<string | null>(null);
+  /** Tic del reloj de la sesión; separado de las peticiones al servidor. */
+  readonly nowTick = signal<number>(Date.now());
+  /** Modalidad de la práctica del aula; hasta conocerla no se ofrecen acciones. */
+  readonly sessionEnvironmentType = signal<string | null>(null);
 
   private refreshTimer?: ReturnType<typeof setInterval>;
+  private clockTimer?: ReturnType<typeof setInterval>;
   /** Práctica pedida por URL: se aplica cuando llegan las opciones de su materia. */
   private pendingExerciseId = '';
 
@@ -299,6 +333,72 @@ export class AulaComponent implements OnInit, OnDestroy {
       value: subject.id
     }))
   );
+
+  /** Duraciones en botones rápidos: la duración no se esconde en un selector. */
+  readonly durationChoices = [
+    { minutes: 60, label: '1 h' },
+    { minutes: 90, label: '1 h 30 m' },
+    { minutes: 120, label: '2 h' },
+    { minutes: 180, label: '3 h' }
+  ] as const;
+
+  readonly hasPractice = computed(() => !!this.session()?.exercise_id);
+
+  readonly isJudgeSession = computed(() => this.sessionEnvironmentType() === 'JUEZ_EFIMERO');
+
+  /** Abrir el IDE solo tiene sentido en Entorno de Desarrollo con práctica. */
+  readonly showIdeAction = computed(
+    () => this.hasPractice() && this.sessionEnvironmentType() === 'IDE_PERSISTENTE'
+  );
+
+  /** En examen la emisión está bloqueada; en Evaluación no existe. */
+  readonly showEmitAction = computed(() => this.showIdeAction() && !this.isExamSession());
+
+  /** En examen el IDE es la acción principal; en clase lo es Emitir avance. */
+  readonly ideIsPrimary = computed(() => this.showIdeAction() && this.isExamSession());
+
+  /**
+   * La columna de avances solo existe donde aplican emisiones. En examen,
+   * Evaluación o sin práctica el tablero ocupa todo el ancho y el historial
+   * vive en el cajón lateral.
+   */
+  readonly showAdvancesColumn = computed(() =>
+    this.hasPractice() && this.sessionEnvironmentType() === 'IDE_PERSISTENTE' && !this.isExamSession()
+  );
+
+  readonly remainingLabel = computed(() => {
+    const aula = this.session();
+    if (!aula) {
+      return '—';
+    }
+    const remaining = Math.max(0, new Date(aula.ends_at).getTime() - this.nowTick());
+    const totalSeconds = Math.floor(remaining / 1000);
+    const hours = Math.floor(totalSeconds / 3600);
+    const minutes = Math.floor((totalSeconds % 3600) / 60);
+    const seconds = totalSeconds % 60;
+    const pad = (value: number) => (value < 10 ? `0${value}` : `${value}`);
+    return `${pad(hours)}:${pad(minutes)}:${pad(seconds)}`;
+  });
+
+  /** Estados con conteos excluyentes: la suma es el total de la lista. */
+  readonly stateFilterOptions = computed(() => {
+    const s = this.summary();
+    const total = (this.board()?.students ?? []).length;
+    const options = [
+      { id: 'todos', label: 'Todos los estados', count: total },
+      { id: 'trabajando', label: 'En aula', count: s.working },
+      { id: 'trabado', label: 'Se trabó', count: s.stuck },
+      ...(this.hasPractice() ? [{ id: 'entregado', label: 'Entregaron', count: s.submitted }] : []),
+      { id: 'ausente', label: 'Salió', count: s.absent },
+      { id: 'sin_empezar', label: 'Sin empezar', count: s.not_started }
+    ];
+    return options;
+  });
+
+  readonly activeStateLabel = computed(() => {
+    const active = this.activeTab();
+    return this.stateFilterOptions().find(option => option.id === active)?.label ?? 'Todos los estados';
+  });
 
   ngOnInit(): void {
     this.loadCurrentAula();
@@ -449,7 +549,10 @@ export class AulaComponent implements OnInit, OnDestroy {
   refreshBoard(): void {
     const aula = this.session();
     if (aula) {
-      this.sessionService.loadBoard(aula.id).subscribe({ error: () => undefined });
+      this.sessionService.loadBoard(aula.id).subscribe({
+        next: () => this.updatedAt.set(new Date().toISOString()),
+        error: () => undefined
+      });
     }
   }
 
@@ -472,6 +575,71 @@ export class AulaComponent implements OnInit, OnDestroy {
     return STATE_LABELS[state] ?? state;
   }
 
+  /** Clase del semáforo; el estado llega con guion bajo desde el backend. */
+  stateClass(state: ClassSessionStudentState): string {
+    return `state state-${state.replace(/_/g, '-')}`;
+  }
+
+  /** Veredicto humanizado; la sigla del juez no se muestra. */
+  verdictLabel(verdict: string | null): string {
+    return getVerdictOutcome(verdict).label;
+  }
+
+  recipientStatusLabel(status: string): string {
+    return RECIPIENT_STATUS_LABELS[status] ?? status;
+  }
+
+  /**
+   * Origen de la emisión. Hoy la única vía de emisión es esta consola web; el
+   * modelo de avances todavía no registra un origen distinto por emisión.
+   */
+  advanceOrigin(_advance: SessionAdvance): string {
+    return 'Web';
+  }
+
+  /** Adopción de una emisión: aplicadas sobre el total de destinatarios. */
+  advanceAdoption(advance: SessionAdvance): number {
+    const total = advance.counts.total || 0;
+    if (total === 0) {
+      return 0;
+    }
+    return Math.min(100, Math.round((advance.counts.applied / total) * 100));
+  }
+
+  onDurationSelect(minutes: number): void {
+    this.selectedDuration.set(String(minutes));
+  }
+
+  isDurationSelected(minutes: number): boolean {
+    return Number(this.selectedDuration()) === minutes;
+  }
+
+  /** Reabre la última combinación de materia y práctica en un clic. */
+  reopenLastConfiguration(): void {
+    const closed = this.lastClosedSession();
+    if (!closed) {
+      return;
+    }
+    this.pendingExerciseId = closed.exercise_id ?? '';
+    this.onSubjectChange(closed.subject_id);
+    this.selectedDuration.set(DEFAULT_DURATION);
+  }
+
+  openHistoryDrawer(): void {
+    this.refreshHistory();
+    this.isHistoryOpen.set(true);
+  }
+
+  closeHistoryDrawer(): void {
+    this.isHistoryOpen.set(false);
+  }
+
+  /** Suma rápida de minutos a la ventana de avances del aula cerrada. */
+  addGraceMinutes(minutes: number): void {
+    this.graceMinutes.set(minutes);
+    this.addGrace();
+  }
+
   /**
    * Emitir exige el aula abierta, sin pausa y no ser examen: en exámenes la emisión está bloqueada.
    */
@@ -484,13 +652,21 @@ export class AulaComponent implements OnInit, OnDestroy {
     this.stopRefresh();
     this.historySession.set(session);
     this.refreshHistory();
-    this.sessionService.loadBoard(session.id).subscribe({ error: () => undefined });
+    this.loadSessionEnvironment(session);
+    this.sessionService.loadBoard(session.id).subscribe({
+      next: () => this.updatedAt.set(new Date().toISOString()),
+      error: () => undefined
+    });
     // La emisión elige entre las prácticas publicadas de la materia del aula.
     this.loadPractices(session.subject_id);
     this.advanceService.clearNotice();
     this.refreshAdvances();
 
-    // Una clase se mira cada 5 segundos: es el ritmo de la presencialidad.
+    // El reloj corre por su cuenta: informa el tiempo restante sin pedir datos.
+    this.nowTick.set(Date.now());
+    this.clockTimer = setInterval(() => this.nowTick.set(Date.now()), CLOCK_MS);
+
+    // El tablero se relee cada minuto; el pie muestra la hora del último refresco.
     this.refreshTimer = setInterval(() => {
       if (typeof document !== 'undefined' && document.hidden) {
         return;
@@ -499,6 +675,7 @@ export class AulaComponent implements OnInit, OnDestroy {
         // Al vencer la hora de fin, el servidor devuelve la sesión cerrada y la
         // pantalla deja el modo en vivo sin esperar a que el docente cierre.
         next: () => {
+          this.updatedAt.set(new Date().toISOString());
           if (!this.sessionService.session()) {
             this.onAulaEnded();
           }
@@ -506,6 +683,18 @@ export class AulaComponent implements OnInit, OnDestroy {
         error: () => undefined
       });
     }, REFRESH_MS);
+  }
+
+  /** La modalidad de la práctica decide las acciones de la cabecera. */
+  private loadSessionEnvironment(session: ClassSession): void {
+    this.sessionEnvironmentType.set(null);
+    if (!session.exercise_id) {
+      return;
+    }
+    this.courseService.getExercise(session.exercise_id).subscribe({
+      next: exercise => this.sessionEnvironmentType.set(exercise.environment_type ?? null),
+      error: () => this.sessionEnvironmentType.set(null)
+    });
   }
 
   /**
@@ -735,6 +924,10 @@ export class AulaComponent implements OnInit, OnDestroy {
     if (this.refreshTimer) {
       clearInterval(this.refreshTimer);
       this.refreshTimer = undefined;
+    }
+    if (this.clockTimer) {
+      clearInterval(this.clockTimer);
+      this.clockTimer = undefined;
     }
   }	/**
 	 * Materias del docente y, si la URL trae una, la preselección del formulario.

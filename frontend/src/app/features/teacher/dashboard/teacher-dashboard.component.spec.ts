@@ -79,7 +79,7 @@ describe('TeacherDashboardComponent', () => {
     expect(fixture.nativeElement.textContent).toContain('Estructuras de Datos');
   });
 
-  it('sin pendientes no dibuja la columna y deja la línea de estado', () => {
+  it('sin pendientes no ofrece calificar y deja los cierres en su columna', () => {
     overview.set(
       overviewWith({
         subjects: [
@@ -98,10 +98,12 @@ describe('TeacherDashboardComponent', () => {
     fixture.detectChanges();
 
     expect(fixture.nativeElement.querySelector('pending-column')).toBeNull();
-    expect(fixture.nativeElement.querySelector('.hoy-quiet')).not.toBeNull();
+    expect(fixture.nativeElement.textContent).not.toContain('Calificar pendientes');
+    expect(fixture.nativeElement.textContent).toContain('Cierres próximos');
+    expect(fixture.nativeElement.textContent).toContain('Sin cierres próximos configurados');
   });
 
-  it('con aula abierta muestra la franja de sesión y la columna', () => {
+  it('con aula abierta muestra la franja de sesión en el acceso rápido', () => {
     overview.set(
       overviewWith({
         session: {
@@ -131,8 +133,11 @@ describe('TeacherDashboardComponent', () => {
     );
     fixture.detectChanges();
 
-    expect(fixture.nativeElement.querySelector('.hoy-session')).not.toBeNull();
-    expect(fixture.nativeElement.querySelector('pending-column')).not.toBeNull();
+    const quickSession = fixture.nativeElement.querySelector('.quick-session');
+    expect(quickSession).not.toBeNull();
+    expect(quickSession.textContent).toContain('20');
+    expect(quickSession.textContent).toContain('28');
+    expect(fixture.nativeElement.querySelector('pending-column')).toBeNull();
   });
 
   it('un período sin materias muestra su estado vacío', () => {

@@ -13,7 +13,6 @@ import {
   LucideCalendar, 
   LucideGlobe, 
   LucideEdit3, 
-  LucideExternalLink,
   LucidePauseCircle,
   LucideCheckCircle,
   LucideShieldAlert,
@@ -23,10 +22,12 @@ import {
   LucideLock,
   LucideTrash2,
   LucideUploadCloud,
-  LucideLoader2,
   LucideCheck,
   LucideChevronDown,
-  LucideUserPlus
+  LucideUserPlus,
+  LucideLaptop,
+  LucideTerminal,
+  LucideArrowRight
 } from '@lucide/angular';
 import { TeacherCourseService } from '../../services/teacher-course.service';
 import { TeacherDashboardService } from '../../services/teacher-dashboard.service';
@@ -46,6 +47,9 @@ import { ComboboxComponent, ComboboxOption } from '@shared/components/combobox/c
 import { VerdictBadgeComponent } from '@shared/components/verdict-badge/verdict-badge.component';
 import { SortHeaderComponent } from '@shared/components/sort-header/sort-header.component';
 import { SortDirection, SortState } from '@shared/components/sort-header/sort-header.types';
+import { FilterPopoverComponent } from '@shared/components/filter-popover/filter-popover.component';
+import { SearchBarComponent } from '@shared/components/search-bar/search-bar.component';
+import { EnvironmentLabelPipe } from '@shared/pipes/environment-label.pipe';
 import { VERDICT_FILTER_OPTIONS, matchesVerdictFilter } from '@core/models/verdict.model';
 
 export type ReviewStatusFilter = 'all' | 'pending' | 'graded';
@@ -87,7 +91,6 @@ export function matchesReviewStatusFilter(
     LucideCalendar,
     LucideGlobe,
     LucideEdit3,
-    LucideExternalLink,
     LucidePauseCircle,
     LucideCheckCircle,
     LucideShieldAlert,
@@ -97,10 +100,12 @@ export function matchesReviewStatusFilter(
     LucideLock,
     LucideTrash2,
     LucideUploadCloud,
-    LucideLoader2,
     LucideCheck,
     LucideChevronDown,
     LucideUserPlus,
+    LucideLaptop,
+    LucideTerminal,
+    LucideArrowRight,
     ModalShellComponent,
     ConfirmModalComponent,
     DateTextPipe,
@@ -114,7 +119,10 @@ export function matchesReviewStatusFilter(
     CourseStudentsPanelComponent,
     ComboboxComponent,
     VerdictBadgeComponent,
-    SortHeaderComponent
+    SortHeaderComponent,
+    FilterPopoverComponent,
+    SearchBarComponent,
+    EnvironmentLabelPipe
   ],
   templateUrl: './teacher-course-detail.component.html',
   styleUrl: './teacher-course-detail.component.scss'
@@ -139,6 +147,11 @@ export class TeacherCourseDetailComponent implements OnInit {
   subjectId = signal<string>('');
   courseInfo = signal<TeacherCourseSummary | null>(null);
   activeTab = signal<'labs' | 'submissions' | 'modules' | 'gradebook' | 'students'>('labs');
+  /** La agrupación por módulos vive dentro de Prácticas, no como sección propia. */
+  practiceView = signal<'list' | 'modules'>('list');
+  labSearch = signal<string>('');
+  labStatusFilter = signal<'all' | 'published' | 'draft'>('all');
+  labModalityFilter = signal<'all' | 'IDE_PERSISTENTE' | 'JUEZ_EFIMERO'>('all');
   /** Total de matriculados confirmado por el padrón de la materia. */
   studentsCount = signal<number>(0);
   
@@ -175,6 +188,35 @@ export class TeacherCourseDetailComponent implements OnInit {
   newModulePassScore = signal<number>(60);
   moduleErrorMessage = signal<string | null>(null);
   moduleSuccessMessage = signal<string | null>(null);
+
+  readonly coursePending = computed(() => this.courseInfo()?.pending_review ?? 0);
+
+  readonly activeLabFilters = computed(
+    () => (this.labStatusFilter() === 'all' ? 0 : 1) + (this.labModalityFilter() === 'all' ? 0 : 1)
+  );
+
+  readonly filteredLabs = computed(() => {
+    const term = this.labSearch().trim().toLowerCase();
+    const status = this.labStatusFilter();
+    const modality = this.labModalityFilter();
+    return this.labs().filter(lab => {
+      if (status !== 'all' && lab.status !== status) {
+        return false;
+      }
+      if (modality !== 'all' && lab.environment_type !== modality) {
+        return false;
+      }
+      return !term || lab.title.toLowerCase().includes(term);
+    });
+  });
+
+  readonly labFilterTitle = computed(() =>
+    this.labs().find(lab => lab.id === this.labFilter())?.title ?? 'la práctica'
+  );
+
+  readonly publishedLabs = computed(() => this.labs().filter(lab => lab.status === 'published').length);
+
+  readonly draftLabs = computed(() => this.labs().filter(lab => lab.status === 'draft').length);
 
   readonly labOptions = computed<ComboboxOption[]>(() => {
     const defaultOpt: ComboboxOption = { id: 'all', label: 'Todos los laboratorios', value: 'all' };
@@ -246,7 +288,10 @@ export class TeacherCourseDetailComponent implements OnInit {
       this.loadData();
     }
     const tabParam = this.route.snapshot.queryParamMap?.get('tab');
-    if (tabParam === 'submissions' || tabParam === 'modules' || tabParam === 'labs' || tabParam === 'gradebook' || tabParam === 'students') {
+    if (tabParam === 'modules') {
+      this.activeTab.set('labs');
+      this.practiceView.set('modules');
+    } else if (tabParam === 'submissions' || tabParam === 'labs' || tabParam === 'gradebook' || tabParam === 'students') {
       this.activeTab.set(tabParam);
     }
     const labParam = this.route.snapshot.queryParamMap?.get('labId');
@@ -271,7 +316,10 @@ export class TeacherCourseDetailComponent implements OnInit {
     if (this.route.queryParamMap) {
       this.route.queryParamMap.subscribe(queryParams => {
         const nextTab = queryParams.get('tab');
-        if (nextTab === 'submissions' || nextTab === 'modules' || nextTab === 'labs' || nextTab === 'gradebook' || nextTab === 'students') {
+        if (nextTab === 'modules') {
+          this.activeTab.set('labs');
+          this.practiceView.set('modules');
+        } else if (nextTab === 'submissions' || nextTab === 'labs' || nextTab === 'gradebook' || nextTab === 'students') {
           this.activeTab.set(nextTab);
         }
         const nextLab = queryParams.get('labId');
@@ -289,6 +337,35 @@ export class TeacherCourseDetailComponent implements OnInit {
   viewLabSubmissions(labId: string): void {
     this.labFilter.set(labId);
     this.activeTab.set('submissions');
+  }
+
+  setPracticeView(view: 'list' | 'modules'): void {
+    this.practiceView.set(view);
+  }
+
+  clearLabFilters(): void {
+    this.labStatusFilter.set('all');
+    this.labModalityFilter.set('all');
+    this.labSearch.set('');
+  }
+
+  /** Ratio de entregas de una práctica sobre los alumnos inscritos. */
+  labDeliveryPercent(lab: TeacherLabStats): number {
+    if (!lab.students_count) {
+      return 0;
+    }
+    return Math.min(100, Math.round((lab.submissions_count / lab.students_count) * 100));
+  }
+
+  /** Abre el aula con la materia y la práctica de la fila ya resueltas. */
+  openAulaFor(lab: TeacherLabStats): void {
+    this.router.navigate(['/teacher/aula'], {
+      queryParams: { subject_id: this.subjectId(), exercise_id: lab.id }
+    });
+  }
+
+  clearLabFilterChip(): void {
+    this.labFilter.set('all');
   }
 
   loadData(): void {

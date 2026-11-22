@@ -221,8 +221,9 @@ describe('TeacherCourseDetailComponent', () => {
     const menu = fixture.nativeElement.querySelector('.dropdown-menu') as HTMLElement;
     expect(menu).toBeTruthy();
 
-    const metricasLink = fixture.nativeElement.querySelector('a.btn-analytics') as HTMLElement;
-    metricasLink.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    const headerTitle = fixture.nativeElement.querySelector('.course-name') as HTMLElement;
+    expect(headerTitle).toBeTruthy();
+    headerTitle.dispatchEvent(new MouseEvent('click', { bubbles: true }));
     fixture.detectChanges();
 
     expect(component.showMoreActions()).toBe(false);
