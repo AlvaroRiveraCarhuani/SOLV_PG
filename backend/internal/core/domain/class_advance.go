@@ -26,9 +26,9 @@ const (
 // Comparten el prefijo CLASS_ para leer el historial de una sesión sin mezclar
 // las peticiones HTTP genéricas que también guarda el middleware.
 const (
-	AuditClassAdvanceEmitted       = "CLASS_ADVANCE_EMITTED"
-	AuditClassFrozen               = "CLASS_FROZEN"
-	AuditClassUnfrozen             = "CLASS_UNFROZEN"
+	AuditClassAdvanceEmitted = "CLASS_ADVANCE_EMITTED"
+	AuditClassFrozen         = "CLASS_FROZEN"
+	AuditClassUnfrozen       = "CLASS_UNFROZEN"
 	// AuditClassAdvanceGraceSet es el único movimiento de la ventana: su hora
 	// final. Las dos acciones anteriores se conservan porque hay filas ya
 	// escritas que el historial sigue mostrando.

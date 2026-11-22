@@ -336,3 +336,65 @@ func TestSignEvaluationReceipt_EachEvaluationHasOwnIdentity(t *testing.T) {
 		t.Fatal("dos evaluaciones del mismo segundo no pueden compartir entrega")
 	}
 }
+
+func TestCreateSubmission_RejectsExpiredDeadline(t *testing.T) {
+	past := time.Now().Add(-1 * time.Hour)
+	repo := &fakeSubmissionRepo{stored: map[string]*domain.Submission{}}
+	svc := services.NewSubmissionService(repo)
+	svc.SetExerciseRepository(&mockExerciseRepo{exercises: map[string]*domain.Exercise{
+		"ex-expired": {
+			ID:              "ex-expired",
+			EnvironmentType: string(domain.EnvironmentTypeJuezEfimero),
+			DueDate:         &past,
+		},
+	}})
+
+	receipt := receiptFor(t, "tenant-1", "ex-expired", "student-1", "AC", time.Now())
+	_, err := svc.CreateSubmission(context.Background(), "tenant-1", services.CreateSubmissionDTO{
+		ExerciseID:        "ex-expired",
+		StudentID:         "student-1",
+		Code:              "print(1)",
+		Verdict:           "AC",
+		EvaluationReceipt: receipt,
+	})
+	if !errors.Is(err, domain.ErrExerciseDeadlineExpired) {
+		t.Fatalf("esperado ErrExerciseDeadlineExpired, obtenido %v", err)
+	}
+}
+
+func TestCreateSubmission_RejectsSecondSubmissionWhenResubmitDisabled(t *testing.T) {
+	repo := &fakeSubmissionRepo{stored: map[string]*domain.Submission{}}
+	svc := services.NewSubmissionService(repo)
+	svc.SetExerciseRepository(&mockExerciseRepo{exercises: map[string]*domain.Exercise{
+		"ex-no-resubmit": {
+			ID:              "ex-no-resubmit",
+			EnvironmentType: string(domain.EnvironmentTypeJuezEfimero),
+			Purpose:         string(domain.ExercisePurposeExam),
+		},
+	}})
+
+	now := time.Now()
+	firstReceipt := receiptForCode(t, "tenant-1", "ex-no-resubmit", "student-1", "WA", "print(1)", now)
+	_, err := svc.CreateSubmission(context.Background(), "tenant-1", services.CreateSubmissionDTO{
+		ExerciseID:        "ex-no-resubmit",
+		StudentID:         "student-1",
+		Code:              "print(1)",
+		Verdict:           "WA",
+		EvaluationReceipt: firstReceipt,
+	})
+	if err != nil {
+		t.Fatalf("la primera entrega debe registrarse: %v", err)
+	}
+
+	secondReceipt := receiptForCode(t, "tenant-1", "ex-no-resubmit", "student-1", "AC", "print(2)", now.Add(time.Minute))
+	_, err = svc.CreateSubmission(context.Background(), "tenant-1", services.CreateSubmissionDTO{
+		ExerciseID:        "ex-no-resubmit",
+		StudentID:         "student-1",
+		Code:              "print(2)",
+		Verdict:           "AC",
+		EvaluationReceipt: secondReceipt,
+	})
+	if !errors.Is(err, domain.ErrResubmissionNotAllowed) {
+		t.Fatalf("esperado ErrResubmissionNotAllowed en la segunda entrega, obtenido %v", err)
+	}
+}

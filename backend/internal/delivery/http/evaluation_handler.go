@@ -36,6 +36,7 @@ type EvaluationRequest struct {
 	ExerciseID    string `json:"exercise_id" validate:"required"`
 	Language      string `json:"language" validate:"required"`
 	SourceCodeB64 string `json:"source_code_b64" validate:"required"`
+	Mode          string `json:"mode,omitempty"`
 }
 
 func (h *EvaluationHandler) Evaluate(w http.ResponseWriter, r *http.Request) {
@@ -60,8 +61,20 @@ func (h *EvaluationHandler) Evaluate(w http.ResponseWriter, r *http.Request) {
 		})
 	}
 
-	result, err := h.service.Evaluate(r.Context(), req.ExerciseID, req.Language, req.SourceCodeB64)
+	result, err := h.service.Evaluate(r.Context(), req.ExerciseID, req.Language, req.SourceCodeB64, req.Mode)
 	if err != nil {
+		if errors.Is(err, domain.ErrExerciseDeadlineExpired) {
+			SendError(w, http.StatusForbidden, "exercise_deadline_expired", "El plazo de entrega para este ejercicio ha finalizado")
+			return
+		}
+		if errors.Is(err, domain.ErrResubmissionNotAllowed) {
+			SendError(w, http.StatusForbidden, "resubmission_not_allowed", "Este ejercicio no admite reentregas")
+			return
+		}
+		if errors.Is(err, domain.ErrNoExampleCasesForTesting) {
+			SendError(w, http.StatusBadRequest, "no_example_cases", "El ejercicio no tiene casos de ejemplo disponibles para probar")
+			return
+		}
 		if errors.Is(err, domain.ErrModuleLocked) {
 			SendError(w, http.StatusForbidden, "MODULE_LOCKED", "El módulo curricular se encuentra bloqueado")
 			return

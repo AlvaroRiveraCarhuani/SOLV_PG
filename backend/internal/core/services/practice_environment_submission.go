@@ -1,13 +1,17 @@
 package services
 
 import (
+	"bytes"
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"log"
 	"sort"
 	"strings"
+	"time"
 
 	"github.com/google/uuid"
 
@@ -72,12 +76,48 @@ func (s *PracticeEnvironmentService) diskQuotaVerdict(ctx context.Context, tenan
 	return &verdict
 }
 
-const (
-	// maxProjectSnapshotBytes acota el snapshot entregado a SpeedGrader.
-	maxProjectSnapshotBytes    = 4 * 1024 * 1024
-	maxSubmissionFileBytes     = 1024 * 1024
-	maxSubmissionSnapshotFiles = 800
+// submissionLimits agrupa los topes de una entrega. Un proyecto grande admite
+// el mismo árbol que la carga del docente: si la entrega aplicara los topes del
+// camino liviano, el alumno no podría entregar lo que el docente sembró.
+type submissionLimits struct {
+	totalBytes int64
+	fileBytes  int
+	files      int
+	artifact   bool
+}
+
+var (
+	submissionLimitsText = submissionLimits{
+		totalBytes: 4 * 1024 * 1024,
+		fileBytes:  1024 * 1024,
+		files:      800,
+	}
+	submissionLimitsArtifact = submissionLimits{
+		totalBytes: int64(maxWorkspaceProjectArchiveExpanded),
+		fileBytes:  maxWorkspaceProjectArchiveFile,
+		files:      maxWorkspaceProjectArchiveFiles,
+		// El árbol grande no se persiste como texto: va al depósito.
+		artifact: true,
+	}
 )
+
+// submissionLimitsFor decide los topes según la versión sembrada en el entorno.
+// Si no se puede leer la versión se conservan los topes livianos: es el
+// comportamiento anterior y no agranda una lectura por un dato dudoso.
+func (s *PracticeEnvironmentService) submissionLimitsFor(ctx context.Context, environment *domain.PracticeEnvironment) submissionLimits {
+	if environment == nil || environment.WorkspaceProjectVersionID == nil || s.workspaceProjects == nil {
+		return submissionLimitsText
+	}
+	version, err := s.workspaceProjects.GetVersion(ctx, environment.TenantID, *environment.WorkspaceProjectVersionID)
+	if err != nil || version == nil {
+		log.Printf("aviso: entrega del entorno %s sin versión legible, se usan los topes livianos: %v", environment.ID, err)
+		return submissionLimitsText
+	}
+	if version.Artifact() != nil {
+		return submissionLimitsArtifact
+	}
+	return submissionLimitsText
+}
 
 var (
 	// ErrPracticeEnvironmentForbidden indica que el environment no pertenece al alumno autenticado.
@@ -118,7 +158,7 @@ func (s *PracticeEnvironmentService) SubmitPracticeEnvironmentProject(ctx contex
 	// Una entrega no puede escribir en un volumen congelado: sería la forma de
 	// seguir editando después del cierre (ADR-005 §5).
 	if environment.FrozenAt != nil || environment.Status == domain.PracticeEnvironmentStatusFrozen {
-		return nil, domain.ErrPracticeEnvironmentFrozen
+		return nil, s.frozenErrorFor(ctx, environment)
 	}
 
 	tenantID := domain.GetTenantID(ctx)
@@ -127,6 +167,22 @@ func (s *PracticeEnvironmentService) SubmitPracticeEnvironmentProject(ctx contex
 	}
 	if tenantID == "" {
 		tenantID = domain.DefaultTenantID
+	}
+
+	// La fecha límite y la política de reentregas se verifican sobre el ejercicio.
+	if s.exerciseRepo != nil {
+		exercise, err := s.exerciseRepo.GetByIDAndTenant(ctx, exerciseID, tenantID)
+		if err == nil && exercise != nil {
+			if exercise.DueDate != nil && time.Now().After(*exercise.DueDate) {
+				return nil, domain.ErrExerciseDeadlineExpired
+			}
+			if !exercise.AllowsResubmit() && s.submissionRepo != nil {
+				existing, err := s.submissionRepo.ListByExerciseAndStudent(ctx, tenantID, exerciseID, environment.StudentID)
+				if err == nil && len(existing) > 0 {
+					return nil, domain.ErrResubmissionNotAllowed
+				}
+			}
+		}
 	}
 
 	volumeStore, ok := s.docker.(domain.PracticeEnvironmentVolumeStore)
@@ -149,21 +205,22 @@ func (s *PracticeEnvironmentService) SubmitPracticeEnvironmentProject(ctx contex
 		}
 	}
 
-	volumeFiles, err := snapshotForSubmission(ctx, volumeStore, volumeName, maxProjectSnapshotBytes)
+	limits := s.submissionLimitsFor(ctx, environment)
+	volumeFiles, err := snapshotForSubmission(ctx, volumeStore, volumeName, limits.totalBytes)
 	if err != nil {
 		if errors.Is(err, domain.ErrPracticeEnvironmentSnapshotTooLarge) {
 			// El detalle del adaptador trae la ruta y el tamaño.
-			return nil, fmt.Errorf("the project to submit exceeds the total limit of 4 MB: %w", err)
+			return nil, fmt.Errorf("the project to submit exceeds the total limit of %d MB: %w", limits.totalBytes/(1024*1024), err)
 		}
 		return nil, fmt.Errorf("failed to snapshot environment volume: %w", err)
 	}
 
-	if len(volumeFiles) > maxSubmissionSnapshotFiles {
-		return nil, fmt.Errorf("environment %s has %d files to submit; the limit is %d", environmentID, len(volumeFiles), maxSubmissionSnapshotFiles)
+	if len(volumeFiles) > limits.files {
+		return nil, fmt.Errorf("environment %s has %d files to submit; the limit is %d", environmentID, len(volumeFiles), limits.files)
 	}
 	for _, file := range volumeFiles {
-		if len(file.Content) > maxSubmissionFileBytes {
-			return nil, fmt.Errorf("environment %s has a file larger than %d bytes (%d bytes): %s", environmentID, maxSubmissionFileBytes, len(file.Content), file.Path)
+		if len(file.Content) > limits.fileBytes {
+			return nil, fmt.Errorf("environment %s has a file larger than %d bytes (%d bytes): %s", environmentID, limits.fileBytes, len(file.Content), file.Path)
 		}
 	}
 
@@ -179,7 +236,7 @@ func (s *PracticeEnvironmentService) SubmitPracticeEnvironmentProject(ctx contex
 		TenantID:      tenantID,
 		ExerciseID:    exerciseID,
 		StudentID:     environment.StudentID,
-		EnvironmentID: &environment.ID, Code: snapshot,
+		EnvironmentID: &environment.ID,
 		// Un proyecto de IDE no lo evalúa el juez: no tiene veredicto. La
 		// ausencia se guarda como ausencia y el trabajo queda en revisión.
 		Verdict:                   "",
@@ -189,6 +246,16 @@ func (s *PracticeEnvironmentService) SubmitPracticeEnvironmentProject(ctx contex
 		ComplexityAnalysis:        json.RawMessage("{}"),
 		BaseStatus:                baseStatus,
 		WorkspaceProjectVersionID: environment.WorkspaceProjectVersionID,
+	}
+
+	// Un proyecto grande viaja al depósito: la fila guarda la referencia y el
+	// texto queda vacío. El camino liviano sigue persistiendo el snapshot.
+	if limits.artifact {
+		if err := s.storeProjectSubmissionArchive(ctx, submission, volumeFiles); err != nil {
+			return nil, err
+		}
+	} else {
+		submission.Code = snapshot
 	}
 
 	if err := s.submissionRepo.Create(ctx, submission); err != nil {
@@ -203,6 +270,39 @@ func (s *PracticeEnvironmentService) SubmitPracticeEnvironmentProject(ctx contex
 	return submission, nil
 }
 
+// storeProjectSubmissionArchive empaqueta el árbol entregado y lo deposita. La
+// fila de la entrega solo conserva la referencia, la huella y los tamaños; el
+// objeto queda para la retención del depósito.
+func (s *PracticeEnvironmentService) storeProjectSubmissionArchive(
+	ctx context.Context,
+	submission *domain.Submission,
+	volumeFiles []domain.PracticeEnvironmentVolumeFile,
+) error {
+	if s == nil || s.workspaceArtifacts == nil {
+		return domain.ErrWorkspaceProjectArchiveStoreUnavailable
+	}
+	entries := make([]WorkspaceProjectImportFile, 0, len(volumeFiles))
+	for _, file := range volumeFiles {
+		entries = append(entries, WorkspaceProjectImportFile{Path: file.Path, Content: file.Content})
+	}
+	archive, err := packWorkspaceProjectArchive(entries)
+	if err != nil {
+		return err
+	}
+	sum := sha256.Sum256(archive)
+	hash := hex.EncodeToString(sum[:])
+	key := submissionArtifactKey(submission.TenantID, submission.ExerciseID, submission.ID)
+	if _, _, err := s.workspaceArtifacts.Put(ctx, key, bytes.NewReader(archive)); err != nil {
+		return fmt.Errorf("no se pudo guardar la entrega en el depósito: %w", err)
+	}
+	artifactBytes := int64(len(archive))
+	artifactFiles := len(entries)
+	submission.ArtifactKey = &key
+	submission.ArtifactSHA256 = &hash
+	submission.ArtifactBytes = &artifactBytes
+	submission.ArtifactFiles = &artifactFiles
+	return nil
+}
 
 // classifyIDEBaseStatus traduce el estado de siembra del entorno a la
 // clasificación persistida de la entrega. Un entorno legacy o sin datos de

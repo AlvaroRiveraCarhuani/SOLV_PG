@@ -3,6 +3,7 @@ package services_test
 import (
 	"context"
 	"testing"
+	"time"
 
 	"solv-backend/internal/core/domain"
 	"solv-backend/internal/core/services"
@@ -94,6 +95,48 @@ func TestReactivatePracticeEnvironment_StartsWithPausedAulaInReadOnly(t *testing
 	}
 	if instance.FrozenAt == nil || instance.Status != domain.PracticeEnvironmentStatusFrozen {
 		t.Fatalf("el entorno reactivado debía quedar congelado: status=%s frozen_at=%v", instance.Status, instance.FrozenAt)
+	}
+}
+
+// Una práctica ya congelada por la pausa del aula se vuelve a abrir en solo
+// lectura: el alumno recupera la URL y el congelado se conserva, así que la
+// entrega sigue bloqueada.
+func TestStartPracticeEnvironment_ReopensFrozenPracticeInReadOnlyWhenAulaPaused(t *testing.T) {
+	repo := newMockPracticeEnvironmentRepo()
+	orch := &mockOrchestrator{}
+	linker := &pausedAulaLinker{paused: true}
+	exerciseID := testPracticeID
+	frozenAt := time.Now().Add(-time.Hour).UTC()
+	stored := &domain.PracticeEnvironment{
+		ID:                 "ws-frozen",
+		TenantID:           domain.DefaultTenantID,
+		StudentID:          "student-frozen",
+		SubjectID:          "subj-paused",
+		ExerciseID:         &exerciseID,
+		Status:             domain.PracticeEnvironmentStatusFrozen,
+		EnvironmentProfile: domain.EnvironmentProfilePractice,
+		AccessURL:          "http://127.0.0.1:3998",
+		FrozenAt:           &frozenAt,
+	}
+	repo.environments["student-frozen:subj-paused:"+testPracticeID] = stored
+	repo.environments["ws-frozen"] = stored
+	svc := pausedAulaService(repo, orch, linker)
+
+	instance, err := svc.StartPracticeEnvironmentForExercise(context.Background(), "student-frozen", "subj-paused", testPracticeID)
+	if err != nil {
+		t.Fatalf("reabrir una práctica pausada no debía fallar: %v", err)
+	}
+	if instance.AccessURL == "" {
+		t.Fatal("la reapertura debía devolver la URL del entorno")
+	}
+	if instance.Status != domain.PracticeEnvironmentStatusFrozen {
+		t.Fatalf("el entorno reabierto debía seguir congelado: %s", instance.Status)
+	}
+	if orch.lastConfig == nil || !orch.lastConfig.ReadOnly {
+		t.Fatal("la reapertura debía reconstruir el volumen en solo lectura")
+	}
+	if instance.FrozenAt == nil || !instance.FrozenAt.Equal(frozenAt) {
+		t.Fatalf("la hora del congelado debía conservarse: %v", instance.FrozenAt)
 	}
 }
 

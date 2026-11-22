@@ -362,7 +362,7 @@ func (r *PostgresPracticeEnvironmentRepository) GetActivePracticeEnvironments(ct
 	query := `
 		SELECT id, student_id, subject_id, template_id, type, container_id, status, access_url, memory_limit_mb, environment_profile, exam_attempt, last_heartbeat_at, last_oom_killed_at, oom_strike_count, COALESCE(semgrep_audit, '{}'::jsonb) AS semgrep_audit, tenant_id, exercise_id, frozen_at, workspace_project_version_id, workspace_seed_mode, workspace_init_status, disk_used_mb, disk_state, cpu_millis, memory_profile_mb, created_at, updated_at
 		FROM environments
-		WHERE status IN ('running', 'pending', 'unknown') AND tenant_id = $1
+		WHERE status IN ('running', 'pending', 'unknown', 'frozen') AND tenant_id = $1
 	`
 	var environments []*domain.PracticeEnvironment
 	err := r.db.SelectContext(ctx, &environments, query, tenantID)

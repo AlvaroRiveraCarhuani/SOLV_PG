@@ -27,7 +27,11 @@ const (
 
 	// managedSatelliteReadyTimeout acota cuánto se espera a que el motor acepte
 	// conexiones antes de devolver el endpoint.
-	managedSatelliteReadyTimeout = 30 * time.Second
+	// La primera inicialización de MySQL/MariaDB crea el datadir y puede pasar de
+	// un minuto en un nodo con disco lento; 30 s dejaban el motor sin margen y el
+	// arranque se revertía sin llegar a usarlo. Medido: mysql:8.4 con datadir
+	// nuevo tarda ~82 s en aceptar conexiones.
+	managedSatelliteReadyTimeout = 180 * time.Second
 
 	// managedSatelliteStopTimeout es el margen de apagado ordenado antes de matar el
 	// proceso del motor. El volumen nombrado sobrevive al apagado.

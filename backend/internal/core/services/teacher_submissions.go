@@ -3,6 +3,7 @@ package services
 import (
 	"context"
 	"fmt"
+	"log"
 	"strings"
 
 	"solv-backend/internal/core/domain"
@@ -26,6 +27,12 @@ func (s *TeacherService) ListCourseSubmissions(ctx context.Context, tenantID, te
 	return items, nil
 }
 
+// workspaceSubmissionFilesProvider recupera el árbol de una entrega guardada en
+// el depósito. Lo implementa WorkspaceProjectService.
+type workspaceSubmissionFilesProvider interface {
+	ProjectSubmissionFiles(ctx context.Context, artifact *domain.WorkspaceProjectArtifact) ([]domain.ProjectFile, error)
+}
+
 func (s *TeacherService) GetTeacherSubmissionReview(ctx context.Context, tenantID, teacherID, submissionID string) (*domain.TeacherSubmissionReviewDTO, error) {
 	if tenantID == "" {
 		return nil, domain.ErrInvalidTenant
@@ -36,6 +43,36 @@ func (s *TeacherService) GetTeacherSubmissionReview(ctx context.Context, tenantI
 	review, err := s.repo.GetTeacherSubmissionReview(ctx, tenantID, teacherID, submissionID)
 	if err != nil {
 		return nil, err
+	}
+	// La entrega de un proyecto grande no guarda texto: el árbol llega desde el
+	// depósito y se expande acá. Si falla, la revisión sigue sin archivos en vez
+	// de romperse: los comentarios y la nota no dependen del visor.
+	if review != nil && !review.FilesAvailable {
+		if artifact := review.SubmissionArtifact(); artifact != nil {
+			if provider, ok := s.workspaceBase.(workspaceSubmissionFilesProvider); ok {
+				files, filesErr := provider.ProjectSubmissionFiles(ctx, artifact)
+				switch {
+				case filesErr != nil:
+					log.Printf("aviso: no se pudo leer la entrega %s del depósito: %v", review.ID, filesErr)
+				case len(files) > 0:
+					review.Files = files
+					review.FilesAvailable = true
+				}
+			}
+		}
+	}
+
+	// Un proyecto grande vive en el depósito y su espejo de texto está vacío por
+	// diseño. El diff por archivo necesita el árbol real de la versión sembrada.
+	if review != nil && !review.BaseFilesAvailable && review.WorkspaceProjectVersionID != nil && s.workspaceBase != nil {
+		files, _, ok, baseErr := s.workspaceBase.ProjectBaseFiles(ctx, tenantID, review.ExerciseID)
+		switch {
+		case baseErr != nil:
+			log.Printf("aviso: no se pudo resolver el proyecto base del ejercicio %s: %v", review.ExerciseID, baseErr)
+		case ok:
+			review.BaseFiles = files
+			review.BaseFilesAvailable = true
+		}
 	}
 	return review, nil
 }

@@ -31,6 +31,10 @@ Los comandos de entrega y de emisión se declaran con `when` sobre esas claves, 
 
 El HTML y el CSS son nativos y usan solo variables `--vscode-*`: se adaptan a tema claro, oscuro y alto contraste sin librerías externas. Los iconos de la webview son SVG en línea con `currentColor`; la barra de estado usa codicons nativos de VS Code. No hay emojis en la interfaz.
 
+## Acciones en curso
+
+Toda acción que escribe en el aula o en el entorno muestra su avance en el panel: el botón que la disparó cambia su icono por un indicador giratorio y su texto por lo que está haciendo (`Pausando clase…`, `Reanudando examen…`, `Emitiendo avance…`, `Aplicando avance…`, `Cerrando clase…`), y el resto de los botones queda deshabilitado hasta que la operación termina. El estado vive en la extensión, no solo en la webview, así que sobrevive a los refrescos del panel y evita que un segundo clic dispare la misma operación dos veces. La pausa y el cierre esperan hasta 120 segundos porque el backend recrea el contenedor de cada alumno antes de responder; una consulta común sigue con su tope corto.
+
 ## Dos modos: lateral accionable y documento
 
 El mismo HTML se renderiza en dos modos según `renderPanelHtml(..., { isTab })`. No son dos pantallas distintas: es el mismo estado con otra jerarquía.
@@ -161,6 +165,8 @@ Para el rol `student`, la extensión consulta `GET /api/v1/student/sessions/acti
 El token se guarda en `SecretStorage` y nunca se escribe en `settings.json`, en la salida ni en el repositorio.
 
 En los entornos de práctica el backend inyecta `SOLV_API_URL` con el dominio del nodo (`https://solv.dedyn.io` en este despliegue). Traefik publica el API bajo `/api` en ese mismo host, así que la URL base no lleva sufijo: no existe un subdominio `api.<dominio>`. La variable de entorno tiene prioridad sobre `solv.apiBaseUrl`; un despliegue que necesite otra URL define `SOLV_API_URL` en el entorno del backend.
+
+La configuración viaja también cuando la pausa reconstruye el contenedor: el backend copia las variables `SOLV_*` del contenedor que reemplaza, porque el contexto de la pausa es el del docente y no debe inyectar su token ni su rol en el entorno del alumno. Al alumno no se le muestran instrucciones de configuración: si falta la conexión, el panel solo refleja el estado y el aviso de configuración queda reservado al docente.
 
 ## Comentarios
 

@@ -5,9 +5,57 @@ import (
 	"fmt"
 	"log"
 	"strings"
+	"sync"
 
 	"solv-backend/internal/core/domain"
 )
+
+// companionEnvReader lee las variables SOLV_* del contenedor vigente. Es
+// opcional: un orquestador sin esta capacidad reconstruye el entorno sin ellas,
+// como antes.
+type companionEnvReader interface {
+	ReadCompanionEnv(ctx context.Context, containerID string) ([]string, error)
+}
+
+// preserveCompanionEnv copia la configuración del Companion del contenedor que
+// se va a reemplazar. La pausa corre con el contexto del docente: reconstruir
+// con buildCompanionEnvVars inyectaría su rol y su token en el entorno del
+// alumno, así que se conserva lo que ya tenía.
+func preserveCompanionEnv(ctx context.Context, docker domain.PracticeEnvironmentOrchestrator, containerID string) []string {
+	reader, ok := docker.(companionEnvReader)
+	if !ok || strings.TrimSpace(containerID) == "" {
+		return nil
+	}
+	env, err := reader.ReadCompanionEnv(ctx, containerID)
+	if err != nil {
+		log.Printf("[PracticeEnvironment Freeze] no se pudo leer la configuración del Companion de %s: %v", containerID, err)
+		return nil
+	}
+	return env
+}
+
+// lockEnvironmentMount serializa la reconstrucción de un laboratorio dentro del
+// proceso. El mapa se crea por demanda, igual que el de la apertura del
+// workspace, y la clave es el id del entorno.
+func (s *PracticeEnvironmentService) lockEnvironmentMount(environmentID string) func() {
+	if s == nil {
+		return func() {}
+	}
+	key := strings.TrimSpace(environmentID)
+	s.environmentMountMu.Lock()
+	if s.environmentMountLocks == nil {
+		s.environmentMountLocks = make(map[string]*sync.Mutex)
+	}
+	lock, ok := s.environmentMountLocks[key]
+	if !ok {
+		lock = &sync.Mutex{}
+		s.environmentMountLocks[key] = lock
+	}
+	s.environmentMountMu.Unlock()
+
+	lock.Lock()
+	return lock.Unlock
+}
 
 // SetPracticeEnvironmentMount reconstruye el contenedor del alumno con el volumen del lado
 // indicado: :rw para trabajar y :ro cuando el examen se cerró (ADR-005 §5).
@@ -20,7 +68,18 @@ func (s *PracticeEnvironmentService) SetPracticeEnvironmentMount(ctx context.Con
 	if instance == nil {
 		return domain.ErrNotFound
 	}
+
+	// Dos clics de pausa seguidos llegan con el mismo laboratorio: el segundo
+	// espera a que termine la reconstrucción del primero y retoma el contenedor
+	// vigente. Sin esto, ambos intentaban crear el mismo nombre y uno fallaba.
+	unlock := s.lockEnvironmentMount(instance.ID)
+	defer unlock()
+	if current, err := s.repo.GetByID(ctx, instance.ID); err == nil && current != nil {
+		instance = current
+	}
+	companionEnv := []string{}
 	if instance.ContainerID != nil && strings.TrimSpace(*instance.ContainerID) != "" {
+		companionEnv = preserveCompanionEnv(ctx, s.docker, *instance.ContainerID)
 		if err := s.docker.StopAndRemoveContainer(ctx, *instance.ContainerID); err != nil {
 			// Un contenedor ya ausente no impide volver a montar: el volumen es
 			// lo que importa y sigue ahí.
@@ -77,6 +136,9 @@ func (s *PracticeEnvironmentService) SetPracticeEnvironmentMount(ctx context.Con
 	}
 
 	envVars := []string{"DONT_PROMPT_WSL_INSTALL=true"}
+	// La pausa reconstruye el contenedor: sin estas variables el Companion del
+	// alumno despertaba sin URL, sin token y sin aula.
+	envVars = append(envVars, companionEnv...)
 	// El contenedor congelado monta el volumen en solo lectura, pero el almacén
 	// sigue en la misma ruta: las variables tienen que viajar igual.
 	envVars = append(envVars, s.workspaceDependencyEnvVars(ctx, instance.TenantID, valueOrEmpty(instance.ExerciseID))...)

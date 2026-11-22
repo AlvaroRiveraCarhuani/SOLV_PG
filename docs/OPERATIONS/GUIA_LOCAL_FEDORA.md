@@ -263,6 +263,37 @@ curl -s -o /dev/null -w '%{http_code}\n' http://localhost:3000/api/v1/users/me
 > Al momento de esta guía, `solv_db` no tenía actores `@e2e.solv.test`
 > sembrados. Por eso el paso 1 es necesario antes de usar `dev-session.mjs`.
 
+### Datos de demostración para la cola docente
+
+Una base recién migrada no tiene entregas y la pantalla **Por calificar**
+queda vacía. El seed `backend/seeds/demo_teacher_reviews.sql` carga materias,
+prácticas del Juez y entregas en espera con datos académicos realistas:
+
+```bash
+docker exec -i solv_db psql -U solv_user -d solv_db \
+  < backend/seeds/demo_teacher_reviews.sql
+```
+
+Qué deja sembrado, siempre sobre la cuenta `docente.dev@uab.edu.bo`:
+
+| Materia | Práctica | Modalidad | Entregas en espera |
+| :--- | :--- | :--- | :--- |
+| Estructuras de Datos (INF-301) | Validador de Expresiones Balanceadas | Entorno de Evaluación | 5 |
+| Estructuras de Datos (INF-301) | Búsqueda Binaria en Inventario Ordenado | Entorno de Evaluación | 3 (una en revisión) |
+| Taller de Grado (SIS-12) | Sistema de Reservas de Laboratorio — Entrega Final | Entorno de Desarrollo | 2 |
+| Programación I (INF-101) | Resumen de Ventas Diarias | Entorno de Evaluación | 2 |
+
+Las prácticas del Juez incluyen consigna, código inicial, casos de prueba
+públicos y ocultos, y entregas con veredictos variados (`AC`, `WA`, `TLE`,
+`RE`, `AST_BLOCKED`), tiempos de ejecución, análisis de complejidad y auditoría
+de escritura para el Time-Travel Replay. La práctica de proyecto trae proyecto
+base publicado, rúbrica de cuatro criterios y dos entregas con árbol de
+archivos para comparar contra la versión base en el visor de diferencias.
+
+El archivo es idempotente: se puede volver a ejecutar sin duplicar filas. No
+cambia el esquema ni toca materias de otros docentes; solo reactiva el período
+académico vigente y desarchiva la materia que ya pertenecía al docente.
+
 ---
 
 ## 7. Problemas frecuentes

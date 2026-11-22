@@ -31,7 +31,8 @@ func (a *EnvTestDockerAdapter) RunSmokeTest(ctx context.Context, imageRef string
 	}
 	scriptBuilder.WriteString("; do ")
 	scriptBuilder.WriteString("if p=$(command -v \"$t\" 2>/dev/null); then ")
-	scriptBuilder.WriteString("v=$(\"$t\" --version 2>&1 | head -n 1 || echo \"\"); ")
+	// El binario de Go no acepta --version: el flag correcto es `go version`.
+	scriptBuilder.WriteString("case \"$t\" in go|gofmt) v=$(go version 2>&1 | head -n 1);; *) v=$(\"$t\" --version 2>&1 | head -n 1 || echo \"\");; esac; ")
 	scriptBuilder.WriteString("echo \"SOLV_TOOL:OK:$t:$p:$v\"; ")
 	scriptBuilder.WriteString("elif dpkg -s \"$t\" >/dev/null 2>&1; then ")
 	scriptBuilder.WriteString("v=$(dpkg-query -W -f='${Version}' \"$t\" 2>/dev/null || echo \"installed\"); ")

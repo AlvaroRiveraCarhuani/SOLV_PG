@@ -118,6 +118,10 @@ func (r *PostgresTeacherRepository) GetTeacherSubmissionReview(ctx context.Conte
 		Boilerplate               string         `db:"boilerplate"`
 		BaseStatus                string         `db:"base_status"`
 		WorkspaceProjectVersionID sql.NullString `db:"workspace_project_version_id"`
+		ArtifactKey               sql.NullString `db:"artifact_key"`
+		ArtifactSHA256            sql.NullString `db:"artifact_sha256"`
+		ArtifactBytes             sql.NullInt64  `db:"artifact_bytes"`
+		ArtifactFiles             sql.NullInt64  `db:"artifact_files"`
 		Code                      string         `db:"code"`
 		Verdict                   string         `db:"verdict"`
 		VerdictOrigin             string         `db:"verdict_origin"`
@@ -147,6 +151,7 @@ func (r *PostgresTeacherRepository) GetTeacherSubmissionReview(ctx context.Conte
 		            ELSE COALESCE(ex.boilerplate, '') END AS boilerplate,
 		       COALESCE(sub.base_status, '') AS base_status,
 		       sub.workspace_project_version_id,
+		       sub.artifact_key, sub.artifact_sha256, sub.artifact_bytes, sub.artifact_files,
 		       sub.code, COALESCE(sub.verdict, '') AS verdict, COALESCE(sub.verdict_origin, '') AS verdict_origin,
 		       sub.score, sub.manual_override, sub.override_reason,
 		       sub.graded_by, COALESCE(g.first_name || ' ' || g.last_name, '') AS graded_by_name,
@@ -238,6 +243,12 @@ func (r *PostgresTeacherRepository) GetTeacherSubmissionReview(ctx context.Conte
 	if row.WorkspaceProjectVersionID.Valid {
 		versionID := row.WorkspaceProjectVersionID.String
 		review.WorkspaceProjectVersionID = &versionID
+	}
+	if row.ArtifactKey.Valid && row.ArtifactSHA256.Valid && row.ArtifactBytes.Valid && row.ArtifactFiles.Valid {
+		review.ArtifactKey = row.ArtifactKey.String
+		review.ArtifactSHA256 = row.ArtifactSHA256.String
+		review.ArtifactBytes = row.ArtifactBytes.Int64
+		review.ArtifactFiles = int(row.ArtifactFiles.Int64)
 	}
 
 	if !isJudge {

@@ -73,6 +73,15 @@ services:
       SEAWEEDFS_ENDPOINT: http://seaweedfs:8333
       MIGRATIONS_DIR: /app/migrations
       BACKUP_DIR: /var/lib/solv/backups
+      # Preparación de dependencias por versión (ADR-069). La raíz de árboles
+      # preparados la comparte el daemon: la ruta debe ser idéntica en el host y
+      # en el contenedor, porque el bind lo arma el daemon con la ruta del host
+      # (mismo criterio que SOLV_COMPANION_HOST_PATH). Apagada por defecto.
+      DEPENDENCY_PREPARATION_ENABLED: ${DEPENDENCY_PREPARATION_ENABLED:-false}
+      # Carga de proyectos grandes como tar.gz (ADR-090). Apagada por defecto:
+      # la siembra por extracción todavía no está probada de punta a punta.
+      WORKSPACE_PROJECT_ARCHIVE_ENABLED: ${WORKSPACE_PROJECT_ARCHIVE_ENABLED:-false}
+      DEPENDENCY_PREPARATION_ROOT: ${SOLV_DEPS_HOST_PATH:-/var/lib/solv/deps}
       # La extensión SOLV Companion se monta desde el host y el bind lo arma el
       # daemon de Docker, así que la ruta debe ser la del host (no /app). Vacía
       # desactiva el montaje y el entorno arranca sin la extensión.
@@ -86,6 +95,7 @@ services:
       # Escritura, no solo lectura: el backend crea y destruye laboratorios.
       - "/var/run/docker.sock:/var/run/docker.sock"
       - solv_backups:/var/lib/solv/backups
+      - "${SOLV_DEPS_HOST_PATH:-/var/lib/solv/deps}:${SOLV_DEPS_HOST_PATH:-/var/lib/solv/deps}"
     depends_on:
       postgres:
         condition: service_healthy

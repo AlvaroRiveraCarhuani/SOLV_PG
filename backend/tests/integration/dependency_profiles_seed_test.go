@@ -96,3 +96,53 @@ func dependencyPathPresent(paths []string, want string) bool {
 	}
 	return false
 }
+
+// TestPythonProfileInstallsFromRequirementsWithoutLockfile comprueba que un
+// proyecto con requirements.txt y sin lockfile instale desde el manifiesto.
+// El perfil no declara requirements.txt entre los archivos de versiones fijas,
+// así que la preparación usa la variante sin lockfile: si esa variante instala
+// el directorio, el caso más común de cátedra muere antes de bajar un paquete.
+func TestPythonProfileInstallsFromRequirementsWithoutLockfile(t *testing.T) {
+	db := newWorkspaceProjectTestDB(t)
+	var raw []byte
+	err := db.GetDB().Get(&raw, `
+		SELECT dependency_profile
+		FROM template_components
+		WHERE slug = 'python-312'`)
+	if err != nil {
+		t.Fatalf("no se pudo leer el perfil de python-312: %v", err)
+	}
+
+	var profile domain.DependencyProfile
+	if err := json.Unmarshal(raw, &profile); err != nil {
+		t.Fatalf("el perfil de python-312 no es JSON válido: %v", err)
+	}
+	if err := profile.Validate(); err != nil {
+		t.Fatalf("el perfil de python-312 no valida: %v", err)
+	}
+	if !dependencyPathPresent(profile.Detect, "requirements.txt") {
+		t.Fatalf("python-312 debía detectar requirements.txt, detecta %v", profile.Detect)
+	}
+
+	// Con lockfile la instalación ya salía del manifiesto: se conserva.
+	if !strings.Contains(profile.Install, "-r requirements.txt") {
+		t.Fatalf("la instalación con lockfile debía usar requirements.txt, obtuve %q", profile.Install)
+	}
+
+	// Sin lockfile es donde estaba el defecto: instalaba el directorio ".".
+	if !strings.Contains(profile.InstallWithoutLock, "-r requirements.txt") {
+		t.Fatalf("sin lockfile debía instalar desde requirements.txt, obtuve %q", profile.InstallWithoutLock)
+	}
+	if !strings.Contains(profile.InstallWithoutLock, "pip install --no-cache-dir .") {
+		t.Fatalf("sin lockfile debía conservar la instalación del proyecto como respaldo, obtuve %q", profile.InstallWithoutLock)
+	}
+	// El runner ejecuta el comando con sh -c: una condición en una sola línea es
+	// lo que mantiene el respaldo sin partir el comando en dos.
+	if strings.ContainsAny(profile.InstallWithoutLock, "\n\r") {
+		t.Fatalf("el comando no admite saltos de línea: %q", profile.InstallWithoutLock)
+	}
+	if strings.Index(profile.InstallWithoutLock, "-r requirements.txt") >
+		strings.Index(profile.InstallWithoutLock, "pip install --no-cache-dir .") {
+		t.Fatalf("requirements.txt debía evaluarse antes del respaldo, obtuve %q", profile.InstallWithoutLock)
+	}
+}

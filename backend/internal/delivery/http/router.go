@@ -543,6 +543,8 @@ func registerWorkspaceProjectRoutes(mux *http.ServeMux, deps *Handlers) {
 	mux.Handle("PUT /api/v1/teacher/exercises/{id}/project/draft", am(tm(http.HandlerFunc(deps.WorkspaceProjectHandler.SaveDraft))))
 	mux.Handle("POST /api/v1/teacher/exercises/{id}/project/import/folder", am(tm(http.HandlerFunc(deps.WorkspaceProjectHandler.ImportFolder))))
 	mux.Handle("POST /api/v1/teacher/exercises/{id}/project/import/zip", am(tm(http.HandlerFunc(deps.WorkspaceProjectHandler.ImportZip))))
+	// El proyecto grande viaja como tar.gz al depósito de objetos (ADR-090).
+	mux.Handle("POST /api/v1/teacher/exercises/{id}/project/import/archive", am(tm(http.HandlerFunc(deps.WorkspaceProjectHandler.ImportArchive))))
 	// La generación con IA vive junto al proyecto del ejercicio: devuelve una
 	// propuesta validada y nunca escribe borrador ni publica por su cuenta.
 	mux.Handle("POST /api/v1/teacher/exercises/{id}/project/generate", am(tm(http.HandlerFunc(deps.WorkspaceProjectHandler.GenerateProject))))

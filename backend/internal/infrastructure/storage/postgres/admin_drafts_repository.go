@@ -173,6 +173,11 @@ func (r *PostgresAdminGovernanceRepository) GetTemplateByID(ctx context.Context,
 		}
 		return nil, fmt.Errorf("failed to get template by id %s: %w", id, err)
 	}
+	runners, err := r.loadTemplateLanguageRunners(ctx, t.ID)
+	if err != nil {
+		return nil, err
+	}
+	t.LanguageRunners = runners
 	return &t, nil
 }
 
@@ -230,8 +235,11 @@ func (r *PostgresAdminGovernanceRepository) GetTemplateForLanguage(ctx context.C
 		    OR ( $2 IN ('go', 'golang') AND (lt.docker_image LIKE 'golang%' OR LOWER(lt.name) LIKE '%go%') )
 		    OR ( $2 IN ('rust', 'rs') AND (lt.docker_image LIKE 'rust%' OR LOWER(lt.name) LIKE '%rust%') )
 		    OR ( LOWER(lt.docker_image) LIKE '%' || $2 || '%' OR LOWER(lt.name) LIKE '%' || $2 || '%' )
+		    OR EXISTS (SELECT 1 FROM template_language_runners tr WHERE tr.template_id = lt.id AND tr.language = $2)
 		  )
-		ORDER BY (lt.description = 'SYSTEM_SEED_RUNNER') DESC, lt.created_at ASC
+		ORDER BY (lt.description = 'SYSTEM_SEED_RUNNER') DESC,
+		         EXISTS (SELECT 1 FROM template_language_runners tr WHERE tr.template_id = lt.id AND tr.language = $2) DESC,
+		         lt.created_at ASC
 		LIMIT 1
 	`
 	var t domain.AdminTemplateReviewItem
@@ -275,6 +283,11 @@ func (r *PostgresAdminGovernanceRepository) GetTemplateForLanguage(ctx context.C
 			return nil, fmt.Errorf("failed to find approved template for environment %s and language %s: %w", environmentType, language, err)
 		}
 	}
+	runners, errRunners := r.loadTemplateLanguageRunners(ctx, t.ID)
+	if errRunners != nil {
+		return nil, errRunners
+	}
+	t.LanguageRunners = runners
 	return &t, nil
 }
 

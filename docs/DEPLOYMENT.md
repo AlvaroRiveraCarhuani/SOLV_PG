@@ -230,11 +230,54 @@ conservan las versiones fijadas del archivo.
 | `SOLV_HOST` | Host público del sitio. Define rutas, certificado wildcard y el dominio de los entornos de práctica. Reemplaza al literal que antes vivía en `infra/traefik/dynamic_conf.yml`. |
 | `SOLV_VERSION` | Tag de `solv-backend` y `solv-frontend`. Cambiarlo es actualizar; volver al valor anterior es revertir. |
 | `POSTGRES_PASSWORD` | Clave del usuario `solv_user`. Compose la usa para la base y para el `DATABASE_URL` del backend. |
+| `SOLV_DEPS_HOST_PATH` | Raíz de los árboles de dependencias preparados (ADR-069). Debe ser la misma ruta absoluta en el host y en el contenedor: el bind lo arma el daemon con la ruta del host. |
+| `DEPENDENCY_PREPARATION_ENABLED` | Enciende el worker de preparación de dependencias. Apagado por defecto. |
 
 Dentro de la red de compose el backend resuelve `postgres` y `seaweedfs` por
 nombre de servicio. El `DATABASE_URL` y el `SEAWEEDFS_ENDPOINT` del `.env`
 apuntan a `127.0.0.1` porque están escritos para ejecutar el binario en el host;
 compose los sobrescribe para el contenedor.
+
+### Preparación de dependencias de proyecto
+
+Con `DEPENDENCY_PREPARATION_ENABLED=true` el backend toma una versión publicada
+por vez, escribe sus archivos en `$SOLV_DEPS_HOST_PATH/<clave>`, ejecuta la
+instalación del perfil del runtime y comprueba el resultado sin red. Requisitos
+de despliegue que no se pueden omitir:
+
+- La ruta de `SOLV_DEPS_HOST_PATH` existe en el host, la escribe el backend y se
+  monta en el contenedor con la **misma** ruta absoluta. Si cambia de un lado y
+  no del otro, el daemon no encuentra el directorio al crear el contenedor de
+  preparación.
+- La raíz y los volúmenes de los entornos comparten partición. Si no, el enlace
+  de las dependencias cae a copia y cada alumno paga su árbol (ADR-069, decisión 3).
+- El nodo necesita salida a los registros públicos en la primera preparación.
+
+Con el worker apagado el sistema se comporta como antes de ADR-069: el alumno
+resuelve las dependencias en clase.
+
+### Proyecto inicial grande en el depósito de objetos
+
+ADR-090 agrega una segunda puerta para proyectos que no caben como texto. Son
+dos banderas independientes y las dos están apagadas por defecto:
+
+| Variable | Valor | Efecto |
+| --- | --- | --- |
+| `WORKSPACE_PROJECT_ARCHIVE_ENABLED` | `true` | Habilita `POST /api/v1/teacher/exercises/{id}/project/import/archive`. Apagada responde `403 project_archive_disabled`. |
+| `WORKSPACE_PROJECTS_PUBLISH_ENABLED` | `true` | Sigue siendo la única puerta de publicación, también para un borrador con artefacto. |
+
+Sin `SEAWEEDFS_ENDPOINT`, `SEAWEEDFS_BUCKET`, `SEAWEEDFS_ACCESS_KEY` y
+`SEAWEEDFS_SECRET_KEY` la carga responde `503`: el camino liviano no se entera.
+El artefacto usa el mismo bucket que los avances, bajo el prefijo
+`workspace-projects/<tenant>/<ejercicio>/<sha256>.tar.gz`, así que la retención
+de avances no lo borra.
+
+`WORKSPACE_PROJECT_ARCHIVE_MAX_BYTES` ajusta el tope comprimido (32 MiB por
+defecto). Los topes de expansión (128 MiB, 20.000 archivos, 4 MiB por archivo)
+son fijos en este corte porque la extracción todavía ocurre en memoria.
+
+Con la carga encendida y la publicación apagada se puede dejar un borrador con
+archivo, pero no convertirlo en versión: los entornos no se siembran desde ahí.
 
 ### Construir las imágenes con su versión
 

@@ -701,13 +701,15 @@ func (s *PracticeEnvironmentService) applyManagedExerciseDBInitScript(
 
 // mysqlAdminArgs construye la invocación del cliente MySQL como administrador del motor.
 func mysqlAdminArgs(rootPassword string, extra ...string) []string {
-	args := []string{"mysql", "-uroot", "-p" + rootPassword}
+	// charset explícito: el cliente hereda latin1 del servidor y un script con
+	// acentos queda doblemente codificado al insertarlo.
+	args := []string{"mysql", "-uroot", "-p" + rootPassword, "--default-character-set=utf8mb4"}
 	return append(args, extra...)
 }
 
 // mysqlDatabaseArgs construye la invocación del cliente MySQL sobre la base del alumno.
 func mysqlDatabaseArgs(rootPassword, dbName string, extra ...string) []string {
-	args := []string{"mysql", "-uroot", "-p" + rootPassword, dbName}
+	args := []string{"mysql", "-uroot", "-p" + rootPassword, "--default-character-set=utf8mb4", dbName}
 	return append(args, extra...)
 }
 

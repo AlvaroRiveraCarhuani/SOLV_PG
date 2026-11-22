@@ -96,7 +96,7 @@ func (s *PracticeEnvironmentService) PurgeEnvironmentCaches(ctx context.Context,
 		return nil, fmt.Errorf("%w: environment %s", domain.ErrNotFound, environmentID)
 	}
 	if environment.FrozenAt != nil || environment.Status == domain.PracticeEnvironmentStatusFrozen {
-		return nil, domain.ErrPracticeEnvironmentFrozen
+		return nil, s.frozenErrorFor(ctx, environment)
 	}
 	purger, ok := s.docker.(cachePurger)
 	if !ok {

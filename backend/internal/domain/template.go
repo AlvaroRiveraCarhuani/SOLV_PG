@@ -8,17 +8,24 @@ type CreateTemplateDTO struct {
 	BaseRamMB   int    `json:"base_ram_mb" validate:"required,gt=0"`
 }
 
+type TemplateLanguageRunnerDTO struct {
+	Language    string `json:"language"`
+	Entrypoint  string `json:"entrypoint,omitempty"`
+	DockerImage string `json:"docker_image,omitempty"`
+}
+
 type TemplateResponseDTO struct {
-	ID                string          `json:"id"`
-	Name              string          `json:"name"`
-	Description       string          `json:"description"`
-	Category          string          `json:"category"`
-	DockerImage       string          `json:"docker_image"`
-	BaseRamMB         int             `json:"base_ram_mb"`
-	TargetEnvironment string          `json:"target_environment"`
-	Status            string          `json:"status"`
-	IsOfficial        bool            `json:"is_official"`
-	Entrypoint        string          `json:"entrypoint,omitempty"`
-	ServicesConfig    json.RawMessage `json:"services_config,omitempty"`
-	StackConfig       json.RawMessage `json:"stack_config,omitempty"`
+	ID                string                      `json:"id"`
+	Name              string                      `json:"name"`
+	Description       string                      `json:"description"`
+	Category          string                      `json:"category"`
+	DockerImage       string                      `json:"docker_image"`
+	BaseRamMB         int                         `json:"base_ram_mb"`
+	TargetEnvironment string                      `json:"target_environment"`
+	Status            string                      `json:"status"`
+	IsOfficial        bool                        `json:"is_official"`
+	Entrypoint        string                      `json:"entrypoint,omitempty"`
+	ServicesConfig    json.RawMessage             `json:"services_config,omitempty"`
+	StackConfig       json.RawMessage             `json:"stack_config,omitempty"`
+	LanguageRunners   []TemplateLanguageRunnerDTO `json:"language_runners,omitempty"`
 }

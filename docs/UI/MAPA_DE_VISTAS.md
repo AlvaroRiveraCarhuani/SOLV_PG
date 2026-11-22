@@ -291,7 +291,7 @@ graph TD
 | `running` | Verde éxito | Contenedor o servicio funcionando con normalidad |
 | `pending` | Amarillo advertencia | Contenedor levantando, comprobación en cola o invitación enviada |
 | `hibernated` | Gris neutro | Contenedor pausado en disco para preservar recursos |
-| `frozen` | Gris neutro | Examen cerrado: el volumen quedó en solo lectura y el trabajo se conserva |
+| `frozen` | Gris neutro | Volumen en solo lectura: examen cerrado o aula pausada por el docente; el trabajo se conserva |
 | `failed` / `oom_killed` | Rojo error | Proceso finalizado por error o falta de memoria |
 | `AC` | Verde éxito | Solución aprobada en todos los casos |
 | `WA` | Rojo error | La salida generada no coincide con la esperada |

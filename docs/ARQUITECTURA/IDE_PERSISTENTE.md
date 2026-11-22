@@ -120,8 +120,10 @@ versión asignada: no se consulta la publicación actual para decidir qué conte
   `legacy`, `pending`, `volume_created`, `setup_done`, `failed`, `quarantined` y `missing`.
 - **Errores:** el backend responde `409 workspace_seed_volume_not_empty`,
   `workspace_seed_conflict`, `workspace_seed_quarantined` o `workspace_seed_version_invalid`; un
-  problema operativo responde `503 workspace_seed_unavailable`. El solver muestra el mensaje y no
-  abre un IDE vacío como si fuera un éxito.
+  problema operativo responde `503 workspace_seed_unavailable`. Si el tar del volumen no se puede
+  leer o parsear, el entorno va a cuarentena con `409 workspace_seed_quarantined` y no responde un
+  error interno: sin lectura no se puede afirmar qué contiene y no se escribe encima. El solver
+  muestra el mensaje y no abre un IDE vacío como si fuera un éxito.
 
 La entrega sigue tomando la versión del entorno, por lo que un alumno sembrado con V1 conserva V1
 aunque el docente publique V2; un alumno nuevo recibe V2. `JUEZ_EFIMERO` no recorre este camino.

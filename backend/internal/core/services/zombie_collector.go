@@ -17,6 +17,11 @@ type ZombieCollectorWorker struct {
 	mu                   sync.Mutex
 	reclaimedCountAtomic uint64
 	stateReconciler      *PracticeEnvironmentStateReconciler
+	// pendingOrphans recuerda cuándo se vio por primera vez un contenedor sin
+	// fila que lo respalde. Entre el arranque del contenedor y la escritura de
+	// container_id hay una ventana corta: borrar en ese instante dejaba al
+	// entorno sin editor. Se confirma en el ciclo siguiente.
+	pendingOrphans map[string]time.Time
 }
 
 func NewZombieCollectorWorker(repo domain.PracticeEnvironmentRepository, orchestrator domain.PracticeEnvironmentOrchestrator, interval time.Duration) *ZombieCollectorWorker {
@@ -24,9 +29,10 @@ func NewZombieCollectorWorker(repo domain.PracticeEnvironmentRepository, orchest
 		interval = 30 * time.Second
 	}
 	return &ZombieCollectorWorker{
-		repo:         repo,
-		orchestrator: orchestrator,
-		interval:     interval,
+		repo:           repo,
+		orchestrator:   orchestrator,
+		interval:       interval,
+		pendingOrphans: make(map[string]time.Time),
 	}
 }
 
@@ -88,16 +94,35 @@ func (w *ZombieCollectorWorker) ReconcileOrphanContainers(ctx context.Context) {
 		}
 	}
 
-	// Detectar y destruir contenedores huérfanos
+	// Un contenedor que volvió a estar respaldado por la base sale de la espera.
+	for cid := range w.pendingOrphans {
+		if legitimateContainers[cid] {
+			delete(w.pendingOrphans, cid)
+		}
+	}
+
+	// Detectar y destruir contenedores huérfanos. La primera vez que aparece uno
+	// solo se anota: la fila puede estar a punto de escribirse (arranque del
+	// entorno justo antes de este ciclo).
 	for _, cid := range managedContainers {
-		if !legitimateContainers[cid] {
-			log.Printf("[Zombie Collector] WARNING: Found orphan/zombie container %s not present in PostgreSQL. Removing...", cid[:12])
-			if err := w.orchestrator.StopAndRemoveContainer(ctx, cid); err == nil {
-				atomic.AddUint64(&w.reclaimedCountAtomic, 1)
-				log.Printf("[Zombie Collector] Reclaimed orphan container %s successfully.", cid[:12])
-			} else {
-				log.Printf("[Zombie Collector] Error removing orphan container %s: %v", cid[:12], err)
-			}
+		if legitimateContainers[cid] {
+			continue
+		}
+		firstSeen, seen := w.pendingOrphans[cid]
+		if !seen {
+			w.pendingOrphans[cid] = time.Now()
+			continue
+		}
+		if time.Since(firstSeen) < w.interval {
+			continue
+		}
+		log.Printf("[Zombie Collector] WARNING: Found orphan/zombie container %s not present in PostgreSQL. Removing...", cid[:12])
+		if err := w.orchestrator.StopAndRemoveContainer(ctx, cid); err == nil {
+			delete(w.pendingOrphans, cid)
+			atomic.AddUint64(&w.reclaimedCountAtomic, 1)
+			log.Printf("[Zombie Collector] Reclaimed orphan container %s successfully.", cid[:12])
+		} else {
+			log.Printf("[Zombie Collector] Error removing orphan container %s: %v", cid[:12], err)
 		}
 	}
 

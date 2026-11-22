@@ -41,7 +41,7 @@ func (m *mockProjectRepoForOffline) GetDraftByProject(ctx context.Context, tenan
 func (m *mockProjectRepoForOffline) SaveDraft(ctx context.Context, d *domain.WorkspaceProjectDraft, v int64) (*domain.WorkspaceProjectDraft, error) {
 	return d, nil
 }
-func (m *mockProjectRepoForOffline) Publish(ctx context.Context, tenantID, projectID, userID string) (*domain.WorkspaceProjectVersion, error) {
+func (m *mockProjectRepoForOffline) Publish(ctx context.Context, tenantID, projectID, userID string, manifest []domain.WorkspaceProjectManifestEntry) (*domain.WorkspaceProjectVersion, error) {
 	return nil, nil
 }
 func (m *mockProjectRepoForOffline) ListVersions(ctx context.Context, tenantID, projectID string) ([]*domain.WorkspaceProjectVersion, error) {

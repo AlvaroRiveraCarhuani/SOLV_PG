@@ -59,7 +59,19 @@ func (f *fakeSubmissionRepo) GetByID(ctx context.Context, tenantID, id string) (
 }
 
 func (f *fakeSubmissionRepo) ListByExerciseAndStudent(ctx context.Context, tenantID, exerciseID, studentID string) ([]*domain.Submission, error) {
-	return nil, nil
+	var results []*domain.Submission
+	if f.stored != nil {
+		for _, sub := range f.stored {
+			if sub.ExerciseID == exerciseID && sub.StudentID == studentID {
+				results = append(results, sub)
+			}
+		}
+	} else if f.created != nil {
+		if f.created.ExerciseID == exerciseID && f.created.StudentID == studentID {
+			results = append(results, f.created)
+		}
+	}
+	return results, nil
 }
 
 func (f *fakeSubmissionRepo) ListByExercise(ctx context.Context, tenantID, exerciseID string) ([]*domain.Submission, error) {

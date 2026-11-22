@@ -199,11 +199,28 @@ func (w *PracticeEnvironment) VolumeName() string {
 	return PracticeEnvironmentAttemptVolumeName(w.StudentID, w.SubjectID, w.ExerciseID, w.ExamAttempt)
 }
 
+// frozenError comparte la condición de congelado con el examen cerrado para
+// que errors.Is siga reconociéndola, y conserva un texto propio para que el
+// transporte no confunda una pausa del aula con un examen terminado.
+type frozenError struct{ message string }
+
+func (e frozenError) Error() string { return e.message }
+
+func (frozenError) Is(target error) bool { return target == ErrPracticeEnvironmentFrozen }
+
 var (
 	// ErrPracticeEnvironmentFrozen: el examen terminó y el entorno quedó en solo lectura.
 	// Se devuelve al intentar abrir o reanudar el laboratorio, para que el
 	// alumno no reciba un contenedor en escritura por recargar la página.
 	ErrPracticeEnvironmentFrozen = errors.New("el examen terminó: el entorno quedó en solo lectura")
+	// ErrPracticeEnvironmentFrozenByClass: un laboratorio de práctica quedó en
+	// solo lectura porque el docente pausó el aula. Es un congelado, pero no un
+	// examen cerrado: la escritura vuelve al reanudar la clase.
+	ErrPracticeEnvironmentFrozenByClass = frozenError{message: "la clase está en pausa: el entorno quedó en solo lectura"}
+	// ErrPracticeEnvironmentFrozenByExamPause: el examen sigue abierto y el
+	// docente pausó el aula. El volumen está en solo lectura, pero el examen no
+	// terminó y la escritura vuelve al reanudarlo.
+	ErrPracticeEnvironmentFrozenByExamPause = frozenError{message: "el examen está pausado: el entorno quedó en solo lectura"}
 	// ErrPracticeEnvironmentPracticeRequired: todo entorno pertenece a una práctica. Sin
 	// ejercicio no hay volumen, porque el modelo por materia se retiró.
 	ErrPracticeEnvironmentPracticeRequired = errors.New("la práctica del entorno es requerida")

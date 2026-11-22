@@ -57,9 +57,29 @@ type Submission struct {
 	GradedBy           *string         `db:"graded_by" json:"graded_by,omitempty"`
 	// BaseStatus clasifica la base de comparación de una entrega IDE:
 	// version, no_base o legacy_unknown. El juez la deja nula.
-	BaseStatus                string    `db:"base_status" json:"base_status,omitempty"`
-	WorkspaceProjectVersionID *string   `db:"workspace_project_version_id" json:"workspace_project_version_id,omitempty"`
-	SubmittedAt               time.Time `db:"submitted_at" json:"submitted_at"`
+	BaseStatus                string  `db:"base_status" json:"base_status,omitempty"`
+	WorkspaceProjectVersionID *string `db:"workspace_project_version_id" json:"workspace_project_version_id,omitempty"`
+	// Un proyecto grande se guarda en el depósito y `code` queda vacío. Las
+	// cuatro columnas van juntas o no van.
+	ArtifactKey    *string   `db:"artifact_key" json:"artifact_key,omitempty"`
+	ArtifactSHA256 *string   `db:"artifact_sha256" json:"artifact_sha256,omitempty"`
+	ArtifactBytes  *int64    `db:"artifact_bytes" json:"artifact_bytes,omitempty"`
+	ArtifactFiles  *int      `db:"artifact_files" json:"artifact_files,omitempty"`
+	SubmittedAt    time.Time `db:"submitted_at" json:"submitted_at"`
+}
+
+// Artifact devuelve la referencia al depósito cuando la entrega es un proyecto
+// grande. Sin las cuatro columnas no hay artefacto.
+func (s *Submission) Artifact() *WorkspaceProjectArtifact {
+	if s == nil || s.ArtifactKey == nil || s.ArtifactSHA256 == nil || s.ArtifactBytes == nil || s.ArtifactFiles == nil {
+		return nil
+	}
+	return &WorkspaceProjectArtifact{
+		Key:    *s.ArtifactKey,
+		SHA256: *s.ArtifactSHA256,
+		Bytes:  *s.ArtifactBytes,
+		Files:  *s.ArtifactFiles,
+	}
 }
 
 type TeacherInvitation struct {

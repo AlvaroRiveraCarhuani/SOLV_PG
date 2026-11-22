@@ -53,6 +53,14 @@ func (h *SubmissionHandler) CreateSubmission(w http.ResponseWriter, r *http.Requ
 
 	sub, err := h.service.CreateSubmission(r.Context(), tenantID, submissionDTO)
 	if err != nil {
+		if errors.Is(err, domain.ErrExerciseDeadlineExpired) {
+			SendError(w, http.StatusForbidden, "exercise_deadline_expired", "El plazo de entrega para este ejercicio ha finalizado")
+			return
+		}
+		if errors.Is(err, domain.ErrResubmissionNotAllowed) {
+			SendError(w, http.StatusForbidden, "resubmission_not_allowed", "Este ejercicio no admite reentregas")
+			return
+		}
 		if errors.Is(err, domain.ErrEvaluationRequiresJudge) {
 			SendError(w, http.StatusUnprocessableEntity, "evaluation_requires_judge", "Un proyecto de IDE se corrige con rúbrica: no admite veredicto del juez")
 			return

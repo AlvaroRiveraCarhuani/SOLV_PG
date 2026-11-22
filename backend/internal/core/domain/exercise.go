@@ -336,6 +336,12 @@ var (
 	// ErrDuplicateSubmission: un recibo registra una entrega. Reintentar el
 	// envío devuelve la entrega ya creada, no una segunda.
 	ErrDuplicateSubmission = errors.New("duplicate_submission: la evaluación ya tiene una entrega registrada")
+	// ErrExerciseDeadlineExpired indica que la fecha límite (due_date) del ejercicio ya venció.
+	ErrExerciseDeadlineExpired = errors.New("exercise_deadline_expired: el plazo de entrega para este ejercicio ha finalizado")
+	// ErrResubmissionNotAllowed indica que el ejercicio no admite reentregas para el estudiante.
+	ErrResubmissionNotAllowed = errors.New("resubmission_not_allowed: este ejercicio o examen no admite reentregas")
+	// ErrNoExampleCasesForTesting indica que el ejercicio no tiene casos de ejemplo para probar.
+	ErrNoExampleCasesForTesting = errors.New("no_example_cases_for_testing: el ejercicio no tiene casos de prueba de ejemplo disponibles para probar")
 )
 
 type DryRunJobStatus string
@@ -584,6 +590,22 @@ func (ex *Exercise) Validate() error {
 	return nil
 }
 
+// AllowsResubmit indica si el ejercicio admite múltiples entregas para un mismo estudiante.
+// En entornos IDE consulta la propiedad explícita de su configuración.
+// En jueces efímeros, las prácticas permiten reentregas y los exámenes son de entrega única.
+func (ex *Exercise) AllowsResubmit() bool {
+	if ex == nil {
+		return false
+	}
+	if ex.Config.IDE != nil {
+		return ex.Config.IDE.AllowResubmit
+	}
+	if ex.Purpose == string(ExercisePurposeExam) {
+		return false
+	}
+	return true
+}
+
 type DueAssignment struct {
 	ExerciseID  string     `json:"exercise_id" db:"exercise_id"`
 	Title       string     `json:"title" db:"title"`
@@ -615,10 +637,11 @@ type EvaluationResult struct {
 
 // CaseResult es el resultado de un unico caso de prueba.
 type CaseResult struct {
-	Index      int     `json:"index"`
-	Verdict    Verdict `json:"verdict"`
-	DurationMS int     `json:"duration_ms"`
-	Message    string  `json:"message,omitempty"`
+	Index        int     `json:"index"`
+	Verdict      Verdict `json:"verdict"`
+	DurationMS   int     `json:"duration_ms"`
+	Message      string  `json:"message,omitempty"`
+	ActualOutput string  `json:"actual_output,omitempty"`
 }
 
 // RunMetric registra la telemetria de un caso ejecutado. Language usa la

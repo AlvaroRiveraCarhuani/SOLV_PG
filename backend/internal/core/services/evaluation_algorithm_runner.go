@@ -15,10 +15,12 @@ import (
 	"time"
 )
 
-func (s *EvaluationService) Evaluate(ctx context.Context, exerciseID string, language string, sourceCodeB64 string) (*domain.EvaluationResult, error) {
+func (s *EvaluationService) Evaluate(ctx context.Context, exerciseID string, language string, sourceCodeB64 string, mode ...string) (*domain.EvaluationResult, error) {
 	evalStart := time.Now()
 	metrics.EvaluatorQueueDepth.Inc()
 	defer metrics.EvaluatorQueueDepth.Dec()
+
+	isTestMode := len(mode) > 0 && mode[0] == "test"
 
 	studentID := ""
 	if uid, ok := ctx.Value(domain.UserIDKey).(string); ok && uid != "" {
@@ -47,10 +49,29 @@ func (s *EvaluationService) Evaluate(ctx context.Context, exerciseID string, lan
 		return nil, fmt.Errorf("ejercicio no encontrado (ID: %s): %w", exerciseID, err)
 	}
 
+	tenantID := domain.GetTenantID(ctx)
+	if tenantID != "" && exercise.TenantID != "" && exercise.TenantID != tenantID {
+		return nil, domain.ErrNotFound
+	}
+
 	// El juez solo evalúa ejercicios de su modalidad. Un proyecto de IDE se
 	// corrige con rúbrica y su entrega nunca pasa por aquí.
 	if exercise.EnvironmentType == string(domain.EnvironmentTypeIDEPersistente) {
 		return nil, domain.ErrEvaluationRequiresJudge
+	}
+
+	// La fecha límite es inviolable en evaluaciones del juez.
+	if exercise.DueDate != nil && time.Now().After(*exercise.DueDate) {
+		return nil, domain.ErrExerciseDeadlineExpired
+	}
+
+	// Si el ejercicio no admite reentregas y el alumno ya tiene una entrega registrada,
+	// se bloquea cualquier ejecución posterior en el juez.
+	if s.submissionRepo != nil && studentID != "" && !exercise.AllowsResubmit() {
+		existing, err := s.submissionRepo.ListByExerciseAndStudent(ctx, tenantID, exerciseID, studentID)
+		if err == nil && len(existing) > 0 {
+			return nil, domain.ErrResubmissionNotAllowed
+		}
 	}
 
 	// 2.5 Verificar si el módulo está bloqueado para el estudiante (fail-closed, salvaguarda de examen)
@@ -70,7 +91,7 @@ func (s *EvaluationService) Evaluate(ctx context.Context, exerciseID string, lan
 	if exercise.Type == domain.ExerciseTypeDatabase {
 		result, evalErr = s.evaluateDatabase(ctx, exercise, sourceCode)
 	} else {
-		result, evalErr = s.evaluateAlgorithm(ctx, exercise, language, sourceCode)
+		result, evalErr = s.evaluateAlgorithm(ctx, exercise, language, sourceCode, isTestMode)
 	}
 
 	evalDuration := time.Since(evalStart)
@@ -80,8 +101,10 @@ func (s *EvaluationService) Evaluate(ctx context.Context, exerciseID string, lan
 			courseID = *exercise.SubjectID
 		}
 		verdict := string(result.Verdict)
-		metrics.SubmissionsTotal.WithLabelValues(courseID, language, verdict).Inc()
-		metrics.SubmissionDurationSeconds.WithLabelValues(language).Observe(evalDuration.Seconds())
+		if !isTestMode {
+			metrics.SubmissionsTotal.WithLabelValues(courseID, language, verdict).Inc()
+			metrics.SubmissionDurationSeconds.WithLabelValues(language).Observe(evalDuration.Seconds())
+		}
 
 		logging.FromContext(ctx).Info("evaluation finished",
 			slog.String("exercise_id", exerciseID),
@@ -92,21 +115,24 @@ func (s *EvaluationService) Evaluate(ctx context.Context, exerciseID string, lan
 			slog.Int("execution_time_ms", result.ExecutionTimeMS),
 			slog.Float64("memory_used_mb", result.MemoryUsedMB),
 			slog.Float64("duration_ms", float64(evalDuration.Microseconds())/1000.0),
+			slog.Bool("test_mode", isTestMode),
 		)
 
 		// El resultado viaja con su recibo firmado: la entrega del juez acepta
 		// este veredicto y no el que declare el navegador por su cuenta.
-		if receipt, err := SignEvaluationReceipt(EvaluationReceipt{
-			TenantID:        domain.GetTenantID(ctx),
-			ExerciseID:      exerciseID,
-			StudentID:       studentID,
-			Verdict:         verdict,
-			ExecutionTimeMS: result.ExecutionTimeMS,
-			MemoryUsedMB:    int(result.MemoryUsedMB),
-			CodeHash:        HashEvaluatedCode(sourceCode),
-			IssuedAt:        time.Now().Unix(),
-		}); err == nil {
-			result.Receipt = receipt
+		if !isTestMode {
+			if receipt, err := SignEvaluationReceipt(EvaluationReceipt{
+				TenantID:        domain.GetTenantID(ctx),
+				ExerciseID:      exerciseID,
+				StudentID:       studentID,
+				Verdict:         verdict,
+				ExecutionTimeMS: result.ExecutionTimeMS,
+				MemoryUsedMB:    int(result.MemoryUsedMB),
+				CodeHash:        HashEvaluatedCode(sourceCode),
+				IssuedAt:        time.Now().Unix(),
+			}); err == nil {
+				result.Receipt = receipt
+			}
 		}
 	}
 
@@ -145,7 +171,7 @@ func languageAdmittedByExercise(exercise *domain.Exercise, language string) (str
 	return canonical, false
 }
 
-func (s *EvaluationService) evaluateAlgorithm(ctx context.Context, exercise *domain.Exercise, language string, sourceCode string) (*domain.EvaluationResult, error) {
+func (s *EvaluationService) evaluateAlgorithm(ctx context.Context, exercise *domain.Exercise, language string, sourceCode string, isTestMode ...bool) (*domain.EvaluationResult, error) {
 	cfg := exercise.Config.Algorithm
 	if cfg == nil {
 		return nil, fmt.Errorf("configuración de algoritmia faltante para el ejercicio %s", exercise.ID)
@@ -254,13 +280,33 @@ func (s *EvaluationService) evaluateAlgorithm(ctx context.Context, exercise *dom
 		}, nil
 	}
 
+	testingMode := len(isTestMode) > 0 && isTestMode[0]
+
 	// 2.6 Generación de casos deterministas por estudiante en exámenes
 	testCasesToRun := cfg.TestCases
 	var generatedCases []domain.TestCase
 	isExamWithSeed := exercise.PerStudentSeed && exercise.Purpose == string(domain.ExercisePurposeExam)
 	var seedForSnapshot int64
 
-	if isExamWithSeed {
+	if testingMode {
+		exampleCases := make([]domain.TestCase, 0)
+		for _, tc := range cfg.TestCases {
+			if tc.Visibility == domain.TestCaseVisibilityExample || tc.IsSample {
+				exampleCases = append(exampleCases, tc)
+			}
+		}
+		if len(exampleCases) == 0 {
+			for _, tc := range cfg.TestCases {
+				if tc.Visibility == domain.TestCaseVisibilityPublic {
+					exampleCases = append(exampleCases, tc)
+				}
+			}
+		}
+		if len(exampleCases) == 0 {
+			return nil, domain.ErrNoExampleCasesForTesting
+		}
+		testCasesToRun = exampleCases
+	} else if isExamWithSeed {
 		studentID := "anonymous"
 		if uid, ok := ctx.Value(domain.UserIDKey).(string); ok && uid != "" {
 			studentID = uid
@@ -387,33 +433,47 @@ func (s *EvaluationService) evaluateAlgorithm(ctx context.Context, exercise *dom
 				}
 			}
 		}
+		actualOutput := ""
+		if tc.Visibility == domain.TestCaseVisibilityExample || tc.Visibility == domain.TestCaseVisibilityPublic || tc.IsSample {
+			actualOutput = res.ActualOutput
+		}
+
 		caseResults = append(caseResults, domain.CaseResult{
-			Index:      idx,
-			Verdict:    res.Verdict,
-			DurationMS: int(res.ExecutionTime.Milliseconds()),
-			Message:    caseMsg,
+			Index:        idx,
+			Verdict:      res.Verdict,
+			DurationMS:   int(res.ExecutionTime.Milliseconds()),
+			Message:      caseMsg,
+			ActualOutput: actualOutput,
 		})
 
 		s.recordRunMetric(ctx, exercise.ID, language, res, idx)
 	}
 
 	if globalVerdict != domain.VerdictAC {
+		msg := fmt.Sprintf("Fallaron %d de %d casos de prueba", failCount, len(testCasesToRun))
+		if testingMode {
+			msg = fmt.Sprintf("Fallaron %d de %d casos de ejemplo", failCount, len(testCasesToRun))
+		}
 		return &domain.EvaluationResult{
 			Verdict:         globalVerdict,
 			ExecutionTimeMS: int(totalExecutionTime.Milliseconds()),
 			MemoryUsedMB:    maxMemoryUsedMB,
-			Message:         fmt.Sprintf("Fallaron %d de %d casos de prueba", failCount, len(testCasesToRun)),
+			Message:         msg,
 			FailedTestCase:  firstFailed,
 			CaseResults:     caseResults,
 			GeneratedCases:  generatedCases,
 		}, nil
 	}
 
+	okMsg := "¡Solución Aceptada! Todos los casos de prueba pasaron exitosamente."
+	if testingMode {
+		okMsg = "Todos los casos de ejemplo pasaron exitosamente."
+	}
 	return &domain.EvaluationResult{
 		Verdict:         domain.VerdictAC,
 		ExecutionTimeMS: int(totalExecutionTime.Milliseconds()),
 		MemoryUsedMB:    maxMemoryUsedMB,
-		Message:         "¡Solución Aceptada! Todos los casos de prueba pasaron exitosamente.",
+		Message:         okMsg,
 		CaseResults:     caseResults,
 		GeneratedCases:  generatedCases,
 	}, nil

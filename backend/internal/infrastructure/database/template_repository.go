@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/lib/pq"
 	"solv-backend/internal/domain"
 )
 
@@ -78,6 +79,37 @@ func (db *Database) GetAllTemplates(ctx context.Context, tenantID string) ([]dom
 		templates = []domain.TemplateResponseDTO{}
 	}
 
+	if len(templates) > 0 {
+		ids := make([]string, len(templates))
+		idMap := make(map[string]int, len(templates))
+		for i, t := range templates {
+			ids[i] = t.ID
+			idMap[t.ID] = i
+		}
+		runnerQuery := `
+			SELECT template_id::text, language, COALESCE(entrypoint, ''), COALESCE(docker_image, '')
+			FROM template_language_runners
+			WHERE template_id = ANY($1)
+			ORDER BY language
+		`
+		runnerRows, err := db.db.QueryContext(ctx, runnerQuery, pq.Array(ids))
+		if err == nil {
+			defer func() { _ = runnerRows.Close() }()
+			for runnerRows.Next() {
+				var tID, lang, entrypoint, dockerImg string
+				if err := runnerRows.Scan(&tID, &lang, &entrypoint, &dockerImg); err == nil {
+					if idx, ok := idMap[tID]; ok {
+						templates[idx].LanguageRunners = append(templates[idx].LanguageRunners, domain.TemplateLanguageRunnerDTO{
+							Language:    lang,
+							Entrypoint:  entrypoint,
+							DockerImage: dockerImg,
+						})
+					}
+				}
+			}
+		}
+	}
+
 	return templates, nil
 }
 
@@ -119,5 +151,26 @@ func (db *Database) GetTemplateByID(ctx context.Context, id string) (domain.Temp
 	if err != nil {
 		return domain.TemplateResponseDTO{}, fmt.Errorf("failed to get template by id: %w", err)
 	}
+
+	runnerRows, err := db.db.QueryContext(ctx, `
+		SELECT language, COALESCE(entrypoint, ''), COALESCE(docker_image, '')
+		FROM template_language_runners
+		WHERE template_id = $1
+		ORDER BY language
+	`, id)
+	if err == nil {
+		defer func() { _ = runnerRows.Close() }()
+		for runnerRows.Next() {
+			var lang, entrypoint, dockerImg string
+			if err := runnerRows.Scan(&lang, &entrypoint, &dockerImg); err == nil {
+				t.LanguageRunners = append(t.LanguageRunners, domain.TemplateLanguageRunnerDTO{
+					Language:    lang,
+					Entrypoint:  entrypoint,
+					DockerImage: dockerImg,
+				})
+			}
+		}
+	}
+
 	return t, nil
 }

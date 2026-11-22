@@ -70,13 +70,17 @@ func ToStudentEvaluationResponse(result *domain.EvaluationResult) *StudentEvalua
 	}
 
 	if failed := result.FailedTestCase; failed != nil {
-		// El caso fallido viaja sin salida esperada cuando no es público: la
-		// salida de un caso oculto es la respuesta del ejercicio.
+		// El caso fallido viaja sin entrada ni salida esperada cuando no es público/ejemplo:
+		// la entrada y salida de un caso oculto son privadas del ejercicio.
+		input := failed.Input
+		if failed.IsHidden || failed.Visibility == domain.TestCaseVisibilityHidden {
+			input = ""
+		}
 		resp.FailedTestCase = &StudentFailedTestCaseDTO{
 			ID:         failed.ID,
 			ExerciseID: failed.ExerciseID,
 			OrderIndex: failed.OrderIndex,
-			Input:      failed.Input,
+			Input:      input,
 			Visibility: string(failed.Visibility),
 			Weight:     failed.Weight,
 			IsHidden:   failed.IsHidden,

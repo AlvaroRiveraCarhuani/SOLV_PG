@@ -11,12 +11,6 @@ import (
 )
 
 func (s *PracticeEnvironmentService) reactivatePracticeEnvironment(ctx context.Context, instance *domain.PracticeEnvironment, provision satelliteProvision, linkSession bool) (*domain.PracticeEnvironment, error) {
-	// La reanudación nunca deshace el cierre de un examen, ni por un contenedor
-	// pausado ni por el reconciliador (ADR-005 §5).
-	if instance.FrozenAt != nil || instance.Status == domain.PracticeEnvironmentStatusFrozen {
-		return nil, domain.ErrPracticeEnvironmentFrozen
-	}
-
 	// La pausa del aula se lee antes de decidir cómo despertar: un entorno que
 	// vuelve con la clase pausada se reconstruye con el volumen en solo lectura
 	// y no se despausa en escritura.
@@ -25,6 +19,22 @@ func (s *PracticeEnvironmentService) reactivatePracticeEnvironment(ctx context.C
 		exerciseIDStr = *instance.ExerciseID
 	}
 	aulaPaused := s.aulaPausedForStart(ctx, linkSession, instance.TenantID, instance.StudentID, instance.SubjectID, exerciseIDStr)
+
+	// La reanudación nunca deshace el cierre de un examen, ni por un contenedor
+	// pausado ni por el reconciliador (ADR-005 §5). La práctica con el aula
+	// pausada tampoco recupera la escritura, pero sí vuelve a entregar su URL
+	// para que el alumno pueda leer el trabajo.
+	if instance.FrozenAt != nil || instance.Status == domain.PracticeEnvironmentStatusFrozen {
+		if instance.EnvironmentProfile.IsExam() {
+			if aulaPaused {
+				return nil, domain.ErrPracticeEnvironmentFrozenByExamPause
+			}
+			return nil, domain.ErrPracticeEnvironmentFrozen
+		}
+		if !aulaPaused {
+			return nil, domain.ErrPracticeEnvironmentFrozenByClass
+		}
+	}
 
 	// Optimización ADR / Memory Governance: intentar despausar el contenedor congelado (instantáneo <50ms)
 	//
@@ -200,6 +210,22 @@ func (s *PracticeEnvironmentService) reactivatePracticeEnvironment(ctx context.C
 		return nil, err
 	}
 	return instance, nil
+}
+
+// reopenPausedPracticeEnvironment devuelve el laboratorio de una práctica con
+// el aula pausada. Si el contenedor sigue vivo se reutiliza tal como quedó, con
+// el volumen en solo lectura; si no, se reconstruye igual de congelado. La
+// entrega no se habilita acá: el servicio de entrega la sigue rechazando
+// mientras el volumen tenga frozen_at.
+func (s *PracticeEnvironmentService) reopenPausedPracticeEnvironment(ctx context.Context, instance *domain.PracticeEnvironment, provision satelliteProvision, linkSession bool) (*domain.PracticeEnvironment, error) {
+	if s.containerAlive(ctx, instance.ContainerID) && strings.TrimSpace(instance.AccessURL) != "" {
+		_ = s.repo.RecordHeartbeat(ctx, instance.ID)
+		if linkSession {
+			s.linkSessionToAula(ctx, instance)
+		}
+		return instance, nil
+	}
+	return s.reactivatePracticeEnvironment(ctx, instance, provision, linkSession)
 }
 
 // examNetworkPolicyFor devuelve la política que declaró el ejercicio. Si no se

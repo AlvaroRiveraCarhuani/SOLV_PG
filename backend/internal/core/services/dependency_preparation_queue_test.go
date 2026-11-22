@@ -132,7 +132,7 @@ func (r *queueVersionRepo) SaveDraft(_ context.Context, _ *domain.WorkspaceProje
 	return nil, errors.New("no implementado")
 }
 
-func (r *queueVersionRepo) Publish(_ context.Context, _, _, _ string) (*domain.WorkspaceProjectVersion, error) {
+func (r *queueVersionRepo) Publish(_ context.Context, _, _, _ string, _ []domain.WorkspaceProjectManifestEntry) (*domain.WorkspaceProjectVersion, error) {
 	return nil, errors.New("no implementado")
 }
 

@@ -38,6 +38,21 @@ func TestPureRuntimePracticeEnvironmentCmd_PreparePermissions(t *testing.T) {
 	}
 }
 
+// TestPureRuntimePracticeEnvironmentCmd_ToleratesReadOnlyWorkspace valida que el
+// contenedor de un aula pausada arranca con el volumen en solo lectura: los
+// toques al workspace no abortan el arranque y el sembrado se salta.
+func TestPureRuntimePracticeEnvironmentCmd_ToleratesReadOnlyWorkspace(t *testing.T) {
+	if !strings.Contains(pureRuntimePracticeEnvironmentCmd, `chmod 0777 /home/workspace 2>/dev/null || true`) {
+		t.Errorf("el chmod debía tolerar un volumen en solo lectura")
+	}
+	if !strings.Contains(pureRuntimePracticeEnvironmentCmd, `mkdir -p /home/workspace/.vscode/extensions 2>/dev/null || true`) {
+		t.Errorf("el mkdir de extensiones debía tolerar un volumen en solo lectura")
+	}
+	if strings.Count(pureRuntimePracticeEnvironmentCmd, `[ -w /home/workspace ]`) != 2 {
+		t.Errorf("el sembrado de settings y el setup debían exigir un workspace escribible")
+	}
+}
+
 // TestPureRuntimePracticeEnvironmentCmd_OpensProjectFolderByDefault valida que el editor
 // abre directo en el proyecto del estudiante sin intervención manual.
 func TestPureRuntimePracticeEnvironmentCmd_OpensProjectFolderByDefault(t *testing.T) {

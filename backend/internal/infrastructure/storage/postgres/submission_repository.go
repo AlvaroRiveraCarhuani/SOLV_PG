@@ -23,8 +23,8 @@ func NewPostgresSubmissionRepository(db *sqlx.DB) *PostgresSubmissionRepository 
 
 func (r *PostgresSubmissionRepository) Create(ctx context.Context, sub *domain.Submission) error {
 	query := `
-		INSERT INTO submissions (id, tenant_id, exercise_id, student_id, environment_id, code, verdict, verdict_origin, review_status, ast_result, generated_cases, complexity_analysis, score, execution_time_ms, memory_used_mb, base_status, workspace_project_version_id, submitted_at)
-		VALUES (:id, :tenant_id, :exercise_id, :student_id, :environment_id, :code, NULLIF(:verdict, ''), NULLIF(:verdict_origin, ''), COALESCE(NULLIF(:review_status, ''), 'not_required'), :ast_result, :generated_cases, :complexity_analysis, :score, :execution_time_ms, :memory_used_mb, NULLIF(:base_status, ''), :workspace_project_version_id, NOW())
+		INSERT INTO submissions (id, tenant_id, exercise_id, student_id, environment_id, code, verdict, verdict_origin, review_status, ast_result, generated_cases, complexity_analysis, score, execution_time_ms, memory_used_mb, base_status, workspace_project_version_id, artifact_key, artifact_sha256, artifact_bytes, artifact_files, submitted_at)
+		VALUES (:id, :tenant_id, :exercise_id, :student_id, :environment_id, :code, NULLIF(:verdict, ''), NULLIF(:verdict_origin, ''), COALESCE(NULLIF(:review_status, ''), 'not_required'), :ast_result, :generated_cases, :complexity_analysis, :score, :execution_time_ms, :memory_used_mb, NULLIF(:base_status, ''), :workspace_project_version_id, :artifact_key, :artifact_sha256, :artifact_bytes, :artifact_files, NOW())
 	`
 	_, err := r.db.NamedExecContext(ctx, query, sub)
 	if err != nil {
@@ -57,7 +57,8 @@ func (r *PostgresSubmissionRepository) GetByID(ctx context.Context, tenantID, id
 		       COALESCE(generated_cases, '{}'::jsonb) AS generated_cases,
 		       COALESCE(complexity_analysis, '{}'::jsonb) AS complexity_analysis,
 		       execution_time_ms, memory_used_mb,
-		       manual_override, override_reason, score, graded_by, COALESCE(base_status, '') AS base_status, workspace_project_version_id, submitted_at
+		       manual_override, override_reason, score, graded_by, COALESCE(base_status, '') AS base_status, workspace_project_version_id,
+		       artifact_key, artifact_sha256, artifact_bytes, artifact_files, submitted_at
 		FROM submissions
 		WHERE tenant_id = $1 AND id = $2
 	`

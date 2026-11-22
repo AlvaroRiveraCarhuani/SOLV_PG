@@ -100,13 +100,33 @@ type TeacherSubmissionReviewDTO struct {
 	// BaseFiles es el proyecto base del ejercicio (IDE) derivado de
 	// `exercises.boilerplate` con el mismo parser del snapshot. Es lo que usa
 	// el diff por archivo; no se persiste ni se toca el disco.
-	BaseFiles                 []ProjectFile       `json:"base_files"`
-	BaseFilesAvailable        bool                `json:"base_files_available"`
-	WorkspaceProjectVersionID *string             `json:"workspace_project_version_id,omitempty"`
-	Comments                  []SubmissionComment `json:"comments"`
-	NextSubmissionID          *string             `json:"next_submission_id,omitempty"`
-	PrevSubmissionID          *string             `json:"prev_submission_id,omitempty"`
-	SubmittedAt               time.Time           `json:"submitted_at" db:"submitted_at"`
+	BaseFiles                 []ProjectFile `json:"base_files"`
+	BaseFilesAvailable        bool          `json:"base_files_available"`
+	WorkspaceProjectVersionID *string       `json:"workspace_project_version_id,omitempty"`
+	// La referencia al depósito no viaja al cliente: el servicio la usa para
+	// traer el árbol y llenar `files`. Una entrega de texto no la tiene.
+	ArtifactKey      string              `json:"-" db:"artifact_key"`
+	ArtifactSHA256   string              `json:"-" db:"artifact_sha256"`
+	ArtifactBytes    int64               `json:"-" db:"artifact_bytes"`
+	ArtifactFiles    int                 `json:"-" db:"artifact_files"`
+	Comments         []SubmissionComment `json:"comments"`
+	NextSubmissionID *string             `json:"next_submission_id,omitempty"`
+	PrevSubmissionID *string             `json:"prev_submission_id,omitempty"`
+	SubmittedAt      time.Time           `json:"submitted_at" db:"submitted_at"`
+}
+
+// SubmissionArtifact devuelve la referencia al depósito cuando la entrega
+// revisada es un proyecto grande. Sin las cuatro columnas no hay artefacto.
+func (r *TeacherSubmissionReviewDTO) SubmissionArtifact() *WorkspaceProjectArtifact {
+	if r == nil || r.ArtifactKey == "" || r.ArtifactSHA256 == "" || r.ArtifactBytes <= 0 || r.ArtifactFiles <= 0 {
+		return nil
+	}
+	return &WorkspaceProjectArtifact{
+		Key:    r.ArtifactKey,
+		SHA256: r.ArtifactSHA256,
+		Bytes:  r.ArtifactBytes,
+		Files:  r.ArtifactFiles,
+	}
 }
 
 // OverrideRequestDTO payload para anular o convalidar manualmente una calificación.

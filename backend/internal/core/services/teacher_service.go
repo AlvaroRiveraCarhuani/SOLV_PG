@@ -24,6 +24,17 @@ type TeacherService struct {
 	classSessionStore      domain.ClassSessionStore
 	auditRepo              domain.AuditLogRepository
 	enrollmentStore        domain.TeacherEnrollmentStore
+	// workspaceBase resuelve el proyecto base publicado, venga de texto o del
+	// depósito de objetos. Sin él la revisión usa el espejo de siempre.
+	workspaceBase workspaceProjectBaseProvider
+}
+
+// SetWorkspaceBase conecta el resolver del proyecto base. Es opcional: sin él
+// la revisión sigue leyendo el espejo del ejercicio.
+func (s *TeacherService) SetWorkspaceBase(provider workspaceProjectBaseProvider) {
+	if s != nil {
+		s.workspaceBase = provider
+	}
 }
 
 func NewTeacherService(

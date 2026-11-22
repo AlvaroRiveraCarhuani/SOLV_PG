@@ -155,10 +155,18 @@ La fase 1 y la fase 4 están acopladas: con el pipeline aprovisionando varios bi
 - **Persistencia:** al publicar, `PublishExercise` resuelve la plantilla efectiva y guarda `exercises.environment_snapshot` (JSONB, migración `00059`) con `template_id`, nombre, imagen, entrypoint, timeout, `base_ram_mb`, bindings resueltos, contrato de init (`sql`, `mongo-js`, `redis-cmds` o `none`), script de setup y `verification_fingerprint`. La escritura del estado y del pin ocurre en una sola sentencia.
 - **Lectura:** el arranque del workspace, la reactivación de un entorno y la prueba de práctica del docente priorizan `AsTemplate()` del snapshot. El juez usa `AsTemplateSummary()` cuando resuelve la plantilla del ejercicio. Editar la plantilla no reescribe publicaciones anteriores.
 - **Fallback:** un ejercicio publicado antes del corte (o un snapshot incompleto) resuelve la plantilla viva y deja el registro `sin environment_snapshot ... (fallback)` en el log. Un snapshot con imagen vacía no se aplica a medias.
-- **UI:** el Studio muestra cuántas prácticas publicadas usan la plantilla al editarla (`published_exercise_count`), con el aviso de que los cambios aplican solo a publicaciones nuevas.
+- **UI:** el Studio muestra cuántas prácticas publicadas usan la plantilla al editarla (`published_exercise_count`), con el aviso de que los cambios aplican solo a publicaciones nuevas. En el editor de la práctica, si la plantilla elegida difiere de la del snapshot, aparece «Republicar entorno»: guarda, persiste la rúbrica y vuelve a fijar el pin.
 - **Huella:** `verification_fingerprint` es un SHA-256 determinista sobre los campos del snapshot; no incluye el propio campo de huella.
 
 Pendiente fuera de este corte: aislamiento por credenciales con tenant (fase 5), multi-selección en el Studio (fase 6) e identidad versionada del satélite (fase 7).
+
+### Ajustes operativos del motor gestionado
+
+`managedSatelliteReadyTimeout` pasó de 30 s a 180 s. La primera inicialización de MySQL y MariaDB crea
+el datadir y en el nodo medido `mysql:8.4` tardó 82 s en aceptar conexiones: con 30 s el motor no
+llegaba a estar listo, el arranque se revertía y el rollback borraba el volumen que esa misma llamada
+acababa de crear (los preexistentes no se tocan), así que cada reintento empezaba de cero. El plazo
+largo solo se usa al crear o reactivar el motor; uno que ya está corriendo se devuelve sin espera.
 
 ## Alternativas Descartadas
 

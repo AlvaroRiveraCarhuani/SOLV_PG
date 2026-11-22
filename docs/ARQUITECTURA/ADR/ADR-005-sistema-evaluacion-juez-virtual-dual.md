@@ -90,6 +90,10 @@ La pausa en vivo aplica a cualquier aula abierta, sea `purpose = class` o `purpo
 
 **Entornos que nacen durante la pausa.** El alta y la reactivación consultan la pausa del aula antes de montar el volumen: si la clase o el examen está pausado, el contenedor arranca con el volumen en `:ro` y la fila queda `frozen`. `Reanudar` lo devuelve a `:rw` como a los entornos que ya existían. Un entorno hibernado se reconstruye en solo lectura; no se despausa en escritura. El alumno ve el aviso de pausa en el aula y en el Companion, y su editor no guarda hasta la reanudación.
 
+**Pausas simultáneas.** La reconstrucción del contenedor se serializa por entorno: dos pausas o reanudaciones del mismo laboratorio no compiten por el mismo nombre de contenedor. La segunda espera a la primera y retoma el contenedor vigente de la base antes de volver a montarlo. El Companion deshabilita los botones mientras la acción está en curso y muestra un indicador en el botón que la disparó; la pausa espera hasta 120 segundos porque recrea el contenedor de cada alumno.
+
+**Configuración del Companion al reconstruir.** La pausa y la reanudación copian las variables `SOLV_*` del contenedor que reemplazan. Regenerarlas desde el contexto del docente inyectaría su rol y su token en el entorno del alumno; conservarlas mantiene la URL, el token, el aula y la práctica que el alumno ya tenía. Si la lectura falla, la reconstrucción sigue y el entorno queda sin esa configuración, igual que un contenedor que nunca la recibió.
+
 ### 5.3 Alternativas comparadas
 
 | Criterio | Montaje `:ro` con recreación | Bloqueo del editor | Pausar el contenedor |

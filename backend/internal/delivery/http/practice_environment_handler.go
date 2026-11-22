@@ -118,6 +118,16 @@ func (h *PracticeEnvironmentHandler) StartPracticeEnvironment(w http.ResponseWri
 			SendError(w, http.StatusTooManyRequests, err.Error(), "Memoria Excedida: Has superado la cuota de RAM (OOMKilled) 3 veces seguidas. Espera 5 minutos antes de reiniciar.")
 			return
 		}
+		if errors.Is(err, domain.ErrPracticeEnvironmentFrozenByClass) {
+			// La práctica no es un examen: el solo lectura viene de la pausa del
+			// aula y el mensaje no puede anunciar un cierre de examen.
+			SendError(w, http.StatusConflict, "environment_frozen_class", "El docente pausó la clase: tu entorno quedó en solo lectura")
+			return
+		}
+		if errors.Is(err, domain.ErrPracticeEnvironmentFrozenByExamPause) {
+			SendError(w, http.StatusConflict, "environment_frozen_exam_paused", "El docente pausó el examen: tu entorno quedó en solo lectura")
+			return
+		}
 		if errors.Is(err, domain.ErrPracticeEnvironmentFrozen) {
 			// Código estable: la pantalla del alumno distingue un examen cerrado de
 			// un fallo de arranque sin mirar el texto del mensaje.
@@ -321,6 +331,14 @@ func (h *PracticeEnvironmentHandler) RestartPracticeEnvironment(w http.ResponseW
 			SendError(w, http.StatusTooManyRequests, err.Error(), "Memoria Excedida: Has alcanzado el límite de 3 strikes por OOMKilled. Debes esperar el tiempo de enfriamiento (5 minutos).")
 			return
 		}
+		if errors.Is(err, domain.ErrPracticeEnvironmentFrozenByClass) {
+			SendError(w, http.StatusConflict, "environment_frozen_class", "El docente pausó la clase: tu entorno quedó en solo lectura")
+			return
+		}
+		if errors.Is(err, domain.ErrPracticeEnvironmentFrozenByExamPause) {
+			SendError(w, http.StatusConflict, "environment_frozen_exam_paused", "El docente pausó el examen: tu entorno quedó en solo lectura")
+			return
+		}
 		if errors.Is(err, domain.ErrPracticeEnvironmentFrozen) {
 			SendError(w, http.StatusConflict, "environment_frozen", "El examen terminó: tu entorno quedó en solo lectura")
 			return
@@ -351,6 +369,10 @@ func (h *PracticeEnvironmentHandler) PurgeEnvironmentCaches(w http.ResponseWrite
 	result, err := h.service.PurgeEnvironmentCaches(r.Context(), environmentID, nil)
 	if err != nil {
 		switch {
+		case errors.Is(err, domain.ErrPracticeEnvironmentFrozenByClass):
+			SendError(w, http.StatusConflict, "environment_frozen_class", "El docente pausó la clase: tu entorno quedó en solo lectura")
+		case errors.Is(err, domain.ErrPracticeEnvironmentFrozenByExamPause):
+			SendError(w, http.StatusConflict, "environment_frozen_exam_paused", "El docente pausó el examen: tu entorno quedó en solo lectura")
 		case errors.Is(err, domain.ErrPracticeEnvironmentFrozen):
 			SendError(w, http.StatusConflict, "environment_frozen", "El examen terminó: tu entorno quedó en solo lectura")
 		case errors.Is(err, domain.ErrNotFound):
@@ -525,12 +547,20 @@ func (h *PracticeEnvironmentHandler) SubmitPracticeEnvironmentProject(w http.Res
 	submission, err := h.service.SubmitPracticeEnvironmentProject(r.Context(), environmentID, studentID, req.ExerciseID, req.Files)
 	if err != nil {
 		switch {
+		case errors.Is(err, domain.ErrExerciseDeadlineExpired):
+			SendError(w, http.StatusForbidden, "exercise_deadline_expired", "El plazo de entrega para este ejercicio ha finalizado")
+		case errors.Is(err, domain.ErrResubmissionNotAllowed):
+			SendError(w, http.StatusForbidden, "resubmission_not_allowed", "Este ejercicio no admite reentregas")
 		case errors.Is(err, services.ErrPracticeEnvironmentForbidden):
 			SendError(w, http.StatusForbidden, err.Error(), "No tiene permisos para entregar este environment")
 		case errors.Is(err, services.ErrInvalidExerciseID):
 			SendError(w, http.StatusBadRequest, err.Error(), "El exercise_id no es un UUID válido")
 		case errors.Is(err, domain.ErrNotFound):
 			SendError(w, http.StatusNotFound, err.Error(), "El entorno que intentas entregar no existe")
+		case errors.Is(err, domain.ErrPracticeEnvironmentFrozenByClass):
+			SendError(w, http.StatusConflict, "environment_frozen_class", "El docente pausó la clase: tu entorno quedó en solo lectura")
+		case errors.Is(err, domain.ErrPracticeEnvironmentFrozenByExamPause):
+			SendError(w, http.StatusConflict, "environment_frozen_exam_paused", "El docente pausó el examen: tu entorno quedó en solo lectura")
 		case errors.Is(err, domain.ErrPracticeEnvironmentFrozen):
 			SendError(w, http.StatusConflict, err.Error(), "El examen terminó: tu entorno quedó en solo lectura")
 		case errors.Is(err, domain.ErrDiskQuotaExceeded):

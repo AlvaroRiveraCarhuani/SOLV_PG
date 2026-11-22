@@ -28,6 +28,15 @@ type EvaluationService struct {
 	// examOfflineVerifier corre el proyecto base sin red antes de publicar un
 	// examen cerrado. Sin verificador la publicación no se bloquea.
 	examOfflineVerifier domain.ExamOfflineVerifier
+	// submissionRepo permite consultar entregas previas para bloquear ejecuciones
+	// en exámenes que no admiten reentrega.
+	submissionRepo domain.SubmissionRepository
+}
+
+// SetSubmissionRepository habilita la verificación de entregas previas para bloquear
+// ejecuciones posteriores en exámenes de entrega única.
+func (s *EvaluationService) SetSubmissionRepository(repo domain.SubmissionRepository) {
+	s.submissionRepo = repo
 }
 
 // SetPracticeEnvironments habilita la comprobación de entornos abiertos antes de

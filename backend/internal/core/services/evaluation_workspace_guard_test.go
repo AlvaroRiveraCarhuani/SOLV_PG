@@ -32,7 +32,7 @@ func (g *guardWorkspaceRepo) SaveDraft(context.Context, *domain.WorkspaceProject
 	panic("not used")
 }
 
-func (g *guardWorkspaceRepo) Publish(context.Context, string, string, string) (*domain.WorkspaceProjectVersion, error) {
+func (g *guardWorkspaceRepo) Publish(context.Context, string, string, string, []domain.WorkspaceProjectManifestEntry) (*domain.WorkspaceProjectVersion, error) {
 	panic("not used")
 }
 

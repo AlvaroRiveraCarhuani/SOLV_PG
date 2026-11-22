@@ -252,4 +252,3 @@ func TestServerPolicies_UpdatePracticeCPUMillis_Invalid(t *testing.T) {
 		}
 	}
 }
-

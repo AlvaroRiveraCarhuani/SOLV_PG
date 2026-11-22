@@ -1,6 +1,8 @@
 package dto
 
 import (
+	"time"
+
 	"solv-backend/internal/core/domain"
 )
 
@@ -37,6 +39,7 @@ type ExercisePublicResponse struct {
 	PublicTestCases  []PublicTestCase  `json:"public_test_cases,omitempty"`
 	AllowResubmit    bool              `json:"allow_resubmit,omitempty"`
 	AutoCheckpoint   bool              `json:"auto_checkpoint,omitempty"`
+	DueDate          *time.Time        `json:"due_date,omitempty"`
 }
 
 func ToExercisePublicResponse(ex *domain.Exercise) *ExercisePublicResponse {
@@ -64,6 +67,7 @@ func ToExercisePublicResponse(ex *domain.Exercise) *ExercisePublicResponse {
 		TimeLimitMs:       ex.TimeLimitMS,
 		MemoryMB:          ex.MemoryLimitMB,
 		MemoryLimitMB:     ex.MemoryLimitMB,
+		DueDate:           ex.DueDate,
 	}
 
 	if ex.Config.Algorithm != nil {
@@ -111,9 +115,8 @@ func ToExercisePublicResponse(ex *domain.Exercise) *ExercisePublicResponse {
 		}
 	}
 
-	// Metadatos del IDE persistente visibles para el alumno (nunca el db_init_script).
+	resp.AllowResubmit = ex.AllowsResubmit()
 	if ex.Config.IDE != nil {
-		resp.AllowResubmit = ex.Config.IDE.AllowResubmit
 		resp.AutoCheckpoint = ex.Config.IDE.AutoCheckpoint
 	}
 

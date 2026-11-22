@@ -147,6 +147,11 @@ func (s *SubmissionService) CreateSubmission(ctx context.Context, tenantID strin
 		return nil, domain.ErrEvaluationRequiresJudge
 	}
 
+	// La fecha límite es inviolable: no se aceptan entregas posteriores al vencimiento.
+	if exercise.DueDate != nil && time.Now().After(*exercise.DueDate) {
+		return nil, domain.ErrExerciseDeadlineExpired
+	}
+
 	// El veredicto y las métricas salen del recibo firmado al evaluar. El
 	// payload del navegador no puede alterarlos.
 	receipt, err := ParseEvaluationReceipt(dto.EvaluationReceipt, time.Now())
@@ -169,6 +174,24 @@ func (s *SubmissionService) CreateSubmission(ctx context.Context, tenantID strin
 	// La entrega se identifica por la evaluación que la respalda: reenviar el
 	// mismo recibo devuelve la entrega ya registrada, no crea otra.
 	subID := uuid.NewSHA1(uuid.NameSpaceOID, []byte(dto.EvaluationReceipt)).String()
+
+	// Si el ejercicio no admite reentregas, solo se tolera el reintento idempotente
+	// del mismo recibo (misma entrega). Un recibo nuevo se rechaza.
+	if !exercise.AllowsResubmit() {
+		existing, err := s.repo.ListByExerciseAndStudent(ctx, tenantID, dto.ExerciseID, dto.StudentID)
+		if err == nil && len(existing) > 0 {
+			isReplay := false
+			for _, exSub := range existing {
+				if exSub.ID == subID {
+					isReplay = true
+					break
+				}
+			}
+			if !isReplay {
+				return nil, domain.ErrResubmissionNotAllowed
+			}
+		}
+	}
 	sub := &domain.Submission{
 		ID:            subID,
 		TenantID:      tenantID,

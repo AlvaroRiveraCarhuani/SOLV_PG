@@ -75,6 +75,9 @@ type PracticeEnvironmentService struct {
 	// entorno. Sin este repositorio el ciclo anterior sigue funcionando, pero no
 	// se siembra ningún proyecto.
 	workspaceProjects domain.WorkspaceProjectRepository
+	// workspaceArtifacts entrega el tar.gz de las versiones de proyecto grande.
+	// Sin depósito, un entorno con artefacto no se siembra y queda cuarentena.
+	workspaceArtifacts domain.WorkspaceProjectArtifactStore
 	// dependencyPreparation entrega el árbol preparado de una versión para
 	// enlazarlo al volumen recién sembrado. Es opcional: sin él el entorno abre
 	// igual y el alumno instala al empezar.
@@ -93,6 +96,12 @@ type PracticeEnvironmentService struct {
 	// entre procesos queda respaldada por el estado persistido del entorno.
 	workspaceSeedMu    sync.Mutex
 	workspaceSeedLocks map[string]*sync.Mutex
+
+	// environmentMountMu protege environmentMountLocks: dos pausas o
+	// reanudaciones del mismo laboratorio no pueden reconstruir su contenedor a
+	// la vez, porque ambas usan el mismo nombre y la segunda creación falla.
+	environmentMountMu    sync.Mutex
+	environmentMountLocks map[string]*sync.Mutex
 
 	// admissionMu serializa la decisión de cuota y el monto que está en vuelo.
 	// Sin ella, dos aperturas simultáneas leen el mismo hueco libre y ambas se
@@ -236,12 +245,33 @@ func (s *PracticeEnvironmentService) freezeEnvironmentForPausedAula(ctx context.
 		return
 	}
 	at := time.Now()
+	// Reabrir durante la pausa no cambia desde cuándo el aula está en solo
+	// lectura: se conserva la hora del primer congelado.
+	if instance.FrozenAt != nil {
+		at = *instance.FrozenAt
+	}
 	if err := marker.SetPracticeEnvironmentFrozen(ctx, instance.TenantID, instance.ID, true, at); err != nil {
 		log.Printf("[PracticeEnvironment] WARNING: el entorno %s quedó en solo lectura pero no se pudo marcar: %v", instance.ID, err)
 		return
 	}
 	instance.FrozenAt = &at
 	instance.Status = domain.PracticeEnvironmentStatusFrozen
+}
+
+// frozenErrorFor explica un volumen ya congelado: un examen cerrado, un examen
+// pausado y una práctica con el aula pausada no dicen lo mismo.
+func (s *PracticeEnvironmentService) frozenErrorFor(ctx context.Context, instance *domain.PracticeEnvironment) error {
+	if instance == nil || !instance.EnvironmentProfile.IsExam() {
+		return domain.ErrPracticeEnvironmentFrozenByClass
+	}
+	exerciseID := ""
+	if instance.ExerciseID != nil {
+		exerciseID = strings.TrimSpace(*instance.ExerciseID)
+	}
+	if s.aulaPausedForStart(ctx, true, instance.TenantID, instance.StudentID, instance.SubjectID, exerciseID) {
+		return domain.ErrPracticeEnvironmentFrozenByExamPause
+	}
+	return domain.ErrPracticeEnvironmentFrozen
 }
 
 func (s *PracticeEnvironmentService) linkSessionToAula(ctx context.Context, instance *domain.PracticeEnvironment) {
@@ -775,7 +805,7 @@ func (s *PracticeEnvironmentService) startExamRetake(ctx context.Context, closed
 		return nil, fmt.Errorf("failed to ensure named volume %s: %w", closed.VolumeName(), err)
 	}
 	if seedVersion != nil {
-		seed, seedErr := workspaceSeedFromVersion(seedVersion)
+		seed, seedErr := s.workspaceSeedForVersion(ctx, seedVersion)
 		if seedErr != nil {
 			_ = s.setWorkspaceInitStatus(ctx, closed, domain.WorkspaceInitStatusQuarantined)
 			_ = s.repo.UpdateStatus(ctx, closed.ID, domain.PracticeEnvironmentStatusFailed)
@@ -915,10 +945,27 @@ func (s *PracticeEnvironmentService) startPracticeEnvironment(ctx context.Contex
 		// abrió otra convocatoria después del cierre, el alumno estrena intento y
 		// volumen, y este registro queda congelado como evidencia del anterior.
 		if existing.FrozenAt != nil || existing.Status == domain.PracticeEnvironmentStatusFrozen {
-			if !profile.IsExam() || !s.canStartNewExamAttempt(ctx, tenantID, subjectID, existing) {
-				return nil, domain.ErrPracticeEnvironmentFrozen
+			// Un examen cerrado no se reabre por recargar la página. La pausa del
+			// aula es otra cosa: el examen sigue abierto y el 409 lo dice.
+			if profile.IsExam() {
+				if aulaPaused {
+					return nil, domain.ErrPracticeEnvironmentFrozenByExamPause
+				}
+				if !s.canStartNewExamAttempt(ctx, tenantID, subjectID, existing) {
+					return nil, domain.ErrPracticeEnvironmentFrozen
+				}
+				return s.startExamRetake(ctx, existing, template, exercise, tenantID, subjectID, profile, linkSession)
 			}
-			return s.startExamRetake(ctx, existing, template, exercise, tenantID, subjectID, profile, linkSession)
+			// Una práctica con el aula pausada no se cierra: el alumno entra a
+			// leer su trabajo y la entrega sigue bloqueada.
+			if !aulaPaused {
+				return nil, domain.ErrPracticeEnvironmentFrozenByClass
+			}
+			provision, dbErr := s.ensureExerciseSatelliteDB(ctx, userID, subjectID, template, exercise)
+			if dbErr != nil {
+				return nil, dbErr
+			}
+			return s.reopenPausedPracticeEnvironment(ctx, existing, provision, linkSession)
 		} else {
 
 			// El entorno es único por (student_id, subject_id, exercise_id). Si ya
@@ -1066,7 +1113,7 @@ func (s *PracticeEnvironmentService) startPracticeEnvironment(ctx context.Contex
 	// termina, no se entrega un contenedor vacío: el entorno queda fallido y el
 	// volumen conserva lo que haya para una revisión segura.
 	if seedVersion != nil {
-		seed, seedErr := workspaceSeedFromVersion(seedVersion)
+		seed, seedErr := s.workspaceSeedForVersion(ctx, seedVersion)
 		if seedErr != nil {
 			_ = s.setWorkspaceInitStatus(ctx, instance, domain.WorkspaceInitStatusQuarantined)
 			_ = s.repo.UpdateStatus(ctx, environmentID, domain.PracticeEnvironmentStatusFailed)
