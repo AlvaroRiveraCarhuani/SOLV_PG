@@ -55,6 +55,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
   let connection: ConnectionState = 'connecting';
   let lastOkAt = Date.now();
   let notice: PanelState['message'];
+  let busy: PanelState['busy'];
   let studentPause: { sessionId: string; since: string } | null = null;
   let progress:
     | {
@@ -202,6 +203,9 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     if (notice) {
       state.message = notice;
     }
+    if (busy) {
+      state.busy = busy;
+    }
     return state;
   }
 
@@ -222,6 +226,11 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
   }
 
   async function handleMessage(message: PanelMessage): Promise<void> {
+    // Mientras una acción está en curso los botones ya están deshabilitados;
+    // esto cubre además los comandos y evita disparar dos pausas a la vez.
+    if (busy && message.type !== 'refresh') {
+      return;
+    }
     switch (message.type) {
       case 'refresh':
         await refreshAll(true);
@@ -284,18 +293,20 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     }
     try {
       advances.select(paths);
-      // La copia arma un contenedor efímero sobre el volumen del alumno y tarda
-      // varios segundos: sin este aviso la acción parecía no hacer nada.
-      const result = await vscode.window.withProgress(
-        {
-          location: vscode.ProgressLocation.Notification,
-          title: 'Aplicando el avance…',
-          cancellable: false
-        },
-        () => advances.applySelection(paths)
-      );
-      info(`Se aplicaron ${result.filesWritten} archivos del avance.`);
-      await refreshAll(false);
+      await runBusy('apply', 'Aplicando avance…', async () => {
+        // La copia arma un contenedor efímero sobre el volumen del alumno y
+        // tarda varios segundos: la notificación y el botón lo muestran.
+        const result = await vscode.window.withProgress(
+          {
+            location: vscode.ProgressLocation.Notification,
+            title: 'Aplicando el avance…',
+            cancellable: false
+          },
+          () => advances.applySelection(paths)
+        );
+        info(`Se aplicaron ${result.filesWritten} archivos del avance.`);
+        await refreshAll(false);
+      });
     } catch (error) {
       warn(describeAdvanceError(error));
     }
@@ -311,9 +322,11 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
       return;
     }
     try {
-      await advances.dismiss();
-      info('Avance descartado.');
-      await refreshAll(false);
+      await runBusy('dismiss', 'Descartando avance…', async () => {
+        await advances.dismiss();
+        info('Avance descartado.');
+        await refreshAll(false);
+      });
     } catch (error) {
       warn(describeAdvanceError(error));
     }
@@ -341,17 +354,19 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
       return;
     }
     try {
-      const result = await advances.rollback(selected);
-      if (result.fullyRestored) {
-        info(
-          `Se restauraron ${result.filesRestored} archivos y el avance volvió a quedar pendiente.`
-        );
-      } else {
-        info(
-          `Se restauraron ${result.filesRestored} archivos. Quedan ${result.remaining} en el respaldo.`
-        );
-      }
-      await refreshAll(false);
+      await runBusy('rollback', 'Deshaciendo avance…', async () => {
+        const result = await advances.rollback(selected);
+        if (result.fullyRestored) {
+          info(
+            `Se restauraron ${result.filesRestored} archivos y el avance volvió a quedar pendiente.`
+          );
+        } else {
+          info(
+            `Se restauraron ${result.filesRestored} archivos. Quedan ${result.remaining} en el respaldo.`
+          );
+        }
+        await refreshAll(false);
+      });
     } catch (error) {
       warn(describeAdvanceError(error));
     }
@@ -380,16 +395,25 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
       }
     }
 
+    const busyLabel = isFrozen
+      ? isExam
+        ? 'Reanudando examen…'
+        : 'Reanudando clase…'
+      : isExam
+        ? 'Pausando examen…'
+        : 'Pausando clase…';
     try {
-      const frozen = await advances.toggleFreeze();
-      info(
-        frozen
-          ? (isExam ? 'Examen pausado' : 'Clase pausada') +
-            ': los alumnos no pueden editar hasta que lo reanudes.'
-          : (isExam ? 'Examen reanudado' : 'Clase reanudada') +
-            ': los alumnos recuperan la escritura.'
-      );
-      await refreshAll(false);
+      await runBusy('toggle-pause', busyLabel, async () => {
+        const frozen = await advances.toggleFreeze();
+        info(
+          frozen
+            ? (isExam ? 'Examen pausado' : 'Clase pausada') +
+              ': los alumnos no pueden editar hasta que lo reanudes.'
+            : (isExam ? 'Examen reanudado' : 'Clase reanudada') +
+              ': los alumnos recuperan la escritura.'
+        );
+        await refreshAll(false);
+      });
     } catch (error) {
       warn(describeAdvanceError(error));
     }
@@ -564,17 +588,19 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     }
 
     try {
-      const emitted = await advanceClient.emit({
-        sessionId,
-        exerciseId,
-        title: cleanTitle || undefined,
-        scope: scope.value,
-        studentIds,
-        selectedFiles
+      await runBusy('broadcast', 'Emitiendo avance…', async () => {
+        const emitted = await advanceClient.emit({
+          sessionId,
+          exerciseId,
+          title: cleanTitle || undefined,
+          scope: scope.value,
+          studentIds,
+          selectedFiles
+        });
+        const displayTitle = cleanTitle || settings.assignmentTitle || 'Avance';
+        info(`Avance «${displayTitle}» emitido a ${emitted.recipients.length} alumnos.`);
+        await refreshAll(false);
       });
-      const displayTitle = cleanTitle || settings.assignmentTitle || 'Avance';
-      info(`Avance «${displayTitle}» emitido a ${emitted.recipients.length} alumnos.`);
-      await refreshAll(false);
     } catch (error) {
       warn(describeAdvanceError(error));
     }
@@ -634,14 +660,16 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
         );
         return;
       }
-      await vscode.workspace.saveAll(false);
-      await client.submitWorkspace(workspaceId, exerciseId);
-      info(
-        isExam
-          ? 'Examen entregado. La revisión queda disponible en la plataforma.'
-          : 'Práctica entregada. La revisión queda disponible en la plataforma.'
-      );
-      await refreshAll(false);
+      await runBusy('submit', isExam ? 'Entregando examen…' : 'Entregando práctica…', async () => {
+        await vscode.workspace.saveAll(false);
+        await client.submitWorkspace(workspaceId, exerciseId);
+        info(
+          isExam
+            ? 'Examen entregado. La revisión queda disponible en la plataforma.'
+            : 'Práctica entregada. La revisión queda disponible en la plataforma.'
+        );
+        await refreshAll(false);
+      });
     } catch (error) {
       warn(describeAdvanceError(error));
     }
@@ -823,9 +851,11 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     }
 
     try {
-      await advances.openSession(subjectId, minutes, settings.exerciseId);
-      info('Clase iniciada. La presencia de los alumnos se actualizará en vivo.');
-      await refreshAll(true);
+      await runBusy('open-aula', 'Iniciando clase…', async () => {
+        await advances.openSession(subjectId, minutes, settings.exerciseId);
+        info('Clase iniciada. La presencia de los alumnos se actualizará en vivo.');
+        await refreshAll(true);
+      });
     } catch (error) {
       warn(describeAdvanceError(error));
     }
@@ -850,9 +880,13 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
       return;
     }
     try {
-      await advances.closeSession(sessionId);
-      info(isExam ? 'Examen cerrado: los entornos quedaron congelados.' : 'Sesión de clase cerrada.');
-      await refreshAll(true);
+      await runBusy('close-aula', isExam ? 'Cerrando examen…' : 'Cerrando clase…', async () => {
+        await advances.closeSession(sessionId);
+        info(
+          isExam ? 'Examen cerrado: los entornos quedaron congelados.' : 'Sesión de clase cerrada.'
+        );
+        await refreshAll(true);
+      });
     } catch (error) {
       warn(describeAdvanceError(error));
     }
@@ -968,6 +1002,25 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
   async function renderAll(): Promise<void> {
     await Promise.all([panel.render(), tab.render()]);
     status.update(await buildState());
+  }
+
+  /**
+   * Ejecuta una acción mostrando su avance en el panel: el botón que la disparó
+   * queda con un indicador y el resto deshabilitado. Sin esto, una pausa de
+   * varios segundos parecía no haber hecho nada y se volvía a pulsar.
+   */
+  async function runBusy(action: string, label: string, task: () => Promise<void>): Promise<void> {
+    if (busy) {
+      return;
+    }
+    busy = { action, label };
+    await renderAll();
+    try {
+      await task();
+    } finally {
+      busy = undefined;
+      await renderAll();
+    }
   }
 
   function info(text: string): void {

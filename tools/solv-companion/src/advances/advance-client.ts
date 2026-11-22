@@ -120,7 +120,10 @@ export class AdvanceClient {
     const action = frozen ? 'freeze' : 'unfreeze';
     return this.client.request<unknown>(
       `/api/v1/teacher/sessions/${encodeURIComponent(sessionId)}/${action}`,
-      { method: 'PATCH', body: JSON.stringify({}) }
+      { method: 'PATCH', body: JSON.stringify({}) },
+      // La pausa reconstruye el contenedor de cada alumno: con un aula real
+      // tarda bastantes segundos y el tope corto abortaba a mitad de camino.
+      LONG_REQUEST_TIMEOUT_MS
     );
   }
 
@@ -149,7 +152,9 @@ export class AdvanceClient {
   closeSession(sessionId: string): Promise<unknown> {
     return this.client.request<unknown>(
       `/api/v1/teacher/sessions/${encodeURIComponent(sessionId)}/close`,
-      { method: 'PATCH', body: JSON.stringify({}) }
+      { method: 'PATCH', body: JSON.stringify({}) },
+      // Cerrar un examen congela a todos los alumnos antes de responder.
+      LONG_REQUEST_TIMEOUT_MS
     );
   }
 }

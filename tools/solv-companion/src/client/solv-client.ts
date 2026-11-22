@@ -153,7 +153,9 @@ export class SolvClient {
       {
         method: 'POST',
         body: JSON.stringify({ exercise_id: exerciseId })
-      }
+      },
+      // Empaquetar el volumen del alumno tarda más que una consulta normal.
+      LONG_REQUEST_TIMEOUT_MS
     );
   }
 

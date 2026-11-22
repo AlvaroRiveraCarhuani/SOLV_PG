@@ -66,6 +66,32 @@ function icon(name: IconName): string {
   return `<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICON_PATHS[name]}</svg>`;
 }
 
+/** Indicador del botón que disparó la acción en curso. */
+function spinner(): string {
+  return '<span class="spinner" aria-hidden="true"></span>';
+}
+
+/**
+ * Contenido de un botón de acción: el que está en curso muestra un indicador y
+ * el texto que describe lo que se está haciendo; el resto vuelve a su rótulo.
+ */
+function actionContent(
+  state: PanelState,
+  action: string,
+  iconName: IconName | undefined,
+  idleLabel: string
+): string {
+  if (state.busy?.action === action) {
+    return `${spinner()}${escapeHtml(state.busy.label)}`;
+  }
+  return `${iconName ? icon(iconName) : ''}${escapeHtml(idleLabel)}`;
+}
+
+/** Con una acción en curso se bloquean todos los botones del panel. */
+function busyAttributes(state: PanelState): string {
+  return state.busy ? ' disabled aria-disabled="true"' : '';
+}
+
 function nonce(): string {
   const alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
   let value = '';
@@ -142,14 +168,14 @@ function appliedAdvanceList(advance: AdvanceView): string {
   return `<ul class="file-list">${rows}</ul>`;
 }
 
-function appliedAdvanceActions(advance: AdvanceView): string {
+function appliedAdvanceActions(state: PanelState, advance: AdvanceView): string {
   if (advance.appliedFiles === undefined) {
-    return `<button class="btn btn-secondary" data-action="rollback">${icon('undo')}Deshacer avance</button>`;
+    return `<button class="btn btn-secondary" data-action="rollback"${busyAttributes(state)}>${actionContent(state, 'rollback', 'undo', 'Deshacer avance')}</button>`;
   }
   if (advance.appliedFiles.length === 0) {
     return '';
   }
-  return `<button class="btn btn-secondary" data-action="rollback">${icon('undo')}Deshacer seleccionados</button>`;
+  return `<button class="btn btn-secondary" data-action="rollback"${busyAttributes(state)}>${actionContent(state, 'rollback', 'undo', 'Deshacer seleccionados')}</button>`;
 }
 
 function renderAdvance(state: PanelState): string {
@@ -197,9 +223,9 @@ function renderAdvance(state: PanelState): string {
       <div class="actions">
         ${
           advance.applied
-            ? appliedAdvanceActions(advance)
-            : `<button class="btn btn-primary" data-action="apply">${icon('upload')}Aplicar archivos seleccionados</button>
-               <button class="btn btn-ghost" data-action="dismiss">Descartar avance</button>`
+            ? appliedAdvanceActions(state, advance)
+            : `<button class="btn btn-primary" data-action="apply"${busyAttributes(state)}>${actionContent(state, 'apply', 'upload', 'Aplicar archivos seleccionados')}</button>
+               <button class="btn btn-ghost" data-action="dismiss"${busyAttributes(state)}>${actionContent(state, 'dismiss', undefined, 'Descartar avance')}</button>`
         }
       </div>
     </section>`;
@@ -335,20 +361,26 @@ function renderTeacher(state: PanelState): string {
         <span class="presence-fill" style="width:${ratio}%"></span>
       </div>
 
-      <div class="actions">
+      <div class="actions"${state.busy ? ' aria-busy="true"' : ''}>
         ${
           teacher.sessionOpen
             ? isExam
-              ? `<button class="btn btn-secondary" data-action="toggle-pause">${
-                  teacher.frozen ? `${icon('play')}Reanudar examen` : `${icon('pause')}Pausar examen`
-                }</button>
-                 <button class="btn btn-ghost" data-action="close-aula">Cerrar examen</button>`
-              : `<button class="btn btn-primary" data-action="broadcast">${icon('broadcast')}Emitir avance a la clase</button>
-                 <button class="btn btn-secondary" data-action="toggle-pause">${
-                   teacher.frozen ? `${icon('play')}Reanudar clase` : `${icon('pause')}Pausar clase`
-                 }</button>
-                 <button class="btn btn-ghost" data-action="close-aula">Cerrar clase</button>`
-            : `<button class="btn btn-primary" data-action="open-aula" style="width: 100%; justify-content: center;">${icon('users')}Iniciar clase</button>`
+              ? `<button class="btn btn-secondary" data-action="toggle-pause"${busyAttributes(state)}>${actionContent(
+                  state,
+                  'toggle-pause',
+                  teacher.frozen ? 'play' : 'pause',
+                  teacher.frozen ? 'Reanudar examen' : 'Pausar examen'
+                )}</button>
+                 <button class="btn btn-ghost" data-action="close-aula"${busyAttributes(state)}>${actionContent(state, 'close-aula', undefined, 'Cerrar examen')}</button>`
+              : `<button class="btn btn-primary" data-action="broadcast"${busyAttributes(state)}>${actionContent(state, 'broadcast', 'broadcast', 'Emitir avance a la clase')}</button>
+                 <button class="btn btn-secondary" data-action="toggle-pause"${busyAttributes(state)}>${actionContent(
+                   state,
+                   'toggle-pause',
+                   teacher.frozen ? 'play' : 'pause',
+                   teacher.frozen ? 'Reanudar clase' : 'Pausar clase'
+                 )}</button>
+                 <button class="btn btn-ghost" data-action="close-aula"${busyAttributes(state)}>${actionContent(state, 'close-aula', undefined, 'Cerrar clase')}</button>`
+            : `<button class="btn btn-primary" data-action="open-aula" style="width: 100%; justify-content: center;"${busyAttributes(state)}>${actionContent(state, 'open-aula', 'users', 'Iniciar clase')}</button>`
         }
       </div>
 
@@ -1157,6 +1189,21 @@ export function renderPanelHtml(
     cursor: pointer;
   }
   .btn:focus-visible { outline: 1px solid var(--vscode-focusBorder); outline-offset: 2px; }
+  .btn:disabled { opacity: 0.65; cursor: default; }
+  .btn:disabled:hover { background: inherit; }
+  .spinner {
+    width: 13px;
+    height: 13px;
+    flex: 0 0 auto;
+    border: 2px solid currentColor;
+    border-right-color: transparent;
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  @media (prefers-reduced-motion: reduce) {
+    .spinner { animation-duration: 2.5s; }
+  }
   .btn-primary {
     background: var(--vscode-button-background);
     color: var(--vscode-button-foreground);

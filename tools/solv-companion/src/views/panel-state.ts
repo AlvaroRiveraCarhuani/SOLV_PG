@@ -87,6 +87,8 @@ export interface PanelState {
   teacher?: TeacherView;
   student?: StudentView;
   canSubmit: boolean;
+  /** Acción en curso: sus botones quedan deshabilitados y muestran el avance. */
+  busy?: { action: string; label: string };
   message?: { kind: 'info' | 'warning' | 'error'; text: string };
 }
 

@@ -44,7 +44,9 @@ export class CommentsController implements vscode.Disposable {
     if (!this.settings.apiBaseUrl) {
       this.comments = [];
       this.decorator.clearAll();
-      if (showErrors) {
+      // Configurar la conexión es una tarea del docente: al alumno no se le
+      // muestran detalles internos de configuración ni se le pide que la cambie.
+      if (showErrors && this.settings.isTeacher) {
         void vscode.window.showWarningMessage(
           'SOLV Companion: falta la URL de la API. Configurala con el comando "SOLV: Configurar conexión".'
         );

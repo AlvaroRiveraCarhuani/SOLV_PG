@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { AdvanceClient } from './advance-client';
-import { SolvClient } from '../client/solv-client';
+import { LONG_REQUEST_TIMEOUT_MS, SolvClient } from '../client/solv-client';
 import { SolvSettings } from '../config/solv-settings';
 
 function buildClient(): {
@@ -118,6 +118,27 @@ test('abrir la clase manda la práctica cuando se conoce', async () => {
     globalThis.fetch = original;
   }
   assert.deepEqual(bodies[0], { subject_id: 'm-1', duration_minutes: 90, exercise_id: 'e-1' });
+});
+
+test('pausar y cerrar esperan la reconstrucción de los entornos', async () => {
+  const timeouts: Array<number | undefined> = [];
+  const client = {
+    request: async (_path: string, _init: RequestInit, timeoutMs?: number) => {
+      timeouts.push(timeoutMs);
+      return {};
+    }
+  } as unknown as SolvClient;
+  const advances = new AdvanceClient(client);
+
+  await advances.setFrozen('s-1', true);
+  await advances.setFrozen('s-1', false);
+  await advances.closeSession('s-1');
+
+  assert.deepEqual(timeouts, [
+    LONG_REQUEST_TIMEOUT_MS,
+    LONG_REQUEST_TIMEOUT_MS,
+    LONG_REQUEST_TIMEOUT_MS
+  ]);
 });
 
 test('abrir la clase sin práctica no inventa exercise_id', async () => {
