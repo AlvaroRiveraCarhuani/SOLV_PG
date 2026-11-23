@@ -1,5 +1,5 @@
 <modal-shell animate.leave="motion-modal-out"
-  title="Desbloqueo de Penalizaciones OOM"
+  title="Restablecer Límite de Memoria RAM"
   intent="warning"
   [disableClose]="isSubmitting()"
   (close)="closed.emit()"
@@ -11,13 +11,13 @@
 
   <div class="info-alert">
     <p>
-      Esta acción reiniciará a <strong>0 strikes</strong> todas las penalizaciones por exceso de memoria (OOM-Killed) de este estudiante, permitiéndole reanudar la ejecución de sus entornos de programación.
+      Esta acción reiniciará las advertencias por exceso de memoria RAM de este estudiante, permitiéndole reanudar la ejecución de sus entornos de desarrollo.
     </p>
   </div>
 
   <div class="current-strikes-summary">
     <div class="summary-item">
-      <span class="summary-label">Strikes actuales acumulados:</span>
+      <span class="summary-label">Incidentes de memoria acumulados:</span>
       <span class="summary-value" [class.danger]="student().oom_strike_count >= 3">
         {{ student().oom_strike_count }} / 3
       </span>
@@ -59,7 +59,7 @@
       (click)="onSubmit()"
       [disabled]="isSubmitting() || reason().trim().length < 10">
       <svg lucideRotateCcw class="btn-icon"></svg>
-      <span>{{ isSubmitting() ? 'Restableciendo...' : 'Restablecer penalizaciones' }}</span>
+      <span>{{ isSubmitting() ? 'Restableciendo...' : 'Restablecer límite de RAM' }}</span>
     </button>
   </ng-container>
 </modal-shell>

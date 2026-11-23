@@ -48,6 +48,11 @@ describe('AcademicCategoriesComponent', () => {
       name: 'Python Data Science',
       category_id: 'c-1',
       description: 'Stack de ciencia de datos',
+      docker_image: 'python:3.12-slim-bookworm',
+      target_environment: 'IDE_PERSISTENTE',
+      base_ram_mb: 1024,
+      usage_count: 2,
+      tools: ['python3', 'pip'],
       is_active: true,
       created_at: '2026-01-01T00:00:00Z',
       updated_at: '2026-01-01T00:00:00Z'
@@ -148,7 +153,6 @@ describe('AcademicCategoriesComponent', () => {
   });
 
   it('debe deshabilitar el botón de eliminar si la categoría tiene entornos asociados', () => {
-    // c-1 tiene m-1 asociado
     expect(component.getCategoryModelCount('c-1')).toBe(1);
     const deleteButtons = compiled.querySelectorAll('.btn-delete');
     const firstDeleteBtn = deleteButtons[0] as HTMLButtonElement;
@@ -157,7 +161,6 @@ describe('AcademicCategoriesComponent', () => {
   });
 
   it('debe habilitar el botón de eliminar si la categoría tiene 0 entornos asociados', () => {
-    // c-2 tiene 0 entornos asociados
     expect(component.getCategoryModelCount('c-2')).toBe(0);
     const deleteButtons = compiled.querySelectorAll('.btn-delete');
     const secondDeleteBtn = deleteButtons[1] as HTMLButtonElement;
@@ -171,5 +174,33 @@ describe('AcademicCategoriesComponent', () => {
     nameCell.click();
 
     expect(editSpy).toHaveBeenCalledWith(mockCategories[0]);
+  });
+
+  it('debe abrir el drawer de entornos al hacer clic en el chip de entornos', () => {
+    const chip = compiled.querySelector('.env-chip') as HTMLButtonElement;
+    expect(chip).toBeTruthy();
+    chip.click();
+    fixture.detectChanges();
+
+    expect(component.selectedCategoryForDrawer()).toEqual(mockCategories[0]);
+    expect(component.categoryModelsForDrawer().length).toBe(1);
+    expect(component.categoryModelsForDrawer()[0].name).toBe('Python Data Science');
+
+    const drawerEl = compiled.querySelector('drawer');
+    expect(drawerEl).toBeTruthy();
+  });
+
+  it('debe cerrar el drawer y abrir el modal de edición al seleccionar editar categoría desde el drawer', () => {
+    component.openCategoryDrawer(mockCategories[0]);
+    fixture.detectChanges();
+
+    expect(component.selectedCategoryForDrawer()).toEqual(mockCategories[0]);
+
+    component.editCategoryFromDrawer();
+    fixture.detectChanges();
+
+    expect(component.selectedCategoryForDrawer()).toBeNull();
+    expect(component.showCategoryModal()).toBe(true);
+    expect(component.editingCategory()).toEqual(mockCategories[0]);
   });
 });

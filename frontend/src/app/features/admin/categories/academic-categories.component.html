@@ -43,7 +43,7 @@
     <div class="panel-toolbar">
       <search-bar
         [query]="searchQuery()"
-        placeholder="Buscar por nombre o descripción... (/)"
+        placeholder="Buscar por nombre o descripción..."
         ariaLabel="Buscar categorías académicas"
         [compact]="true"
         (queryChange)="onSearchChange($event)"
@@ -122,16 +122,17 @@
 
               <td class="col-envs" (click)="$event.stopPropagation()">
                 @if (getCategoryModelCount(cat.id) > 0) {
-                  <a
-                    [routerLink]="['/admin/plantillas']"
-                    [queryParams]="{ tab: 'catalog' }"
+                  <button
+                    type="button"
                     class="env-chip"
-                    title="Ver entornos en el catálogo"
+                    (click)="openCategoryDrawer(cat)"
+                    [attr.aria-label]="'Ver entornos de ' + cat.name"
+                    title="Ver entornos asociados en panel lateral"
                   >
                     <span machineData>{{ getCategoryModelCount(cat.id) }}</span>
                     <span>{{ getCategoryModelCount(cat.id) === 1 ? 'entorno' : 'entornos' }}</span>
                     <svg lucideArrowRight class="chip-arrow"></svg>
-                  </a>
+                  </button>
                 } @else {
                   <span class="zero-env-text">
                     <span machineData>0</span> entornos
@@ -197,6 +198,100 @@
       }
     </div>
   </section>
+
+  <!-- Drawer lateral de entornos asociados a la categoría -->
+  <drawer
+    [open]="selectedCategoryForDrawer() !== null"
+    [title]="selectedCategoryForDrawer()?.name || 'Entornos asociados'"
+    [subtitle]="drawerSubtitle()"
+    width="480px"
+    (closed)="closeCategoryDrawer()"
+  >
+    @if (selectedCategoryForDrawer(); as cat) {
+      <div class="category-drawer-content">
+        <section class="drawer-category-info">
+          <p class="drawer-desc">{{ cat.description || '—' }}</p>
+          <div class="drawer-stats">
+            <span class="drawer-stat-badge">
+              <span machineData>{{ categoryModelsForDrawer().length }}</span>
+              {{ categoryModelsForDrawer().length === 1 ? 'entorno configurado' : 'entornos configurados' }}
+            </span>
+          </div>
+        </section>
+
+        <section class="drawer-models-section">
+          <h3 class="section-label">Entornos en esta categoría</h3>
+
+          @if (categoryModelsForDrawer().length === 0) {
+            <div class="drawer-empty">
+              <p>No hay entornos asociados a esta categoría.</p>
+            </div>
+          } @else {
+            <div class="drawer-models-list">
+              @for (model of categoryModelsForDrawer(); track model.id) {
+                <div class="model-item-card">
+                  <div class="model-item-header">
+                    <div class="model-item-title-row">
+                      <h4 class="model-name">{{ model.name || model.title }}</h4>
+                      <span
+                        class="model-status-pill"
+                        [class.active]="model.is_active !== false"
+                        [class.inactive]="model.is_active === false"
+                      >
+                        {{ model.is_active !== false ? 'Activo' : 'Inactivo' }}
+                      </span>
+                    </div>
+                    @if (model.description) {
+                      <p class="model-desc">{{ model.description }}</p>
+                    }
+                  </div>
+
+                  <div class="model-metadata-grid">
+                    <div class="meta-row">
+                      <span class="meta-label">Modalidad:</span>
+                      <span class="meta-value">{{ model.target_environment | environmentLabel }}</span>
+                    </div>
+                    <div class="meta-row">
+                      <span class="meta-label">Imagen:</span>
+                      <code class="meta-code font-mono" machineData>{{ model.docker_image }}</code>
+                    </div>
+                    <div class="meta-row">
+                      <span class="meta-label">Memoria RAM:</span>
+                      <span class="meta-value font-mono" machineData>{{ model.base_ram_mb }} MB</span>
+                    </div>
+                    @if (model.usage_count > 0) {
+                      <div class="meta-row">
+                        <span class="meta-label">Uso en catálogo:</span>
+                        <span class="meta-value font-mono" machineData>{{ model.usage_count }} {{ model.usage_count === 1 ? 'instancia' : 'instancias' }}</span>
+                      </div>
+                    }
+                  </div>
+                </div>
+              }
+            </div>
+          }
+        </section>
+      </div>
+    }
+
+    <div drawer-footer class="drawer-footer-actions">
+      <button
+        type="button"
+        class="btn-outline"
+        (click)="editCategoryFromDrawer()"
+      >
+        <svg lucidePencil class="btn-icon"></svg>
+        <span>Editar categoría</span>
+      </button>
+      <button
+        type="button"
+        class="btn-primary"
+        (click)="closeCategoryDrawer()"
+      >
+        <span>Cerrar</span>
+      </button>
+    </div>
+  </drawer>
 
   @if (showCategoryModal()) {
     <category-form-modal animate.leave="motion-modal-out"

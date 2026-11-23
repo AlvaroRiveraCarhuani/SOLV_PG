@@ -1,9 +1,10 @@
 import { Component, OnInit, OnDestroy, computed, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { RouterLink } from '@angular/router';
 import { MachineDataDirective } from '@shared/directives/machine-data.directive';
 import { SearchBarComponent } from '@shared/components/search-bar/search-bar.component';
+import { DrawerComponent } from '@shared/components/drawer/drawer.component';
+import { EnvironmentLabelPipe } from '@shared/pipes/environment-label.pipe';
 import {
   AdminTemplatesService,
   TemplateCategory,
@@ -36,9 +37,10 @@ export const ACADEMIC_CATEGORIES_HELP_KEY = 'academic-categories';
   imports: [
     CommonModule,
     FormsModule,
-    RouterLink,
     MachineDataDirective,
     SearchBarComponent,
+    DrawerComponent,
+    EnvironmentLabelPipe,
     CategoryFormModalComponent,
     CategoryDeleteModalComponent,
     LucidePlus,
@@ -85,6 +87,22 @@ export class AcademicCategoriesComponent implements OnInit, OnDestroy {
   readonly editingCategory = signal<TemplateCategory | null>(null);
 
   readonly categoryToDelete = signal<TemplateCategory | null>(null);
+
+  // Drawer lateral de entornos asociados
+  readonly selectedCategoryForDrawer = signal<TemplateCategory | null>(null);
+
+  readonly categoryModelsForDrawer = computed(() => {
+    const cat = this.selectedCategoryForDrawer();
+    if (!cat) return [];
+    return this.models().filter(m => m.category_id === cat.id);
+  });
+
+  readonly drawerSubtitle = computed(() => {
+    const cat = this.selectedCategoryForDrawer();
+    if (!cat) return '';
+    const count = this.categoryModelsForDrawer().length;
+    return `${count} ${count === 1 ? 'entorno registrado' : 'entornos registrados'}`;
+  });
 
   readonly toastMessage = signal<string | null>(null);
   readonly toastType = signal<'success' | 'error'>('success');
@@ -164,6 +182,22 @@ export class AcademicCategoriesComponent implements OnInit, OnDestroy {
       return;
     }
     this.openEditCategory(cat);
+  }
+
+  openCategoryDrawer(cat: TemplateCategory): void {
+    this.selectedCategoryForDrawer.set(cat);
+  }
+
+  closeCategoryDrawer(): void {
+    this.selectedCategoryForDrawer.set(null);
+  }
+
+  editCategoryFromDrawer(): void {
+    const cat = this.selectedCategoryForDrawer();
+    this.closeCategoryDrawer();
+    if (cat) {
+      this.openEditCategory(cat);
+    }
   }
 
   openCreateCategory(): void {
