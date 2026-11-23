@@ -9,10 +9,12 @@ import { ProductTourService } from '@shared/help/product-tour.service';
 import { InteractiveTutorialService } from '@shared/help/interactive-tutorial.service';
 import { buildTeachersTour, buildTeachersTutorial } from './teachers-help.definitions';
 import { TeacherTableComponent } from './components/teacher-table/teacher-table.component';
-import { TeacherCoursesModalComponent } from './components/teacher-courses-modal/teacher-courses-modal.component';
 import { TeacherInviteFeedbackComponent } from './components/teacher-invite-feedback/teacher-invite-feedback.component';
-import { ComboboxOption } from '@shared/components/combobox/combobox.component';
+import { DrawerComponent } from '@shared/components/drawer/drawer.component';
+import { FormFieldComponent } from '@shared/components/form-field/form-field.component';
+import { ComboboxComponent, ComboboxOption } from '@shared/components/combobox/combobox.component';
 import { MachineDataDirective } from '@shared/directives/machine-data.directive';
+import { DateTextPipe } from '@shared/pipes/date-text.pipe';
 import { StatusTabItem } from '@shared/components/status-tabs/status-tabs.component';
 import { SortDirection, SortState } from '@shared/components/sort-header/sort-header.types';
 import {
@@ -21,7 +23,16 @@ import {
   DirectTeacherPayload,
   BatchDirectTeacherPayload
 } from '@core/models/admin.model';
-import { LucideUserPlus, LucideCheckCircle, LucideAlertCircle } from '@lucide/angular';
+import {
+  LucideUserPlus,
+  LucideCheckCircle,
+  LucideAlertCircle,
+  LucideAlertTriangle,
+  LucideBookOpen,
+  LucideUsers,
+  LucideArrowRightLeft,
+  LucideUserMinus
+} from '@lucide/angular';
 import { formatSolvDate } from '@shared/pipes/date-text.pipe';
 
 const ENGLISH_MONTH_INDEX: Record<string, number> = {
@@ -49,14 +60,22 @@ const TEACHERS_HELP_KEY = 'teachers-invitations';
     CommonModule,
     FormsModule,
     MachineDataDirective,
+    DateTextPipe,
     TeacherInviteModalComponent,
     ConfirmModalComponent,
     TeacherTableComponent,
-    TeacherCoursesModalComponent,
     TeacherInviteFeedbackComponent,
+    DrawerComponent,
+    FormFieldComponent,
+    ComboboxComponent,
     LucideUserPlus,
     LucideCheckCircle,
-    LucideAlertCircle
+    LucideAlertCircle,
+    LucideAlertTriangle,
+    LucideBookOpen,
+    LucideUsers,
+    LucideArrowRightLeft,
+    LucideUserMinus
   ],
   templateUrl: './admin-teachers.component.html',
   styleUrl: './admin-teachers.component.scss'
@@ -91,6 +110,7 @@ export class AdminTeachersComponent implements OnInit, OnDestroy {
   originComboboxOptions = computed<ComboboxOption[]>(() => [
     { id: 'all', label: 'Todos los orígenes', value: 'all' },
     { id: 'manual', label: 'Manual', value: 'manual' },
+    { id: 'bulk_import', label: 'Importación masiva', value: 'bulk_import' },
     { id: 'gclassroom', label: 'Google Classroom', value: 'gclassroom' }
   ]);
 
@@ -119,6 +139,27 @@ export class AdminTeachersComponent implements OnInit, OnDestroy {
     this.loadTeachers();
   }
 
+  // Drawer Lateral de Detalle y Reasignación
+  selectedTeacherForDrawer = signal<TeacherItem | null>(null);
+
+  openTeacherDrawer(teacher: TeacherItem): void {
+    this.activeMenuId.set(null);
+    this.cancelReassign();
+    this.selectedTeacherForDrawer.set(teacher);
+    this.reloadTeacherCourses(teacher.id);
+  }
+
+  closeTeacherDrawer(): void {
+    this.selectedTeacherForDrawer.set(null);
+    this.cancelReassign();
+  }
+
+  getTeacherOriginLabel(origin: string | undefined): string {
+    if (origin === 'gclassroom') return 'Google Classroom';
+    if (origin === 'bulk_import') return 'Importación masiva';
+    return 'Manual';
+  }
+
   activeTeacherComboboxOptions = computed<ComboboxOption[]>(() => {
     return this.activeTeachersList().map(t => ({
       id: t.id,
@@ -139,26 +180,6 @@ export class AdminTeachersComponent implements OnInit, OnDestroy {
     this.selectedNewTeacherId.set(opt.value || '');
   }
 
-  availableCourseComboboxOptions = computed<ComboboxOption[]>(() => {
-    return this.availableTenantCourses().map(c => ({
-      id: c.id,
-      label: c.name,
-      value: c.id,
-      meta: `Actual: ${c.teacher_name}`
-    }));
-  });
-
-  selectedCourseToAssignLabel = computed<string>(() => {
-    const id = this.selectedCourseToAssign();
-    if (!id) return 'Seleccione una materia disponible...';
-    const match = this.availableTenantCourses().find(c => c.id === id);
-    return match ? match.name : 'Seleccione una materia disponible...';
-  });
-
-  onCourseToAssignSelected(opt: ComboboxOption): void {
-    this.selectedCourseToAssign.set(opt.value || '');
-  }
-
   // Paginación
   currentPage = signal<number>(1);
   pageSize = 10;
@@ -170,8 +191,7 @@ export class AdminTeachersComponent implements OnInit, OnDestroy {
   toastMessage = signal<ToastData | null>(null);
   teacherToDelete = signal<TeacherItem | null>(null);
 
-  // Modal de materias asignadas y reasignación
-  selectedTeacherForCourses = signal<TeacherItem | null>(null);
+  // Materias asignadas y reasignación en Drawer
   teacherCourses = signal<TeacherCourse[]>([]);
   isLoadingCourses = signal<boolean>(false);
 
@@ -181,24 +201,18 @@ export class AdminTeachersComponent implements OnInit, OnDestroy {
   reassignReason = signal<string>('');
   isSubmittingReassign = signal<boolean>(false);
 
-  // Estados para asignar materia a docente sin materias
-  isAssigningNewCourse = signal<boolean>(false);
-  selectedCourseToAssign = signal<string>('');
-  availableTenantCourses = signal<{ id: string; name: string; teacher_name: string }[]>([]);
-  isLoadingAvailableCourses = signal<boolean>(false);
-
   private searchDebounceTimer?: ReturnType<typeof setTimeout>;
   private toastDismissTimer?: ReturnType<typeof setTimeout>;
   private copyResetTimer?: ReturnType<typeof setTimeout>;
 
-  // Carga académica total del docente seleccionado
+  // Carga académica total del docente seleccionado en drawer
   totalStudentsForTeacher = computed(() => {
     return this.teacherCourses().reduce((sum, c) => sum + (c.students_count || 0), 0);
   });
 
-  // Lista de docentes activos elegibles como nuevo titular (excluyendo el docente actual)
+  // Lista de otros docentes activos elegibles como nuevo titular (excluyendo el docente actual)
   activeTeachersList = computed(() => {
-    const currentId = this.selectedTeacherForCourses()?.id;
+    const currentId = this.selectedTeacherForDrawer()?.id;
     return this.teachers().filter(t => t.status === 'active' && t.id !== currentId);
   });
 
@@ -214,15 +228,18 @@ export class AdminTeachersComponent implements OnInit, OnDestroy {
     };
   });
 
-  teacherStatusTabs = computed<StatusTabItem[]>(() => [
-    { id: 'all', label: 'Todos' },
-    { id: 'active', label: 'Activos' },
-    { id: 'no_courses', label: 'Sin materias' },
-    { id: 'pending', label: 'Pendientes (72h)' },
-    { id: 'expired', label: 'Expirados' }
-  ]);
+  // 4 Pestañas de estado limpias con contadores reales en tono neutro
+  teacherStatusTabs = computed<StatusTabItem[]>(() => {
+    const c = this.counts();
+    return [
+      { id: 'all', label: 'Todos', count: c.all, badgeVariant: 'neutral' },
+      { id: 'active', label: 'Activos', count: c.active, badgeVariant: 'neutral' },
+      { id: 'no_courses', label: 'Sin materias', count: c.noCourses, badgeVariant: 'neutral' },
+      { id: 'invitations', label: 'Invitaciones', count: c.pending + c.expired, badgeVariant: 'neutral' }
+    ];
+  });
 
-  // Lista filtrada y ordenada en cliente por si la búsqueda/estado cambia en vista
+  // Lista filtrada y ordenada en cliente
   filteredTeachersList = computed(() => {
     const term = this.searchTerm().toLowerCase().trim();
     const status = this.statusFilter();
@@ -232,10 +249,12 @@ export class AdminTeachersComponent implements OnInit, OnDestroy {
     let list = this.teachers().filter(t => {
       if (status === 'no_courses') {
         if (t.status !== 'active' || (t.active_courses ?? 0) > 0) return false;
+      } else if (status === 'invitations') {
+        if (t.status !== 'pending' && t.status !== 'expired') return false;
       } else if (status !== 'all' && t.status !== status) {
         return false;
       }
-      if (origin !== 'all' && t.origin !== origin) return false;
+      if (origin !== 'all' && (t.origin as string) !== origin) return false;
       if (term) {
         const matchName = t.full_name.toLowerCase().includes(term);
         const matchEmail = t.email.toLowerCase().includes(term);
@@ -250,8 +269,6 @@ export class AdminTeachersComponent implements OnInit, OnDestroy {
         switch (sort.column) {
           case 'name':
             return (a.full_name || '').localeCompare(b.full_name || '', undefined, { sensitivity: 'base' }) * modifier;
-          case 'origin':
-            return (a.origin || '').localeCompare(b.origin || '', undefined, { sensitivity: 'base' }) * modifier;
           case 'status':
             return (a.status || '').localeCompare(b.status || '', undefined, { sensitivity: 'base' }) * modifier;
           case 'courses':
@@ -279,28 +296,6 @@ export class AdminTeachersComponent implements OnInit, OnDestroy {
 
   totalPages = computed(() => {
     return Math.max(1, Math.ceil(this.filteredTeachersList().length / this.pageSize));
-  });
-
-  displayedPages = computed(() => {
-    const total = this.totalPages();
-    const current = this.currentPage();
-    const pages: number[] = [];
-
-    const start = Math.max(1, current - 2);
-    const end = Math.min(total, current + 2);
-
-    for (let i = start; i <= end; i++) {
-      pages.push(i);
-    }
-    return pages;
-  });
-
-  paginationDisplay = computed(() => {
-    const total = this.filteredTeachersList().length;
-    if (total === 0) return { from: 0, to: 0 };
-    const from = (this.currentPage() - 1) * this.pageSize + 1;
-    const to = Math.min(this.currentPage() * this.pageSize, total);
-    return { from, to };
   });
 
   ngOnInit(): void {
@@ -336,8 +331,8 @@ export class AdminTeachersComponent implements OnInit, OnDestroy {
     if (this.tokenFeedback()) {
       this.tokenFeedback.set(null);
     }
-    if (this.selectedTeacherForCourses()) {
-      this.closeTeacherCoursesModal();
+    if (this.selectedTeacherForDrawer()) {
+      this.closeTeacherDrawer();
     }
     if (this.teacherToDelete()) {
       this.cancelDeleteTeacher();
@@ -346,11 +341,10 @@ export class AdminTeachersComponent implements OnInit, OnDestroy {
   }
 
   loadTeachers(): void {
-    const statusParam = this.statusFilter() === 'no_courses' ? 'active' : this.statusFilter();
     this.teachersService.fetchTeachers(
       this.searchTerm(),
-      statusParam,
-      this.originFilter()
+      undefined,
+      this.originFilter() !== 'all' ? this.originFilter() : undefined
     );
   }
 
@@ -374,7 +368,6 @@ export class AdminTeachersComponent implements OnInit, OnDestroy {
   onStatusChange(value: string): void {
     this.statusFilter.set(value);
     this.currentPage.set(1);
-    this.loadTeachers();
   }
 
   goToPage(page: number): void {
@@ -439,6 +432,7 @@ export class AdminTeachersComponent implements OnInit, OnDestroy {
   }
 
   requestDeleteTeacher(teacher: TeacherItem): void {
+    this.activeMenuId.set(null);
     this.teacherToDelete.set(teacher);
   }
 
@@ -450,11 +444,22 @@ export class AdminTeachersComponent implements OnInit, OnDestroy {
     this.teachersService.deleteTeacher(teacher.id).subscribe(success => {
       this.cancelDeleteTeacher();
       if (success) {
-        this.showToast(`Docente ${teacher.full_name} dado de baja exitosamente`);
+        if (this.selectedTeacherForDrawer()?.id === teacher.id) {
+          this.closeTeacherDrawer();
+        }
+        this.showToast(`Rol docente de ${teacher.full_name} revocado exitosamente`);
       } else {
-        this.showToast('No se pudo procesar la baja del docente', true);
+        this.showToast('No se pudo revocar el rol docente', true);
       }
     });
+  }
+
+  getRevokeConfirmMessage(teacher: TeacherItem): string {
+    const courses = teacher.active_courses ?? 0;
+    if (courses > 0) {
+      return `¿Confirma la revocación del rol docente de ${teacher.full_name} (${teacher.email})? La cuenta pasará a tener rol de estudiante. ADVERTENCIA: Sus ${courses} ${courses === 1 ? 'materia asignada quedará' : 'materias asignadas quedarán'} sin docente titular. Se recomienda reasignar las materias antes de revocar el rol.`;
+    }
+    return `¿Confirma la revocación del rol docente de ${teacher.full_name} (${teacher.email})? La cuenta pasará a tener rol de estudiante y perderá el acceso a las funciones docentes.`;
   }
 
   onInviteSubmitted(payload: TeacherInvitationPayload): void {
@@ -498,25 +503,16 @@ export class AdminTeachersComponent implements OnInit, OnDestroy {
   }
 
   copyTeacherEmail(email: string): void {
-    if (navigator?.clipboard) {
-      navigator.clipboard.writeText(email);
-    }
     this.showToast('Correo copiado al portapapeles');
     this.activeMenuId.set(null);
   }
 
-  openTeacherCoursesModal(teacher: TeacherItem): void {
-    this.activeMenuId.set(null);
-    this.cancelReassign();
-    this.cancelAssignCourseToTeacher();
-    this.selectedTeacherForCourses.set(teacher);
-    this.reloadTeacherCourses(teacher.id);
-  }
-
-  closeTeacherCoursesModal(): void {
-    this.selectedTeacherForCourses.set(null);
-    this.cancelReassign();
-    this.cancelAssignCourseToTeacher();
+  toggleReassignCourse(course: TeacherCourse): void {
+    if (this.reassigningCourse()?.id === course.id) {
+      this.cancelReassign();
+    } else {
+      this.startReassign(course);
+    }
   }
 
   startReassign(course: TeacherCourse): void {
@@ -535,7 +531,7 @@ export class AdminTeachersComponent implements OnInit, OnDestroy {
     const course = this.reassigningCourse();
     const targetTeacherId = this.selectedNewTeacherId();
     const reason = this.reassignReason();
-    const currentTeacher = this.selectedTeacherForCourses();
+    const currentTeacher = this.selectedTeacherForDrawer();
 
     if (!course || !targetTeacherId) return;
 
@@ -554,47 +550,6 @@ export class AdminTeachersComponent implements OnInit, OnDestroy {
         error: () => {
           this.isSubmittingReassign.set(false);
           this.showToast('No se pudo reasignar la materia', true);
-        }
-      });
-  }
-
-  startAssignCourseToTeacher(): void {
-    this.isAssigningNewCourse.set(true);
-    this.selectedCourseToAssign.set('');
-    this.reassignReason.set('');
-    this.isLoadingAvailableCourses.set(true);
-    this.teachersService.getAllAvailableCourses().subscribe(courses => {
-      this.availableTenantCourses.set(courses);
-      this.isLoadingAvailableCourses.set(false);
-    });
-  }
-
-  cancelAssignCourseToTeacher(): void {
-    this.isAssigningNewCourse.set(false);
-    this.selectedCourseToAssign.set('');
-    this.reassignReason.set('');
-  }
-
-  confirmAssignCourseToTeacher(): void {
-    const courseId = this.selectedCourseToAssign();
-    const teacher = this.selectedTeacherForCourses();
-    const reason = this.reassignReason();
-
-    if (!courseId || !teacher) return;
-
-    this.isSubmittingReassign.set(true);
-    this.teachersService.reassignCourseTeacher(courseId, teacher.id, reason)
-      .subscribe({
-        next: () => {
-          this.isSubmittingReassign.set(false);
-          this.cancelAssignCourseToTeacher();
-          this.showToast('Materia asignada al docente exitosamente');
-          this.reloadTeacherCourses(teacher.id);
-          this.loadTeachers();
-        },
-        error: () => {
-          this.isSubmittingReassign.set(false);
-          this.showToast('No se pudo asignar la materia', true);
         }
       });
   }

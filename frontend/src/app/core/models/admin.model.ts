@@ -95,7 +95,7 @@ export interface EnvironmentLogsResponse {
   logs: string;
 }
 
-export type TeacherOrigin = 'manual' | 'gclassroom';
+export type TeacherOrigin = 'manual' | 'gclassroom' | 'bulk_import';
 export type TeacherStatus = 'active' | 'pending' | 'expired';
 export type TeacherRoleType = 'titular' | 'auxiliar';
 

@@ -51,6 +51,13 @@
   gap: var(--space-3);
 }
 
+.form-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-3);
+  align-items: start;
+}
+
 // Checkbox global dentro del modal
 .checkbox-group {
   margin-top: var(--space-1);

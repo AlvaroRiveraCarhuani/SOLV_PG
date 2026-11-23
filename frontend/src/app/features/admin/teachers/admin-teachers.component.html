@@ -11,39 +11,22 @@
     </div>
   }
 
-  <!-- Header Superior Limpio -->
+  <!-- Header Institucional Limpio (ADR-093) -->
   <header class="page-header">
     <div class="header-left" data-tour="teachers-summary">
-      <h1 class="page-title">Gestión de Docentes</h1>
-      <p class="page-subtitle">Administración de profesores, invitaciones y asignación de materias.</p>
-      @if (!isLoading()) {
-        <p class="page-summary">
-          <span machineData>{{ counts().all }}</span>
-          {{ counts().all === 1 ? 'docente registrado' : 'docentes registrados' }}
-          <span class="page-summary-sep">·</span>
-          <span machineData>{{ counts().active }}</span>
-          {{ counts().active === 1 ? 'activo' : 'activos' }}
-          <span class="page-summary-sep">·</span>
-          <span machineData>{{ counts().noCourses }}</span> sin materias
-          <span class="page-summary-sep">·</span>
-          <span machineData>{{ counts().pending }}</span>
-          {{ counts().pending === 1 ? 'pendiente' : 'pendientes' }}
-          <span class="page-summary-sep">·</span>
-          <span machineData>{{ counts().expired }}</span>
-          {{ counts().expired === 1 ? 'expirado' : 'expirados' }}
-        </p>
-      }
+      <h1 class="page-title">Docentes</h1>
+      <p class="page-subtitle">Administre las cuentas docentes, sus materias asignadas y las invitaciones de acceso.</p>
     </div>
 
-    <div class="header-actions" data-tour="teachers-create">
-      <button class="btn-primary btn-sm" (click)="openInviteModal()">
+    <div class="header-actions">
+      <button class="btn-primary btn-sm" (click)="openInviteModal()" data-tour="teachers-create">
         <svg lucideUserPlus class="btn-icon"></svg>
         <span>Registrar docente</span>
       </button>
     </div>
   </header>
 
-  <!-- Tabla y Barra de Filtros (subcomponente presentacional) -->
+  <!-- Tabla de 5 Columnas y Barra de Filtros -->
   <teacher-table
     data-tour="teachers-table"
     [teachers]="paginatedTeachers()"
@@ -61,19 +44,195 @@
     [counts]="counts()"
     [sortColumn]="sortState().column"
     [sortDirection]="sortState().direction"
+    [activeMenuTeacherId]="activeMenuId()"
     (searchChange)="onSearchChange($event)"
     (statusChange)="onStatusChange($event)"
     (originChange)="onOriginChange($event)"
     (sortChange)="onSortChange($event)"
     (pageChange)="goToPage($event)"
+    (rowSelect)="openTeacherDrawer($event)"
+    (openTeacherCourses)="openTeacherDrawer($event)"
     (resendInvitation)="resendInvitation($event)"
     (revokeInvitation)="revokeInvitation($event)"
     (renewInvitation)="renewInvitation($event)"
     (copyEmail)="copyTeacherEmail($event)"
-    (requestDeleteTeacher)="requestDeleteTeacher($event)"
-    (openTeacherCourses)="openTeacherCoursesModal($event)"
+    (requestRevokeTeacher)="requestDeleteTeacher($event)"
     (toggleMenu)="toggleMenu($event)"
+    (menuClosed)="activeMenuId.set(null)"
   ></teacher-table>
+
+  <!-- Drawer Lateral de Detalle y Reasignación de Materias -->
+  <drawer
+    [open]="selectedTeacherForDrawer() !== null"
+    [title]="selectedTeacherForDrawer()?.full_name || ''"
+    [subtitle]="selectedTeacherForDrawer()?.email || ''"
+    width="480px"
+    (closed)="closeTeacherDrawer()"
+  >
+    @if (selectedTeacherForDrawer(); as teacher) {
+      <div class="drawer-detail-body">
+        <!-- 1. Resumen de cuenta -->
+        <section class="drawer-card">
+          <h2 class="drawer-card-title">RESUMEN DE CUENTA</h2>
+          <div class="drawer-data-grid">
+            <div class="data-item">
+              <span class="data-label">Estado:</span>
+              <span class="account-status-pill active">
+                <span class="status-dot"></span>
+                <span>Activo</span>
+              </span>
+            </div>
+            <div class="data-item">
+              <span class="data-label">Origen:</span>
+              <span class="data-value">{{ getTeacherOriginLabel(teacher.origin) }}</span>
+            </div>
+            <div class="data-item">
+              <span class="data-label">Fecha de registro:</span>
+              <time class="data-value font-date">{{ teacher.invited_at | dateText:'daymonthyear' }}</time>
+            </div>
+            <div class="data-item">
+              <span class="data-label">Último acceso:</span>
+              @if (teacher.last_login) {
+                <time class="data-value font-date">{{ teacher.last_login | dateText:'datetime' }}</time>
+              } @else {
+                <span class="text-muted">Sin ingresos</span>
+              }
+            </div>
+          </div>
+        </section>
+
+        <!-- 2. Materias asignadas y reasignación -->
+        <section class="drawer-card">
+          <div class="drawer-card-header">
+            <h2 class="drawer-card-title">MATERIAS ASIGNADAS</h2>
+            <span class="courses-count-pill" machineData>
+              {{ teacherCourses().length }} {{ teacherCourses().length === 1 ? 'materia' : 'materias' }}
+            </span>
+          </div>
+
+          @if (isLoadingCourses()) {
+            <div class="drawer-loading">
+              <div class="tenant-spinner-sm motion-spin"></div>
+              <span>Consultando materias asignadas...</span>
+            </div>
+          } @else if (teacherCourses().length > 0) {
+            <div class="drawer-courses-list">
+              @for (course of teacherCourses(); track course.id) {
+                <div class="course-item-card">
+                  <div class="course-item-header">
+                    <span class="course-code-badge" machineData>{{ course.code }}</span>
+                    <span class="course-name">{{ course.name }}</span>
+                  </div>
+                  <div class="course-item-footer">
+                    <span class="course-students">
+                      <svg lucideUsers class="meta-icon"></svg>
+                      <strong>{{ course.students_count }}</strong> {{ course.students_count === 1 ? 'estudiante' : 'estudiantes' }}
+                    </span>
+                    <button
+                      type="button"
+                      class="btn-reassign-trigger"
+                      [class.active]="reassigningCourse()?.id === course.id"
+                      (click)="toggleReassignCourse(course)"
+                      title="Reasignar titular de esta materia"
+                    >
+                      <svg lucideArrowRightLeft class="btn-icon-sm"></svg>
+                      <span>{{ reassigningCourse()?.id === course.id ? 'Cerrar' : 'Reasignar docente' }}</span>
+                    </button>
+                  </div>
+
+                  <!-- Formulario Inline de Reasignación -->
+                  @if (reassigningCourse()?.id === course.id) {
+                    <div class="reassign-inline-panel motion-fade">
+                      @if (activeTeachersList().length === 0) {
+                        <div class="no-teachers-warning">
+                          <svg lucideAlertTriangle class="warning-icon"></svg>
+                          <span>Registre otro docente activo para poder reasignar esta materia</span>
+                        </div>
+                      } @else {
+                        <div class="reassign-form">
+                          <form-field label="Nuevo docente titular">
+                            <combobox
+                              [compact]="true"
+                              [showSearchIcon]="false"
+                              [value]="selectedNewTeacherLabel()"
+                              [options]="activeTeacherComboboxOptions()"
+                              placeholder="Seleccione el nuevo docente..."
+                              (optionSelected)="onNewTeacherSelected($event)"
+                            ></combobox>
+                          </form-field>
+                          <form-field label="Motivo del cambio (opcional)">
+                            <input
+                              type="text"
+                              placeholder="Ej. Rotación de materias, licencia temporal..."
+                              [value]="reassignReason()"
+                              (input)="reassignReason.set($any($event.target).value)"
+                              class="form-input"
+                            />
+                          </form-field>
+                          <div class="reassign-actions">
+                            <button
+                              type="button"
+                              class="btn-primary btn-xs"
+                              [disabled]="!selectedNewTeacherId() || isSubmittingReassign()"
+                              (click)="confirmReassignCourse()"
+                            >
+                              @if (isSubmittingReassign()) {
+                                <span>Procesando...</span>
+                              } @else {
+                                <span>Confirmar reasignación</span>
+                              }
+                            </button>
+                            <button
+                              type="button"
+                              class="btn-outline btn-xs"
+                              [disabled]="isSubmittingReassign()"
+                              (click)="cancelReassign()"
+                            >
+                              <span>Cancelar</span>
+                            </button>
+                          </div>
+                        </div>
+                      }
+                    </div>
+                  }
+                </div>
+              }
+            </div>
+          } @else {
+            <div class="drawer-empty-courses">
+              <svg lucideBookOpen class="empty-icon"></svg>
+              <p class="empty-title">Sin materias asignadas</p>
+              <p class="empty-desc">Este docente no tiene materias asignadas en el periodo académico activo.</p>
+            </div>
+          }
+        </section>
+
+        <!-- 3. Zona de revocación de rol docente -->
+        <section class="drawer-card danger-zone">
+          <div class="danger-zone-content">
+            <div class="danger-zone-text">
+              <span class="danger-title">Revocar rol docente</span>
+              <p class="danger-desc">
+                La cuenta pasará al rol de estudiante y perderá el acceso a las funciones docentes.
+                @if ((teacher.active_courses ?? 0) > 0) {
+                  <strong> Sus {{ teacher.active_courses }} {{ teacher.active_courses === 1 ? 'materia asignada quedará' : 'materias asignadas quedarán' }} sin docente titular.</strong>
+                }
+              </p>
+            </div>
+            <button
+              type="button"
+              class="btn-revoke-action"
+              (click)="requestDeleteTeacher(teacher)"
+              title="Revocar rol docente a esta cuenta"
+            >
+              <svg lucideUserMinus class="btn-icon"></svg>
+              <span>Revocar rol docente</span>
+            </button>
+          </div>
+        </section>
+      </div>
+    }
+  </drawer>
 
   <!-- Modal de Registro de Docentes -->
   @if (showInviteModal()) {
@@ -94,45 +253,14 @@
     />
   }
 
-  <!-- Modal: Materias Asignadas y Reasignación de Docente -->
-  @if (selectedTeacherForCourses(); as teacher) {
-    <teacher-courses-modal animate.leave="motion-modal-out"
-      [teacher]="teacher"
-      [teacherCourses]="teacherCourses()"
-      [isLoadingCourses]="isLoadingCourses()"
-      [totalStudentsForTeacher]="totalStudentsForTeacher()"
-      [activeTeacherComboboxOptions]="activeTeacherComboboxOptions()"
-      [selectedNewTeacherLabel]="selectedNewTeacherLabel()"
-      [selectedNewTeacherId]="selectedNewTeacherId()"
-      [reassigningCourse]="reassigningCourse()"
-      [reassignReason]="reassignReason()"
-      [isSubmittingReassign]="isSubmittingReassign()"
-      [isAssigningNewCourse]="isAssigningNewCourse()"
-      [availableCourseComboboxOptions]="availableCourseComboboxOptions()"
-      [selectedCourseToAssignLabel]="selectedCourseToAssignLabel()"
-      [selectedCourseToAssign]="selectedCourseToAssign()"
-      [isLoadingAvailableCourses]="isLoadingAvailableCourses()"
-      (dismiss)="closeTeacherCoursesModal()"
-      (startReassign)="startReassign($event)"
-      (cancelReassign)="cancelReassign()"
-      (confirmReassignCourse)="confirmReassignCourse()"
-      (startAssignCourseToTeacher)="startAssignCourseToTeacher()"
-      (cancelAssignCourseToTeacher)="cancelAssignCourseToTeacher()"
-      (confirmAssignCourseToTeacher)="confirmAssignCourseToTeacher()"
-      (newTeacherSelected)="onNewTeacherSelected($event)"
-      (courseToAssignSelected)="onCourseToAssignSelected($event)"
-      (reassignReasonChange)="reassignReason.set($event)"
-    ></teacher-courses-modal>
-  }
-
-  <!-- Modal Institucional de Confirmación de Baja -->
+  <!-- Modal Institucional de Confirmación de Revocación de Rol -->
   @if (teacherToDelete(); as teacher) {
     <confirm-modal
-      [title]="'¿Dar de baja al docente?'"
-      [message]="'¿Confirma la baja de ' + teacher.full_name + ' (' + teacher.email + ')? Se desasignarán sus materias actuales y perderá los privilegios docentes en la plataforma.'"
-      [confirmText]="'Dar de baja'"
-      [cancelText]="'Cancelar'"
-      [type]="'danger'"
+      title="¿Revocar rol docente?"
+      [message]="getRevokeConfirmMessage(teacher)"
+      confirmText="Revocar rol docente"
+      cancelText="Cancelar"
+      type="danger"
       (confirm)="executeDeleteTeacher(teacher)"
       (cancel)="cancelDeleteTeacher()">
     </confirm-modal>

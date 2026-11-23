@@ -73,7 +73,7 @@
           <input
             id="teacher-first-name"
             type="text"
-            placeholder="Ej. Roberto"
+            placeholder="Ej. Carlos"
             [ngModel]="firstName()"
             (ngModelChange)="firstName.set($event)"
             class="form-input"
@@ -84,7 +84,7 @@
           <input
             id="teacher-last-name"
             type="text"
-            placeholder="Ej. Gómez Bolaños"
+            placeholder="Ej. Mendoza Quispe"
             [ngModel]="lastName()"
             (ngModelChange)="lastName.set($event)"
             class="form-input"
@@ -163,7 +163,11 @@
           <span>Importando...</span>
         } @else {
           <svg lucideUpload class="btn-icon"></svg>
-          <span>Registrar {{ rosterUpload()?.parsedRoster()?.valid_emails?.length ?? 0 }} Docentes</span>
+          @if ((rosterUpload()?.parsedRoster()?.valid_emails?.length ?? 0) > 0) {
+            <span>Importar {{ rosterUpload()?.parsedRoster()?.valid_emails?.length }} docentes</span>
+          } @else {
+            <span>Importar docentes</span>
+          }
         }
       </button>
     }
