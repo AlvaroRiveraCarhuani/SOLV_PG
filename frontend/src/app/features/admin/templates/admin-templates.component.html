@@ -172,7 +172,7 @@
       } @else if (viewMode() === 'cards') {
         <div class="cards-grid" data-tour="templates-list">
           @for (item of pendingTemplates(); track item.id) {
-            <article class="template-card">
+            <article class="template-card" (click)="onCardClick(item, $event)">
               <div class="card-head">
                 <h3 class="card-title" [title]="item.name">{{ item.name }}</h3>
                 <span [class]="'card-status is-' + cardStatusTone(item) + ' ' + cardStatusClass(item)">
@@ -181,20 +181,30 @@
                 </span>
               </div>
 
-              <p class="card-modality">
-                {{ getPurposeBadge(item.target_environment).shortLabel }}
-                <span class="meta-sep">·</span>
-                {{ item.category_name || 'Sin categoría' }}
-                @if (item.eol_status === 'eol') {
-                  <span class="eol-flag">EOL</span>
+              <div class="card-modality-row">
+                <p class="card-modality">
+                  {{ getPurposeBadge(item.target_environment).shortLabel }}
+                  <span class="meta-sep">·</span>
+                  {{ item.category_name || 'Sin categoría' }}
+                </p>
+                @if (eolBadge(item); as eol) {
+                  <span class="eol-pill" [class.is-warning]="eol.tone === 'warning'" [title]="eolTooltip(item)">
+                    <svg lucideTriangleAlert class="eol-pill-icon"></svg>
+                    <span>{{ eol.label }}</span>
+                  </span>
                 }
-              </p>
+              </div>
 
               <div class="card-stack" aria-label="Tecnologías solicitadas">
-                @for (tech of getStackTechs(item); track tech.id) {
+                @for (tech of cardStackPreview(item); track tech.id) {
                   <span class="stack-item">
                     <tech-logo [iconType]="tech.iconKey" [size]="15" />
                     <span>{{ tech.name }}</span>
+                  </span>
+                }
+                @if (cardStackOverflow(item) > 0) {
+                  <span class="stack-item stack-more" title="El stack completo está en Detalles técnicos">
+                    +<span machineData>{{ cardStackOverflow(item) }}</span> más
                   </span>
                 }
               </div>
@@ -209,55 +219,6 @@
                 {{ templateDescription(item) || 'Sin justificación técnica especificada por el docente.' }}
               </p>
 
-              <details class="card-tech-details">
-                <summary class="tech-details-summary">
-                  <svg lucideChevronDown class="tech-details-chevron"></svg>
-                  <span>Detalles técnicos</span>
-                </summary>
-                <div class="tech-details-body">
-                  <div class="tech-detail-row">
-                    <span class="tech-detail-label">Imagen base</span>
-                    <div class="docker-tag-wrapper">
-                      <code class="docker-tag">{{ item.docker_image }}</code>
-                      <button
-                        type="button"
-                        class="btn-copy-tag"
-                        (click)="copyDockerTag(item.docker_image, $event)"
-                        [attr.aria-label]="copiedTag() === item.docker_image ? 'Etiqueta copiada' : 'Copiar etiqueta de imagen'"
-                        [title]="copiedTag() === item.docker_image ? 'Copiado' : 'Copiar tag'">
-                        @if (copiedTag() === item.docker_image) {
-                          <svg lucideCheck class="copy-icon text-success"></svg>
-                        } @else {
-                          <svg lucideCopy class="copy-icon"></svg>
-                        }
-                      </button>
-                    </div>
-                  </div>
-                  @if ((item.target_environment === 'JUEZ_EFIMERO' || item.target_environment === 'AMBOS') && item.entrypoint) {
-                    <div class="tech-detail-row">
-                      <span class="tech-detail-label">Comando del evaluador</span>
-                      <code class="docker-tag" machineData>{{ item.entrypoint }}</code>
-                    </div>
-                  }
-                  @if (item.language_runners?.length) {
-                    <div class="tech-detail-row">
-                      <span class="tech-detail-label">Lenguajes del evaluador</span>
-                      <judge-language-list [runners]="item.language_runners ?? []" [showCommands]="true" />
-                    </div>
-                  }
-                  @if (item.tools_declared?.length) {
-                    <div class="tech-detail-row">
-                      <span class="tech-detail-label">Herramientas</span>
-                      <div class="card-tools" aria-label="Herramientas declaradas">
-                        @for (tool of item.tools_declared; track tool) {
-                          <code class="card-tool">{{ tool }}</code>
-                        }
-                      </div>
-                    </div>
-                  }
-                </div>
-              </details>
-
               <div class="card-footer">
                 <div class="card-footer-meta">
                   <span>RAM <span machineData>{{ item.base_ram_mb }} MB</span></span>
@@ -265,6 +226,10 @@
                   <time>{{ item.created_at | dateText:'date' }}</time>
                 </div>
                 <div class="card-footer-actions">
+                  <button type="button" class="btn-ghost btn-sm card-details-trigger" (click)="openDetailsFromTrigger(item, $event)" title="Ver detalles técnicos de la imagen y el stack">
+                    <svg lucideInfo class="btn-icon-xs"></svg>
+                    <span>Detalles técnicos</span>
+                  </button>
                   @if (item.status !== 'PENDIENTE_AUDITORIA') {
                     <button type="button" class="btn-ghost btn-sm is-danger" (click)="openRejectModal(item)">
                       Rechazar
@@ -302,6 +267,12 @@
                       <span class="cell-modality">{{ getPurposeBadge(item.target_environment).shortLabel }}</span>
                       @if (item.category_name) {
                         <span class="cell-modality">{{ item.category_name }}</span>
+                      }
+                      @if (eolBadge(item); as eol) {
+                        <span class="eol-pill" [class.is-warning]="eol.tone === 'warning'" [title]="eolTooltip(item)">
+                          <svg lucideTriangleAlert class="eol-pill-icon"></svg>
+                          <span>{{ eol.label }}</span>
+                        </span>
                       }
                     </div>
                     <div class="cell-stack" aria-label="Tecnologías del entorno">
@@ -386,7 +357,7 @@
       } @else if (viewMode() === 'cards') {
         <div class="cards-grid" data-tour="templates-list">
           @for (item of paginatedCatalogTemplates(); track item.id) {
-            <article class="template-card" [class.card-paused]="isPausedStatus(item.status)">
+            <article class="template-card" [class.card-paused]="isPausedStatus(item.status)" (click)="onCardClick(item, $event)">
               <div class="card-head">
                 <h3 class="card-title" [title]="item.name">{{ item.name }}</h3>
                 <span [class]="'card-status is-' + cardStatusTone(item) + ' ' + cardStatusClass(item)">
@@ -395,22 +366,30 @@
                 </span>
               </div>
 
-              <p class="card-modality">
-                {{ getPurposeBadge(item.target_environment).shortLabel }}
-                <span class="meta-sep">·</span>
-                {{ item.category_name || 'Sin categoría' }}
-                @if (item.eol_status === 'eol') {
-                  <span class="eol-flag">EOL</span>
-                } @else if (item.eol_status === 'warning') {
-                  <span class="eol-flag is-warning">Próximo a EOL</span>
+              <div class="card-modality-row">
+                <p class="card-modality">
+                  {{ getPurposeBadge(item.target_environment).shortLabel }}
+                  <span class="meta-sep">·</span>
+                  {{ item.category_name || 'Sin categoría' }}
+                </p>
+                @if (eolBadge(item); as eol) {
+                  <span class="eol-pill" [class.is-warning]="eol.tone === 'warning'" [title]="eolTooltip(item)">
+                    <svg lucideTriangleAlert class="eol-pill-icon"></svg>
+                    <span>{{ eol.label }}</span>
+                  </span>
                 }
-              </p>
+              </div>
 
               <div class="card-stack" aria-label="Tecnologías incluidas">
-                @for (tech of getStackTechs(item); track tech.id) {
+                @for (tech of cardStackPreview(item); track tech.id) {
                   <span class="stack-item">
                     <tech-logo [iconType]="tech.iconKey" [size]="15" />
                     <span>{{ tech.name }}</span>
+                  </span>
+                }
+                @if (cardStackOverflow(item) > 0) {
+                  <span class="stack-item stack-more" title="El stack completo está en Detalles técnicos">
+                    +<span machineData>{{ cardStackOverflow(item) }}</span> más
                   </span>
                 }
               </div>
@@ -418,55 +397,6 @@
               @if (templateDescription(item); as description) {
                 <p class="card-description">{{ description }}</p>
               }
-
-              <details class="card-tech-details">
-                <summary class="tech-details-summary">
-                  <svg lucideChevronDown class="tech-details-chevron"></svg>
-                  <span>Detalles técnicos</span>
-                </summary>
-                <div class="tech-details-body">
-                  <div class="tech-detail-row">
-                    <span class="tech-detail-label">Imagen base</span>
-                    <div class="docker-tag-wrapper">
-                      <code class="docker-tag">{{ item.docker_image }}</code>
-                      <button
-                        type="button"
-                        class="btn-copy-tag"
-                        (click)="copyDockerTag(item.docker_image, $event)"
-                        [attr.aria-label]="copiedTag() === item.docker_image ? 'Etiqueta copiada' : 'Copiar etiqueta de imagen'"
-                        [title]="copiedTag() === item.docker_image ? 'Copiado' : 'Copiar tag'">
-                        @if (copiedTag() === item.docker_image) {
-                          <svg lucideCheck class="copy-icon text-success"></svg>
-                        } @else {
-                          <svg lucideCopy class="copy-icon"></svg>
-                        }
-                      </button>
-                    </div>
-                  </div>
-                  @if ((item.target_environment === 'JUEZ_EFIMERO' || item.target_environment === 'AMBOS') && item.entrypoint) {
-                    <div class="tech-detail-row">
-                      <span class="tech-detail-label">Comando del evaluador</span>
-                      <code class="docker-tag" machineData>{{ item.entrypoint }}</code>
-                    </div>
-                  }
-                  @if (item.language_runners?.length) {
-                    <div class="tech-detail-row">
-                      <span class="tech-detail-label">Lenguajes del evaluador</span>
-                      <judge-language-list [runners]="item.language_runners ?? []" [showCommands]="true" />
-                    </div>
-                  }
-                  @if (item.tools_declared?.length) {
-                    <div class="tech-detail-row">
-                      <span class="tech-detail-label">Herramientas</span>
-                      <div class="card-tools" aria-label="Herramientas declaradas">
-                        @for (tool of item.tools_declared; track tool) {
-                          <code class="card-tool">{{ tool }}</code>
-                        }
-                      </div>
-                    </div>
-                  }
-                </div>
-              </details>
 
               <div class="card-footer">
                 <div class="card-footer-meta">
@@ -497,6 +427,10 @@
                   }
                 </div>
                 <div class="card-footer-actions">
+                  <button type="button" class="btn-ghost btn-sm card-details-trigger" (click)="openDetailsFromTrigger(item, $event)" title="Ver detalles técnicos de la imagen y el stack">
+                    <svg lucideInfo class="btn-icon-xs"></svg>
+                    <span>Detalles técnicos</span>
+                  </button>
                   <button type="button" class="btn-ghost btn-sm" (click)="navigateToEditStudio(item)" title="Abrir en el Constructor de Entornos">
                     <svg lucidePencil class="btn-icon-xs"></svg>
                     <span>Editar</span>
@@ -576,6 +510,12 @@
                       <span class="cell-modality">{{ getPurposeBadge(item.target_environment).shortLabel }}</span>
                       @if (item.category_name) {
                         <span class="cell-modality">{{ item.category_name }}</span>
+                      }
+                      @if (eolBadge(item); as eol) {
+                        <span class="eol-pill" [class.is-warning]="eol.tone === 'warning'" [title]="eolTooltip(item)">
+                          <svg lucideTriangleAlert class="eol-pill-icon"></svg>
+                          <span>{{ eol.label }}</span>
+                        </span>
                       }
                     </div>
                     <div class="cell-stack" aria-label="Tecnologías del entorno">
@@ -732,7 +672,7 @@
       } @else if (viewMode() === 'cards') {
         <div class="cards-grid" data-tour="templates-list">
           @for (item of paginatedRejectedTemplates(); track item.id) {
-            <article class="template-card card-rejected">
+            <article class="template-card card-rejected" (click)="onCardClick(item, $event)">
               <div class="card-head">
                 <h3 class="card-title" [title]="item.name">{{ item.name }}</h3>
                 <span [class]="'card-status is-' + cardStatusTone(item) + ' ' + cardStatusClass(item)">
@@ -741,17 +681,30 @@
                 </span>
               </div>
 
-              <p class="card-modality">
-                {{ getPurposeBadge(item.target_environment).shortLabel }}
-                <span class="meta-sep">·</span>
-                {{ item.category_name || 'Sin categoría' }}
-              </p>
+              <div class="card-modality-row">
+                <p class="card-modality">
+                  {{ getPurposeBadge(item.target_environment).shortLabel }}
+                  <span class="meta-sep">·</span>
+                  {{ item.category_name || 'Sin categoría' }}
+                </p>
+                @if (eolBadge(item); as eol) {
+                  <span class="eol-pill" [class.is-warning]="eol.tone === 'warning'" [title]="eolTooltip(item)">
+                    <svg lucideTriangleAlert class="eol-pill-icon"></svg>
+                    <span>{{ eol.label }}</span>
+                  </span>
+                }
+              </div>
 
               <div class="card-stack" aria-label="Tecnologías solicitadas">
-                @for (tech of getStackTechs(item); track tech.id) {
+                @for (tech of cardStackPreview(item); track tech.id) {
                   <span class="stack-item">
                     <tech-logo [iconType]="tech.iconKey" [size]="15" />
                     <span>{{ tech.name }}</span>
+                  </span>
+                }
+                @if (cardStackOverflow(item) > 0) {
+                  <span class="stack-item stack-more" title="El stack completo está en Detalles técnicos">
+                    +<span machineData>{{ cardStackOverflow(item) }}</span> más
                   </span>
                 }
               </div>
@@ -769,44 +722,17 @@
                 </p>
               </div>
 
-              <details class="card-tech-details">
-                <summary class="tech-details-summary">
-                  <svg lucideChevronDown class="tech-details-chevron"></svg>
-                  <span>Detalles técnicos</span>
-                </summary>
-                <div class="tech-details-body">
-                  <div class="tech-detail-row">
-                    <span class="tech-detail-label">Imagen solicitada</span>
-                    <div class="docker-tag-wrapper">
-                      <code class="docker-tag">{{ item.docker_image }}</code>
-                      <button
-                        type="button"
-                        class="btn-copy-tag"
-                        (click)="copyDockerTag(item.docker_image, $event)"
-                        [attr.aria-label]="copiedTag() === item.docker_image ? 'Etiqueta copiada' : 'Copiar etiqueta de imagen'"
-                        [title]="copiedTag() === item.docker_image ? 'Copiado' : 'Copiar tag'">
-                        @if (copiedTag() === item.docker_image) {
-                          <svg lucideCheck class="copy-icon text-success"></svg>
-                        } @else {
-                          <svg lucideCopy class="copy-icon"></svg>
-                        }
-                      </button>
-                    </div>
-                  </div>
-                  @if ((item.target_environment === 'JUEZ_EFIMERO' || item.target_environment === 'AMBOS') && item.entrypoint) {
-                    <div class="tech-detail-row">
-                      <span class="tech-detail-label">Comando del evaluador</span>
-                      <code class="docker-tag" machineData>{{ item.entrypoint }}</code>
-                    </div>
-                  }
-                </div>
-              </details>
-
               <div class="card-footer">
                 <div class="card-footer-meta">
                   <span>RAM <span machineData>{{ item.base_ram_mb }} MB</span></span>
                   <span class="meta-sep">·</span>
                   <time>{{ (item.reviewed_at || item.created_at) | dateText:'date' }}</time>
+                </div>
+                <div class="card-footer-actions">
+                  <button type="button" class="btn-ghost btn-sm card-details-trigger" (click)="openDetailsFromTrigger(item, $event)" title="Ver detalles técnicos de la imagen y el stack">
+                    <svg lucideInfo class="btn-icon-xs"></svg>
+                    <span>Detalles técnicos</span>
+                  </button>
                 </div>
               </div>
             </article>
@@ -832,6 +758,12 @@
                       <span class="cell-modality">{{ getPurposeBadge(item.target_environment).shortLabel }}</span>
                       @if (item.category_name) {
                         <span class="cell-modality">{{ item.category_name }}</span>
+                      }
+                      @if (eolBadge(item); as eol) {
+                        <span class="eol-pill" [class.is-warning]="eol.tone === 'warning'" [title]="eolTooltip(item)">
+                          <svg lucideTriangleAlert class="eol-pill-icon"></svg>
+                          <span>{{ eol.label }}</span>
+                        </span>
                       }
                     </div>
                     <div class="cell-stack" aria-label="Tecnologías del entorno">
@@ -886,6 +818,239 @@
       }
     }
   </div>
+
+  <!-- Panel lateral de detalles técnicos -->
+  <drawer
+    [open]="detailsTemplate() !== null"
+    [title]="detailsTemplate()?.name || 'Detalles técnicos'"
+    [subtitle]="detailsTemplate()?.category_name || ''"
+    width="460px"
+    (closed)="closeDetailsDrawer()">
+    @if (detailsTemplate(); as item) {
+      <div class="details-drawer">
+        <div class="details-scroll">
+          @if (eolBadge(item); as eol) {
+            <section class="details-alert" [class.is-warning]="eol.tone === 'warning'" aria-label="Aviso de ciclo de vida">
+              <div class="details-alert-head">
+                <svg lucideTriangleAlert class="details-alert-icon"></svg>
+                <span>{{ eol.label }}</span>
+              </div>
+              @if (item.eol_message) {
+                <p class="details-alert-message">{{ item.eol_message }}</p>
+              }
+              <div class="details-alert-footer">
+                @if (item.eol_date) {
+                  <span>Fin de soporte <time>{{ item.eol_date | dateText:'date' }}</time></span>
+                }
+                <button type="button" class="btn-ghost btn-sm is-primary" (click)="navigateToEditStudio(item); closeDetailsDrawer()">
+                  <svg lucidePencil class="btn-icon-xs"></svg>
+                  <span>Editar en Constructor</span>
+                </button>
+              </div>
+            </section>
+          }
+
+          <section class="details-section">
+            <h3 class="details-section-title">Runtime e imagen</h3>
+            <dl class="details-facts">
+              <div class="details-fact">
+                <dt>Imagen Docker</dt>
+                <dd>
+                  <div class="docker-tag-wrapper">
+                    <code class="docker-tag">{{ item.docker_image }}</code>
+                    <button
+                      type="button"
+                      class="btn-copy-tag"
+                      (click)="copyDockerTag(item.docker_image, $event)"
+                      [attr.aria-label]="copiedTag() === item.docker_image ? 'Etiqueta copiada' : 'Copiar etiqueta de imagen'"
+                      [title]="copiedTag() === item.docker_image ? 'Copiado' : 'Copiar tag'">
+                      @if (copiedTag() === item.docker_image) {
+                        <svg lucideCheck class="copy-icon text-success"></svg>
+                      } @else {
+                        <svg lucideCopy class="copy-icon"></svg>
+                      }
+                    </button>
+                  </div>
+                </dd>
+              </div>
+              <div class="details-fact">
+                <dt>Caché local</dt>
+                <dd>
+                  @if (getCacheStatus(item.id); as cache) {
+                    @if (warmingTemplateIds().has(item.id)) {
+                      <span class="cache-state is-pending">
+                        <svg lucideRefreshCw class="cache-icon motion-spin"></svg>
+                        Preparando
+                      </span>
+                    } @else if (cache.is_cached) {
+                      <span class="cache-state is-ready">
+                        <svg lucideCheck class="cache-icon"></svg>
+                        Entorno preparado
+                      </span>
+                      <span class="details-muted" machineData>{{ formatBytes(cache.size_bytes) }}</span>
+                    } @else {
+                      <button type="button" class="cache-action" (click)="warmTemplate(item, $event)" title="Descarga la imagen al servidor para que el aula no espere">
+                        <svg lucideDownloadCloud class="cache-icon"></svg>
+                        Preparar entorno
+                      </button>
+                    }
+                  } @else {
+                    <span class="details-muted">Sin datos de caché</span>
+                  }
+                </dd>
+              </div>
+              <div class="details-fact">
+                <dt>Cuota de RAM</dt>
+                <dd>
+                  <span machineData>{{ item.base_ram_mb }} MB</span>
+                  @if (item.resource_profile; as profile) {
+                    <span class="details-muted">
+                      Perfil
+                      <span machineData>{{ profile.min_mb }} / {{ profile.high_mb }} / {{ profile.max_mb }} MB</span>
+                    </span>
+                  }
+                </dd>
+              </div>
+              @if (item.timeout_ms) {
+                <div class="details-fact">
+                  <dt>Tiempo límite</dt>
+                  <dd><span machineData>{{ item.timeout_ms }} ms</span></dd>
+                </div>
+              }
+              @if (item.published_exercise_count !== undefined && item.published_exercise_count !== null) {
+                <div class="details-fact">
+                  <dt>Ejercicios publicados</dt>
+                  <dd><span machineData>{{ item.published_exercise_count }}</span></dd>
+                </div>
+              }
+              <div class="details-fact">
+                <dt>Categoría</dt>
+                <dd>{{ item.category_name || 'Sin categoría' }}</dd>
+              </div>
+            </dl>
+          </section>
+
+          @if (getStackTechs(item).length > 0) {
+            <section class="details-section">
+              <h3 class="details-section-title">Tecnologías y herramientas</h3>
+              <div class="details-chips">
+                @for (tech of getStackTechs(item); track tech.id) {
+                  <span class="stack-item">
+                    <tech-logo [iconType]="tech.iconKey" [size]="15" />
+                    <span>{{ tech.name }}</span>
+                  </span>
+                }
+              </div>
+              @if (item.tools_declared?.length) {
+                <div class="details-chips is-tools" aria-label="Herramientas declaradas">
+                  @for (tool of item.tools_declared; track tool) {
+                    <code class="card-tool">{{ tool }}</code>
+                  }
+                </div>
+              }
+            </section>
+          }
+
+          @if (showsJudgeDetails(item)) {
+            <section class="details-section">
+              <h3 class="details-section-title">Evaluador</h3>
+              @if (item.entrypoint) {
+                <div class="details-field">
+                  <span class="details-field-label">Comando de evaluación</span>
+                  <code class="docker-tag">{{ item.entrypoint }}</code>
+                </div>
+              }
+              @if (item.language_runners?.length) {
+                <judge-language-list [runners]="item.language_runners ?? []" [showCommands]="true" />
+              }
+            </section>
+          }
+
+          @if (dockerfileContent(item); as dockerfile) {
+            <section class="details-section">
+              <h3 class="details-section-title">Dockerfile</h3>
+              <div class="details-code-block">
+                <div class="details-code-head">
+                  <span>Imagen compuesta del stack</span>
+                  <button
+                    type="button"
+                    class="btn-copy-tag"
+                    (click)="copyDockerTag(dockerfile, $event)"
+                    [attr.aria-label]="copiedTag() === dockerfile ? 'Dockerfile copiado' : 'Copiar Dockerfile'"
+                    [title]="copiedTag() === dockerfile ? 'Copiado' : 'Copiar Dockerfile'">
+                    @if (copiedTag() === dockerfile) {
+                      <svg lucideCheck class="copy-icon text-success"></svg>
+                    } @else {
+                      <svg lucideCopy class="copy-icon"></svg>
+                    }
+                  </button>
+                </div>
+                <pre class="details-code"><code>{{ dockerfile }}</code></pre>
+              </div>
+            </section>
+          }
+
+          @if (hasSecurityDetails(item)) {
+            <section class="details-section">
+              <h3 class="details-section-title">Seguridad y auditoría</h3>
+              <dl class="details-facts">
+                @if (item.smoke_test_status) {
+                  <div class="details-fact">
+                    <dt>Prueba de arranque</dt>
+                    <dd>{{ auditStatusLabel(item.smoke_test_status, true) }}</dd>
+                  </div>
+                }
+                @if (item.security_audit_status) {
+                  <div class="details-fact">
+                    <dt>Escaneo de seguridad</dt>
+                    <dd>{{ auditStatusLabel(item.security_audit_status) }}</dd>
+                  </div>
+                }
+                @if (item.cve_critical_count || item.cve_high_count) {
+                  <div class="details-fact">
+                    <dt>Vulnerabilidades</dt>
+                    <dd>
+                      <span machineData>{{ item.cve_critical_count || 0 }}</span> críticas
+                      <span class="meta-sep">·</span>
+                      <span machineData>{{ item.cve_high_count || 0 }}</span> altas
+                    </dd>
+                  </div>
+                }
+              </dl>
+            </section>
+          }
+
+          @if (activeTab() === 'rejected' && item.rejection_reason) {
+            <section class="details-section">
+              <h3 class="details-section-title">Motivo del rechazo</h3>
+              <p class="details-rejection">{{ item.rejection_reason }}</p>
+            </section>
+          }
+        </div>
+
+        <div class="details-drawer-footer">
+          @if (detailsTemplate(); as item) {
+            @if (activeTab() === 'catalog') {
+              <button type="button" class="btn-ghost btn-sm" (click)="closeDetailsDrawer()">Cerrar</button>
+              <button type="button" class="btn-primary btn-sm" (click)="navigateToEditStudio(item); closeDetailsDrawer()">
+                <svg lucidePencil class="btn-icon-xs"></svg>
+                <span>Editar en Constructor</span>
+              </button>
+            } @else if (activeTab() === 'pending') {
+              @if (item.status !== 'PENDIENTE_AUDITORIA') {
+                <button type="button" class="btn-ghost btn-sm is-danger" (click)="rejectFromDrawer(item)">Rechazar</button>
+                <button type="button" class="btn-ghost btn-sm is-primary" (click)="reviewFromDrawer(item)">Revisar</button>
+              } @else {
+                <span class="audit-note">Auditoría automática en curso...</span>
+              }
+            } @else {
+              <button type="button" class="btn-ghost btn-sm" (click)="closeDetailsDrawer()">Cerrar</button>
+            }
+          }
+        </div>
+      </div>
+    }
+  </drawer>
 
   <!-- Modales -->
   @if (selectedTemplateForReview(); as tpl) {

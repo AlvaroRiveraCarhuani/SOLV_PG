@@ -23,6 +23,7 @@ import { TemplateEditModalComponent } from './components/template-edit-modal/tem
 import { TemplateStatusModalComponent } from './components/template-status-modal/template-status-modal.component';
 import { TemplatePromoteModalComponent } from './components/template-promote-modal/template-promote-modal.component';
 import { JudgeLanguageListComponent } from './components/judge-language-list/judge-language-list.component';
+import { DrawerComponent } from '../../../shared/components/drawer/drawer.component';
 import {
   LucideBox,
   LucideRefreshCw,
@@ -35,7 +36,8 @@ import {
   LucideHardDrive,
   LucideCopy,
   LucideCheck,
-  LucideChevronDown,
+  LucideTriangleAlert,
+  LucideInfo,
   LucideBadgeCheck,
   LucideMoreVertical,
   LucideDownloadCloud
@@ -84,6 +86,7 @@ export interface ToastNotification {
     TemplateStatusModalComponent,
     TemplatePromoteModalComponent,
     JudgeLanguageListComponent,
+    DrawerComponent,
     TechLogoComponent,
     SearchBarComponent,
     FilterPopoverComponent,
@@ -101,7 +104,8 @@ export interface ToastNotification {
     LucideHardDrive,
     LucideCopy,
     LucideCheck,
-    LucideChevronDown,
+    LucideTriangleAlert,
+    LucideInfo,
     LucideBadgeCheck,
     LucideMoreVertical,
     LucideDownloadCloud
@@ -196,6 +200,8 @@ export class AdminTemplatesComponent implements OnInit, OnDestroy {
 
   selectedTemplateForReview = signal<AdminTemplateItem | null>(null);
   selectedTemplateForReject = signal<AdminTemplateItem | null>(null);
+  /** Plantilla cuyo panel lateral de detalles técnicos está abierto. */
+  detailsTemplate = signal<AdminTemplateItem | null>(null);
   selectedTemplateForEdit = signal<AdminTemplateItem | null>(null);
   templateToToggleStatus = signal<AdminTemplateItem | null>(null);
 
@@ -453,6 +459,103 @@ export class AdminTemplatesComponent implements OnInit, OnDestroy {
     this.router.navigate(['/admin/plantillas', template.id, 'editar']);
   }
 
+  /** Abre el panel lateral con los datos técnicos reales de la plantilla. */
+  openDetailsDrawer(template: AdminTemplateItem): void {
+    this.openMenuId.set(null);
+    this.detailsTemplate.set(template);
+  }
+
+  openDetailsFromTrigger(template: AdminTemplateItem, event: Event): void {
+    event.stopPropagation();
+    this.openDetailsDrawer(template);
+  }
+
+  /**
+   * El cuerpo de la tarjeta abre el panel, salvo que el clic venga de un
+   * control propio (editar, preparar entorno, menú de acciones, etc.).
+   */
+  onCardClick(template: AdminTemplateItem, event: MouseEvent): void {
+    const target = event.target as HTMLElement | null;
+    if (target?.closest('button, a, input, select, textarea, label, summary, [role="menuitem"]')) {
+      return;
+    }
+    this.openDetailsDrawer(template);
+  }
+
+  closeDetailsDrawer(): void {
+    this.detailsTemplate.set(null);
+  }
+
+  reviewFromDrawer(template: AdminTemplateItem): void {
+    this.closeDetailsDrawer();
+    this.openReviewModal(template);
+  }
+
+  rejectFromDrawer(template: AdminTemplateItem): void {
+    this.closeDetailsDrawer();
+    this.openRejectModal(template);
+  }
+
+  /** Etiqueta en español del estado de soporte; null si la versión está soportada. */
+  eolBadge(item: { eol_status?: string }): { label: string; tone: 'eol' | 'warning' } | null {
+    if (item.eol_status === 'eol') return { label: 'Soporte vencido', tone: 'eol' };
+    if (item.eol_status === 'warning') return { label: 'Soporte por vencer', tone: 'warning' };
+    return null;
+  }
+
+  /** Mensaje real del backend sobre el ciclo de vida de la imagen. */
+  eolTooltip(item: { eol_status?: string; eol_message?: string }): string {
+    const message = (item.eol_message ?? '').trim();
+    if (message) return message;
+    return item.eol_status === 'eol'
+      ? 'La versión de la imagen ya no recibe soporte oficial.'
+      : 'La versión de la imagen está por salir de soporte oficial.';
+  }
+
+  /** Dockerfile compuesto del stack; los runners legacy lo devuelven vacío. */
+  dockerfileContent(item: AdminTemplateItem): string | null {
+    const content = item.stack_config?.dockerfile_content;
+    if (typeof content !== 'string') return null;
+    const trimmed = content.trim();
+    return trimmed === '' ? null : trimmed;
+  }
+
+  showsJudgeDetails(item: AdminTemplateItem): boolean {
+    const isJudge = item.target_environment === 'JUEZ_EFIMERO' || item.target_environment === 'AMBOS';
+    if (!isJudge) return false;
+    return Boolean(item.entrypoint) || Boolean(item.language_runners?.length);
+  }
+
+  /**
+   * Estado de auditoría en español. El backend envía `passed`, `failed`,
+   * `pending` y `skipped`; cualquier otro valor se muestra tal cual para no
+   * ocultar un estado nuevo. `feminine` ajusta la concordancia con el título
+   * de la fila ("prueba" frente a "escaneo").
+   */
+  auditStatusLabel(status: string | null | undefined, feminine = false): string {
+    switch ((status ?? '').trim().toLowerCase()) {
+      case 'passed':
+        return feminine ? 'Aprobada' : 'Aprobado';
+      case 'failed':
+        return feminine ? 'Fallida' : 'Fallido';
+      case 'pending':
+        return 'Pendiente';
+      case 'skipped':
+        return 'Sin ejecutar';
+      default:
+        return (status ?? '').trim() || 'Sin ejecutar';
+    }
+  }
+
+  hasSecurityDetails(item: AdminTemplateItem): boolean {
+    return Boolean(
+      item.smoke_test_status ||
+        item.security_audit_status ||
+        item.cve_critical_count ||
+        item.cve_high_count
+    );
+  }
+
   handleApprove(event: { id: string; base_ram_mb: number }): void {
     const dto: ReviewTemplateDTO = { status: 'pending_audit', base_ram_mb: event.base_ram_mb };
 
@@ -623,6 +726,17 @@ export class AdminTemplatesComponent implements OnInit, OnDestroy {
 
   getTemplateTech(item: AdminTemplateItem): TechMeta {
     return detectTemplateTech(item);
+  }
+
+  /** Máximo de tecnologías visibles en la tarjeta antes de resumir el resto. */
+  readonly CARD_STACK_LIMIT = 3;
+
+  cardStackPreview(item: AdminTemplateItem): StackTechChip[] {
+    return this.getStackTechs(item).slice(0, this.CARD_STACK_LIMIT);
+  }
+
+  cardStackOverflow(item: AdminTemplateItem): number {
+    return Math.max(0, this.getStackTechs(item).length - this.CARD_STACK_LIMIT);
   }
 
   getStackTechs(item: AdminTemplateItem): StackTechChip[] {

@@ -544,6 +544,188 @@ describe('AdminTemplatesComponent Spec', () => {
     expect(component.toast()?.type).toBe('success');
     expect(component.toast()?.message).toContain('actualizadas');
   });
+  it('limita la tarjeta a 3 tecnologías y resume el resto en un chip +N más', () => {
+    const extraComponents: TemplateComponent[] = [
+      { ...mockTechCatalog[2], id: 'comp-vite', slug: 'vite', name: 'Vite', icon_key: 'vite' },
+      { ...mockTechCatalog[2], id: 'comp-redis', slug: 'redis', name: 'Redis', icon_key: 'redis' }
+    ];
+    const manyTech: AdminTemplateItem = {
+      id: 'tpl-many-tech',
+      name: 'Laboratorio: Node.js, Next.js y servicios',
+      docker_image: 'solv-local/stack:abc123',
+      base_ram_mb: 1024,
+      status: 'APROBADA',
+      target_environment: 'IDE_PERSISTENTE',
+      description: 'Stack completo para el laboratorio de desarrollo web',
+      stack_config: {
+        runtime_id: 'comp-node',
+        web_platform_id: 'comp-nextjs',
+        addon_ids: ['comp-prisma', 'comp-vite', 'comp-redis']
+      },
+      created_at: '2026-09-23T00:00:00Z'
+    };
+
+    component.allTemplates.set([manyTech]);
+    component.techCatalog.set([...mockTechCatalog, ...extraComponents]);
+    component.activeTab.set('catalog');
+    component.viewMode.set('cards');
+    fixture.detectChanges();
+
+    const compiled = fixture.nativeElement as HTMLElement;
+    const card = compiled.querySelector('.template-card') as HTMLElement;
+    expect(card).not.toBeNull();
+    expect(card.querySelectorAll('.card-stack .stack-item:not(.stack-more)').length).toBe(3);
+    const more = card.querySelector('.card-stack .stack-more') as HTMLElement;
+    expect(more.textContent?.replace(/\s+/g, ' ').trim()).toBe('+2 más');
+    // El detalle completo vive en el panel lateral, no en un acordeón inline.
+    expect(card.querySelector('details')).toBeNull();
+  });
+
+  it('muestra el estado de soporte en español con el mensaje real del backend', () => {
+    const eolTemplate: AdminTemplateItem = {
+      id: 'tpl-go-runner',
+      name: 'Go Runner Base',
+      docker_image: 'golang:1.21-bookworm',
+      base_ram_mb: 512,
+      status: 'APROBADA',
+      target_environment: 'JUEZ_EFIMERO',
+      eol_status: 'eol',
+      eol_date: '2024-02-06',
+      eol_message: 'Versión sin soporte oficial (finalizó el 2024-02-06)',
+      created_at: '2026-09-23T00:00:00Z'
+    };
+    const warningTemplate: AdminTemplateItem = {
+      id: 'tpl-python-warning',
+      name: 'Python 3.10 Base',
+      docker_image: 'python:3.10-slim',
+      base_ram_mb: 512,
+      status: 'APROBADA',
+      target_environment: 'IDE_PERSISTENTE',
+      eol_status: 'warning',
+      eol_message: 'La versión deja de recibir parches el 2026-12-31',
+      created_at: '2026-09-23T00:00:00Z'
+    };
+
+    component.allTemplates.set([eolTemplate, warningTemplate]);
+    component.activeTab.set('catalog');
+    component.viewMode.set('cards');
+    fixture.detectChanges();
+
+    const compiled = fixture.nativeElement as HTMLElement;
+    const cards = compiled.querySelectorAll('.template-card');
+    const eolPill = cards[0].querySelector('.eol-pill') as HTMLElement;
+    expect(eolPill.textContent).toContain('Soporte vencido');
+    expect(eolPill.textContent).not.toContain('EOL');
+    expect(eolPill.getAttribute('title')).toBe('Versión sin soporte oficial (finalizó el 2024-02-06)');
+
+    const warningPill = cards[1].querySelector('.eol-pill') as HTMLElement;
+    expect(warningPill.textContent).toContain('Soporte por vencer');
+    expect(warningPill.classList.contains('is-warning')).toBe(true);
+    expect(warningPill.getAttribute('title')).toBe('La versión deja de recibir parches el 2026-12-31');
+  });
+
+  it('abre el panel lateral de detalles técnicos con los datos reales de la plantilla', () => {
+    const detailed: AdminTemplateItem = {
+      id: 'tpl-detail',
+      name: 'Laboratorio: Node.js y Next.js',
+      docker_image: 'solv-local/stack:abc123',
+      base_ram_mb: 1024,
+      status: 'APROBADA',
+      target_environment: 'AMBOS',
+      category_name: 'Desarrollo Web',
+      resource_profile: { min_mb: 512, high_mb: 1024, max_mb: 2048 },
+      timeout_ms: 15000,
+      published_exercise_count: 7,
+      tools_declared: ['git', 'curl'],
+      entrypoint: 'node /judge/main.js',
+      stack_config: {
+        runtime_id: 'comp-node',
+        web_platform_id: 'comp-nextjs',
+        addon_ids: ['comp-prisma'],
+        dockerfile_content: 'FROM node:20-bookworm-slim\nRUN npm ci'
+      },
+      created_at: '2026-09-23T00:00:00Z'
+    };
+
+    component.allTemplates.set([detailed]);
+    component.activeTab.set('catalog');
+    component.viewMode.set('cards');
+    fixture.detectChanges();
+
+    const compiled = fixture.nativeElement as HTMLElement;
+    const trigger = compiled.querySelector('.card-details-trigger') as HTMLButtonElement;
+    trigger.click();
+    fixture.detectChanges();
+
+    expect(component.detailsTemplate()?.id).toBe('tpl-detail');
+    const panel = compiled.querySelector('drawer .drawer-panel') as HTMLElement;
+    expect(panel).not.toBeNull();
+    const panelText = panel.textContent || '';
+    expect(panelText).toContain('solv-local/stack:abc123');
+    expect(panelText).toContain('node /judge/main.js');
+    expect(panelText).toContain('git');
+    expect(panelText).toContain('curl');
+    expect(panelText).toContain('Desarrollo Web');
+    expect(panelText).toContain('15000 ms');
+    expect(panelText).toContain('FROM node:20-bookworm-slim');
+    expect(panelText).toContain('Editar en Constructor');
+
+    // El cuerpo de la tarjeta también abre el panel.
+    component.closeDetailsDrawer();
+    fixture.detectChanges();
+    const body = compiled.querySelector('.card-stack') as HTMLElement;
+    body.click();
+    fixture.detectChanges();
+    expect(component.detailsTemplate()?.id).toBe('tpl-detail');
+
+    // El botón Editar no debe abrir el panel: su clic no burbujea como clic de tarjeta.
+    component.closeDetailsDrawer();
+    fixture.detectChanges();
+    const editButton = compiled.querySelector('.card-footer-actions button[title="Abrir en el Constructor de Entornos"]') as HTMLButtonElement;
+    editButton.click();
+    fixture.detectChanges();
+    expect(component.detailsTemplate()).toBeNull();
+    expect(routerMock.navigate).toHaveBeenCalledWith(['/admin/plantillas', 'tpl-detail', 'editar']);
+  });
+
+  it('traduce los estados de auditoría del panel lateral a español', () => {
+    const audited: AdminTemplateItem = {
+      id: 'tpl-audit',
+      name: 'Stack auditado',
+      docker_image: 'solv-local/stack:audit01',
+      base_ram_mb: 512,
+      status: 'APROBADA',
+      target_environment: 'AMBOS',
+      smoke_test_status: 'passed',
+      security_audit_status: 'failed',
+      created_at: '2026-09-23T00:00:00Z'
+    };
+
+    component.allTemplates.set([audited]);
+    component.activeTab.set('catalog');
+    component.viewMode.set('cards');
+    fixture.detectChanges();
+
+    const compiled = fixture.nativeElement as HTMLElement;
+    const trigger = compiled.querySelector('.card-details-trigger') as HTMLButtonElement;
+    trigger.click();
+    fixture.detectChanges();
+
+    const panel = compiled.querySelector('drawer .drawer-panel') as HTMLElement;
+    const panelText = panel.textContent || '';
+    expect(panelText).toContain('Prueba de arranque');
+    expect(panelText).toContain('Aprobada');
+    expect(panelText).toContain('Escaneo de seguridad');
+    expect(panelText).toContain('Fallido');
+    expect(panelText).not.toContain('passed');
+    expect(panelText).not.toContain('failed');
+
+    expect(component.auditStatusLabel('pending')).toBe('Pendiente');
+    expect(component.auditStatusLabel('skipped', true)).toBe('Sin ejecutar');
+    expect(component.auditStatusLabel('skipped')).toBe('Sin ejecutar');
+    expect(component.auditStatusLabel(undefined)).toBe('Sin ejecutar');
+  });
+
   it('oculta la marca interna SYSTEM_SEED_RUNNER en la descripción', () => {
     expect(component.templateDescription({ description: 'SYSTEM_SEED_RUNNER' })).toBeNull();
     expect(component.templateDescription({ description: '   ' })).toBeNull();
