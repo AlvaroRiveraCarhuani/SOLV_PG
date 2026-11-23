@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"time"
 	"solv-backend/internal/core/domain"
 
 	"github.com/google/uuid"
@@ -275,11 +276,13 @@ func (r *PostgresCourseModuleRepository) AssignExerciseModule(ctx context.Contex
 }
 
 type exerciseRow struct {
-	ID         string  `db:"id"`
-	ModuleID   *string `db:"module_id"`
-	Title      string  `db:"title"`
-	Difficulty *string `db:"difficulty"`
-	Purpose    string  `db:"purpose"`
+	ID              string     `db:"id"`
+	ModuleID        *string    `db:"module_id"`
+	Title           string     `db:"title"`
+	Difficulty      *string    `db:"difficulty"`
+	Purpose         string     `db:"purpose"`
+	EnvironmentType string     `db:"environment_type"`
+	DueDate         *time.Time `db:"due_date"`
 }
 
 type studentSubStat struct {
@@ -310,7 +313,9 @@ func (r *PostgresCourseModuleRepository) GetCourseCurricularMapData(ctx context.
 	// 3. Obtener ejercicios publicados del curso
 	var exercises []exerciseRow
 	exQuery := `
-		SELECT id, module_id, title, difficulty, COALESCE(purpose, 'class') AS purpose
+		SELECT id, module_id, title, difficulty, COALESCE(purpose, 'class') AS purpose,
+		       COALESCE(environment_type, 'JUEZ_EFIMERO') AS environment_type,
+		       due_date
 		FROM exercises
 		WHERE subject_id = $1 AND status = 'published'
 		ORDER BY created_at ASC
@@ -347,13 +352,15 @@ func (r *PostgresCourseModuleRepository) GetCourseCurricularMapData(ctx context.
 	for _, ex := range exercises {
 		st := statMap[ex.ID]
 		curEx := domain.CurricularExercise{
-			ID:          ex.ID,
-			Title:       ex.Title,
-			Difficulty:  ex.Difficulty,
-			Purpose:     ex.Purpose,
-			BestScore:   st.BestScore,
-			Attempts:    st.Attempts,
-			Submittable: true, // Default temporal, se ajustará con el estado del módulo
+			ID:              ex.ID,
+			Title:           ex.Title,
+			Difficulty:      ex.Difficulty,
+			Purpose:         ex.Purpose,
+			EnvironmentType: ex.EnvironmentType,
+			DueDate:         ex.DueDate,
+			BestScore:       st.BestScore,
+			Attempts:        st.Attempts,
+			Submittable:     true, // Default temporal, se ajustará con el estado del módulo
 		}
 		if ex.ModuleID != nil && *ex.ModuleID != "" {
 			moduleExercisesMap[*ex.ModuleID] = append(moduleExercisesMap[*ex.ModuleID], curEx)

@@ -40,13 +40,15 @@ type ModulePrerequisite struct {
 
 // CurricularExercise represents an exercise item within the curricular map
 type CurricularExercise struct {
-	ID          string  `json:"id"`
-	Title       string  `json:"title"`
-	Difficulty  *string `json:"difficulty,omitempty"`
-	Purpose     string  `json:"purpose"`
-	BestScore   *int    `json:"best_score"`
-	Attempts    int     `json:"attempts"`
-	Submittable bool    `json:"submittable"`
+	ID              string     `json:"id"`
+	Title           string     `json:"title"`
+	Difficulty      *string    `json:"difficulty,omitempty"`
+	Purpose         string     `json:"purpose"`
+	EnvironmentType string     `json:"environment_type"`
+	DueDate         *time.Time `json:"due_date,omitempty"`
+	BestScore       *int       `json:"best_score"`
+	Attempts        int        `json:"attempts"`
+	Submittable     bool       `json:"submittable"`
 }
 
 // CurricularModuleMap represents a module node in the student's curricular map

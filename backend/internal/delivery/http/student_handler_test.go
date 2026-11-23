@@ -427,6 +427,111 @@ func TestGetStudentEvaluationsRequiresIdentity(t *testing.T) {
 	}
 }
 
+func TestStudentHandler_GetDashboardProgressAndPendingReview(t *testing.T) {
+	subj := &domain.Subject{
+		ID:       "subj-101",
+		TenantID: "tenant-1",
+		Name:     "Sistemas Operativos",
+		Code:     "SIS-101",
+	}
+
+	exIDE := &domain.Exercise{
+		ID:              "ex-ide",
+		TenantID:        "tenant-1",
+		SubjectID:       &subj.ID,
+		Title:           "Kernel Module Project",
+		Status:          "published",
+		EnvironmentType: "IDE_PERSISTENTE",
+	}
+
+	exJudge := &domain.Exercise{
+		ID:              "ex-judge",
+		TenantID:        "tenant-1",
+		SubjectID:       &subj.ID,
+		Title:           "Sincronización de Procesos",
+		Status:          "published",
+		EnvironmentType: "JUEZ_EFIMERO",
+	}
+
+	subjectRepo := &mockSubjectRepoForStudent{subjects: []*domain.Subject{subj}}
+	exerciseRepo := &mockExerciseRepoForStudent{
+		bySubjectID: map[string][]*domain.Exercise{
+			"subj-101": {exIDE, exJudge},
+		},
+		byID: map[string]*domain.Exercise{
+			"ex-ide":   exIDE,
+			"ex-judge": exJudge,
+		},
+	}
+
+	now := time.Now()
+	// ex-ide entregado pero en revisión docente (review_status: pending, sin score)
+	subIDE := &domain.Submission{
+		ID:           "sub-1",
+		TenantID:     "tenant-1",
+		ExerciseID:   "ex-ide",
+		StudentID:    "student-1",
+		ReviewStatus: "pending",
+		SubmittedAt:  now,
+	}
+	// ex-judge entregado y aceptado
+	subJudge := &domain.Submission{
+		ID:           "sub-2",
+		TenantID:     "tenant-1",
+		ExerciseID:   "ex-judge",
+		StudentID:    "student-1",
+		Verdict:      "AC",
+		ReviewStatus: "not_required",
+		SubmittedAt:  now.Add(-time.Hour),
+	}
+
+	submissionRepo := &mockSubmissionRepoForStudent{
+		submissions: []*domain.Submission{subIDE, subJudge},
+	}
+
+	handler := httpdelivery.NewStudentHandler(subjectRepo, nil, submissionRepo, exerciseRepo)
+	router := http.NewServeMux()
+	router.HandleFunc("GET /api/v1/student/dashboard", handler.GetDashboard)
+
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/api/v1/student/dashboard", nil)
+	req = withTestIdentity(req, "student-1", "tenant-1", "student")
+	rr := httptest.NewRecorder()
+	router.ServeHTTP(rr, req)
+
+	if rr.Code != http.StatusOK {
+		t.Fatalf("expected status 200, got %d: %s", rr.Code, rr.Body.String())
+	}
+
+	var resp httpdelivery.StudentDashboardResponse
+	if err := json.Unmarshal(rr.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("failed to decode dashboard response: %v", err)
+	}
+
+	if len(resp.Subjects) != 1 {
+		t.Fatalf("expected 1 subject, got %d", len(resp.Subjects))
+	}
+
+	s := resp.Subjects[0]
+	if s.TotalExercises != 2 {
+		t.Errorf("expected total_exercises 2, got %d", s.TotalExercises)
+	}
+	if s.SubmittedExercises != 2 {
+		t.Errorf("expected submitted_exercises 2, got %d", s.SubmittedExercises)
+	}
+	if s.PendingReviewExercises != 1 {
+		t.Errorf("expected pending_review_exercises 1, got %d", s.PendingReviewExercises)
+	}
+	if s.CompletedExercises != 1 {
+		t.Errorf("expected completed_exercises 1, got %d", s.CompletedExercises)
+	}
+	if s.SubmissionPercent != 100 {
+		t.Errorf("expected submission_percent 100, got %d", s.SubmissionPercent)
+	}
+	if s.ProgressPercent != 50 {
+		t.Errorf("expected progress_percent 50, got %d", s.ProgressPercent)
+	}
+}
+
 func intPtr(v int) *int {
 	return &v
 }

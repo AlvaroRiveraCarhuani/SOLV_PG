@@ -41,10 +41,13 @@ func NewStudentHandler(
 // entorno: el entorno es de una práctica y el inicio no elige práctica; se
 // abre desde la práctica o desde el aula (ADR-059).
 type StudentSubjectItem struct {
-	Subject            *domain.Subject `json:"subject"`
-	TotalExercises     int             `json:"total_exercises"`
-	CompletedExercises int             `json:"completed_exercises"`
-	ProgressPercent    int             `json:"progress_percent"`
+	Subject                *domain.Subject `json:"subject"`
+	TotalExercises         int             `json:"total_exercises"`
+	CompletedExercises     int             `json:"completed_exercises"`
+	SubmittedExercises     int             `json:"submitted_exercises"`
+	PendingReviewExercises int             `json:"pending_review_exercises"`
+	ProgressPercent        int             `json:"progress_percent"`
+	SubmissionPercent      int             `json:"submission_percent"`
 }
 
 // StudentRecentSubmissionItem enriquece una entrega con el titulo del
@@ -129,13 +132,39 @@ func (h *StudentHandler) GetDashboard(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	solvedExercises := make(map[string]bool, len(submissions))
+	type exerciseStudentState struct {
+		submitted     bool
+		pendingReview bool
+		passed        bool
+	}
+
+	exerciseStates := make(map[string]*exerciseStudentState)
+	latestSubmissions := make(map[string]*domain.Submission)
+
 	for _, sub := range submissions {
 		if sub == nil {
 			continue
 		}
-		if sub.Verdict == "AC" || (sub.Score != nil && *sub.Score >= 51) {
-			solvedExercises[sub.ExerciseID] = true
+		if _, exists := latestSubmissions[sub.ExerciseID]; !exists {
+			latestSubmissions[sub.ExerciseID] = sub
+		}
+		state, exists := exerciseStates[sub.ExerciseID]
+		if !exists {
+			state = &exerciseStudentState{}
+			exerciseStates[sub.ExerciseID] = state
+		}
+		state.submitted = true
+		if sub.Verdict == "AC" || sub.ManualOverride || (sub.Score != nil && *sub.Score >= 51) {
+			state.passed = true
+		}
+	}
+
+	for exID, state := range exerciseStates {
+		latest := latestSubmissions[exID]
+		if latest != nil && !state.passed {
+			if latest.ReviewStatus == "pending" || latest.ReviewStatus == "in_review" {
+				state.pendingReview = true
+			}
 		}
 	}
 
@@ -150,6 +179,9 @@ func (h *StudentHandler) GetDashboard(w http.ResponseWriter, r *http.Request) {
 
 		totalExercises := 0
 		completedExercises := 0
+		submittedExercises := 0
+		pendingReviewExercises := 0
+
 		if h.exerciseRepo != nil {
 			exercises, exErr := h.exerciseRepo.ListBySubject(r.Context(), tenantID, subj.ID)
 			if exErr != nil {
@@ -162,8 +194,16 @@ func (h *StudentHandler) GetDashboard(w http.ResponseWriter, r *http.Request) {
 				exerciseByID[ex.ID] = ex
 				if ex.Status == "" || ex.Status == "published" {
 					totalExercises++
-					if solvedExercises[ex.ID] {
-						completedExercises++
+					if state := exerciseStates[ex.ID]; state != nil {
+						if state.passed {
+							completedExercises++
+						}
+						if state.submitted {
+							submittedExercises++
+						}
+						if state.pendingReview {
+							pendingReviewExercises++
+						}
 					}
 				}
 			}
@@ -174,11 +214,19 @@ func (h *StudentHandler) GetDashboard(w http.ResponseWriter, r *http.Request) {
 			progressPercent = int(math.Round(float64(completedExercises) * 100.0 / float64(totalExercises)))
 		}
 
+		submissionPercent := 0
+		if totalExercises > 0 {
+			submissionPercent = int(math.Round(float64(submittedExercises) * 100.0 / float64(totalExercises)))
+		}
+
 		subjectItems = append(subjectItems, StudentSubjectItem{
-			Subject:            subj,
-			TotalExercises:     totalExercises,
-			CompletedExercises: completedExercises,
-			ProgressPercent:    progressPercent,
+			Subject:                subj,
+			TotalExercises:         totalExercises,
+			CompletedExercises:     completedExercises,
+			SubmittedExercises:     submittedExercises,
+			PendingReviewExercises: pendingReviewExercises,
+			ProgressPercent:        progressPercent,
+			SubmissionPercent:      submissionPercent,
 		})
 	}
 
