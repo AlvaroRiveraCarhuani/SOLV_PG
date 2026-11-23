@@ -36,7 +36,7 @@ function assertTemplateCovered(filePath) {
 
 test('una plantilla Angular con lógica y sin spec se valida compilando, no con 128 specs', () => {
   const filePath =
-    'frontend/src/app/features/admin/environment-requests/admin-environment-requests.component.html';
+    'frontend/src/app/features/dev/motion-gallery/motion-gallery.component.html';
   assertTemplateCovered(filePath);
   const plan = planFor(filePath);
   assert.equal(plan.level, 'L1');
@@ -47,7 +47,7 @@ test('una plantilla Angular con lógica y sin spec se valida compilando, no con 
 test('las plantillas funcionales sin spec del inventario quedan cubiertas por build', () => {
   for (const filePath of [
     'frontend/src/app/features/dev/motion-gallery/motion-gallery.component.html',
-    'frontend/src/app/features/teacher/courses/practice-detail/practice-detail.component.html',
+    'frontend/src/app/features/admin/teachers/components/teacher-courses-modal/teacher-courses-modal.component.html',
     'frontend/src/app/shared/components/hotkeys-modal/hotkeys-modal.component.html'
   ]) {
     assertTemplateCovered(filePath);

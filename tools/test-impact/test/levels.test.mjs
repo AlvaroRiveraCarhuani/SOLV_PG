@@ -102,7 +102,7 @@ test('los quince escenarios de referencia tienen nivel y selección verificables
     },
     {
       name: 'HTML Angular sin spec',
-      path: 'frontend/src/app/features/admin/environment-requests/admin-environment-requests.component.html',
+      path: 'frontend/src/app/features/dev/motion-gallery/motion-gallery.component.html',
       level: 'L1',
       selected: ['build'],
       omitted: ['backend-unit', 'backend-integration', 'frontend-e2e', 'security']

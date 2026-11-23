@@ -599,7 +599,7 @@ plan único.
 | ---: | :--- | :--- | :--- | :--- | :--- | :--- | ---: |
 | 1 | Icono SVG | L0 | `asset-validation` | No | Backend, PostgreSQL, Docker, E2E, build, seguridad | — | 1 s |
 | 2 | HTML decorativo | L0 | `frontend-unit` | No | Backend, PostgreSQL, Docker, E2E, build, seguridad | — | 45 s |
-| 3 | HTML Angular con bindings y sin spec | L1 | `build` | Frontend | Backend, PostgreSQL, Docker, E2E, specs | `admin-environment-requests.component.html` | 45 s |
+| 3 | HTML Angular con bindings y sin spec | L1 | `build` | Frontend | Backend, PostgreSQL, Docker, E2E, specs | `motion-gallery.component.html` | 45 s |
 | 4 | Formulario | L1 | `frontend-unit`, `build` | Frontend | Backend, PostgreSQL, Docker, E2E | — | 90 s |
 | 5 | Servicio frontend | L1 | `frontend-unit`, `build` | Frontend | Backend, PostgreSQL, Docker, E2E | — | 90 s |
 | 6 | Endpoint Go | L2 | `backend-unit`, `backend-integration`, `frontend-e2e`, `build` | Backend | Docker, migraciones, seguridad | — | 200 s |

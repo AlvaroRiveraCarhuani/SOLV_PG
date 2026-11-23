@@ -40,7 +40,7 @@ const SCENARIOS = [
   },
   {
     name: 'HTML Angular con bindings y sin spec',
-    path: 'frontend/src/app/features/admin/environment-requests/admin-environment-requests.component.html',
+    path: 'frontend/src/app/features/dev/motion-gallery/motion-gallery.component.html',
     change: 'M'
   },
   {
