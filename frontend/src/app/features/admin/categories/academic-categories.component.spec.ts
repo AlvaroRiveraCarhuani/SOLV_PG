@@ -6,7 +6,7 @@ import { provideRouter } from '@angular/router';
 import { of } from 'rxjs';
 import { vi } from 'vitest';
 import { AcademicCategoriesComponent, ACADEMIC_CATEGORIES_HELP_KEY } from './academic-categories.component';
-import { AdminTemplatesService, TemplateCategory } from '../services/admin-templates.service';
+import { AdminTemplatesService, TemplateCategory, TemplateModelItem } from '../services/admin-templates.service';
 import { ContextHelpService } from '@shared/help/context-help.service';
 
 describe('AcademicCategoriesComponent', () => {
@@ -14,6 +14,7 @@ describe('AcademicCategoriesComponent', () => {
   let fixture: ComponentFixture<AcademicCategoriesComponent>;
   let compiled: HTMLElement;
   let getCategoriesSpy: ReturnType<typeof vi.fn>;
+  let getModelsSpy: ReturnType<typeof vi.fn>;
   let reorderCategoriesSpy: ReturnType<typeof vi.fn>;
   let helpService: ContextHelpService;
 
@@ -22,7 +23,7 @@ describe('AcademicCategoriesComponent', () => {
       id: 'c-1',
       tenant_id: '00000000-0000-0000-0000-000000000001',
       name: 'Ciencia de Datos & IA',
-      description: 'Modelos para análisis de datos',
+      description: 'Entornos para análisis de datos',
       sort_order: 10,
       is_active: true,
       created_at: '2026-01-01T00:00:00Z',
@@ -32,7 +33,7 @@ describe('AcademicCategoriesComponent', () => {
       id: 'c-2',
       tenant_id: '00000000-0000-0000-0000-000000000001',
       name: 'Desarrollo Web & Cloud',
-      description: 'Modelos web',
+      description: '',
       sort_order: 20,
       is_active: true,
       created_at: '2026-01-01T00:00:00Z',
@@ -40,8 +41,22 @@ describe('AcademicCategoriesComponent', () => {
     }
   ];
 
+  const mockModels: TemplateModelItem[] = [
+    {
+      id: 'm-1',
+      tenant_id: '00000000-0000-0000-0000-000000000001',
+      name: 'Python Data Science',
+      category_id: 'c-1',
+      description: 'Stack de ciencia de datos',
+      is_active: true,
+      created_at: '2026-01-01T00:00:00Z',
+      updated_at: '2026-01-01T00:00:00Z'
+    } as TemplateModelItem
+  ];
+
   beforeEach(async () => {
     getCategoriesSpy = vi.fn().mockReturnValue(of(mockCategories));
+    getModelsSpy = vi.fn().mockReturnValue(of(mockModels));
     reorderCategoriesSpy = vi.fn().mockReturnValue(of(void 0));
 
     await TestBed.configureTestingModule({
@@ -54,7 +69,7 @@ describe('AcademicCategoriesComponent', () => {
           provide: AdminTemplatesService,
           useValue: {
             getCategories: getCategoriesSpy,
-            getModels: vi.fn().mockReturnValue(of([])),
+            getModels: getModelsSpy,
             createCategory: vi.fn().mockReturnValue(of(mockCategories[0])),
             updateCategory: vi.fn().mockReturnValue(of(mockCategories[0])),
             deleteCategory: vi.fn().mockReturnValue(of(void 0)),
@@ -74,10 +89,11 @@ describe('AcademicCategoriesComponent', () => {
   it('debe inicializar el componente y cargar categorías', () => {
     expect(component).toBeTruthy();
     expect(getCategoriesSpy).toHaveBeenCalled();
+    expect(getModelsSpy).toHaveBeenCalled();
     expect(component.categories().length).toBe(2);
     expect(component.totalCategoriesCount()).toBe(2);
     expect(component.activeCategoriesCount()).toBe(2);
-    expect(compiled.querySelector('template-categories-manager')).toBeTruthy();
+    expect(compiled.querySelector('.categories-table')).toBeTruthy();
   });
 
   it('debe registrar y desregistrar la pantalla en el servicio de ayuda', () => {
@@ -115,5 +131,45 @@ describe('AcademicCategoriesComponent', () => {
       { id: 'c-2', sort_order: 10 },
       { id: 'c-1', sort_order: 20 }
     ]);
+  });
+
+  it('debe filtrar categorías por nombre o descripción', () => {
+    component.onSearchChange('web');
+    fixture.detectChanges();
+
+    expect(component.isFiltered()).toBe(true);
+    expect(component.filteredCategories().length).toBe(1);
+    expect(component.filteredCategories()[0].name).toBe('Desarrollo Web & Cloud');
+  });
+
+  it('debe mostrar guion tenue si la categoría no tiene descripción', () => {
+    const emptyDescCell = compiled.querySelectorAll('td.col-desc')[1];
+    expect(emptyDescCell.textContent?.trim()).toBe('—');
+  });
+
+  it('debe deshabilitar el botón de eliminar si la categoría tiene entornos asociados', () => {
+    // c-1 tiene m-1 asociado
+    expect(component.getCategoryModelCount('c-1')).toBe(1);
+    const deleteButtons = compiled.querySelectorAll('.btn-delete');
+    const firstDeleteBtn = deleteButtons[0] as HTMLButtonElement;
+    expect(firstDeleteBtn.disabled).toBe(true);
+    expect(firstDeleteBtn.getAttribute('title')).toContain('No se puede eliminar');
+  });
+
+  it('debe habilitar el botón de eliminar si la categoría tiene 0 entornos asociados', () => {
+    // c-2 tiene 0 entornos asociados
+    expect(component.getCategoryModelCount('c-2')).toBe(0);
+    const deleteButtons = compiled.querySelectorAll('.btn-delete');
+    const secondDeleteBtn = deleteButtons[1] as HTMLButtonElement;
+    expect(secondDeleteBtn.disabled).toBe(false);
+  });
+
+  it('debe abrir edición al hacer clic en la fila fuera de controles', () => {
+    const editSpy = vi.spyOn(component, 'openEditCategory');
+    const row = compiled.querySelector('tbody tr.category-row') as HTMLElement;
+    const nameCell = row.querySelector('.col-name') as HTMLElement;
+    nameCell.click();
+
+    expect(editSpy).toHaveBeenCalledWith(mockCategories[0]);
   });
 });

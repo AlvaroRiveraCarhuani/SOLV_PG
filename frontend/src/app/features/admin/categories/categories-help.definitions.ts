@@ -4,7 +4,7 @@ import { TourDefinition } from '@shared/help/help.types';
  * Recorrido de Categorías Académicas.
  *
  * No lleva tutorial: el flujo es corto y la única restricción real (no borrar
- * una categoría con modelos asociados) se explica en la entrada contextual y
+ * una categoría con entornos asociados) se explica en la entrada contextual y
  * en el último paso del recorrido.
  */
 export function buildCategoriesTour(): TourDefinition {
@@ -14,7 +14,7 @@ export function buildCategoriesTour(): TourDefinition {
     steps: [
       {
         selector: '[data-tour="categories-summary"]',
-        title: 'Cuántas hay y cuántas están activas',
+        title: 'Cuántas hay registradas',
         description:
           'La categoría agrupa plantillas en la biblioteca y ordena los filtros del catálogo. Una categoría inactiva deja de ofrecerse sin borrar las plantillas que la usan.',
         side: 'bottom'
@@ -30,14 +30,14 @@ export function buildCategoriesTour(): TourDefinition {
         selector: '[data-tour="categories-list"]',
         title: 'El orden se edita desde la lista',
         description:
-          'Las flechas o el arrastre cambian el orden en que se muestran las categorías. Ese orden se usa en la biblioteca de modelos y en los selectores del constructor.',
+          'Las flechas o el arrastre cambian el orden en que se muestran las categorías. Ese orden se usa en la biblioteca de entornos y en los selectores del constructor.',
         side: 'top'
       },
       {
         selector: '[data-tour="categories-list"]',
-        title: 'Una categoría con modelos no se borra',
+        title: 'Una categoría con entornos no se borra',
         description:
-          'La pantalla impide eliminarla mientras tenga plantillas o modelos asociados. Primero se reasignan esos elementos a otra categoría; después el borrado queda disponible.',
+          'La pantalla impide eliminarla mientras tenga plantillas o entornos asociados. Primero se reasignan esos elementos a otra categoría; después el borrado queda disponible.',
         side: 'top'
       }
     ]

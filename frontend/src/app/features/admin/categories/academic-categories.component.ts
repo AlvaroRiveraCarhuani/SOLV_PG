@@ -1,14 +1,15 @@
 import { Component, OnInit, OnDestroy, computed, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { RouterLink } from '@angular/router';
 import { MachineDataDirective } from '@shared/directives/machine-data.directive';
+import { SearchBarComponent } from '@shared/components/search-bar/search-bar.component';
 import {
   AdminTemplatesService,
   TemplateCategory,
   ReorderCategoryItem,
   TemplateModelItem
 } from '../services/admin-templates.service';
-import { TemplateCategoriesManagerComponent } from '../templates/components/model-library/components/template-categories-manager/template-categories-manager.component';
 import { CategoryFormModalComponent } from '../templates/components/model-library/components/category-form-modal/category-form-modal.component';
 import { CategoryDeleteModalComponent } from '../templates/components/model-library/components/category-delete-modal/category-delete-modal.component';
 import { ContextHelpService } from '@shared/help/context-help.service';
@@ -17,7 +18,14 @@ import { buildCategoriesTour } from './categories-help.definitions';
 import {
   LucidePlus,
   LucideAlertTriangle,
-  LucideCheckCircle2
+  LucideCheckCircle2,
+  LucideGripVertical,
+  LucideChevronUp,
+  LucideChevronDown,
+  LucidePencil,
+  LucideTrash2,
+  LucideArrowRight,
+  LucideInfo
 } from '@lucide/angular';
 
 export const ACADEMIC_CATEGORIES_HELP_KEY = 'academic-categories';
@@ -28,13 +36,21 @@ export const ACADEMIC_CATEGORIES_HELP_KEY = 'academic-categories';
   imports: [
     CommonModule,
     FormsModule,
+    RouterLink,
     MachineDataDirective,
-    TemplateCategoriesManagerComponent,
+    SearchBarComponent,
     CategoryFormModalComponent,
     CategoryDeleteModalComponent,
     LucidePlus,
     LucideAlertTriangle,
-    LucideCheckCircle2
+    LucideCheckCircle2,
+    LucideGripVertical,
+    LucideChevronUp,
+    LucideChevronDown,
+    LucidePencil,
+    LucideTrash2,
+    LucideArrowRight,
+    LucideInfo
   ],
   templateUrl: './academic-categories.component.html',
   styleUrls: ['./academic-categories.component.scss']
@@ -47,11 +63,23 @@ export class AcademicCategoriesComponent implements OnInit, OnDestroy {
   readonly isLoading = signal<boolean>(false);
   readonly categories = signal<TemplateCategory[]>([]);
   readonly models = signal<TemplateModelItem[]>([]);
+  readonly searchQuery = signal<string>('');
 
   readonly totalCategoriesCount = computed(() => this.categories().length);
   readonly activeCategoriesCount = computed(
     () => this.categories().filter(c => c.is_active !== false).length
   );
+
+  readonly isFiltered = computed(() => this.searchQuery().trim().length > 0);
+
+  readonly filteredCategories = computed(() => {
+    const q = this.searchQuery().trim().toLowerCase();
+    if (!q) return this.categories();
+    return this.categories().filter(c =>
+      c.name.toLowerCase().includes(q) ||
+      (c.description && c.description.toLowerCase().includes(q))
+    );
+  });
 
   readonly showCategoryModal = signal<boolean>(false);
   readonly editingCategory = signal<TemplateCategory | null>(null);
@@ -109,6 +137,35 @@ export class AcademicCategoriesComponent implements OnInit, OnDestroy {
     });
   }
 
+  onSearchChange(query: string): void {
+    this.searchQuery.set(query);
+  }
+
+  onSearchClear(): void {
+    this.searchQuery.set('');
+  }
+
+  getCategoryModelCount(categoryId: string): number {
+    return this.models().filter(m => m.category_id === categoryId).length;
+  }
+
+  getCategoryIndex(cat: TemplateCategory): number {
+    return this.categories().findIndex(c => c.id === cat.id);
+  }
+
+  formatOrder(order: number): string {
+    const val = Math.floor(order);
+    return val < 10 ? `0${val}` : `${val}`;
+  }
+
+  onRowClick(cat: TemplateCategory, event: MouseEvent): void {
+    const target = event.target as HTMLElement | null;
+    if (target?.closest('button') || target?.closest('a') || target?.closest('.order-controls')) {
+      return;
+    }
+    this.openEditCategory(cat);
+  }
+
   openCreateCategory(): void {
     this.editingCategory.set(null);
     this.showCategoryModal.set(true);
@@ -146,13 +203,14 @@ export class AcademicCategoriesComponent implements OnInit, OnDestroy {
   }
 
   moveCategoryUp(index: number): void {
-    if (index <= 0) return;
+    if (this.isFiltered() || index <= 0) return;
     const cats = [...this.categories()];
     [cats[index - 1], cats[index]] = [cats[index], cats[index - 1]];
     this.applyCategoryOrder(cats);
   }
 
   moveCategoryDown(index: number): void {
+    if (this.isFiltered()) return;
     const cats = [...this.categories()];
     if (index >= cats.length - 1) return;
     [cats[index], cats[index + 1]] = [cats[index + 1], cats[index]];
@@ -160,11 +218,17 @@ export class AcademicCategoriesComponent implements OnInit, OnDestroy {
   }
 
   onDragStart(index: number): void {
+    if (this.isFiltered()) return;
     this.draggedCategoryIndex = index;
   }
 
+  onDragOver(event: DragEvent): void {
+    if (this.isFiltered()) return;
+    event.preventDefault();
+  }
+
   onDrop(targetIndex: number): void {
-    if (this.draggedCategoryIndex === null || this.draggedCategoryIndex === targetIndex) {
+    if (this.isFiltered() || this.draggedCategoryIndex === null || this.draggedCategoryIndex === targetIndex) {
       this.draggedCategoryIndex = null;
       return;
     }
