@@ -7,21 +7,22 @@ Guía operativa, técnica y de gestión para administradores de la plataforma SO
 ## 1. Visión General e Identidad del Sistema
 
 ### 1.1 Propósito y Alcance
-La plataforma SOLV está diseñada para centralizar la gestión, ejecución y evaluación de laboratorios virtuales de programación en entornos académicos. Permite a las instituciones educativas proporcionar a sus estudiantes entornos de desarrollo listos para usar y sistemas de calificación automática de código, manteniendo el control de los recursos del servidor y la seguridad de la infraestructura.
+La plataforma SOLV está diseñada para centralizar la gestión, ejecución y evaluación de laboratorios virtuales de programación en entornos académicos. Permite a las instituciones educativas proporcionar a sus estudiantes entornos listos para usar y sistemas de calificación automática de código, manteniendo el control de los recursos del servidor y la seguridad de la infraestructura.
 
 ### 1.2 Glosario de Términos
-- **Laboratorio Interactivo (IDE):** Entorno de desarrollo completo basado en navegador web (OpenVSCode Server) con terminal integrada, explorador de archivos y persistencia de código durante el semestre.
-- **Juez Evaluador (Sandbox):** Entorno de ejecución rápida y aislada que compila y ejecuta código fuente frente a casos de prueba predefinidos para emitir una calificación automática.
-- **Contenedor Docker:** Unidad ligera y aislada que empaqueta el sistema operativo base, los compiladores, intérpretes y herramientas necesarias para cada práctica.
-- **Límite de Recursos (cgroups v2):** Mecanismo del kernel de Linux que restringe la cantidad de memoria RAM y procesador (CPU) que un contenedor puede utilizar.
-- **Análisis Estático (Semgrep):** Verificación previa del código fuente para detectar llamadas al sistema o librerías prohibidas antes de permitir su compilación.
+- **Entorno de Desarrollo:** entorno de trabajo completo basado en navegador web (OpenVSCode Server) con terminal integrada, explorador de archivos y persistencia de código durante el semestre.
+- **Entorno de Evaluación:** entorno de ejecución rápida y aislada que compila y ejecuta código fuente frente a casos de prueba predefinidos para emitir una calificación automática.
+- **Modo dual:** una misma plantilla sirve para el Entorno de Desarrollo y para el Entorno de Evaluación; al estudiante se le entrega la modalidad que pida el ejercicio.
+- **Contenedor Docker:** unidad ligera y aislada que empaqueta el sistema operativo base, los compiladores, intérpretes y herramientas necesarias para cada práctica.
+- **Límite de Recursos (cgroups v2):** mecanismo del kernel de Linux que restringe la cantidad de memoria RAM y procesador (CPU) que un contenedor puede utilizar.
+- **Análisis Estático (Semgrep):** verificación previa del código fuente para detectar llamadas al sistema o librerías prohibidas antes de permitir su compilación.
 
 ### 1.3 Matriz de Roles y Responsabilidades
 | Rol | Alcance y Responsabilidades |
 | :--- | :--- |
-| **Administrador Central** | Control global de infraestructura, gestión de periodos académicos, aprobación de plantillas de entorno, fijación de límites de hardware, asignación de docentes a materias y auditoría de eventos. |
-| **Docente** | Creación de actividades pedagógicas, configuración de ejercicios en el juez, supervisión de entregas de estudiantes y consulta de plantillas aprobadas. |
-| **Estudiante** | Acceso a sus materias inscritas, desarrollo en su laboratorio interactivo personal y envío de soluciones para evaluación automática. |
+| **Administrador Central** | Control global de infraestructura, gestión de periodos académicos, aprobación de entornos, fijación de límites de hardware, asignación de docentes a materias y auditoría de eventos. |
+| **Docente** | Creación de actividades pedagógicas, configuración de ejercicios en el motor de evaluación, supervisión de entregas de estudiantes y consulta de entornos aprobados. |
+| **Estudiante** | Acceso a sus materias inscritas, desarrollo en su Entorno de Desarrollo personal y envío de soluciones para evaluación automática. |
 
 ---
 
@@ -30,7 +31,7 @@ La plataforma SOLV está diseñada para centralizar la gestión, ejecución y ev
 ### 2.1 Comparativa Técnica de Entornos
 SOLV ofrece dos modalidades de ejecución según la necesidad pedagógica:
 
-| Característica | Laboratorio Interactivo (IDE) | Juez Evaluador (Sandbox) |
+| Característica | Entorno de Desarrollo | Entorno de Evaluación |
 | :--- | :--- | :--- |
 | **Objetivo** | Desarrollo de proyectos, tareas extensas y aprendizaje guiado. | Exámenes cronometrados y evaluación automática de algoritmos. |
 | **Interfaz** | Editor visual completo en el navegador web con terminal. | Sin interfaz gráfica. Proceso automatizado por API. |
@@ -40,7 +41,7 @@ SOLV ofrece dos modalidades de ejecución según la necesidad pedagógica:
 | **Consumo de Memoria** | Mayor asignación para soportar el editor web y compiladores. | Asignación compacta dimensionada para una prueba individual. |
 
 ### 2.2 Políticas de Memoria y Derivación Automática
-Para garantizar estabilidad en servidores on-premise compartidos, SOLV calcula de forma automática y determinística el perfil de memoria cgroups v2 a partir de la memoria base (`base_ram_mb`):
+Para dimensionar la memoria de un entorno, SOLV deriva un perfil de referencia de cgroups v2 a partir de la memoria base (`base_ram_mb`):
 
 $$\text{Memoria Mínima Garantizada } (memory.min) = \frac{\text{base\_ram\_mb}}{2}$$
 
@@ -55,14 +56,16 @@ $$\text{Límite Máximo Duro } (memory.max) = \text{base\_ram\_mb} \times 2$$
 **Ejemplo de dimensionamiento para una base de 1024 MB:**
 - Memoria mínima garantizada: 512 MB.
 - Umbral de contención: 1536 MB.
-- Límite absoluto de corte (OOM): 4096 MB.
+- Límite absoluto de corte (OOM): 2048 MB.
+
+**Cómo se aplica en ejecución:** el perfil anterior es la referencia de capacidad derivada (mínimo = base / 2, umbral = base × 1.5, máximo duro = base × 2). La cuota que Docker aplica al contenedor es la memoria configurada en la plantilla (`base_ram_mb`), con una reserva del 75 % de esa cuota. Para una plantilla de 1024 MB, el límite efectivo del contenedor es 1024 MB y la reserva 768 MB; las cifras del perfil describen el margen de referencia con el que se valida la capacidad del servidor.
 
 ### 2.3 Perfiles Recomendados por Lenguaje
-- **C / C++:** 512 MB en Juez Evaluador / 1024 MB en Laboratorio Interactivo.
-- **Python:** 512 MB en Juez Evaluador / 1024 MB en Laboratorio Interactivo.
-- **Java / OpenJDK:** 1024 MB en Juez Evaluador / 1536 MB a 2048 MB en Laboratorio Interactivo (por la reserva de memoria de la JVM).
-- **Node.js / TypeScript:** 1536 MB a 2048 MB en Laboratorio Interactivo (para soportar `node_modules` y compilación en segundo plano).
-- **Go:** 512 MB en Juez Evaluador / 1024 MB en Laboratorio Interactivo.
+- **C / C++:** 512 MB en el Entorno de Evaluación / 1024 MB en el Entorno de Desarrollo.
+- **Python:** 512 MB en el Entorno de Evaluación / 1024 MB en el Entorno de Desarrollo.
+- **Java / OpenJDK:** 1024 MB en el Entorno de Evaluación / 1536 MB a 2048 MB en el Entorno de Desarrollo (por la reserva de memoria de la JVM).
+- **Node.js / TypeScript:** 1536 MB a 2048 MB en el Entorno de Desarrollo (para soportar `node_modules` y compilación en segundo plano).
+- **Go:** 512 MB en el Entorno de Evaluación / 1024 MB en el Entorno de Desarrollo.
 
 ---
 
@@ -86,7 +89,7 @@ graph TD
 ```
 
 - **Borrador:** Estado inicial de edición técnica. Solo visible para el autor.
-- **Pendiente de Auditoría:** Solicitud enviada a revisión técnica. Requiere la ejecución obligatoria de una prueba de entorno (smoke test) para validar que la imagen descargue y responda.
+- **Pendiente de Auditoría:** Solicitud enviada a revisión técnica. Requiere la ejecución obligatoria de la auditoría de seguridad de la imagen y de una prueba de arranque (smoke test) para validar que la imagen descargue y responda.
 - **Aprobada:** Plantilla validada e integrada en el catálogo institucional para su uso en materias y laboratorios.
 - **Rechazada:** Plantilla observada por no cumplir los requisitos técnicos. Requiere un motivo de justificación de al menos 10 caracteres.
 - **Suspendida:** Desactivación temporal de una plantilla obsoleta sin eliminar los historiales ni entornos de cursos anteriores.
@@ -102,11 +105,11 @@ graph TD
 
 ### 4.2 Cursos y Asignación de Docentes
 - Cada materia creada pertenece a un periodo académico y cuenta con un docente titular responsable.
-- Si un docente deja una cátedra, el Administrador puede reasignar la materia a otro docente registrado sin perder la información del curso ni los laboratorios de los estudiantes.
+- Si un docente deja una cátedra, el Administrador puede reasignar la materia a otro docente registrado sin perder la información del curso ni los entornos de los estudiantes.
 
 ### 4.3 Directorio de Estudiantes y Desbloqueo de Memoria
 - El Administrador puede consultar el estado de cada cuenta de estudiante (Activo o Suspendido).
-- **Desbloqueo por exceso de memoria (Reset OOM):** Cuando un estudiante supera repetidamente el límite de memoria de su laboratorio, su acceso queda restringido. El Administrador puede restablecer el contador de penalizaciones ingresando una justificación de al menos 10 caracteres.
+- **Desbloqueo por exceso de memoria (Reset OOM):** Cuando un estudiante supera repetidamente el límite de memoria de su entorno, su acceso queda restringido. El Administrador puede restablecer el contador de penalizaciones ingresando una justificación de al menos 10 caracteres.
 
 ---
 
@@ -125,12 +128,12 @@ Al registrar un docente, SOLV envía una invitación por correo para que cree su
 El panel principal de administración presenta indicadores de salud del servidor:
 - **Uso de CPU:** Porcentaje de procesamiento actual respecto a la capacidad del servidor.
 - **Uso de Memoria RAM:** Memoria ocupada por el sistema y los contenedores frente al total disponible.
-- **Contenedores Activos:** Número de laboratorios interactivos en ejecución simultánea.
+- **Contenedores Activos:** Número de entornos en ejecución simultánea.
 
 ### 5.2 Registro de Auditoría
 Las acciones sensibles quedan registradas con identificación de usuario, fecha, dirección IP y detalle del cambio:
-- Registro y aprobación de plantillas.
-- Modificación o suspensión de estados de plantillas.
+- Registro y aprobación de entornos.
+- Modificación o suspensión de estados de entornos.
 - Reasignación de docentes en materias.
 - Restablecimiento de penalizaciones de memoria de estudiantes.
 - Acciones de emergencia sobre el servidor.
@@ -140,7 +143,7 @@ Las acciones sensibles quedan registradas con identificación de usuario, fecha,
 ## 6. Solución de Problemas Frecuentes
 
 ### 6.1 Contenedor detenido por falta de memoria (Error OOM)
-- **Causa:** El código ejecutado por el usuario consumió más memoria RAM que el límite máximo asignado al contenedor.
+- **Causa:** El código ejecutado por el usuario consumió más memoria RAM que la cuota asignada al contenedor.
 - **Solución:** 
   1. Revisar si el código contiene bucles infinitos, fugas de memoria o estructuras de datos sobredimensionadas.
   2. Si la práctica requiere legítimamente más memoria, el Administrador puede editar la plantilla y aumentar la memoria base (`base_ram_mb`).
@@ -161,16 +164,18 @@ Las acciones sensibles quedan registradas con identificación de usuario, fecha,
 - **Causa:** Se intenta registrar una materia con un código duplicado o activar un periodo académico cuya fecha de fin ya expiró.
 - **Solución:** Verificar que el código de la materia sea único y que las fechas del periodo correspondan al calendario académico vigente.
 
-## 7. Constructor de Plantillas de Entornos
+## 7. Constructor de Entornos
 
-El Constructor de Plantillas crea los entornos que los docentes eligen al preparar un ejercicio. Cada plantilla se registra una vez y se reutiliza en todas las materias: define la modalidad, las tecnologías disponibles y la memoria que recibe cada estudiante.
+El Constructor crea los entornos que los docentes eligen al preparar un ejercicio. Cada plantilla se registra una vez y se reutiliza en todas las materias: define la modalidad, las tecnologías disponibles y la memoria que recibe cada estudiante.
 
-Se abre desde **Plantillas Docker → Nueva Plantilla**. Mientras navega por la aplicación, el constructor conserva un borrador del formulario; al publicar, el borrador se descarta.
+Se abre desde **Catálogo de entornos → Nuevo Entorno**. Cuando el pedido nace de la cola institucional, **Solicitudes de entornos → Crear en Constructor** (o **Abrir Constructor**) lanza el asistente con los datos de la solicitud ya precargados. Mientras navega por la aplicación, el constructor conserva un borrador del formulario; al publicar, el borrador se descarta.
 
 ### 7.1 Paso 1 — Propósito y Datos del Entorno
 
-- **Modalidad:** con editor, para que el estudiante trabaje en un entorno de desarrollo completo; o de evaluación, para corregir código automáticamente por consola.
-- **Habilitar también la evaluación:** convierte la plantilla en dual; el mismo entorno sirve para práctica y para corrección.
+- **Tres tarjetas de modalidad:**
+  - **Entorno de Desarrollo:** editor completo en el navegador con terminal, explorador de archivos y persistencia.
+  - **Entorno de Evaluación:** corrección automática por consola, sin interfaz web.
+  - **Modo dual:** la misma plantilla sirve para desarrollo y para corrección automática.
 - **Nombre:** es lo que ve el docente en el catálogo y en el asistente. Debe tener al menos tres caracteres.
 - **Categoría académica:** agrupa la plantilla en la biblioteca.
 - **Descripción pedagógica:** opcional; explica para qué sirve.
@@ -204,40 +209,50 @@ El encabezado del constructor ofrece dos apoyos:
 - **Recorrido visual:** señala dónde está cada parte de la pantalla, sin pedir datos.
 - **Tutorial guiado:** explica paso a paso y comprueba el estado real del formulario; no deja avanzar mientras falte el nombre, la tecnología o la memoria válida. Se puede cerrar en cualquier momento y seguir trabajando.
 
-## 8. Biblioteca de Modelos y Categorías
+## 8. Catálogo, Solicitudes y Tecnologías
 
-La gestión se reparte en tres rutas: **Catálogo de Entornos** (`/admin/plantillas`), **Catálogo de Tecnologías** (`/admin/tecnologias`) y **Categorías Académicas** (`/admin/categorias`).
+La gestión se reparte en cuatro rutas: **Catálogo de Entornos** (`/admin/plantillas`), **Solicitudes de entornos** (`/admin/solicitudes-entorno`), **Catálogo de Tecnologías** (`/admin/tecnologias`) y **Categorías Académicas** (`/admin/categorias`).
 
-### 8.1 Modelos Oficiales
+### 8.1 Catálogo de Entornos
 
-- Los indicadores superiores cuentan modelos totales, activos y por modalidad, además de las categorías.
-- **Búsqueda:** por nombre, descripción o imagen Docker.
-- **Filtros:** propósito, categoría y estado (activos o inactivos).
-- **Nuevo Modelo Oficial:** promueve una plantilla aprobada a modelo del catálogo. Sin plantillas aprobadas no hay nada que promover.
-- **Editar metadatos:** título, descripción y categoría.
-- **Activar / desactivar:** un modelo inactivo deja de ofrecerse sin borrar su historial.
-- Estados vacíos: la pantalla distingue entre catálogo sin modelos, búsqueda sin coincidencias, filtros que excluyen todo y error de carga.
+- Los indicadores superiores cuentan entornos totales, activos y por modalidad, además de las categorías.
+- **Nuevo Entorno** abre el constructor. **Preparar entornos** verifica e instala en el servidor las imágenes de los entornos activos para que la clase no espere descargas.
+- **Auditoría de seguridad y prueba de arranque:** cada entorno recorre un análisis de vulnerabilidades de la imagen (Trivy) y una prueba de arranque (smoke test) antes de quedar disponible. La ficha del entorno reúne el resultado en **Seguridad y auditoría**, y la lista marca con una etiqueta los entornos con vulnerabilidades críticas.
+- **Reenviar a auditoría:** vuelve a encolar la verificación de un entorno que quedó observado tras corregir su configuración.
+- **Búsqueda y filtros:** por nombre, descripción o imagen Docker; por propósito, categoría y estado (activos o inactivos).
+- **Activar / desactivar:** un entorno inactivo deja de ofrecerse sin borrar su historial.
+- Estados vacíos: la pantalla distingue entre catálogo sin entornos, búsqueda sin coincidencias, filtros que excluyen todo y error de carga.
+- La revisión técnica ocurre en esta misma pantalla: no existe una bandeja separada de aprobaciones. Los pedidos de los docentes se atienden en **Solicitudes de entornos**.
 
-### 8.2 Catálogo de Tecnologías
+### 8.2 Solicitudes de entornos
 
-Ruta: **Catálogo de Tecnologías** (`/admin/tecnologias`). Dos pestañas: **Tecnologías y Componentes** y **Mapa del Sistema**.
+Ruta: **Solicitudes de entornos** (`/admin/solicitudes-entorno`).
+
+- Es la cola institucional de pedidos de entornos enviados por los docentes para una materia.
+- **Abrir Constructor / Crear en Constructor** lleva la solicitud al asistente con sus datos precargados, para terminar de definir la plantilla.
+- El panel de detalle permite revisar la solicitud y **Aprobar con esta plantilla** cuando ya existe un entorno validado que la cubre.
+- Búsqueda y filtros por estado y materia; los estados vacíos distinguen entre cola sin solicitudes y filtros sin coincidencias.
+- Cada respuesta queda registrada en el Registro de Auditoría con su motivo.
+
+### 8.3 Catálogo de Tecnologías
+
+Ruta: **Catálogo de Tecnologías** (`/admin/tecnologias`).
 
 - Registra lenguajes, interfaces web, complementos y bases de datos.
-- **Búsqueda y filtros:** por nombre, slug, herramientas o paquete; por perfil (lenguaje, interfaz web, complemento, base de datos) y por estado. Cada opción de perfil indica cuántas tecnologías agrupa.
-- **Activar / desactivar** decide si la tecnología se ofrece en el constructor.
+- **Cinco pestañas por perfil:** **Todas**, **Lenguajes**, **Interfaz Web**, **Complementos** y **Bases de datos**. Cada pestaña indica cuántas tecnologías agrupa.
+- **Vista por defecto: tabla paginada.** El selector de vista alterna entre **Tabla** y **Tarjetas** sin perder la pestaña, la búsqueda ni los filtros activos.
+- **Buscador:** por nombre, slug, herramientas o paquete.
+- **Popover de filtros:** reúne **Disponibilidad** y **Origen**, muestra cuántos filtros están activos y ofrece restablecerlos.
+- **Interruptor de disponibilidad:** activa o desactiva la tecnología sin interrumpir los entornos en ejecución y sin borrar su historial. Al desactivarla, el constructor deja de ofrecerla.
 - **Uso:** cada tecnología indica cuántos entornos la referencian. Una tecnología en uso no se elimina: se desactiva. El servidor lo comprueba y la pantalla ofrece la desactivación antes de intentarlo.
 - Las tecnologías base del sistema no se pueden eliminar.
 - Un complemento **huérfano** no es compatible con ningún lenguaje activo: conviene revisarlo o desactivarlo.
 - Estados vacíos: se distingue entre catálogo sin tecnologías y filtros sin coincidencias.
 
-### 8.3 Categorías Académicas
+### 8.4 Categorías Académicas
 
 - Crear, editar y ordenar categorías con las flechas o arrastrando.
-- No se puede eliminar una categoría con modelos o plantillas asociadas.
-
-### 8.4 Mapa del Sistema
-
-Segunda pestaña de **Catálogo de Tecnologías** (`/admin/tecnologias`). Vista de solo lectura que relaciona tecnologías, capas y complementos compatibles.
+- No se puede eliminar una categoría con modelos o entornos asociados.
 
 ## 9. Configuración de Inteligencia Artificial
 
@@ -261,11 +276,11 @@ Cada operación exige la frase de confirmación exacta y un motivo de al menos 1
 
 | Operación | Impacto | Qué hace |
 | :--- | :--- | :--- |
-| Terminar todos los entornos | Destructiva | Detiene y destruye los contenedores activos del tenant. |
+| Terminar todos los entornos | Destructiva | Detiene y destruye los contenedores activos de la institución. |
 | Hibernar todos los entornos | Operativa | Pausa los contenedores activos preservando su estado. |
-| Limpiar contenedores huérfanos | Operativa | Elimina contenedores que ya no pertenecen a ningún entorno registrado. |
-| Purgar capas huérfanas | Operativa | Libera disco eliminando capas sin uso; no toca volúmenes nombrados. |
-| Reiniciar pools | Operativa | Reinicia el pool de conexiones de PostgreSQL y los contadores de corte. |
+| Limpiar zombis Docker | Operativa | Elimina contenedores huérfanos o zombis que ya no pertenecen a ningún entorno registrado. |
+| Purgar imágenes y volúmenes huérfanos | Operativa | Libera disco eliminando capas sin uso; no toca volúmenes nombrados. |
+| Reiniciar pools y circuit breakers | Operativa | Reinicia el pool de conexiones de PostgreSQL y los contadores de corte. |
 
 - **Frase de confirmación:** debe escribirse tal como aparece en el diálogo; si no coincide, la operación no se ejecuta.
 - **Aviso de memoria:** cuando la RAM del host supera el 90 %, el panel recomienda hibernar antes de una acción destructiva.
@@ -289,8 +304,8 @@ La burbuja del recorrido se aparta del elemento señalado. En pantallas angostas
 | Servidor y respaldos | Sí | Políticas, mantenimiento y respaldos |
 | Inteligencia Artificial | Sí | Dejar el copiloto en uso |
 | Administradores | Sí | Sumar un administrador |
-| Constructor de plantillas | Sí | Sí |
-| Catálogo de plantillas | Sí | Sí |
+| Constructor de entornos | Sí | Sí |
+| Catálogo de entornos | Sí | Sí |
 | Solicitudes de entornos | Sí | Responder una solicitud |
 | Docentes | Sí | Registrar un docente |
 | Cursos | Sí | Registrar una materia |
@@ -300,7 +315,7 @@ La burbuja del recorrido se aparta del elemento señalado. En pantallas angostas
 | Dashboard de salud | Sí | — |
 | Categorías académicas | Sí | — |
 
-El tutorial del Catálogo de plantillas se adapta al estado de la bandeja: con aprobaciones pendientes guía la revisión y el rechazo; sin pendientes explica por qué no aparece la pestaña y qué se hace en las fichas del catálogo activo, sin pedir acciones que esa vista no ofrece.
+El tutorial del Catálogo de entornos acompaña el alta de un entorno y la revisión de su auditoría de seguridad; si no hay entornos en borrador, explica cómo preparar las imágenes y qué muestra cada ficha. El tutorial de Solicitudes de entornos guía la respuesta a un pedido sin pedir acciones que esa vista no ofrece.
 
 En Configuración cada pestaña ofrece su propio recorrido: señala únicamente los bloques de esa pestaña y no comparte pasos con las demás. Al cambiar de pestaña, el centro de ayuda muestra las guías de la pestaña abierta, no las de la página completa.
 

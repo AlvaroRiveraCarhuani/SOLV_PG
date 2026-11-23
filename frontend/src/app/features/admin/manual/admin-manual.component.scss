@@ -70,8 +70,14 @@
     gap: var(--space-3);
     flex-wrap: wrap;
 
+    // En escritorio el índice lateral ya permite saltar de sección; el
+    // combobox queda como atajo para móvil y tablet, donde el TOC no se muestra.
     .section-combobox-wrapper {
       min-width: 220px;
+
+      @media (min-width: 1025px) {
+        display: none;
+      }
     }
 
     // Reading progress label
@@ -328,8 +334,9 @@
           }
 
           &.active {
-            color: var(--tenant-primary);
-            background-color: var(--status-pending-bg);
+            color: var(--text-primary);
+            background-color: var(--tenant-primary-subtle);
+            box-shadow: inset 2px 0 0 var(--tenant-primary);
             font-weight: 600;
           }
         }

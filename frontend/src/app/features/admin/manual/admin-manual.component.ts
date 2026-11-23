@@ -6,8 +6,9 @@ import {
   signal,
   computed,
   effect,
-  HostListener,
-  ElementRef
+  ElementRef,
+  DestroyRef,
+  HostListener
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { HttpClient } from '@angular/common/http';
@@ -24,13 +25,18 @@ import {
 } from '@lucide/angular';
 import mermaid from 'mermaid';
 import { ComboboxComponent, ComboboxOption } from '@shared/components/combobox/combobox.component';
+import { ThemeService } from '@core/services/theme.service';
 import {
   TocItem,
   compileMarkdown,
-  escapeHtml
+  escapeHtml,
+  stripDocumentTitle
 } from './manual-markdown-compiler.utils';
 
 export type { TocItem };
+
+/** Holgura superior (en px) para decidir qué título está activo al desplazarse. */
+const ACTIVE_HEADING_OFFSET = 140;
 
 @Component({
   selector: 'admin-manual',
@@ -53,8 +59,10 @@ export type { TocItem };
 export class AdminManualComponent implements OnInit, AfterViewInit {
   private http = inject(HttpClient);
   private sanitizer = inject(DomSanitizer);
-  private elementRef = inject(ElementRef);
+  private elementRef = inject<ElementRef<HTMLElement>>(ElementRef);
   private route = inject(ActivatedRoute);
+  private destroyRef = inject(DestroyRef);
+  private theme = inject(ThemeService);
 
   loading = signal<boolean>(true);
   error = signal<string | null>(null);
@@ -64,6 +72,14 @@ export class AdminManualComponent implements OnInit, AfterViewInit {
   showToc = signal<boolean>(true);
   showBackToTop = signal<boolean>(false);
   readingProgress = signal<number>(0);
+
+  private scrollTarget: HTMLElement | Window | null = null;
+  private detachScroll: (() => void) | null = null;
+  private scrollFrame = 0;
+  private tocFrame = 0;
+  private mermaidScheduled = false;
+  private mermaidRun = 0;
+  private mermaidChain: Promise<void> = Promise.resolve();
 
   filteredMarkdown = computed<string>(() => {
     const raw = this.rawMarkdown();
@@ -80,14 +96,14 @@ export class AdminManualComponent implements OnInit, AfterViewInit {
     }
 
     if (matched.length === 0) {
-      return '# Sin resultados\n\nNo se encontraron secciones que coincidan con su búsqueda.';
+      return '## Sin resultados\n\nNo se encontraron secciones que coincidan con su búsqueda.';
     }
 
     return matched.join('\n\n---\n\n');
   });
 
   parsedData = computed<{ html: SafeHtml; toc: TocItem[] }>(() => {
-    const md = this.filteredMarkdown();
+    const md = stripDocumentTitle(this.filteredMarkdown());
     const query = this.searchQuery().trim();
     const { html, toc } = compileMarkdown(md, query);
     return {
@@ -100,7 +116,7 @@ export class AdminManualComponent implements OnInit, AfterViewInit {
 
   tocItems = computed<TocItem[]>(() => {
     if (this.searchQuery().trim()) {
-      const { toc } = compileMarkdown(this.rawMarkdown(), '');
+      const { toc } = compileMarkdown(stripDocumentTitle(this.rawMarkdown()), '');
       return toc;
     }
     return this.parsedData().toc;
@@ -119,20 +135,26 @@ export class AdminManualComponent implements OnInit, AfterViewInit {
   );
 
   constructor() {
-    mermaid.initialize({
-      startOnLoad: false,
-      theme: 'neutral',
-      securityLevel: 'loose',
-      fontFamily: 'Inter, system-ui, -apple-system, sans-serif'
+    // Re-render del diagrama cuando cambia el HTML compilado o el tema activo.
+    effect(() => {
+      this.renderedContent();
+      this.theme.isDark();
+      this.scheduleMermaidRender();
     });
 
+    // Mantiene visible en el índice el ítem de la sección activa.
     effect(() => {
-      // Read tracked by the effect so content changes re-run the rendering pass.
-      this.renderedContent();
-      setTimeout(() => {
-        this.renderMermaidDiagrams();
-        this.attachHeadingAnchors();
-      }, 50);
+      this.activeSectionId();
+      this.scheduleActiveTocScroll();
+    });
+
+    this.destroyRef.onDestroy(() => {
+      this.detachScroll?.();
+      this.detachScroll = null;
+      if (typeof cancelAnimationFrame === 'function') {
+        cancelAnimationFrame(this.scrollFrame);
+        cancelAnimationFrame(this.tocFrame);
+      }
     });
   }
 
@@ -141,8 +163,8 @@ export class AdminManualComponent implements OnInit, AfterViewInit {
   }
 
   ngAfterViewInit(): void {
-    this.setupScrollSpy();
-    this.renderMermaidDiagrams();
+    this.attachScrollTracking();
+    this.scheduleMermaidRender();
   }
 
   toggleToc(): void {
@@ -153,14 +175,6 @@ export class AdminManualComponent implements OnInit, AfterViewInit {
     if (option?.value) {
       this.scrollToSection(option.value);
     }
-  }
-
-  @HostListener('window:scroll', [])
-  onWindowScroll(): void {
-    const yOffset = window.pageYOffset || document.documentElement.scrollTop;
-    this.showBackToTop.set(yOffset > 300);
-    this.updateActiveSectionOnScroll();
-    this.updateReadingProgress();
   }
 
   @HostListener('click', ['$event'])
@@ -228,7 +242,12 @@ export class AdminManualComponent implements OnInit, AfterViewInit {
   }
 
   scrollToTop(): void {
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+    const target = this.scrollTarget ?? window;
+    if (target === window) {
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+      return;
+    }
+    (target as HTMLElement).scrollTo({ top: 0, behavior: 'smooth' });
   }
 
   clearSearch(): void {
@@ -238,47 +257,156 @@ export class AdminManualComponent implements OnInit, AfterViewInit {
   private onMarkdownLoaded(markdown: string): void {
     this.rawMarkdown.set(markdown);
     this.loading.set(false);
-    setTimeout(() => {
-      this.setupScrollSpy();
-      this.renderMermaidDiagrams();
+
+    const afterRender = () => {
+      this.attachScrollTracking();
       this.attachHeadingAnchors();
+      this.scheduleMermaidRender();
       const fragment = this.route.snapshot.fragment || window.location.hash?.replace('#', '');
       if (fragment) {
         setTimeout(() => this.scrollToSection(fragment), 150);
       }
-    }, 100);
-  }
+    };
 
-  private updateReadingProgress(): void {
-    const el = document.documentElement;
-    const scrollTop = el.scrollTop || document.body.scrollTop;
-    const scrollHeight = el.scrollHeight - el.clientHeight;
-    const progress = scrollHeight > 0 ? Math.min(100, (scrollTop / scrollHeight) * 100) : 0;
-    this.readingProgress.set(Math.round(progress));
-  }
-
-  private updateActiveSectionOnScroll(): void {
-    const headings = Array.from(
-      this.elementRef.nativeElement.querySelectorAll('.manual-content-card h2, .manual-content-card h3')
-    ) as HTMLElement[];
-
-    const scrollPos = (window.pageYOffset || document.documentElement.scrollTop) + 120;
-
-    for (let i = headings.length - 1; i >= 0; i--) {
-      const heading = headings[i];
-      if (heading.offsetTop <= scrollPos) {
-        if (heading.id && heading.id !== this.activeSectionId()) {
-          this.activeSectionId.set(heading.id);
-        }
-        break;
-      }
+    if (typeof requestAnimationFrame === 'function') {
+      requestAnimationFrame(afterRender);
+    } else {
+      setTimeout(afterRender, 0);
     }
   }
 
-  private setupScrollSpy(): void {
-    const headings = this.elementRef.nativeElement.querySelectorAll('.manual-content-card h2');
-    if (headings.length > 0 && !this.activeSectionId()) {
-      this.activeSectionId.set(headings[0].id);
+  // ─── Scroll container real ─────────────────────────────────────────────────
+
+  /**
+   * La ventana nunca scrollea en el layout administrativo (`html, body` usan
+   * `overflow: hidden`); el scroll vive en `.shell-content`. Se resuelve el
+   * primer ancestro con overflow propio y se cae a `window` si no existe.
+   */
+  private resolveScrollTarget(): HTMLElement | Window {
+    let node: HTMLElement | null = this.elementRef.nativeElement.parentElement;
+    while (node) {
+      const overflowY = getComputedStyle(node).overflowY;
+      if (overflowY === 'auto' || overflowY === 'scroll') {
+        return node;
+      }
+      node = node.parentElement;
+    }
+    return window;
+  }
+
+  private attachScrollTracking(): void {
+    this.detachScroll?.();
+    this.detachScroll = null;
+
+    const target = this.resolveScrollTarget();
+    this.scrollTarget = target;
+
+    const handler = () => this.scheduleScrollStateUpdate();
+    const listener = handler as EventListener;
+    (target as EventTarget).addEventListener('scroll', listener, { passive: true });
+    this.detachScroll = () => {
+      (target as EventTarget).removeEventListener('scroll', listener);
+    };
+
+    this.updateScrollState();
+  }
+
+  private scheduleScrollStateUpdate(): void {
+    if (typeof requestAnimationFrame !== 'function') {
+      this.updateScrollState();
+      return;
+    }
+    if (this.scrollFrame) return;
+    this.scrollFrame = requestAnimationFrame(() => {
+      this.scrollFrame = 0;
+      this.updateScrollState();
+    });
+  }
+
+  private updateScrollState(): void {
+    const target = this.scrollTarget ?? window;
+    const isWindow = target === window;
+    const el = isWindow
+      ? (document.scrollingElement as HTMLElement | null) ?? document.documentElement
+      : (target as HTMLElement);
+
+    const scrollTop = isWindow
+      ? window.pageYOffset || document.documentElement.scrollTop || el.scrollTop
+      : el.scrollTop;
+    const scrollHeight = isWindow ? document.documentElement.scrollHeight : el.scrollHeight;
+    const clientHeight = isWindow ? window.innerHeight : el.clientHeight;
+    const scrollable = scrollHeight - clientHeight;
+
+    this.showBackToTop.set(scrollTop > 300);
+    this.readingProgress.set(
+      scrollable > 0 ? Math.min(100, Math.max(0, Math.round((scrollTop / scrollable) * 100))) : 0
+    );
+
+    this.updateActiveSection(el, isWindow, scrollTop, scrollHeight, clientHeight);
+  }
+
+  private updateActiveSection(
+    el: HTMLElement,
+    isWindow: boolean,
+    scrollTop: number,
+    scrollHeight: number,
+    clientHeight: number
+  ): void {
+    const headings = Array.from(
+      this.elementRef.nativeElement.querySelectorAll<HTMLElement>(
+        '.manual-content-card h2[id], .manual-content-card h3[id]'
+      )
+    );
+    if (headings.length === 0) return;
+
+    const containerTop = isWindow ? 0 : el.getBoundingClientRect().top;
+    const threshold = containerTop + ACTIVE_HEADING_OFFSET;
+    let current = headings[0].id;
+
+    for (const heading of headings) {
+      if (heading.getBoundingClientRect().top <= threshold) {
+        current = heading.id;
+      } else {
+        break;
+      }
+    }
+
+    // Al llegar al final, la última sección es la activa aunque su título no
+    // haya alcanzado el umbral.
+    if (scrollHeight - clientHeight - scrollTop <= 4) {
+      current = headings[headings.length - 1].id;
+    }
+
+    if (current && current !== this.activeSectionId()) {
+      this.activeSectionId.set(current);
+    }
+  }
+
+  // ─── Auto-scroll del índice ────────────────────────────────────────────────
+
+  private scheduleActiveTocScroll(): void {
+    if (typeof requestAnimationFrame !== 'function') return;
+    cancelAnimationFrame(this.tocFrame);
+    this.tocFrame = requestAnimationFrame(() => this.scrollActiveTocItemIntoView());
+  }
+
+  private scrollActiveTocItemIntoView(): void {
+    const card = this.elementRef.nativeElement.querySelector<HTMLElement>('.toc-sticky-card');
+    const link = card?.querySelector<HTMLElement>('.toc-link.active');
+    if (!card || !link) return;
+
+    const cardRect = card.getBoundingClientRect();
+    const linkRect = link.getBoundingClientRect();
+    const headerHeight =
+      card.querySelector<HTMLElement>('.toc-header')?.getBoundingClientRect().height ?? 0;
+    const margin = 8;
+    const visibleTop = cardRect.top + headerHeight + margin;
+    const visibleBottom = cardRect.bottom - margin;
+
+    if (linkRect.top < visibleTop) {
+      card.scrollTop -= visibleTop - linkRect.top;
+    } else if (linkRect.bottom > visibleBottom) {
+      card.scrollTop += linkRect.bottom - visibleBottom;
     }
   }
 
@@ -300,27 +428,79 @@ export class AdminManualComponent implements OnInit, AfterViewInit {
     });
   }
 
-  private renderMermaidDiagrams(): void {
-    const containers = this.elementRef.nativeElement.querySelectorAll(
-      '.mermaid-diagram-container:not([data-rendered])'
-    );
-    if (!containers || containers.length === 0) return;
+  // ─── Mermaid ───────────────────────────────────────────────────────────────
 
-    containers.forEach(async (el: HTMLElement, index: number) => {
+  /**
+   * Un solo pase por cambio de contenido o de tema. El doble
+   * `requestAnimationFrame` espera a que el `[innerHTML]` esté pintado antes de
+   * medir y renderizar el diagrama.
+   */
+  private scheduleMermaidRender(): void {
+    if (this.mermaidScheduled) return;
+
+    if (typeof requestAnimationFrame !== 'function') {
+      this.renderMermaidDiagrams();
+      return;
+    }
+
+    this.mermaidScheduled = true;
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        this.mermaidScheduled = false;
+        this.renderMermaidDiagrams();
+      });
+    });
+  }
+
+  /** Encola el render para que nunca haya dos `mermaid.render` en paralelo. */
+  private renderMermaidDiagrams(): void {
+    const run = ++this.mermaidRun;
+    this.mermaidChain = this.mermaidChain
+      .catch(() => undefined)
+      .then(() => this.paintMermaidDiagrams(run));
+  }
+
+  private async paintMermaidDiagrams(run: number): Promise<void> {
+    // Un pase más nuevo ya está en cola: éste deja de ser relevante.
+    if (run !== this.mermaidRun) return;
+
+    const containers = Array.from(
+      this.elementRef.nativeElement.querySelectorAll<HTMLElement>('.mermaid-diagram-container')
+    );
+    if (containers.length === 0) return;
+
+    mermaid.initialize({
+      startOnLoad: false,
+      theme: this.theme.isDark() ? 'dark' : 'neutral',
+      securityLevel: 'loose',
+      fontFamily: this.resolveMermaidFontFamily()
+    });
+
+    for (let index = 0; index < containers.length; index++) {
+      if (run !== this.mermaidRun) return;
+
+      const el = containers[index];
       const rawCode = el.getAttribute('data-mermaid');
-      if (!rawCode) return;
+      if (!rawCode) continue;
 
       const code = decodeURIComponent(rawCode);
-      const uniqueId = `mermaid-svg-${Date.now()}-${index}`;
 
       try {
-        const { svg } = await mermaid.render(uniqueId, code);
+        const { svg } = await mermaid.render(`mermaid-svg-${run}-${index}`, code);
         el.innerHTML = svg;
         el.setAttribute('data-rendered', 'true');
       } catch (err) {
         console.error('Error rendering Mermaid diagram:', err);
         el.innerHTML = `<pre class="mermaid-error"><code>${escapeHtml(code)}</code></pre>`;
+        el.setAttribute('data-rendered', 'true');
       }
-    });
+    }
+  }
+
+  private resolveMermaidFontFamily(): string {
+    const token = getComputedStyle(document.documentElement)
+      .getPropertyValue('--font-sans')
+      .trim();
+    return token || 'system-ui, sans-serif';
   }
 }

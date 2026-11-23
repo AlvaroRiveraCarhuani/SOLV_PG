@@ -25,6 +25,28 @@ export interface TocItem {
   level: number;
 }
 
+/**
+ * Renderiza el markup inline (`**negrita**`, `` `código` ``, enlaces, énfasis) de un
+ * fragmento de texto. `marked.parseInline` usa el parser por defecto, así que no
+ * depende de la instancia del renderer que se esté configurando.
+ */
+type MarkdownRenderer = object;
+
+export function renderInlineMarkdown(text: string, renderer?: MarkdownRenderer): string {
+  return marked.parseInline(text, {
+    async: false,
+    ...(renderer ? { renderer: renderer as never } : {})
+  }) as string;
+}
+
+/**
+ * Quita el título de nivel 1 del documento. La página ya tiene su propio
+ * encabezado, así que el H1 del Markdown se descarta para no duplicarlo.
+ */
+export function stripDocumentTitle(markdown: string): string {
+  return markdown.replace(/^\s*#\s+[^\n]*\n+/, '');
+}
+
 export function escapeHtml(text: string): string {
   return text
     .replace(/&/g, '&amp;')
@@ -43,7 +65,7 @@ export function slugify(text: string): string {
     .replace(/(^-|-$)+/g, '');
 }
 
-export function extractCallouts(text: string): string {
+export function extractCallouts(text: string, renderer?: MarkdownRenderer): string {
   return text.replace(
     /^>\s*\[!(NOTE|WARNING|DANGER|TIP)\][^\n]*\n((?:>[ \t]?[^\n]*\n?)*)/gm,
     (_, type, body) => {
@@ -57,7 +79,7 @@ export function extractCallouts(text: string): string {
       return [
         `<div class="manual-callout callout-${calloutType}">`,
         `<div class="callout-header"><strong class="callout-title">${calloutTitle}</strong></div>`,
-        `<div class="callout-content">${cleanBody}</div>`,
+        `<div class="callout-content">${renderInlineMarkdown(cleanBody, renderer)}</div>`,
         `</div>\n`
       ].join('');
     }
@@ -105,20 +127,34 @@ export function compileMarkdown(rawText: string, searchQuery: string): { html: s
     }
   });
 
-  // Callouts
-  processed = extractCallouts(processed);
-
   // Configure marked renderer
   const renderer = new marked.Renderer();
 
+  // Los callouts se inyectan como HTML antes de `marked`, así que su inline se
+  // resuelve con este mismo renderer para conservar las clases del manual.
+  renderer.strong = ({ text }) => `<strong class="manual-strong">${renderInlineMarkdown(text, renderer)}</strong>`;
+  renderer.em = ({ text }) => `<em class="manual-em">${renderInlineMarkdown(text, renderer)}</em>`;
+  renderer.codespan = ({ text }) => `<code class="manual-inline-code">${escapeHtml(text)}</code>`;
+  renderer.link = ({ href, title, text, tokens }) => {
+    const titleAttr = title ? ` title="${title}"` : '';
+    const external = href?.startsWith('http') ? ' target="_blank" rel="noopener noreferrer"' : '';
+    const label = tokens ? renderInlineMarkdown(text, renderer) : text;
+    return `<a href="${href ?? '#'}"${titleAttr}${external} class="manual-link">${label}</a>`;
+  };
+
+  // Callouts
+  processed = extractCallouts(processed, renderer);
+
   // Headings with ID + copy anchor placeholder
   renderer.heading = ({ text, depth }) => {
-    const plainText = text.replace(/<[^>]+>/g, '');
+    // El texto del token llega como Markdown crudo: hay que resolver el inline
+    // antes de inyectarlo para que `**negrita**` y `` `código` `` no queden literales.
+    const plainText = text.replace(/<[^>]+>/g, '').replace(/\*\*|__|`/g, '');
     const id = slugify(plainText);
     if (depth === 2 || depth === 3) {
       toc.push({ id, title: plainText, level: depth });
     }
-    return `<h${depth} class="manual-h${depth}" id="${id}">${text}</h${depth}>`;
+    return `<h${depth} class="manual-h${depth}" id="${id}">${renderInlineMarkdown(text, renderer)}</h${depth}>`;
   };
 
   // Table renderer
@@ -126,7 +162,7 @@ export function compileMarkdown(rawText: string, searchQuery: string): { html: s
     const headerHtml = token.header
       .map((cell: { text: string; tokens?: unknown[] }) => {
         const cellHtml = cell.tokens
-          ? (marked.parseInline(cell.tokens.map((t: unknown) => (t as { raw?: string }).raw ?? '').join('')) as string)
+          ? renderInlineMarkdown(cell.tokens.map((t: unknown) => (t as { raw?: string }).raw ?? '').join(''), renderer)
           : escapeHtml(cell.text);
         return `<th>${cellHtml}</th>`;
       })
@@ -137,7 +173,7 @@ export function compileMarkdown(rawText: string, searchQuery: string): { html: s
         const cells = row
           .map((cell) => {
             const cellHtml = cell.tokens
-              ? (marked.parseInline(cell.tokens.map((t: unknown) => (t as { raw?: string }).raw ?? '').join('')) as string)
+              ? renderInlineMarkdown(cell.tokens.map((t: unknown) => (t as { raw?: string }).raw ?? '').join(''), renderer)
               : escapeHtml(cell.text);
             return `<td>${cellHtml}</td>`;
           })
@@ -177,14 +213,14 @@ export function compileMarkdown(rawText: string, searchQuery: string): { html: s
     `;
   };
 
-  renderer.paragraph = ({ text }) => `<p class="manual-p">${text}</p>`;
+  renderer.paragraph = ({ text }) => `<p class="manual-p">${renderInlineMarkdown(text, renderer)}</p>`;
 
   renderer.list = (token) => {
     const tag = token.ordered ? 'ol' : 'ul';
     const items = token.items
       .map((item: { text?: string; tokens?: unknown[] }) => {
         const content = item.tokens
-          ? (marked.parse(item.tokens.map((t: unknown) => (t as { raw?: string }).raw ?? '').join(''), { async: false }) as string)
+          ? (marked.parse(item.tokens.map((t: unknown) => (t as { raw?: string }).raw ?? '').join(''), { renderer: renderer as never, async: false }) as string)
           : (item.text ?? '');
         return `<li>${content}</li>`;
       })
@@ -192,16 +228,15 @@ export function compileMarkdown(rawText: string, searchQuery: string): { html: s
     return `<${tag} class="manual-list">${items}</${tag}>`;
   };
 
-  renderer.link = ({ href, title, text }) => {
-    const titleAttr = title ? ` title="${title}"` : '';
-    const external = href?.startsWith('http') ? ' target="_blank" rel="noopener noreferrer"' : '';
-    return `<a href="${href ?? '#'}"${titleAttr}${external} class="manual-link">${text}</a>`;
+  renderer.blockquote = (token) => {
+    // Las citas contienen bloques, no sólo texto inline: se reparsean sus tokens
+    // con el parser de marked para conservar párrafos y formato interno.
+    const inner = marked.parse(token.raw.replace(/^>[ \t]?/gm, ''), {
+      renderer: renderer as never,
+      async: false
+    }) as string;
+    return `<blockquote class="manual-blockquote">${inner}</blockquote>`;
   };
-
-  renderer.blockquote = ({ text }) => `<blockquote class="manual-blockquote">${text}</blockquote>`;
-  renderer.strong = ({ text }) => `<strong class="manual-strong">${text}</strong>`;
-  renderer.em = ({ text }) => `<em class="manual-em">${text}</em>`;
-  renderer.codespan = ({ text }) => `<code class="manual-inline-code">${text}</code>`;
   renderer.hr = () => `<hr class="manual-hr">`;
 
   let rawHtml = marked.parse(processed, { renderer, async: false }) as string;
