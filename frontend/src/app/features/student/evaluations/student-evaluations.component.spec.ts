@@ -105,12 +105,12 @@ describe('StudentEvaluationsComponent', () => {
     return fixture.debugElement.query(By.directive(SearchBarComponent)).componentInstance as SearchBarComponent;
   }
 
-  async function setup(): Promise<void> {
+  async function setup(data: StudentEvaluationItem[] = EVALUATIONS): Promise<void> {
     TestBed.resetTestingModule();
 
     const mockStudentService = {
-      evaluations: () => EVALUATIONS,
-      loadEvaluations: () => Promise.resolve(EVALUATIONS)
+      evaluations: () => data,
+      loadEvaluations: () => Promise.resolve(data)
     };
 
     await TestBed.configureTestingModule({
@@ -210,14 +210,65 @@ describe('StudentEvaluationsComponent', () => {
     expect(labLink?.getAttribute('href')).toBe('/student/exercises/e3');
   });
 
-  it('renderiza fechas como time semántico y expone la hora de entrega', async () => {
+  it('muestra la hora dentro de la tarjeta de fecha y no la repite en los metadatos', async () => {
     await setup();
 
     const pendingItem = itemFor('Recorrido de listas');
-    const times = pendingItem?.querySelectorAll('time');
-    expect(times && times.length >= 2).toBe(true);
-    expect(times![0]?.getAttribute('datetime')).toBe('2026-11-05T23:59:00');
-    expect(times![0]?.textContent?.trim()).toContain('05 nov');
-    expect(times![1]?.textContent?.trim()).toContain('23:59');
+    const badgeTimes = pendingItem?.querySelectorAll<HTMLTimeElement>('.row-date-badge time');
+
+    expect(badgeTimes?.length).toBe(2);
+    expect(badgeTimes![0].getAttribute('datetime')).toBe('2026-11-05T23:59:00');
+    expect(badgeTimes![0].textContent?.trim()).toBe('05 nov');
+    expect(badgeTimes![1].getAttribute('datetime')).toBe('2026-11-05T23:59:00');
+    expect(badgeTimes![1].textContent?.trim()).toBe('23:59');
+
+    expect(pendingItem?.textContent).not.toContain('Hasta');
+    expect(pendingItem?.querySelectorAll('time').length).toBe(2);
+  });
+
+  it('concuerda el subtítulo resumen en plural', async () => {
+    await setup();
+
+    const subtitle = (fixture.nativeElement as HTMLElement)
+      .querySelector('.page-subtitle')?.textContent?.trim();
+    expect(subtitle).toBe('2 exámenes próximos · 1 en curso · 1 actividad completada en todas sus materias.');
+  });
+
+  it('concuerda el subtítulo resumen en singular', async () => {
+    const singular: StudentEvaluationItem[] = [
+      { ...EVALUATIONS[1], exercise_id: 'x1', academic_status: 'pending' },
+      { ...EVALUATIONS[2], exercise_id: 'x2' }
+    ];
+    await setup(singular);
+
+    const subtitle = (fixture.nativeElement as HTMLElement)
+      .querySelector('.page-subtitle')?.textContent?.trim();
+    expect(subtitle).toBe('1 examen próximo · 0 en curso · 1 actividad completada en todas sus materias.');
+  });
+
+  it('etiqueta el CTA principal según el tipo de la actividad destino', async () => {
+    await setup();
+    const ctaFor = () => (fixture.nativeElement as HTMLElement)
+      .querySelector<HTMLAnchorElement>('.header-actions .btn-primary');
+
+    expect(ctaFor()?.textContent?.trim()).toBe('Resolver examen próximo →');
+    expect(ctaFor()?.getAttribute('href')).toBe('/student/exercises/e4');
+
+    await setup([{ ...EVALUATIONS[0], exercise_id: 'p1', title: 'Entrega Final', type: 'project' }]);
+    expect(ctaFor()?.textContent?.trim()).toBe('Resolver entrega próxima →');
+    expect(ctaFor()?.getAttribute('href')).toBe('/student/exercises/p1');
+
+    await setup([{ ...EVALUATIONS[0], exercise_id: 'p2', title: 'Práctica abierta' }]);
+    expect(ctaFor()?.textContent?.trim()).toBe('Resolver práctica próxima →');
+    expect(ctaFor()?.getAttribute('href')).toBe('/student/exercises/p2');
+
+    await setup([{ ...EVALUATIONS[1], exercise_id: 'e1', academic_status: 'in_progress' }]);
+    expect(ctaFor()?.textContent?.trim()).toBe('Continuar examen en curso →');
+
+    await setup([{ ...EVALUATIONS[0], exercise_id: 'p3', type: 'project', academic_status: 'in_progress' }]);
+    expect(ctaFor()?.textContent?.trim()).toBe('Continuar entrega en curso →');
+
+    await setup([{ ...EVALUATIONS[0], exercise_id: 'p4', academic_status: 'in_progress' }]);
+    expect(ctaFor()?.textContent?.trim()).toBe('Continuar práctica en curso →');
   });
 });

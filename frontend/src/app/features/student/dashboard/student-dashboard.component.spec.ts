@@ -186,6 +186,23 @@ describe('StudentDashboardComponent', () => {
     expect(actionLink?.getAttribute('href')).toBe('/student/exercises/ex-9');
   });
 
+  it('muestra la hora dentro de la tarjeta de fecha y no la repite en los metadatos', async () => {
+    await setup();
+
+    const badge = (fixture.nativeElement as HTMLElement).querySelector<HTMLElement>('.due-date-badge');
+    const badgeTimes = badge?.querySelectorAll<HTMLTimeElement>('time');
+
+    expect(badgeTimes?.length).toBe(2);
+    expect(badgeTimes![0].getAttribute('datetime')).toBe('2026-11-06T23:59:00');
+    expect(badgeTimes![0].textContent?.trim()).toBe('06 nov');
+    expect(badgeTimes![1].getAttribute('datetime')).toBe('2026-11-06T23:59:00');
+    expect(badgeTimes![1].textContent?.trim()).toBe('23:59');
+
+    const row = (fixture.nativeElement as HTMLElement).querySelector('.due-row');
+    expect(row?.textContent).not.toContain('Hasta');
+    expect(row?.querySelectorAll('time').length).toBe(2);
+  });
+
   it('muestra el avance por materia con conteo real', async () => {
     await setup();
 

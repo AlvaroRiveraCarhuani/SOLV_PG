@@ -222,6 +222,8 @@ describe('StudentHistoryComponent', () => {
   it('filtra por título de ejercicio desde el buscador', async () => {
     await setup();
 
+    expect(searchBar().placeholder()).toBe('Buscar por ejercicio...');
+
     searchBar().queryChange.emit('grafos');
     fixture.detectChanges();
     expect(rows().length).toBe(1);

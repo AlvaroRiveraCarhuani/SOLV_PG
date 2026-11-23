@@ -82,7 +82,10 @@ export class StudentEvaluationsComponent implements OnInit {
     const inProgress = list.filter(item => item.academic_status === 'in_progress').length;
     const completed = list.filter(item => item.academic_status === 'completed').length;
     const examPlural = exams === 1 ? '1 examen próximo' : `${exams} exámenes próximos`;
-    return `${examPlural} · ${inProgress} en curso · ${completed} completadas en todas sus materias.`;
+    const completedLabel = completed === 1
+      ? '1 actividad completada'
+      : `${completed} actividades completadas`;
+    return `${examPlural} · ${inProgress} en curso · ${completedLabel} en todas sus materias.`;
   });
 
   readonly mostUrgentActivity = computed<{ label: string; exerciseId: string; title: string } | null>(() => {
@@ -102,18 +105,28 @@ export class StudentEvaluationsComponent implements OnInit {
     });
 
     const top = sorted[0];
-    const isExam = top.purpose === 'exam';
-    const isInProgress = top.academic_status === 'in_progress';
-    const label = isInProgress
-      ? (isExam ? 'Continuar examen en curso →' : 'Continuar práctica en curso →')
-      : (isExam ? 'Resolver examen próximo →' : 'Resolver práctica próxima →');
 
     return {
-      label,
+      label: this.urgentActivityLabel(top),
       exerciseId: top.exercise_id,
       title: top.title
     };
   });
+
+  /**
+   * Etiqueta del CTA principal según la actividad destino: examen, entrega
+   * (proyecto) o práctica. El destino no se filtra por tipo, así que el texto
+   * debe describir lo que el alumno realmente va a abrir.
+   */
+  private urgentActivityLabel(item: StudentEvaluationItem): string {
+    if (item.purpose === 'exam') {
+      return item.academic_status === 'in_progress' ? 'Continuar examen en curso →' : 'Resolver examen próximo →';
+    }
+    if (item.type === 'project') {
+      return item.academic_status === 'in_progress' ? 'Continuar entrega en curso →' : 'Resolver entrega próxima →';
+    }
+    return item.academic_status === 'in_progress' ? 'Continuar práctica en curso →' : 'Resolver práctica próxima →';
+  }
 
   readonly activeFilterCount = computed(() => {
     let count = 0;

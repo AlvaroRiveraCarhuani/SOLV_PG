@@ -169,8 +169,6 @@
                       <span class="urgency-label" [class.is-urgent]="getUrgencyLabel(due.due_date) === 'Hoy'">
                         {{ getUrgencyLabel(due.due_date) }}
                       </span>
-                      <span class="meta-sep">·</span>
-                      <span>Hasta <time class="font-mono" [attr.datetime]="due.due_date">{{ due.due_date | dateText:'time' }}</time></span>
                     </div>
                   </div>
 

@@ -254,10 +254,6 @@
                       <span class="urgency-pill" [class.is-urgent]="getUrgencyLabel(item.due_date) === 'Hoy'">
                         {{ getUrgencyLabel(item.due_date) }}
                       </span>
-                      <span class="meta-sep">·</span>
-                      <span class="due-time-info">
-                        Hasta <time class="font-mono" [attr.datetime]="item.due_date">{{ item.due_date | dateText:'time' }}</time>
-                      </span>
                     }
                     @if (item.attempts_count > 0) {
                       <span class="meta-sep">·</span>
