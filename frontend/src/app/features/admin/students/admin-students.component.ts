@@ -18,7 +18,19 @@ import { ContextHelpService } from '@shared/help/context-help.service';
 import { ComboboxOption } from '@shared/components/combobox/combobox.component';
 import { MachineDataDirective } from '@shared/directives/machine-data.directive';
 import { SortDirection, SortState } from '@shared/components/sort-header/sort-header.types';
-import { LucideCheckCircle2, LucideAlertTriangle, LucideUserPlus, LucideBookOpen } from '@lucide/angular';
+import { StatusTabsComponent, StatusTabItem } from '@shared/components/status-tabs/status-tabs.component';
+import { DrawerComponent } from '@shared/components/drawer/drawer.component';
+import { formatSolvDate } from '@shared/pipes/date-text.pipe';
+import { 
+  LucideCheckCircle2, 
+  LucideAlertTriangle, 
+  LucideUserPlus, 
+  LucideBookOpen,
+  LucideRotateCcw,
+  LucideUserX,
+  LucideUserCheck,
+  LucideShieldAlert
+} from '@lucide/angular';
 
 const STUDENTS_HELP_KEY = 'students-penalties';
 
@@ -28,6 +40,8 @@ const STUDENTS_HELP_KEY = 'students-penalties';
   imports: [
     CommonModule,
     MachineDataDirective,
+    StatusTabsComponent,
+    DrawerComponent,
     StudentTableComponent,
     StudentCoursesModalComponent,
     StudentResetOOMModalComponent,
@@ -36,6 +50,10 @@ const STUDENTS_HELP_KEY = 'students-penalties';
     LucideAlertTriangle,
     LucideUserPlus,
     LucideBookOpen,
+    LucideRotateCcw,
+    LucideUserX,
+    LucideUserCheck,
+    LucideShieldAlert,
     StudentRegisterModalComponent,
     StudentEnrollRosterModalComponent
   ],
@@ -52,14 +70,20 @@ export class AdminStudentsComponent implements OnInit, OnDestroy {
   readonly isLoading = signal<boolean>(true);
 
   readonly searchTerm = signal<string>('');
-  readonly selectedPeriod = signal<string>('');
+  readonly selectedPeriod = signal<string>('all');
   readonly selectedSubject = signal<string>('all');
   readonly selectedStatus = signal<string>('all');
   readonly currentPage = signal<number>(1);
   readonly pageSize = 8;
   readonly activeMenuStudentId = signal<string | null>(null);
-  readonly sortState = signal<SortState>({ column: null, direction: 'none' });
+  readonly sortState = signal<SortState>({ column: 'strikes', direction: 'desc' });
 
+  // Drawer de Detalle del Estudiante
+  readonly selectedStudentForDrawer = signal<AdminStudentItem | null>(null);
+  readonly drawerCourses = signal<AdminStudentCourseItem[]>([]);
+  readonly isLoadingDrawerCourses = signal<boolean>(false);
+
+  // Modales
   readonly showRegisterModal = signal<boolean>(false);
   readonly isRegistering = signal<boolean>(false);
   readonly showRosterEnrollModal = signal<boolean>(false);
@@ -76,6 +100,53 @@ export class AdminStudentsComponent implements OnInit, OnDestroy {
   readonly toastMessage = signal<string | null>(null);
   readonly toastType = signal<'success' | 'error'>('success');
 
+  // Badge institucional de periodo
+  readonly activePeriodBadge = computed<string>(() => {
+    const selected = this.academicPeriods().find(p => p.id === this.selectedPeriod());
+    if (selected && selected.id !== 'all') {
+      return `${selected.code}${selected.is_active ? ' · Vigente' : ''}`;
+    }
+    const active = this.academicPeriods().find(p => p.is_active);
+    if (active) {
+      return `${active.code} · Vigente`;
+    }
+    const first = this.academicPeriods()[0];
+    return first ? `${first.code} · Vigente` : '2026-I · Vigente';
+  });
+
+  // Pestañas de Estado con contadores y badgeVariant neutral
+  readonly statusTabs = computed<StatusTabItem[]>(() => {
+    const list = this.students();
+    const activeCount = list.filter(s => s.status === 'active').length;
+    const runningCount = list.filter(s => s.active_environments_count > 0).length;
+    const ramAlertCount = list.filter(s => s.oom_strike_count > 0 && s.oom_strike_count < 3).length;
+    const blockedCount = list.filter(s => s.oom_strike_count >= 3).length;
+    const suspendedCount = list.filter(s => s.status === 'suspended').length;
+
+    return [
+      { id: 'all', label: 'Todos', count: list.length, badgeVariant: 'neutral' },
+      { id: 'active', label: 'Activos', count: activeCount, badgeVariant: 'neutral' },
+      { id: 'running', label: 'En ejecución', count: runningCount, badgeVariant: 'neutral' },
+      { id: 'ram_alert', label: 'Alerta RAM', count: ramAlertCount, badgeVariant: 'neutral' },
+      { id: 'blocked', label: 'Bloqueados', count: blockedCount, badgeVariant: 'neutral' },
+      { id: 'suspended', label: 'Suspendidos', count: suspendedCount, badgeVariant: 'neutral' }
+    ];
+  });
+
+  readonly activeFilterCount = computed<number>(() => {
+    let count = 0;
+    if (this.selectedPeriod() && this.selectedPeriod() !== 'all') {
+      count++;
+    }
+    if (this.selectedSubject() && this.selectedSubject() !== 'all') {
+      count++;
+    }
+    return count;
+  });
+
+  readonly hasActivePopoverFilters = computed<boolean>(() => this.activeFilterCount() > 0);
+
+  // Opciones de compatibilidad para combobox / popover
   readonly periodComboboxOptions = computed<ComboboxOption[]>(() => [
     { id: 'all', label: 'Todos los periodos', value: 'all' },
     ...this.academicPeriods().map(p => ({ id: p.id, label: `${p.code}${p.is_active ? ' • Vigente' : ''}`, value: p.id }))
@@ -98,12 +169,14 @@ export class AdminStudentsComponent implements OnInit, OnDestroy {
 
   readonly statusComboboxOptions = computed<ComboboxOption[]>(() => [
     { id: 'all', label: 'Todos los estados', value: 'all' },
-    { id: 'enrolled', label: 'Cursando materias', value: 'enrolled' },
-    { id: 'inactive', label: 'Sin materias en el periodo', value: 'inactive' },
+    { id: 'active', label: 'Activos', value: 'active' },
     { id: 'running', label: 'Con entornos activos', value: 'running' },
+    { id: 'ram_alert', label: 'Alerta RAM', value: 'ram_alert' },
     { id: 'strikes', label: 'Con penalizaciones OOM', value: 'strikes' },
     { id: 'blocked', label: 'Bloqueados (3 Strikes)', value: 'blocked' },
-    { id: 'suspended', label: 'Cuentas suspendidas', value: 'suspended' }
+    { id: 'suspended', label: 'Cuentas suspendidas', value: 'suspended' },
+    { id: 'enrolled', label: 'Cursando materias', value: 'enrolled' },
+    { id: 'inactive', label: 'Sin materias en el periodo', value: 'inactive' }
   ]);
 
   readonly selectedStatusLabel = computed(() =>
@@ -122,15 +195,19 @@ export class AdminStudentsComponent implements OnInit, OnDestroy {
     const status = this.selectedStatus();
     const sort = this.sortState();
     let list = this.students().filter(s => {
-      const matchSearch = !search || (s.first_name + ' ' + s.last_name).toLowerCase().includes(search) || s.email.toLowerCase().includes(search);
+      const matchSearch = !search ||
+        (s.first_name + ' ' + s.last_name).toLowerCase().includes(search) ||
+        s.email.toLowerCase().includes(search);
       if (!matchSearch) return false;
       switch (status) {
+        case 'active': return s.status === 'active';
+        case 'running': return s.active_environments_count > 0;
+        case 'ram_alert': return s.oom_strike_count > 0 && s.oom_strike_count < 3;
+        case 'strikes': return s.oom_strike_count > 0;
+        case 'blocked': return s.oom_strike_count >= 3;
+        case 'suspended': return s.status === 'suspended';
         case 'enrolled': return s.academic_status === 'enrolled';
         case 'inactive': return s.academic_status === 'inactive';
-        case 'suspended': return s.status === 'suspended';
-        case 'blocked': return s.oom_strike_count >= 3;
-        case 'strikes': return s.oom_strike_count > 0;
-        case 'running': return s.active_environments_count > 0;
         default: return true;
       }
     });
@@ -145,7 +222,7 @@ export class AdminStudentsComponent implements OnInit, OnDestroy {
             return nameA.localeCompare(nameB, undefined, { sensitivity: 'base' }) * modifier;
           }
           case 'status':
-            return (a.academic_status || '').localeCompare(b.academic_status || '', undefined, { sensitivity: 'base' }) * modifier;
+            return (a.status || '').localeCompare(b.status || '', undefined, { sensitivity: 'base' }) * modifier;
           case 'subjects':
             return ((a.enrolled_courses_count ?? 0) - (b.enrolled_courses_count ?? 0)) * modifier;
           case 'environments':
@@ -171,6 +248,7 @@ export class AdminStudentsComponent implements OnInit, OnDestroy {
   @HostListener('document:keydown.escape')
   onEscape(): void {
     this.activeMenuStudentId.set(null);
+    this.selectedStudentForDrawer.set(null);
     this.showRegisterModal.set(false);
     this.showRosterEnrollModal.set(false);
     this.studentToToggleStatus.set(null);
@@ -193,7 +271,7 @@ export class AdminStudentsComponent implements OnInit, OnDestroy {
       next: (periods) => {
         this.academicPeriods.set(periods);
         const active = periods.find(p => p.is_active);
-        if (active && !this.selectedPeriod()) {
+        if (active && (!this.selectedPeriod() || this.selectedPeriod() === 'all')) {
           this.selectedPeriod.set(active.id);
         } else if (!this.selectedPeriod() && periods.length > 0) {
           this.selectedPeriod.set(periods[0].id);
@@ -236,6 +314,29 @@ export class AdminStudentsComponent implements OnInit, OnDestroy {
     this.loadStudents();
   }
 
+  onStatusTabChange(tabId: string): void {
+    this.selectedStatus.set(tabId);
+    this.currentPage.set(1);
+  }
+
+  onPeriodSelect(periodId: string): void {
+    this.selectedPeriod.set(periodId || 'all');
+    this.onFilterChange();
+  }
+
+  onSubjectSelect(subjectId: string): void {
+    this.selectedSubject.set(subjectId || 'all');
+    this.onFilterChange();
+  }
+
+  clearAllFilters(): void {
+    this.selectedPeriod.set('all');
+    this.selectedSubject.set('all');
+    this.currentPage.set(1);
+    this.loadStudents();
+  }
+
+  // Compatibilidad hacia atrás
   onPeriodSelected(opt: ComboboxOption): void {
     this.selectedPeriod.set(opt.value || 'all');
     this.onFilterChange();
@@ -251,7 +352,6 @@ export class AdminStudentsComponent implements OnInit, OnDestroy {
     this.currentPage.set(1);
   }
 
-  /** Aplica el filtro de estado desde la línea de resumen; repetir el clic lo limpia. */
   applyStatusFilter(status: string): void {
     this.selectedStatus.set(this.selectedStatus() === status ? 'all' : status);
     this.currentPage.set(1);
@@ -281,6 +381,27 @@ export class AdminStudentsComponent implements OnInit, OnDestroy {
     navigator.clipboard.writeText(email);
   }
 
+  // Drawer de Detalle
+  openStudentDrawer(student: AdminStudentItem): void {
+    this.selectedStudentForDrawer.set(student);
+    this.isLoadingDrawerCourses.set(true);
+    this.drawerCourses.set([]);
+    this.studentsService.getStudentCourses(student.id).subscribe({
+      next: (courses) => {
+        this.drawerCourses.set(courses);
+        this.isLoadingDrawerCourses.set(false);
+      },
+      error: () => {
+        this.isLoadingDrawerCourses.set(false);
+      }
+    });
+  }
+
+  closeDrawer(): void {
+    this.selectedStudentForDrawer.set(null);
+    this.drawerCourses.set([]);
+  }
+
   openCoursesModal(student: AdminStudentItem): void {
     this.studentForCourses.set(student);
     this.isLoadingCourses.set(true);
@@ -296,8 +417,13 @@ export class AdminStudentsComponent implements OnInit, OnDestroy {
     this.studentCourses.set([]);
   }
 
-  openResetOOMModal(student: AdminStudentItem): void { this.studentForReset.set(student); }
-  closeResetOOMModal(): void { this.studentForReset.set(null); }
+  openResetOOMModal(student: AdminStudentItem): void { 
+    this.studentForReset.set(student); 
+  }
+
+  closeResetOOMModal(): void { 
+    this.studentForReset.set(null); 
+  }
 
   confirmResetOOM(reason: string): void {
     const student = this.studentForReset();
@@ -307,12 +433,16 @@ export class AdminStudentsComponent implements OnInit, OnDestroy {
       next: (res) => {
         this.isResetting.set(false);
         this.closeResetOOMModal();
-        this.showToast(`Penalizaciones restablecidas (${res.environments_reset_count} espacios actualizados)`, 'success');
+        this.showToast(`Límite de memoria RAM restablecido (${res.environments_reset_count} espacios actualizados)`, 'success');
         this.loadStudents();
+        // Si el drawer está abierto sobre este estudiante, actualizar su estado
+        if (this.selectedStudentForDrawer()?.id === student.id) {
+          this.selectedStudentForDrawer.update(curr => curr ? { ...curr, oom_strike_count: 0 } : null);
+        }
       },
       error: (err) => {
         this.isResetting.set(false);
-        this.showToast(err.error?.error || err.error?.message || 'Error al restablecer penalizaciones.', 'error');
+        this.showToast(err.error?.error || err.error?.message || 'Error al restablecer penalizaciones de memoria.', 'error');
       }
     });
   }
@@ -387,10 +517,15 @@ export class AdminStudentsComponent implements OnInit, OnDestroy {
         this.isTogglingStatus.set(false);
         this.cancelToggleStatus();
         this.showToast(
-          nextStatus === 'active' ? `Acceso restablecido para ${student.first_name} ${student.last_name}.` : `Cuenta de ${student.first_name} ${student.last_name} suspendida.`,
+          nextStatus === 'active' 
+            ? `Acceso restablecido para ${student.first_name} ${student.last_name}.` 
+            : `Cuenta de ${student.first_name} ${student.last_name} suspendida.`,
           'success'
         );
         this.loadStudents();
+        if (this.selectedStudentForDrawer()?.id === student.id) {
+          this.selectedStudentForDrawer.update(curr => curr ? { ...curr, status: nextStatus, suspension_reason: reason } : null);
+        }
       },
       error: (err) => {
         this.isTogglingStatus.set(false);
@@ -437,5 +572,10 @@ export class AdminStudentsComponent implements OnInit, OnDestroy {
     setTimeout(() => {
       this.toastMessage.set(null);
     }, 4500);
+  }
+
+  formatDate(dateStr?: string | null): string {
+    if (!dateStr || dateStr.trim() === '') return '—';
+    return formatSolvDate(dateStr, 'datetime') ?? dateStr;
   }
 }

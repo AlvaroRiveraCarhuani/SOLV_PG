@@ -14,84 +14,56 @@
   <!-- Header Institucional -->
   <header class="page-header">
     <div class="header-left">
-      <h1 class="page-title">Directorio Institucional de Estudiantes</h1>
+      <div class="header-title-row">
+        <h1 class="page-title">Estudiantes</h1>
+        <span class="period-badge" machineData>{{ activePeriodBadge() }}</span>
+      </div>
       <p class="page-subtitle">
-        Supervisión de consumo de cómputo, entornos de laboratorio y desbloqueo de penalizaciones de memoria.
+        Administre las cuentas estudiantiles, sus materias inscritas y los incidentes de memoria en laboratorios.
       </p>
-      @if (!isLoading()) {
-        <p class="page-summary" aria-label="Resumen del directorio de estudiantes">
-          <button
-            type="button"
-            class="summary-filter"
-            [class.is-active]="selectedStatus() === 'enrolled'"
-            (click)="applyStatusFilter('enrolled')"
-            title="Filtrar estudiantes que están cursando materias"
-          >
-            <span machineData>{{ enrolledStudentsCount() }}</span> cursando
-            de <span machineData>{{ totalStudents() }}</span>
-          </button>
-
-          <span class="page-summary-sep">·</span>
-
-          <button
-            type="button"
-            class="summary-filter"
-            [class.is-active]="selectedStatus() === 'running'"
-            (click)="applyStatusFilter('running')"
-            title="Filtrar estudiantes con entornos de laboratorio activos"
-          >
-            <span machineData>{{ activeEnvironmentsTotal() }}</span> entornos en ejecución
-          </button>
-
-          <span class="page-summary-sep">·</span>
-
-          <button
-            type="button"
-            class="summary-filter"
-            [class.is-active]="selectedStatus() === 'strikes'"
-            (click)="applyStatusFilter('strikes')"
-            title="Filtrar estudiantes con 1 o 2 penalizaciones de memoria"
-          >
-            <span machineData>{{ strikesStudentsCount() }}</span> en riesgo
-          </button>
-
-          <span class="page-summary-sep">·</span>
-
-          <button
-            type="button"
-            class="summary-filter"
-            [class.is-active]="selectedStatus() === 'blocked'"
-            (click)="applyStatusFilter('blocked')"
-            title="Filtrar estudiantes bloqueados por 3 penalizaciones de memoria"
-          >
-            <span machineData>{{ blockedStudentsCount() }}</span> bloqueados por OOM
-          </button>
-        </p>
-      }
     </div>
     <div class="header-actions">
-      <button class="btn-secondary btn-sm" (click)="openRosterEnrollModal()" title="Matricular estudiantes desde una planilla">
+      <button 
+        type="button" 
+        class="btn-secondary btn-sm" 
+        (click)="openRosterEnrollModal()" 
+        title="Matricular estudiantes desde una nómina institucional"
+      >
         <svg lucideBookOpen class="btn-icon"></svg>
         <span>Matricular por nómina</span>
       </button>
-      <button class="btn-primary btn-sm" (click)="openRegisterModal()" title="Registrar estudiante individual o por planilla">
+      <button 
+        type="button" 
+        class="btn-primary btn-sm" 
+        (click)="openRegisterModal()" 
+        title="Registrar estudiante individual o por lote"
+      >
         <svg lucideUserPlus class="btn-icon"></svg>
         <span>Registrar estudiante</span>
       </button>
     </div>
   </header>
 
+  <!-- Pestañas de Estado con Contadores Neutros -->
+  <div class="students-tabs-bar">
+    <status-tabs
+      [tabs]="statusTabs()"
+      [activeTab]="selectedStatus()"
+      (tabChange)="onStatusTabChange($event)"
+    />
+  </div>
+
   <!-- Tabla de Estudiantes con Filtros y Paginación -->
   <student-table
     [students]="paginatedStudents()"
     [isLoading]="isLoading()"
     [searchTerm]="searchTerm()"
-    [selectedPeriodLabel]="selectedPeriodLabel()"
-    [periodComboboxOptions]="periodComboboxOptions()"
-    [selectedSubjectLabel]="selectedSubjectLabel()"
-    [subjectComboboxOptions]="subjectComboboxOptions()"
-    [selectedStatusLabel]="selectedStatusLabel()"
-    [statusComboboxOptions]="statusComboboxOptions()"
+    [selectedPeriod]="selectedPeriod()"
+    [academicPeriods]="academicPeriods()"
+    [selectedSubject]="selectedSubject()"
+    [subjects]="subjects()"
+    [activeFilterCount]="activeFilterCount()"
+    [canClearFilters]="hasActivePopoverFilters()"
     [currentPage]="currentPage()"
     [totalPages]="totalPages()"
     [totalItems]="filteredStudents().length"
@@ -102,11 +74,12 @@
     [sortColumn]="sortState().column"
     [sortDirection]="sortState().direction"
     (searchChange)="onSearchChange($event)"
-    (periodSelected)="onPeriodSelected($event)"
-    (subjectSelected)="onSubjectSelected($event)"
-    (statusSelected)="onStatusSelected($event)"
+    (periodSelected)="onPeriodSelect($event)"
+    (subjectSelected)="onSubjectSelect($event)"
+    (clearFilters)="clearAllFilters()"
     (sortChange)="onSortChange($event)"
     (pageChange)="goToPage($event)"
+    (rowSelect)="openStudentDrawer($event)"
     (openCourses)="openCoursesModal($event)"
     (openResetOOM)="openResetOOMModal($event)"
     (toggleStatus)="requestToggleStatus($event)"
@@ -114,6 +87,162 @@
     (menuClosed)="activeMenuStudentId.set(null)"
     (copyEmail)="copyEmail($event)"
   />
+
+  <!-- Drawer Lateral de Detalle del Estudiante -->
+  <drawer
+    [open]="selectedStudentForDrawer() !== null"
+    [title]="selectedStudentForDrawer() ? (selectedStudentForDrawer()!.first_name + ' ' + selectedStudentForDrawer()!.last_name) : ''"
+    [subtitle]="selectedStudentForDrawer()?.email || ''"
+    width="460px"
+    (closed)="closeDrawer()"
+  >
+    @if (selectedStudentForDrawer(); as st) {
+      <div class="drawer-detail-body">
+        <!-- Sección 1: Estado de Cuenta -->
+        <section class="drawer-card">
+          <h2 class="drawer-card-title">ESTADO DE CUENTA</h2>
+          <div class="drawer-data-grid">
+            <div class="data-item">
+              <span class="data-label">Condición:</span>
+              @if (st.status === 'suspended') {
+                <span class="account-status-pill suspended">
+                  <span class="status-dot"></span>
+                  <span>Suspendido</span>
+                </span>
+              } @else {
+                <span class="account-status-pill active">
+                  <span class="status-dot"></span>
+                  <span>Activo</span>
+                </span>
+              }
+            </div>
+            <div class="data-item">
+              <span class="data-label">Periodo:</span>
+              <span class="period-badge" machineData>{{ activePeriodBadge() }}</span>
+            </div>
+            @if (st.status === 'suspended' && st.suspension_reason) {
+              <div class="data-item full-width">
+                <span class="data-label">Motivo de suspensión:</span>
+                <span class="suspension-note">{{ st.suspension_reason }}</span>
+              </div>
+            }
+          </div>
+        </section>
+
+        <!-- Sección 2: Límite de Memoria RAM -->
+        <section class="drawer-card">
+          <h2 class="drawer-card-title">LÍMITE DE MEMORIA RAM</h2>
+          <div class="drawer-data-grid">
+            <div class="data-item">
+              <span class="data-label">Penalizaciones de memoria:</span>
+              @if (st.oom_strike_count === 0) {
+                <span class="strike-pill normal">0 / 3 · Normal</span>
+              } @else if (st.oom_strike_count < 3) {
+                <span class="strike-pill warning">
+                  <svg lucideAlertTriangle class="pill-icon"></svg>
+                  <span>{{ st.oom_strike_count }} / 3 · Alerta</span>
+                </span>
+              } @else {
+                <span class="strike-pill blocked">
+                  <svg lucideShieldAlert class="pill-icon"></svg>
+                  <span>3 / 3 · Bloqueado</span>
+                </span>
+              }
+            </div>
+            <div class="data-item">
+              <span class="data-label">Entornos en ejecución:</span>
+              <span class="data-value" machineData>{{ st.active_environments_count }}</span>
+            </div>
+            <div class="data-item full-width">
+              <span class="data-label">Último incidente de memoria:</span>
+              @if (st.last_oom_killed_at) {
+                <time class="incident-date font-date">{{ formatDate(st.last_oom_killed_at) }}</time>
+              } @else {
+                <span class="text-muted">—</span>
+              }
+            </div>
+          </div>
+        </section>
+
+        <!-- Sección 3: Materias Inscritas -->
+        <section class="drawer-card">
+          <div class="drawer-card-header">
+            <h2 class="drawer-card-title">MATERIAS INSCRITAS</h2>
+            <span class="courses-count-pill" machineData>{{ drawerCourses().length }}</span>
+          </div>
+
+          @if (isLoadingDrawerCourses()) {
+            <div class="drawer-loading">
+              <div class="spinner motion-spin"></div>
+              <span>Cargando materias y entornos...</span>
+            </div>
+          } @else if (drawerCourses().length === 0) {
+            <div class="drawer-empty-state">
+              <p>El estudiante no tiene materias asignadas en este periodo.</p>
+            </div>
+          } @else {
+            <div class="drawer-courses-list">
+              @for (c of drawerCourses(); track c.subject_id) {
+                <div class="drawer-course-row">
+                  <div class="course-info">
+                    <span class="course-code" machineData>{{ c.subject_code }}</span>
+                    <span class="course-name">{{ c.subject_name }}</span>
+                    <span class="course-teacher">Docente: {{ c.teacher_name }}</span>
+                  </div>
+                  <div class="course-env">
+                    @if (c.environment_status === 'running') {
+                      <span class="env-pill running">
+                        <span class="pulse-dot"></span>
+                        <span>En ejecución</span>
+                      </span>
+                    } @else {
+                      <span class="text-muted">—</span>
+                    }
+                  </div>
+                </div>
+              }
+            </div>
+          }
+        </section>
+      </div>
+    }
+
+    <!-- Footer de Acciones del Drawer -->
+    @if (selectedStudentForDrawer(); as st) {
+      <div drawer-footer class="drawer-footer-actions">
+        @if (st.oom_strike_count > 0) {
+          <button
+            type="button"
+            class="btn-secondary btn-sm"
+            (click)="openResetOOMModal(st)"
+          >
+            <svg lucideRotateCcw class="btn-icon"></svg>
+            <span>Restablecer límite de RAM</span>
+          </button>
+        }
+
+        @if (st.status === 'suspended') {
+          <button
+            type="button"
+            class="btn-primary btn-sm"
+            (click)="requestToggleStatus(st)"
+          >
+            <svg lucideUserCheck class="btn-icon"></svg>
+            <span>Reactivar acceso</span>
+          </button>
+        } @else {
+          <button
+            type="button"
+            class="btn-secondary btn-sm btn-danger-action"
+            (click)="requestToggleStatus(st)"
+          >
+            <svg lucideUserX class="btn-icon"></svg>
+            <span>Suspender acceso</span>
+          </button>
+        }
+      </div>
+    }
+  </drawer>
 
   <!-- Modales -->
   @if (showRegisterModal()) {

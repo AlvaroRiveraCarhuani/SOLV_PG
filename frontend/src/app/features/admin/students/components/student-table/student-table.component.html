@@ -3,47 +3,75 @@
   <div class="search-box">
     <search-bar
       [query]="searchTerm()"
-      placeholder="Buscar por nombre, apellido o correo institucional..."
+      placeholder="Buscar por nombre o correo..."
       (queryChange)="onSearchChange($event)"
     />
   </div>
 
   <div class="filters-controls">
-    <!-- Filtro por Periodo Académico -->
-    <div class="filter-group">
-      <label class="filter-label">Periodo:</label>
-      <combobox
-        [compact]="true"
-        [value]="selectedPeriodLabel()"
-        [options]="periodComboboxOptions()"
-        placeholder="Periodo..."
-        (optionSelected)="onPeriodSelected($event)"
-      ></combobox>
-    </div>
+    <filter-popover
+      [activeCount]="activeFilterCount()"
+      [canClear]="canClearFilters()"
+      (cleared)="onClearFilters()"
+    >
+      <!-- Faceta: Periodo Académico -->
+      <section class="filter-column" aria-label="Filtrar por periodo académico">
+        <span class="filter-column-title">Periodo académico</span>
+        <button
+          type="button"
+          class="filter-option"
+          [class.is-active]="selectedPeriod() === 'all'"
+          (click)="onSelectPeriod('all')"
+        >
+          <span>Todos los periodos</span>
+          @if (selectedPeriod() === 'all') {
+            <svg lucideCheck class="filter-option-check"></svg>
+          }
+        </button>
+        @for (period of academicPeriods(); track period.id) {
+          <button
+            type="button"
+            class="filter-option"
+            [class.is-active]="selectedPeriod() === period.id"
+            (click)="onSelectPeriod(period.id)"
+          >
+            <span><span machineData>{{ period.code }}</span>{{ period.is_active ? ' · Vigente' : '' }}</span>
+            @if (selectedPeriod() === period.id) {
+              <svg lucideCheck class="filter-option-check"></svg>
+            }
+          </button>
+        }
+      </section>
 
-    <!-- Filtro por Materia -->
-    <div class="filter-group">
-      <label class="filter-label">Materia:</label>
-      <combobox
-        [compact]="true"
-        [value]="selectedSubjectLabel()"
-        [options]="subjectComboboxOptions()"
-        placeholder="Materia..."
-        (optionSelected)="onSubjectSelected($event)"
-      ></combobox>
-    </div>
-
-    <!-- Filtro por Estado -->
-    <div class="filter-group">
-      <label class="filter-label">Estado:</label>
-      <combobox
-        [compact]="true"
-        [value]="selectedStatusLabel()"
-        [options]="statusComboboxOptions()"
-        placeholder="Estado..."
-        (optionSelected)="onStatusSelected($event)"
-      ></combobox>
-    </div>
+      <!-- Faceta: Materia -->
+      <section class="filter-column" aria-label="Filtrar por materia">
+        <span class="filter-column-title">Materia</span>
+        <button
+          type="button"
+          class="filter-option"
+          [class.is-active]="selectedSubject() === 'all'"
+          (click)="onSelectSubject('all')"
+        >
+          <span>Todas las materias</span>
+          @if (selectedSubject() === 'all') {
+            <svg lucideCheck class="filter-option-check"></svg>
+          }
+        </button>
+        @for (subject of subjects(); track subject.id) {
+          <button
+            type="button"
+            class="filter-option"
+            [class.is-active]="selectedSubject() === subject.id"
+            (click)="onSelectSubject(subject.id)"
+          >
+            <span><span machineData>{{ subject.code }}</span> - {{ subject.name }}</span>
+            @if (selectedSubject() === subject.id) {
+              <svg lucideCheck class="filter-option-check"></svg>
+            }
+          </button>
+        }
+      </section>
+    </filter-popover>
   </div>
 </section>
 
@@ -61,7 +89,7 @@
   } @else if (students().length === 0) {
     <div class="empty-state">
       <p>No se encontraron estudiantes que coincidan con los criterios seleccionados.</p>
-      <button class="btn-reset-filters" (click)="onResetFilters()">
+      <button type="button" class="btn-reset-filters" (click)="onResetFilters()">
         Restablecer filtros
       </button>
     </div>
@@ -69,167 +97,183 @@
     <table class="students-table">
       <thead>
         <tr>
-          <th>
+          <th class="col-student">
             <sort-header
               column="student"
               [activeColumn]="sortColumn()"
               [direction]="sortDirection()"
               (sortChange)="sortChange.emit($event)"
             >
-              Estudiante
+              ESTUDIANTE
             </sort-header>
           </th>
-          <th>
+          <th class="col-status">
             <sort-header
               column="status"
               [activeColumn]="sortColumn()"
               [direction]="sortDirection()"
               (sortChange)="sortChange.emit($event)"
             >
-              Condición Académica
+              ESTADO
             </sort-header>
           </th>
-          <th>
+          <th class="col-subjects">
             <sort-header
               column="subjects"
               [activeColumn]="sortColumn()"
               [direction]="sortDirection()"
               (sortChange)="sortChange.emit($event)"
             >
-              Materias Inscritas
+              MATERIAS
             </sort-header>
           </th>
-          <th>
+          <th class="col-environments">
             <sort-header
               column="environments"
               [activeColumn]="sortColumn()"
               [direction]="sortDirection()"
               (sortChange)="sortChange.emit($event)"
             >
-              Entornos Activos
+              ENTORNO
             </sort-header>
           </th>
-          <th>
+          <th class="col-strikes">
             <sort-header
               column="strikes"
               [activeColumn]="sortColumn()"
               [direction]="sortDirection()"
               (sortChange)="sortChange.emit($event)"
             >
-              Penalizaciones OOM
+              LÍMITE DE RAM
             </sort-header>
           </th>
-          <th>Último Incidente</th>
-          <th class="text-right">Acciones</th>
+          <th class="col-incident">
+            ÚLTIMO INCIDENTE
+          </th>
+          <th class="col-actions text-right">
+            ACCIONES
+          </th>
         </tr>
       </thead>
       <tbody>
         @for (student of students(); track student.id) {
-          <tr>
-            <!-- Info del Estudiante -->
-            <td>
-              <div class="student-profile">
-                <div class="student-avatar" [class.has-strikes]="student.oom_strike_count > 0">
-                  {{ getInitials(student.first_name, student.last_name) }}
-                </div>
-                <div class="student-meta">
-                  <span class="student-name">{{ student.first_name }} {{ student.last_name }}</span>
-                  <div class="student-email-row">
-                    <span class="student-email">{{ student.email }}</span>
-                    <button 
-                      class="btn-copy-email" 
-                      (click)="onCopyEmail(student.email)" 
-                      [attr.aria-label]="copiedEmail() === student.email ? 'Correo copiado' : 'Copiar correo institucional'"
-                      [title]="copiedEmail() === student.email ? 'Copiado' : 'Copiar correo'">
-                      @if (copiedEmail() === student.email) {
-                        <svg lucideCheck class="copy-icon text-success"></svg>
-                      } @else {
-                        <svg lucideCopy class="copy-icon"></svg>
-                      }
-                    </button>
-                  </div>
+          <tr 
+            class="student-row"
+            [class.has-warning]="student.oom_strike_count > 0 && student.oom_strike_count < 3"
+            [class.has-blocked]="student.oom_strike_count >= 3"
+            (click)="onRowClick(student, $event)"
+          >
+            <!-- 1. Estudiante (sin iniciales/avatar; correo y nombre limpios) -->
+            <td class="col-student">
+              <div class="student-meta">
+                <span class="student-name">{{ student.first_name }} {{ student.last_name }}</span>
+                <div class="student-email-row">
+                  <span class="student-email">{{ student.email }}</span>
+                  <button 
+                    type="button"
+                    class="btn-copy-email" 
+                    [class.is-copied]="copiedEmail() === student.email"
+                    (click)="onCopyEmail(student.email, $event)" 
+                    [attr.aria-label]="copiedEmail() === student.email ? 'Correo copiado' : 'Copiar correo institucional'"
+                    [title]="copiedEmail() === student.email ? 'Copiado' : 'Copiar correo'">
+                    @if (copiedEmail() === student.email) {
+                      <svg lucideCheck class="copy-icon text-success"></svg>
+                    } @else {
+                      <svg lucideCopy class="copy-icon"></svg>
+                    }
+                  </button>
                 </div>
               </div>
             </td>
 
-            <!-- Estado Académico y de Cuenta -->
-            <td>
+            <!-- 2. Estado (Activo neutro con punto discreto; Suspendido en rojo suave) -->
+            <td class="col-status">
               @if (student.status === 'suspended') {
                 <span class="account-status-pill suspended" [title]="student.suspension_reason || 'Acceso suspendido administrativamente'">
-                  <svg lucideUserX class="pill-icon"></svg>
+                  <span class="status-dot"></span>
                   <span>Suspendido</span>
                 </span>
-              } @else if (student.academic_status === 'enrolled') {
-                <span class="account-status-pill enrolled" title="Con materias inscritas en el periodo seleccionado">
-                  <svg lucideUserCheck class="pill-icon"></svg>
-                  <span>Cursando</span>
-                </span>
               } @else {
-                <span class="account-status-pill inactive" title="Sin materias registradas en el periodo seleccionado">
-                  <span class="neutral-dot"></span>
-                  <span>Sin materias</span>
+                <span class="account-status-pill active" title="Cuenta institucional activa">
+                  <span class="status-dot"></span>
+                  <span>Activo</span>
                 </span>
               }
             </td>
 
-            <!-- Materias Inscritas -->
-            <td>
+            <!-- 3. Materias (chip neutro legible en Dark y Light) -->
+            <td class="col-subjects">
               <button 
-                class="btn-courses-badge" 
-                (click)="onOpenCourses(student)"
+                type="button"
+                class="courses-chip" 
+                (click)="onOpenCourses(student, $event)"
                 [title]="'Ver materias asignadas a ' + student.first_name">
-                <svg lucideBookOpen class="courses-icon"></svg>
+                <svg lucideBookOpen class="chip-icon"></svg>
                 <span>{{ student.enrolled_courses_count }} {{ student.enrolled_courses_count === 1 ? 'materia' : 'materias' }}</span>
               </button>
             </td>
 
-            <!-- Entornos Activos -->
-            <td>
+            <!-- 4. Entorno ('—' en reposo; verde sutil solo cuando está En ejecución) -->
+            <td class="col-environments">
               @if (student.active_environments_count > 0) {
                 <span class="active-environments-badge">
                   <span class="pulse-dot"></span>
-                  <span>{{ student.active_environments_count }} en ejecución</span>
+                  <span>En ejecución</span>
                 </span>
               } @else {
-                <span class="idle-environments-badge">En reposo</span>
+                <span class="text-muted">—</span>
               }
             </td>
 
-            <!-- Penalizaciones OOM (Semáforo 0, 1-2, 3) -->
-            <td>
+            <!-- 5. Límite de RAM ('—' neutro si 0; ámbar 1-2 / 3 · Alerta; rojo 3 / 3 · Bloqueado) -->
+            <td class="col-strikes">
               @if (student.oom_strike_count === 0) {
-                <span class="strike-pill normal">
-                  0 penalizaciones
-                </span>
+                <span class="text-muted">—</span>
               } @else if (student.oom_strike_count < 3) {
-                <span class="strike-pill warning">
+                <span class="strike-pill warning" title="Estudiante con penalizaciones de memoria en riesgo de bloqueo">
                   <svg lucideAlertTriangle class="pill-icon"></svg>
-                  <span>{{ student.oom_strike_count }} / 3 penalizaciones</span>
+                  <span>{{ student.oom_strike_count }} / 3 · Alerta</span>
                 </span>
               } @else {
-                <span class="strike-pill blocked" title="Estudiante bloqueado por superar el límite de 3 penalizaciones OOM">
+                <span class="strike-pill blocked" title="Estudiante bloqueado por superar el límite de 3 penalizaciones de memoria">
                   <svg lucideShieldAlert class="pill-icon"></svg>
-                  <span>3 / 3 (bloqueado)</span>
+                  <span>3 / 3 · Bloqueado</span>
                 </span>
               }
             </td>
 
-            <!-- Último Incidente OOM -->
-            <td>
-              <time class="incident-date font-date">{{ formatDate(student.last_oom_killed_at) }}</time>
+            <!-- 6. Último Incidente ('—' tenue si no hay; font-mono con fecha solo con incidente real) -->
+            <td class="col-incident">
+              @if (student.last_oom_killed_at) {
+                <time class="incident-date font-date">{{ formatDate(student.last_oom_killed_at) }}</time>
+              } @else {
+                <span class="text-muted">—</span>
+              }
             </td>
 
-            <!-- Acciones de Gobernanza -->
-            <td class="text-right">
+            <!-- 7. Acciones (Botón directo Desbloquear si 3/3 + menú … con opciones útiles) -->
+            <td class="col-actions text-right">
               <div class="actions-cell">
+                @if (student.oom_strike_count >= 3) {
+                  <button 
+                    type="button" 
+                    class="btn-secondary btn-xs btn-unblock"
+                    (click)="onDirectUnblock(student, $event)"
+                    title="Desbloquear límite de RAM en 1 clic"
+                  >
+                    Desbloquear
+                  </button>
+                }
+
                 <div class="actions-menu-container">
                   <button 
                     #actionsTriggerBtn
                     type="button" 
                     class="btn-action-icon more"
                     (click)="onToggleMenu(student.id, $event)"
-                    title="Acciones de cuenta"
-                    aria-label="Acciones de cuenta">
+                    title="Más opciones de estudiante"
+                    aria-label="Más opciones de estudiante"
+                  >
                     <svg lucideMoreVertical class="action-icon"></svg>
                   </button>
 
@@ -240,32 +284,54 @@
                       [dismissExclude]="actionsTriggerBtn"
                       (dismiss)="onDismissMenu()"
                     >
+                      <button 
+                        type="button" 
+                        class="dropdown-item" 
+                        (click)="onOpenDetail(student, $event)"
+                      >
+                        <svg lucideEye class="dropdown-icon"></svg>
+                        <span>Ver detalle</span>
+                      </button>
+
+                      <button 
+                        type="button" 
+                        class="dropdown-item" 
+                        (click)="onOpenCourses(student, $event)"
+                      >
+                        <svg lucideBookOpen class="dropdown-icon"></svg>
+                        <span>Ver materias inscritas</span>
+                      </button>
+
                       @if (student.oom_strike_count > 0) {
                         <button 
                           type="button" 
                           class="dropdown-item warning" 
-                          (click)="onOpenResetOOM(student)">
+                          (click)="onOpenResetOOM(student, $event)"
+                        >
                           <svg lucideRotateCcw class="dropdown-icon"></svg>
-                          <span>Restablecer penalizaciones OOM ({{ student.oom_strike_count }})</span>
+                          <span>Restablecer límite de RAM ({{ student.oom_strike_count }}/3)</span>
                         </button>
-                        <div class="dropdown-divider"></div>
                       }
+
+                      <div class="dropdown-divider"></div>
 
                       @if (student.status === 'suspended') {
                         <button 
                           type="button" 
                           class="dropdown-item success" 
-                          (click)="onToggleStatus(student)">
+                          (click)="onToggleStatus(student, $event)"
+                        >
                           <svg lucideUserCheck class="dropdown-icon"></svg>
-                          <span>Reactivar acceso</span>
+                          <span>Reactivar acceso institucional</span>
                         </button>
                       } @else {
                         <button 
                           type="button" 
                           class="dropdown-item danger" 
-                          (click)="onToggleStatus(student)">
+                          (click)="onToggleStatus(student, $event)"
+                        >
                           <svg lucideUserX class="dropdown-icon"></svg>
-                          <span>Suspender acceso</span>
+                          <span>Suspender acceso institucional</span>
                         </button>
                       }
                     </div>
@@ -277,15 +343,16 @@
         }
       </tbody>
     </table>
+  }
 
-    <!-- Paginación -->
+  <!-- Paginación -->
+  @if (!isLoading() && totalItems() > 0) {
     <pagination-bar
       [currentPage]="currentPage()"
       [totalPages]="totalPages()"
       [totalItems]="totalItems()"
       [from]="paginationFrom()"
       [to]="paginationTo()"
-      itemLabel="estudiantes"
       (pageChange)="onPageChange($event)"
     />
   }

@@ -1,13 +1,15 @@
 import { Component, input, output, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { ComboboxComponent, ComboboxOption } from '@shared/components/combobox/combobox.component';
+import { FilterPopoverComponent } from '@shared/components/filter-popover/filter-popover.component';
 import { SearchBarComponent } from '@shared/components/search-bar/search-bar.component';
 import { PaginationBarComponent } from '@shared/components/pagination-bar/pagination-bar.component';
 import { SortHeaderComponent } from '@shared/components/sort-header/sort-header.component';
 import { SortDirection } from '@shared/components/sort-header/sort-header.types';
 import { DismissibleDirective } from '@shared/directives/dismissible.directive';
-import { AdminStudentItem } from '../../../services/admin-students.service';
+import { MachineDataDirective } from '@shared/directives/machine-data.directive';
+import { AdminStudentItem, AcademicPeriodOption, SubjectOption } from '../../../services/admin-students.service';
+import { ComboboxOption } from '@shared/components/combobox/combobox.component';
 import { formatSolvDate } from '@shared/pipes/date-text.pipe';
 import {
   LucideAlertTriangle,
@@ -18,7 +20,8 @@ import {
   LucideUserCheck,
   LucideCopy,
   LucideCheck,
-  LucideMoreVertical
+  LucideMoreVertical,
+  LucideEye
 } from '@lucide/angular';
 
 @Component({
@@ -27,11 +30,12 @@ import {
   imports: [
     CommonModule,
     FormsModule,
-    ComboboxComponent,
+    FilterPopoverComponent,
     SearchBarComponent,
     PaginationBarComponent,
     SortHeaderComponent,
     DismissibleDirective,
+    MachineDataDirective,
     LucideAlertTriangle,
     LucideShieldAlert,
     LucideRotateCcw,
@@ -40,7 +44,8 @@ import {
     LucideUserCheck,
     LucideCopy,
     LucideCheck,
-    LucideMoreVertical
+    LucideMoreVertical,
+    LucideEye
   ],
   templateUrl: './student-table.component.html',
   styleUrls: ['./student-table.component.scss']
@@ -49,16 +54,24 @@ export class StudentTableComponent {
   readonly students = input.required<AdminStudentItem[]>();
   readonly isLoading = input<boolean>(false);
   readonly searchTerm = input<string>('');
+  readonly selectedPeriod = input<string>('all');
+  readonly academicPeriods = input<AcademicPeriodOption[]>([]);
+  readonly selectedSubject = input<string>('all');
+  readonly subjects = input<SubjectOption[]>([]);
+  readonly activeFilterCount = input<number>(0);
+  readonly canClearFilters = input<boolean>(false);
+
+  // Propiedades de compatibilidad
   readonly selectedPeriodLabel = input<string>('Todos los periodos');
   readonly periodComboboxOptions = input<ComboboxOption[]>([]);
   readonly selectedSubjectLabel = input<string>('Todas las materias');
   readonly subjectComboboxOptions = input<ComboboxOption[]>([]);
   readonly selectedStatusLabel = input<string>('Todos los estados');
   readonly statusComboboxOptions = input<ComboboxOption[]>([]);
+
   readonly currentPage = input<number>(1);
   readonly totalPages = input<number>(1);
   readonly totalItems = input<number>(0);
-  /** Registros totales del directorio, antes de filtros y paginación. */
   readonly totalRecords = input<number>(0);
   readonly paginationFrom = input<number>(0);
   readonly paginationTo = input<number>(0);
@@ -67,11 +80,12 @@ export class StudentTableComponent {
   readonly sortDirection = input<SortDirection>('none');
 
   readonly searchChange = output<string>();
-  readonly periodSelected = output<ComboboxOption>();
-  readonly subjectSelected = output<ComboboxOption>();
-  readonly statusSelected = output<ComboboxOption>();
+  readonly periodSelected = output<string>();
+  readonly subjectSelected = output<string>();
+  readonly clearFilters = output<void>();
   readonly sortChange = output<{ column: string; direction: SortDirection }>();
   readonly pageChange = output<number>();
+  readonly rowSelect = output<AdminStudentItem>();
   readonly openCourses = output<AdminStudentItem>();
   readonly openResetOOM = output<AdminStudentItem>();
   readonly toggleStatus = output<AdminStudentItem>();
@@ -85,32 +99,60 @@ export class StudentTableComponent {
     this.searchChange.emit(term);
   }
 
-  onPeriodSelected(opt: ComboboxOption): void {
-    this.periodSelected.emit(opt);
+  onSelectPeriod(periodId: string): void {
+    this.periodSelected.emit(periodId);
   }
 
-  onSubjectSelected(opt: ComboboxOption): void {
-    this.subjectSelected.emit(opt);
+  onSelectSubject(subjectId: string): void {
+    this.subjectSelected.emit(subjectId);
   }
 
-  onStatusSelected(opt: ComboboxOption): void {
-    this.statusSelected.emit(opt);
+  onClearFilters(): void {
+    this.clearFilters.emit();
   }
 
   onPageChange(page: number): void {
     this.pageChange.emit(page);
   }
 
-  onOpenCourses(student: AdminStudentItem): void {
+  onRowClick(student: AdminStudentItem, event: MouseEvent): void {
+    const target = event.target as HTMLElement;
+    if (target.closest('button, a, input, select, textarea, .actions-dropdown, .actions-menu-container')) {
+      return;
+    }
+    this.rowSelect.emit(student);
+  }
+
+  onOpenDetail(student: AdminStudentItem, event: MouseEvent): void {
+    event.stopPropagation();
+    this.menuClosed.emit();
+    this.rowSelect.emit(student);
+  }
+
+  onDirectUnblock(student: AdminStudentItem, event: MouseEvent): void {
+    event.stopPropagation();
+    this.openResetOOM.emit(student);
+  }
+
+  onOpenCourses(student: AdminStudentItem, event?: MouseEvent): void {
+    if (event) {
+      event.stopPropagation();
+    }
     this.openCourses.emit(student);
   }
 
-  onOpenResetOOM(student: AdminStudentItem): void {
+  onOpenResetOOM(student: AdminStudentItem, event?: MouseEvent): void {
+    if (event) {
+      event.stopPropagation();
+    }
     this.menuClosed.emit();
     this.openResetOOM.emit(student);
   }
 
-  onToggleStatus(student: AdminStudentItem): void {
+  onToggleStatus(student: AdminStudentItem, event?: MouseEvent): void {
+    if (event) {
+      event.stopPropagation();
+    }
     this.menuClosed.emit();
     this.toggleStatus.emit(student);
   }
@@ -124,7 +166,10 @@ export class StudentTableComponent {
     this.menuClosed.emit();
   }
 
-  onCopyEmail(email: string): void {
+  onCopyEmail(email: string, event?: MouseEvent): void {
+    if (event) {
+      event.stopPropagation();
+    }
     this.copyEmail.emit(email);
     this.copiedEmail.set(email);
     setTimeout(() => {
@@ -135,19 +180,12 @@ export class StudentTableComponent {
   }
 
   onResetFilters(): void {
+    this.clearFilters.emit();
     this.searchChange.emit('');
-    this.subjectSelected.emit({ id: 'all', label: 'Todas las materias', value: 'all' });
-    this.statusSelected.emit({ id: 'all', label: 'Todos los estados', value: 'all' });
-  }
-
-  getInitials(firstName: string, lastName: string): string {
-    const first = firstName ? firstName.trim().charAt(0).toUpperCase() : '';
-    const last = lastName ? lastName.trim().charAt(0).toUpperCase() : '';
-    return first + last || 'E';
   }
 
   formatDate(dateStr?: string | null): string {
-    if (!dateStr || dateStr.trim() === '') return 'Sin registros';
+    if (!dateStr || dateStr.trim() === '') return '—';
     return formatSolvDate(dateStr, 'datetime') ?? dateStr;
   }
 }

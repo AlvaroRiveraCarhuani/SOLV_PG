@@ -187,4 +187,49 @@ describe('AdminStudentsComponent Unit Tests', () => {
     fixture.detectChanges();
     expect(component.filteredStudents()[0].first_name).toBe('Beatriz');
   });
+
+  it('debe configurar pestañas de estado con badgeVariant neutral', () => {
+    const tabs = component.statusTabs();
+    expect(tabs.length).toBe(6);
+    expect(tabs.every(t => t.badgeVariant === 'neutral')).toBe(true);
+    expect(tabs.map(t => t.id)).toEqual(['all', 'active', 'running', 'ram_alert', 'blocked', 'suspended']);
+  });
+
+  it('debe filtrar por pestaña de alerta RAM y estado suspendido', () => {
+    component.onStatusTabChange('ram_alert');
+    fixture.detectChanges();
+    // std-2 tiene 2 strikes (en riesgo/alerta RAM)
+    expect(component.filteredStudents().length).toBe(1);
+    expect(component.filteredStudents()[0].id).toBe('std-2');
+
+    component.onStatusTabChange('suspended');
+    fixture.detectChanges();
+    // std-3 está suspendido
+    expect(component.filteredStudents().length).toBe(1);
+    expect(component.filteredStudents()[0].id).toBe('std-3');
+  });
+
+  it('debe abrir y cerrar el drawer de detalle de estudiante', () => {
+    component.openStudentDrawer(mockStudents[0]);
+    expect(component.selectedStudentForDrawer()).toEqual(mockStudents[0]);
+    expect(mockStudentsService.getStudentCourses).toHaveBeenCalledWith('std-1');
+
+    component.closeDrawer();
+    expect(component.selectedStudentForDrawer()).toBeNull();
+  });
+
+  it('debe limpiar filtros y restablecer a all con clearAllFilters', () => {
+    component.selectedPeriod.set('p2');
+    component.selectedSubject.set('s1');
+    component.clearAllFilters();
+
+    expect(component.selectedPeriod()).toBe('all');
+    expect(component.selectedSubject()).toBe('all');
+    expect(component.currentPage()).toBe(1);
+  });
+
+  it('debe calcular el badge de periodo activo en la cabecera', () => {
+    component.selectedPeriod.set('p1');
+    expect(component.activePeriodBadge()).toContain('2026-1 · Vigente');
+  });
 });
