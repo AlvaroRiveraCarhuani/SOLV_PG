@@ -1,7 +1,9 @@
+/* Cabecera de edición (48px) + separación del layout (20px), descontando el
+   padding del contenedor de scroll al que se ancla el sticky. */
 :host {
   display: block;
   position: sticky;
-  top: calc(48px + 48px + 20px);
+  top: calc(48px + 20px - var(--space-6));
   align-self: start;
 }
 

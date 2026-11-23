@@ -16,10 +16,12 @@
   margin: calc(-1 * var(--space-6)) calc(-1 * var(--space-6)) 0;
 }
 
-/* Cabecera fija de edición. */
+/* Cabecera fija de edición. El scroll ocurre dentro de .shell-content, cuyo
+   padding superior desplaza la línea del sticky; se compensa para que quede
+   pegada al borde visible y no tape el primer bloque de la sección. */
 .editor-header {
   position: sticky;
-  top: 48px;
+  top: calc(-1 * var(--space-6));
   z-index: 20;
   display: flex;
   align-items: center;

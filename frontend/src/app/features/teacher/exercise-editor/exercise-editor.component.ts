@@ -1,4 +1,4 @@
-import { Component, OnDestroy, OnInit, computed, inject, input, signal } from '@angular/core';
+import { Component, ElementRef, OnDestroy, OnInit, computed, effect, inject, input, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { RouterLink, ActivatedRoute, Router } from '@angular/router';
@@ -420,6 +420,7 @@ import { Subscription, catchError, of } from 'rxjs';
 })
 export class ExerciseEditorComponent implements OnInit, OnDestroy {
   readonly store = inject(ExerciseEditorStore);
+  private readonly host = inject<ElementRef<HTMLElement>>(ElementRef);
   private readonly practiceEnvTest = inject(PracticeEnvTestService);
   private readonly aiCopilotService = inject(TeacherAiCopilotService);
   private route = inject(ActivatedRoute);
@@ -437,6 +438,22 @@ export class ExerciseEditorComponent implements OnInit, OnDestroy {
 
   readonly showMoreActions = signal(false);
   readonly preflightOpen = signal(false);
+
+  constructor() {
+    // Cada sección arranca desde su inicio. Si se conserva el scroll de la
+    // sección anterior, el primer bloque queda bajo la cabecera fija y la
+    // página parece subir o bajar al cambiar de paso.
+    effect(() => {
+      this.store.currentStep();
+      setTimeout(() => this.scrollEditorToTop());
+    });
+  }
+
+  /** Alinea el inicio del editor con el borde superior de su contenedor de scroll. */
+  private scrollEditorToTop(): void {
+    const page = this.host.nativeElement.querySelector<HTMLElement>('.editor-page');
+    page?.scrollIntoView?.({ block: 'start', inline: 'nearest' });
+  }
 
   /** Nombre del curso resuelto desde el catálogo del panel docente. */
   readonly courseName = computed(() => {
