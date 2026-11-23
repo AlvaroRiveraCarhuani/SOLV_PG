@@ -45,6 +45,14 @@
   .trigger-btn {
     flex-shrink: 0;
   }
+
+  .storage-actions {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: var(--space-1);
+    flex-shrink: 0;
+  }
 }
 
 .updated-badge {
@@ -104,14 +112,14 @@
 
 .radio-group-triple {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
   gap: var(--space-2);
   width: 100%;
 
   .radio-pill {
     justify-content: center;
     text-align: center;
-    white-space: nowrap;
+    min-width: 0;
   }
 }
 
@@ -353,6 +361,20 @@
     vertical-align: middle;
   }
 
+  // Las tres últimas columnas reservan su ancho: a 1366x768 la verificación
+  // cabe en una línea y las dos acciones no se aprietan contra el borde.
+  thead th:nth-last-child(3) {
+    width: 7rem;
+  }
+
+  thead th:nth-last-child(2) {
+    width: 11rem;
+  }
+
+  thead th:nth-last-child(1) {
+    width: 13.5rem;
+  }
+
   tbody tr:last-child td {
     border-bottom: none;
   }
@@ -407,19 +429,60 @@
   }
 }
 
+.storage-notice {
+  margin: 0;
+  padding: var(--space-3) var(--space-4);
+  background-color: var(--bg-surface-subtle);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  font-size: var(--text-xs);
+  color: var(--text-secondary);
+}
+
+// Lista acotada: 172 volúmenes nunca estiran la página.
+.storage-kept-groups {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  max-height: 280px;
+  overflow-y: auto;
+  margin-top: var(--space-3);
+  padding-right: var(--space-1);
+}
+
+.storage-kept-group-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-2);
+  margin: 0 0 var(--space-2);
+  font-size: var(--text-xs);
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.storage-kept-group-meta {
+  display: inline-flex;
+  align-items: baseline;
+  gap: var(--space-1);
+  font-weight: 500;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
 .storage-kept-list {
   display: flex;
   flex-direction: column;
   gap: var(--space-2);
-  margin: var(--space-3) 0 0;
+  margin: 0;
   padding: 0;
   list-style: none;
 
   li {
     display: flex;
-    flex-wrap: wrap;
-    gap: var(--space-2) var(--space-3);
     align-items: baseline;
+    justify-content: space-between;
+    gap: var(--space-3);
     font-size: var(--text-xs);
   }
 
@@ -430,9 +493,18 @@
   }
 }
 
-.storage-kept-reason {
-  font-family: var(--font-sans);
-  color: var(--text-secondary);
+.storage-kept-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.storage-kept-size {
+  flex-shrink: 0;
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+  white-space: nowrap;
 }
 
 .col-date {
@@ -500,6 +572,7 @@
 
 .col-actions {
   text-align: right;
+  padding-right: var(--space-4);
 }
 
 .empty-cell {
@@ -535,6 +608,7 @@
   font-size: var(--text-xs);
   font-weight: 500;
   text-transform: none;
+  white-space: nowrap;
 
   &.verify-ok {
     background-color: var(--bg-surface-subtle);

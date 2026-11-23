@@ -12,7 +12,8 @@ import {
   BackupConfigItem,
   BackupExecutionItem,
   VerifyBackupResult,
-  OrphanVolumePlan
+  OrphanVolumePlan,
+  KeptVolumeItem
 } from '../admin-config-servidor.service';
 
 const makePolicies = (overrides: Partial<ServerPolicies> = {}): ServerPolicies => ({
@@ -69,6 +70,7 @@ interface MockAdminConfigServidorService {
   orphanPlan: ReturnType<typeof signal<OrphanVolumePlan | null>>;
   orphansLoading: ReturnType<typeof signal<boolean>>;
   orphansError: ReturnType<typeof signal<string | null>>;
+  orphansCheckedAt: ReturnType<typeof signal<string | null>>;
   isLoading: ReturnType<typeof signal<boolean>>;
   error: ReturnType<typeof signal<string | null>>;
   loadAll: ReturnType<typeof vi.fn>;
@@ -85,6 +87,22 @@ interface MockAdminConfigServidorService {
 
 const verifyEnvelope = (result: VerifyBackupResult) => ({ data: result });
 
+const makeKept = (name: string, size_mb: number, reason: string): KeptVolumeItem => ({
+  name,
+  size_mb,
+  reason
+});
+
+const makeOrphanPlan = (
+  kept: KeptVolumeItem[],
+  orphans: { name: string; size_mb: number }[] = []
+): OrphanVolumePlan => ({
+  orphans,
+  kept,
+  total_orphan_mb: orphans.reduce((sum, item) => sum + item.size_mb, 0),
+  total_kept_mb: kept.reduce((sum, item) => sum + item.size_mb, 0)
+});
+
 describe('AdminConfigServidorComponent', () => {
   let component: AdminConfigServidorComponent;
   let mockService: MockAdminConfigServidorService;
@@ -92,20 +110,23 @@ describe('AdminConfigServidorComponent', () => {
   const policiesSignal = signal<ServerPolicies | null>(null);
   const maintenanceSignal = signal<MaintenanceStatus | null>(null);
   const backupsSignal = signal<BackupExecutionItem[]>([]);
+  const orphanPlanSignal = signal<OrphanVolumePlan | null>(null);
 
   const setup = async (): Promise<void> => {
     policiesSignal.set(makePolicies());
     maintenanceSignal.set({ maintenance_mode: false });
     backupsSignal.set([makeExec()]);
+    orphanPlanSignal.set(null);
 
     mockService = {
       policies: policiesSignal,
       maintenance: maintenanceSignal,
       backupConfig: signal<BackupConfigItem | null>(makeBackupConfig({ local_frequency_hours: 6, local_retention_days: 7 })),
       backups: backupsSignal,
-      orphanPlan: signal<OrphanVolumePlan | null>(null),
+      orphanPlan: orphanPlanSignal,
       orphansLoading: signal(false),
       orphansError: signal<string | null>(null),
+      orphansCheckedAt: signal<string | null>(null),
       isLoading: signal(false),
       error: signal<string | null>(null),
       loadAll: vi.fn(),
@@ -387,5 +408,89 @@ describe('AdminConfigServidorComponent', () => {
     component.openMaintenanceModal();
     component.maintenanceUntil.set('');
     expect(component.vigenciaWarning()).toContain('manual');
+  });
+
+  it('volúmenes conservados: agrupa por motivo con conteo y subtotal', async () => {
+    await setup();
+
+    orphanPlanSignal.set(
+      makeOrphanPlan([
+        makeKept('solv_workspace_a', 10, 'entorno_registrado'),
+        makeKept('pg_data', 4, 'fuera_del_espacio_de_la_plataforma'),
+        makeKept('solv_workspace_b', 20, 'entorno_registrado')
+      ])
+    );
+
+    const groups = component.keptVolumeGroups();
+    expect(groups).toHaveLength(2);
+    expect(groups[0].reason).toBe('entorno_registrado');
+    expect(groups[0].label).toBe('Entornos registrados');
+    expect(groups[0].count).toBe(2);
+    expect(groups[0].totalMB).toBe(30);
+    expect(groups[1].label).toBe('Infraestructura y volúmenes ajenos al laboratorio');
+    expect(groups[1].count).toBe(1);
+  });
+
+  it('volúmenes conservados: dentro del grupo ordena por peso descendente', async () => {
+    await setup();
+
+    orphanPlanSignal.set(
+      makeOrphanPlan([
+        makeKept('chico', 1, 'entorno_registrado'),
+        makeKept('grande', 80, 'entorno_registrado'),
+        makeKept('mediano', 12, 'entorno_registrado')
+      ])
+    );
+
+    expect(component.keptVolumeGroups()[0].items.map((item) => item.name)).toEqual([
+      'grande',
+      'mediano',
+      'chico'
+    ]);
+  });
+
+  it('volúmenes conservados: acorta hashes anónimos de 64 caracteres y deja intactos los nombres legibles', async () => {
+    await setup();
+
+    const hash = `040a9364${'a'.repeat(50)}c0d2f1`;
+    expect(hash).toHaveLength(64);
+    expect(component.shortVolumeName(hash)).toBe('040a9364…c0d2f1');
+    expect(component.shortVolumeName('solv_workspace_ab12')).toBe('solv_workspace_ab12');
+    expect(component.shortVolumeName('pg_data')).toBe('pg_data');
+  });
+
+  it('volúmenes conservados: tamaño de fila cae a < 1 MB cuando size_mb es 0', async () => {
+    await setup();
+
+    expect(component.formatKeptSize(0)).toBe('< 1 MB');
+    expect(component.formatKeptSize(2.5)).toBe('2.5 MB');
+  });
+
+  it('lectura limpia: sin toast verde, solo la marca de revisado', async () => {
+    await setup();
+    mockService.loadOrphanVolumes.mockImplementation((onDone?: () => void) => onDone?.());
+    orphanPlanSignal.set(makeOrphanPlan([makeKept('solv_workspace_a', 3, 'entorno_registrado')]));
+
+    component.reloadOrphans();
+
+    expect(component.toast()).toBeNull();
+    expect(component.orphanNotice()).toBeNull();
+  });
+
+  it('lectura con huérfanos: aviso informativo con el espacio recuperable', async () => {
+    await setup();
+    mockService.loadOrphanVolumes.mockImplementation((onDone?: () => void) => onDone?.());
+    orphanPlanSignal.set(
+      makeOrphanPlan([], [
+        { name: 'solv_workspace_huerfano', size_mb: 2048 },
+        { name: 'solv_workspace_viejo', size_mb: 1024 }
+      ])
+    );
+
+    component.reloadOrphans();
+
+    expect(component.toast()).toBeNull();
+    expect(component.orphanNotice()).toContain('2');
+    expect(component.orphanNotice()).toContain('3.0 GB');
   });
 });

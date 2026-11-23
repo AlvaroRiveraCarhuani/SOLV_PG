@@ -3,7 +3,8 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import {
   AdminConfigServidorService,
-  BackupExecutionItem
+  BackupExecutionItem,
+  KeptVolumeItem
 } from '../admin-config-servidor.service';
 import { ModalShellComponent } from '@shared/components/modal-shell/modal-shell.component';
 import { FormFieldComponent } from '@shared/components/form-field/form-field.component';
@@ -63,6 +64,23 @@ const KEEP_REASON_LABELS: Record<string, string> = {
   ya_no_es_huerfano: 'Tiene un contenedor asociado',
   fallo_al_borrar: 'El daemon no permitió borrarlo'
 };
+
+/** Encabezados de grupo del desplegable de volúmenes conservados. */
+const KEEP_REASON_GROUP_LABELS: Record<string, string> = {
+  entorno_registrado: 'Entornos registrados',
+  fuera_del_espacio_de_la_plataforma: 'Infraestructura y volúmenes ajenos al laboratorio'
+};
+
+/** Un volumen anónimo de Docker se nombra con el hash de 64 caracteres. */
+const ANONYMOUS_VOLUME_HASH = /^[0-9a-f]{64}$/i;
+
+interface KeptVolumeGroup {
+  reason: string;
+  label: string;
+  count: number;
+  totalMB: number;
+  items: KeptVolumeItem[];
+}
 
 @Component({
   selector: 'admin-config-servidor',
@@ -159,10 +177,13 @@ export class AdminConfigServidorComponent implements OnInit, OnDestroy {
   readonly orphanPlan = this.servidorService.orphanPlan;
   readonly orphansLoading = this.servidorService.orphansLoading;
   readonly orphansError = this.servidorService.orphansError;
+  readonly orphansCheckedAt = this.servidorService.orphansCheckedAt;
   readonly selectedOrphanNames = signal<string[]>([]);
   readonly orphanModalOpen = signal(false);
   readonly orphanPhrase = signal('');
   readonly isPruningOrphans = signal(false);
+  /** Aviso neutro tras una lectura que sí encontró volúmenes sin dueño. */
+  readonly orphanNotice = signal<string | null>(null);
 
   readonly orphanPhraseValid = computed(() => this.orphanPhrase() === ORPHAN_PRUNE_PHRASE);
   readonly selectedOrphanMB = computed(() => {
@@ -189,7 +210,46 @@ export class AdminConfigServidorComponent implements OnInit, OnDestroy {
   }
 
   reloadOrphans(): void {
-    this.servidorService.loadOrphanVolumes();
+    this.servidorService.loadOrphanVolumes(() => {
+      const plan = this.orphanPlan();
+      if (!plan) return;
+      // Lectura limpia: la marca «Revisado» junto al botón es toda la señal.
+      if (plan.orphans.length === 0) {
+        this.orphanNotice.set(null);
+        return;
+      }
+      this.orphanNotice.set(
+        `La revisión encontró ${plan.orphans.length} volumen(es) sin dueño: ${this.formatBytes(plan.total_orphan_mb * 1048576)} recuperables. Están listados abajo para liberarlos.`
+      );
+    });
+  }
+
+  /** Volúmenes conservados agrupados por motivo, con subtotal y peso desc. */
+  readonly keptVolumeGroups = computed<KeptVolumeGroup[]>(() => {
+    const groups = new Map<string, KeptVolumeItem[]>();
+    for (const item of this.orphanPlan()?.kept ?? []) {
+      const list = groups.get(item.reason) ?? [];
+      list.push(item);
+      groups.set(item.reason, list);
+    }
+    return [...groups.entries()]
+      .map(([reason, items]) => ({
+        reason,
+        label: KEEP_REASON_GROUP_LABELS[reason] ?? this.formatKeepReason(reason),
+        count: items.length,
+        totalMB: items.reduce((sum, item) => sum + item.size_mb, 0),
+        items: [...items].sort((a, b) => b.size_mb - a.size_mb)
+      }))
+      .sort((a, b) => b.totalMB - a.totalMB || a.label.localeCompare(b.label));
+  });
+
+  /** Un nombre que es hash de 64 caracteres se acorta para que sea legible. */
+  shortVolumeName(name: string): string {
+    return ANONYMOUS_VOLUME_HASH.test(name) ? `${name.slice(0, 8)}…${name.slice(-6)}` : name;
+  }
+
+  formatKeptSize(sizeMb: number): string {
+    return sizeMb > 0 ? this.formatBytes(sizeMb * 1048576) : '< 1 MB';
   }
 
   selectAllOrphans(): void {
@@ -500,6 +560,31 @@ export class AdminConfigServidorComponent implements OnInit, OnDestroy {
       },
       error: (err) => {
         this.isTriggering.set(false);
+        this.showToast(this.servidorService.resolveError(err), 'error');
+      }
+    });
+  }
+
+  readonly downloadingId = signal<string | null>(null);
+
+  downloadBackup(exec: BackupExecutionItem): void {
+    if (this.downloadingId()) return;
+    this.downloadingId.set(exec.id);
+
+    this.servidorService.downloadBackup(exec.id).subscribe({
+      next: (blob) => {
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = exec.file_name;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+        this.downloadingId.set(null);
+      },
+      error: (err) => {
+        this.downloadingId.set(null);
         this.showToast(this.servidorService.resolveError(err), 'error');
       }
     });

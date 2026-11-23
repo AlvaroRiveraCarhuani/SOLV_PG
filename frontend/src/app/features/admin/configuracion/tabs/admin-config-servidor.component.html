@@ -330,10 +330,15 @@
                       <svg lucideShieldCheck class="action-icon"></svg>
                       <span>Verificar</span>
                     </button>
-                    <a class="btn-action" [href]="'/api/v1/admin/backups/' + exec.id + '/download'" title="Descargar respaldo">
+                    <button
+                      type="button"
+                      class="btn-action"
+                      (click)="downloadBackup(exec)"
+                      [disabled]="downloadingId() === exec.id"
+                      title="Descargar respaldo">
                       <svg lucideDownload class="action-icon"></svg>
-                      <span>Descargar</span>
-                    </a>
+                      <span>{{ downloadingId() === exec.id ? 'Descargando...' : 'Descargar' }}</span>
+                    </button>
                   </div>
                 </td>
               </tr>
@@ -372,25 +377,30 @@
           <div>
             <h2 class="section-title section-title-flush">Espacio en Disco</h2>
             <p class="card-hint">
-              Volúmenes de laboratorio que ningún entorno registrado reclama. La plataforma
-              solo libera volúmenes <code>solv_workspace_*</code> sin contenedor: nunca toca
-              la base de notas, los respaldos ni los volúmenes de otras pilas del daemon.
+              Volúmenes de laboratorio sin entorno asignado. Solo se liberan espacios de trabajo
+              sin contenedor; nunca se modifican la base de datos, los respaldos ni volúmenes
+              ajenos a SOLV.
             </p>
           </div>
         </div>
-        <button
-          type="button"
-          class="btn-outline trigger-btn"
-          (click)="reloadOrphans()"
-          [disabled]="orphansLoading()"
-          title="Lee el daemon y cruza los volúmenes sin contenedor contra los entornos registrados">
-          <svg lucideHardDrive class="btn-icon"></svg>
-          @if (orphansLoading()) {
-            <span>Leyendo...</span>
-          } @else {
-            <span>Revisar Volúmenes</span>
+        <div class="storage-actions">
+          <button
+            type="button"
+            class="btn-outline trigger-btn"
+            (click)="reloadOrphans()"
+            [disabled]="orphansLoading()"
+            title="Lee el daemon y cruza los volúmenes sin contenedor contra los entornos registrados">
+            <svg lucideHardDrive class="btn-icon"></svg>
+            @if (orphansLoading()) {
+              <span>Leyendo...</span>
+            } @else {
+              <span>Revisar Volúmenes</span>
+            }
+          </button>
+          @if (orphansCheckedAt(); as checkedAt) {
+            <span class="updated-badge">Revisado <time [attr.datetime]="checkedAt">{{ checkedAt | dateText:'time' }}</time></span>
           }
-        </button>
+        </div>
       </div>
 
       @if (orphansError()) {
@@ -398,6 +408,8 @@
           <svg lucideAlertTriangle></svg>
           <span>{{ orphansError() }}</span>
         </div>
+      } @else if (orphanNotice(); as notice) {
+        <p class="storage-notice" role="status">{{ notice }}</p>
       }
 
       @if (orphanPlan(); as plan) {
@@ -465,14 +477,28 @@
         @if (plan.kept.length > 0) {
           <details class="storage-details">
             <summary>Volúmenes conservados ({{ plan.kept.length }})</summary>
-            <ul class="storage-kept-list">
-              @for (volume of plan.kept; track volume.name) {
-                <li>
-                  <code machineData>{{ volume.name }}</code>
-                  <span class="storage-kept-reason">{{ formatKeepReason(volume.reason) }}</span>
-                </li>
+            <div class="storage-kept-groups">
+              @for (group of keptVolumeGroups(); track group.reason) {
+                <section class="storage-kept-group">
+                  <p class="storage-kept-group-head">
+                    <span class="storage-kept-group-label">{{ group.label }}</span>
+                    <span class="storage-kept-group-meta">
+                      <span class="font-mono" machineData>{{ group.count }}</span>
+                      <span aria-hidden="true">·</span>
+                      <span class="font-mono" machineData>{{ formatBytes(group.totalMB * 1048576) }}</span>
+                    </span>
+                  </p>
+                  <ul class="storage-kept-list">
+                    @for (volume of group.items; track volume.name) {
+                      <li>
+                        <code class="storage-kept-name" [title]="volume.name" machineData>{{ shortVolumeName(volume.name) }}</code>
+                        <span class="storage-kept-size" machineData>{{ formatKeptSize(volume.size_mb) }}</span>
+                      </li>
+                    }
+                  </ul>
+                </section>
               }
-            </ul>
+            </div>
           </details>
         }
       }
