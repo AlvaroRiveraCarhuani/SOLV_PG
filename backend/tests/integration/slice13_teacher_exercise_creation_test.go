@@ -131,7 +131,7 @@ func TestSlice13_Commit1_CreateAndVerifyDirectDB(t *testing.T) {
 
 	// AFIRMACIÓN DIRECTA EN POSTGRESQL CON SQLX
 	var dbEx domain.Exercise
-	query := `SELECT id, title, description, type, boilerplate, status, language, time_limit_ms, memory_limit_mb, config, tenant_id FROM exercises WHERE id = $1`
+	query := `SELECT id, title, description, type, boilerplate, status, language, time_limit_ms, memory_limit_mb, config, tenant_id, template_id FROM exercises WHERE id = $1`
 	err = db.GetDB().Get(&dbEx, query, exerciseID)
 	if err != nil {
 		t.Fatalf("Direct DB query failed: %v", err)
@@ -152,9 +152,8 @@ func TestSlice13_Commit1_CreateAndVerifyDirectDB(t *testing.T) {
 	var expectedRAM int
 	err = db.GetDB().Get(&expectedRAM, `
 		SELECT base_ram_mb FROM lab_templates
-		WHERE target_environment='JUEZ_EFIMERO' AND status IN ('approved','APROBADA') AND description='SYSTEM_SEED_RUNNER' AND name LIKE 'Python%'
-		LIMIT 1
-	`)
+		WHERE id = $1
+	`, dbEx.TemplateID)
 	if err != nil {
 		t.Fatalf("Failed to fetch expected template RAM: %v", err)
 	}

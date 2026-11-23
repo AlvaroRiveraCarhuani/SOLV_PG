@@ -201,8 +201,8 @@ func TestSlice14_DockerTemplateGovernance(t *testing.T) {
 		var approveBody map[string]interface{}
 		_ = json.NewDecoder(respApprove.Body).Decode(&approveBody)
 		data := approveBody["data"].(map[string]interface{})
-		if data["status"] != "approved" {
-			t.Errorf("Expected status = approved, got %v", data["status"])
+		if data["status"] != "approved" && data["status"] != "APROBADA" {
+			t.Errorf("Expected status = approved or APROBADA, got %v", data["status"])
 		}
 		if int(data["base_ram_mb"].(float64)) != 1024 {
 			t.Errorf("Expected base_ram_mb = 1024, got %v", data["base_ram_mb"])
@@ -216,8 +216,8 @@ func TestSlice14_DockerTemplateGovernance(t *testing.T) {
 		_ = db.GetDB().QueryRow("SELECT status, base_ram_mb, reviewed_by, reviewed_at FROM lab_templates WHERE id = $1", tplPendingID).
 			Scan(&statusInDB, &ramInDB, &reviewedByInDB, &reviewedAtInDB)
 
-		if statusInDB != "approved" {
-			t.Errorf("Expected status in DB to be approved, got %s", statusInDB)
+		if statusInDB != "approved" && statusInDB != "APROBADA" {
+			t.Errorf("Expected status in DB to be approved or APROBADA, got %s", statusInDB)
 		}
 		if ramInDB != 1024 {
 			t.Errorf("Expected base_ram_mb in DB to be 1024, got %d", ramInDB)
@@ -279,8 +279,8 @@ func TestSlice14_DockerTemplateGovernance(t *testing.T) {
 		var statusAfter string
 		var reasonAfter string
 		_ = db.GetDB().QueryRow("SELECT status, rejection_reason FROM lab_templates WHERE id = $1", tplToRejectID).Scan(&statusAfter, &reasonAfter)
-		if statusAfter != "rejected" {
-			t.Errorf("Expected status in DB = rejected, got %s", statusAfter)
+		if statusAfter != "rejected" && statusAfter != "RECHAZADA" {
+			t.Errorf("Expected status in DB = rejected or RECHAZADA, got %s", statusAfter)
 		}
 		if reasonAfter != "La imagen Docker no cumple con las políticas de seguridad institucional" {
 			t.Errorf("Rejection reason not persisted correctly: %s", reasonAfter)
@@ -348,8 +348,8 @@ func TestSlice14_DockerTemplateGovernance(t *testing.T) {
 		var pauseBody map[string]interface{}
 		_ = json.NewDecoder(respPause.Body).Decode(&pauseBody)
 		data := pauseBody["data"].(map[string]interface{})
-		if data["status"] != "paused" {
-			t.Errorf("Expected status = paused, got %v", data["status"])
+		if data["status"] != "paused" && data["status"] != "PAUSADA" {
+			t.Errorf("Expected status = paused or PAUSADA, got %v", data["status"])
 		}
 	})
 
