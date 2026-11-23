@@ -1,0 +1,82 @@
+# SOLV — override de desarrollo sobre la pila de producción.
+#
+# No reemplaza compose.yml: se apila encima y solo toca backend y frontend.
+#
+#   docker compose -f compose.yml -f compose.dev.yml up -d
+#   docker compose -f compose.yml -f compose.dev.yml logs -f backend
+#   docker compose -f compose.yml -f compose.dev.yml down
+#
+# Backend: compila con air sobre el código montado; cada cambio en un .go
+#   reinicia el proceso sin reconstruir imágenes.
+# Frontend: Nginx sirve el directorio que escribe `ng build --watch`; el
+#   cambio se ve al recargar el navegador, sin reiniciar el contenedor.
+#
+# Para volver a producción, levantar solo compose.yml (ver README de dev).
+
+services:
+  backend:
+    # Misma imagen base que backend/Dockerfile. La imagen de producción es
+    # debian:12-slim con el binario estático y no trae toolchain de Go, así que
+    # acá se usa el stage de build: golang:1.25-bookworm (go.mod pide 1.25.0).
+    image: golang:1.25-bookworm
+    # Se anula el `build` heredado. Sin esto, `up --build` construiría la
+    # imagen de producción y la etiquetaría como golang:1.25-bookworm.
+    build: !reset null
+    working_dir: /app
+    # El script de arranque instala air una sola vez (volumen nombrado) y
+    # ejecuta el watcher en primer plano para que `docker compose logs` lo vea.
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - |
+        set -eu
+        if [ ! -x /go/bin/air ]; then
+          echo "[dev] instalando air v1.66.1 en el volumen solv_air_bin"
+          GOBIN=/go/bin go install github.com/air-verse/air@v1.66.1
+        fi
+        # curl sostenta el healthcheck heredado y tzdata las fechas del
+        # calendario: la imagen de Go no garantiza ninguno de los dos.
+        if [ ! -x /usr/bin/curl ] || [ ! -d /usr/share/zoneinfo ]; then
+          echo "[dev] instalando curl y tzdata"
+          apt-get update \
+            && apt-get install -y --no-install-recommends curl tzdata \
+            && rm -rf /var/lib/apt/lists/*
+        fi
+        exec /go/bin/air -c /app/.air.toml
+    environment:
+      # El binario se compila en /tmp, fuera de /app: las migraciones se
+      # resuelven por variable de entorno, igual que en producción.
+      MIGRATIONS_DIR: /app/migrations
+    volumes:
+      # Código en vivo: acá está .air.toml, cmd/api y migrations. El watcher de
+      # air escucha este bind, así que guardar un .go dispara la recompilación.
+      - ./backend:/app
+      # Caché de módulos y de compilación: el primer arranque descarga el árbol
+      # y compila; los siguientes reinicios arrancan en segundos.
+      - solv_go_mod_cache:/go/pkg/mod
+      - solv_go_build_cache:/root/.cache/go-build
+      # Binario de air: se instala una sola vez, no en cada arranque.
+      - solv_air_bin:/go/bin
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://127.0.0.1:3000/api/v1/version"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      # La compilación inicial de air (más la descarga de módulos la primera
+      # vez) tarda más que los 40 s que alcanzan en producción.
+      start_period: 180s
+
+  frontend:
+    volumes:
+      # angular.json no define outputPath, así que el builder usa el valor por
+      # defecto: dist/<proyecto>/browser = dist/frontend/browser. Es la misma
+      # ruta que copia frontend/Dockerfile a /usr/share/nginx/html.
+      # Solo lectura: Nginx sirve, Angular escribe.
+      - ./frontend/dist/frontend/browser:/usr/share/nginx/html:ro
+
+volumes:
+  solv_go_mod_cache:
+    name: solv_go_mod_cache
+  solv_go_build_cache:
+    name: solv_go_build_cache
+  solv_air_bin:
+    name: solv_air_bin

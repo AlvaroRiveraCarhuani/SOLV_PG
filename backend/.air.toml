@@ -1,0 +1,50 @@
+# Air — recarga en caliente del backend SOLV (solo desarrollo).
+#
+# Lo arranca compose.dev.yml con `air -c /app/.air.toml`. Sin esta configuración
+# air compilaría a ./tmp dentro del módulo, ese directorio está montado desde el
+# host y el watcher vería su propia salida: bucle de compilación infinito.
+#
+# Referencia de claves: https://github.com/air-verse/air v1.66.1
+
+root = "."
+# Estado interno de air (build-errors.log y compañía), fuera del repo.
+tmp_dir = "/tmp/solv-air"
+
+[build]
+# Mismas condiciones que backend/Dockerfile: binario estático para Linux, con
+# los -ldflags de versión que publica GET /api/v1/version. El destino es /tmp
+# para no ensuciar git status.
+cmd = "CGO_ENABLED=0 GOOS=linux go build -trimpath -ldflags '-s -w -X solv-backend/internal/version.Version=dev -X solv-backend/internal/version.Commit=air -X solv-backend/internal/version.BuildDate=unknown' -o /tmp/solv-api-dev ./cmd/api"
+# `entrypoint` reemplaza a `bin`, que air marca como deprecado desde 1.63.
+entrypoint = ["/tmp/solv-api-dev"]
+# Solo código Go: un asset o una migración no ameritan recompilar el servidor.
+include_ext = ["go"]
+# Directorios con datos o artefactos, no fuente.
+exclude_dir = [".git", "bin", "tmp", "uploads", "seeds", "migrations"]
+exclude_regex = ["_test\\.go"]
+exclude_unchanged = true
+# Agrupa ráfagas de guardado (formateador + editor) en una sola compilación.
+delay = 500
+# Si un cambio no compila, el proceso anterior se detiene: el log de error es
+# lo que importa, no un servidor con código viejo.
+stop_on_error = true
+# SIGINT primero: el API cierra en orden (hasta 15 s para peticiones en curso).
+# 5 s alcanza para el tráfico de desarrollo y no frena la iteración.
+send_interrupt = true
+kill_delay = "5s"
+
+[log]
+time = true
+
+[misc]
+# Borra /tmp/solv-air al salir.
+clean_on_exit = true
+
+[screen]
+# Los logs se leen por `docker compose logs`: limpiar pantalla los borraría.
+clear_on_rebuild = false
+keep_scroll = true
+
+[proxy]
+# Traefik ya enruta el tráfico; el proxy de recarga en navegador no se usa.
+enabled = false
