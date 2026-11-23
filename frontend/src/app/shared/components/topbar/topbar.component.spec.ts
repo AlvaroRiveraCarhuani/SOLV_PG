@@ -83,6 +83,14 @@ describe('TopbarComponent notifications', () => {
     fixture.detectChanges();
   });
 
+  afterEach(() => {
+    // El conmutador de tema escribe en localStorage y en <html>: se limpia al
+    // terminar para no arrastrar el tema a otras pruebas.
+    localStorage.removeItem('solv_theme_preference');
+    document.documentElement.removeAttribute('data-theme');
+    document.documentElement.style.colorScheme = '';
+  });
+
   it('muestra el contador real y no usa localStorage', () => {
     const badge = fixture.nativeElement.querySelector('.notif-badge');
     expect(badge?.textContent.trim()).toBe('3');
@@ -107,5 +115,27 @@ describe('TopbarComponent notifications', () => {
 
     expect(notifStub.markRead).toHaveBeenCalledWith('n-1');
     expect(navigate).toHaveBeenCalledWith('/student/exercises/ex-1');
+  });
+
+  it('permite alternar el tema desde el botón rápido y desde el menú de usuario', () => {
+    const themeBtn = fixture.nativeElement.querySelector('button[aria-label*="modo"]') as HTMLButtonElement;
+    expect(themeBtn).not.toBeNull();
+
+    const initialDark = component.themeService.isDark();
+    themeBtn.click();
+    fixture.detectChanges();
+    expect(component.themeService.isDark()).toBe(!initialDark);
+
+    // Abrir menú de usuario y alternar de nuevo
+    component.toggleProfileMenu();
+    fixture.detectChanges();
+
+    const menuItems = Array.from(fixture.nativeElement.querySelectorAll('.profile-dropdown .dropdown-item')) as HTMLButtonElement[];
+    const themeMenuItem = menuItems.find(item => item.textContent?.includes('Modo'));
+    expect(themeMenuItem).toBeDefined();
+
+    themeMenuItem?.click();
+    fixture.detectChanges();
+    expect(component.themeService.isDark()).toBe(initialDark);
   });
 });

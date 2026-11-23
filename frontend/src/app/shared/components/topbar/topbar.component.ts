@@ -12,7 +12,8 @@ import { UserTypographyModalComponent } from '@shared/components/user-typography
 import { DismissibleDirective } from '@shared/directives/dismissible.directive';
 import { DateTextPipe } from '@shared/pipes/date-text.pipe';
 import { MachineDataDirective } from '@shared/directives/machine-data.directive';
-import { LucidePanelLeft, LucideBell, LucideLogOut, LucideUser, LucideType, LucideCircleHelp } from '@lucide/angular';
+import { ThemeService } from '@core/services/theme.service';
+import { LucidePanelLeft, LucideBell, LucideLogOut, LucideUser, LucideType, LucideCircleHelp, LucideSun, LucideMoon } from '@lucide/angular';
 
 @Component({
   selector: 'topbar',
@@ -26,6 +27,8 @@ import { LucidePanelLeft, LucideBell, LucideLogOut, LucideUser, LucideType, Luci
     LucideUser,
     LucideType,
     LucideCircleHelp,
+    LucideSun,
+    LucideMoon,
     UserTypographyModalComponent,
     DismissibleDirective,
     DateTextPipe,
@@ -71,6 +74,21 @@ import { LucidePanelLeft, LucideBell, LucideLogOut, LucideUser, LucideType, Luci
             <svg lucideCircleHelp class="icon"></svg>
           </button>
         }
+
+        <!-- Selector rápido de tema claro/oscuro (todos los roles) -->
+        <button
+          type="button"
+          class="btn-icon"
+          (click)="themeService.toggleTheme()"
+          [title]="themeService.isDark() ? 'Cambiar a modo claro' : 'Cambiar a modo oscuro'"
+          [attr.aria-label]="themeService.isDark() ? 'Cambiar a modo claro' : 'Cambiar a modo oscuro'"
+        >
+          @if (themeService.isDark()) {
+            <svg lucideSun class="icon"></svg>
+          } @else {
+            <svg lucideMoon class="icon"></svg>
+          }
+        </button>
 
         <!-- Campana de avisos (ADR-034) -->
         <div class="notif-wrapper">
@@ -173,6 +191,15 @@ import { LucidePanelLeft, LucideBell, LucideLogOut, LucideUser, LucideType, Luci
                 <span class="user-email">{{ authService.currentUser()?.email }}</span>
               </div>
               <div class="dropdown-divider"></div>
+              <button class="dropdown-item" (click)="themeService.toggleTheme()">
+                @if (themeService.isDark()) {
+                  <svg lucideSun class="dropdown-icon"></svg>
+                  <span>Modo claro</span>
+                } @else {
+                  <svg lucideMoon class="dropdown-icon"></svg>
+                  <span>Modo oscuro</span>
+                }
+              </button>
               <button class="dropdown-item" (click)="openTypographyModal()">
                 <svg lucideType class="dropdown-icon"></svg>
                 <span>Tipografía</span>
@@ -198,6 +225,7 @@ export class TopbarComponent implements OnInit {
   tenantService = inject(TenantService);
   authService = inject(AuthService);
   notifService = inject(NotificationService);
+  readonly themeService = inject(ThemeService);
   private router = inject(Router);
 
   toggleSidebar = output<void>();
