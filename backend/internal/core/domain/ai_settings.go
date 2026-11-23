@@ -3,6 +3,7 @@ package domain
 import (
 	"errors"
 	"fmt"
+	"net"
 	"net/url"
 	"strings"
 	"time"
@@ -102,12 +103,56 @@ var aiEngineAutoTimeoutSeconds = map[string]map[string]int{
 	},
 }
 
-// ClassifyAIEngine clasifica el motor activo según proveedor y modelo:
-//   - "local_gpu": servidor LAN propio (ollama_lan) o proveedor custom, sin costo por token.
+// IsPrivateOrLocalHost determina si un host o URL no es público: loopback
+// (localhost, 127.0.0.0/8, ::1), ip no especificada (0.0.0.0, ::), privadas
+// (10/8, 172.16/12, 192.168/16, ULA fc00::/7), link-local (169.254/16, fe80::/10),
+// dominios *.local / *.lan o un hostname sin punto.
+//
+// Es la misma noción de host no público que validateLANBaseURL aplica al guardar
+// la URL de un motor LAN: si el servicio la rechaza por interna, aquí se clasifica
+// como LAN. Mantener ambas reglas juntas evita que la vista y el guardado discrepen.
+func IsPrivateOrLocalHost(rawURL string) bool {
+	raw := strings.TrimSpace(rawURL)
+	if raw == "" {
+		return false
+	}
+	if !strings.Contains(raw, "://") {
+		raw = "http://" + raw
+	}
+	u, err := url.Parse(raw)
+	if err != nil {
+		return false
+	}
+	host := strings.ToLower(u.Hostname())
+	if host == "" {
+		return false
+	}
+	if host == "localhost" {
+		return true
+	}
+	if ip := net.ParseIP(host); ip != nil {
+		return ip.IsLoopback() || ip.IsUnspecified() || ip.IsPrivate() ||
+			ip.IsLinkLocalUnicast() || ip.IsLinkLocalMulticast()
+	}
+	if strings.HasSuffix(host, ".local") || strings.HasSuffix(host, ".lan") || !strings.Contains(host, ".") {
+		return true
+	}
+	return false
+}
+
+// ClassifyAIEngine clasifica el motor activo según proveedor, modelo y baseURL:
+//   - "local_gpu": servidor LAN propio (ollama_lan) o proveedor custom apuntando a host local/privado, sin costo por token.
 //   - "queued_or_reasoning": modelos gratuitos y de razonamiento con cola extendida.
 //   - "fast_cloud": cualquier otro modelo comercial en la nube.
-func ClassifyAIEngine(provider, model string) string {
-	if provider == AIProviderOllamaLAN || IsCustomAIProvider(provider) {
+//
+// Un proveedor custom sin baseURL todavía no apunta a ningún host: se clasifica
+// como nube y nunca como GPU local, porque asumir LAN sin endpoint declarado
+// otorgaría el piso de cuota y el presupuesto ampliado de un motor propio.
+func ClassifyAIEngine(provider, model, baseURL string) string {
+	if provider == AIProviderOllamaLAN {
+		return AIEngineProfileLocalGPU
+	}
+	if IsCustomAIProvider(provider) && strings.TrimSpace(baseURL) != "" && IsPrivateOrLocalHost(baseURL) {
 		return AIEngineProfileLocalGPU
 	}
 	lower := strings.ToLower(model)
@@ -675,8 +720,8 @@ func NewAISettingsResponseDTO(stored AISettingsStored) AISettingsResponseDTO {
 		HourlyQuotaPerUser:    stored.HourlyQuotaPerUser,
 		TimeoutSeconds:        stored.TimeoutSeconds,
 		UpdatedAt:             stored.UpdatedAt,
-		EngineProfile:         ClassifyAIEngine(stored.Provider, stored.Model),
-		AutoTimeoutRangeLabel: AIEngineAutoTimeoutRangeLabel(ClassifyAIEngine(stored.Provider, stored.Model)),
+		EngineProfile:         ClassifyAIEngine(stored.Provider, stored.Model, stored.BaseURL),
+		AutoTimeoutRangeLabel: AIEngineAutoTimeoutRangeLabel(ClassifyAIEngine(stored.Provider, stored.Model, stored.BaseURL)),
 		ProviderProfiles:      profilesDTO,
 		CustomProviders:       customDTOs,
 	}
@@ -685,7 +730,7 @@ func NewAISettingsResponseDTO(stored AISettingsStored) AISettingsResponseDTO {
 // NewAIStatusDTO convierte el estado persistido en el estado liviano. El
 // perfil del motor y el rango automático se resuelven en el servidor.
 func NewAIStatusDTO(stored AISettingsStored) AIStatusDTO {
-	profile := ClassifyAIEngine(stored.Provider, stored.Model)
+	profile := ClassifyAIEngine(stored.Provider, stored.Model, stored.BaseURL)
 	return AIStatusDTO{
 		Enabled:               stored.Enabled,
 		Provider:              stored.Provider,

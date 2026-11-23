@@ -43,7 +43,7 @@
 
       <div class="qos-grid">
         <form-field label="Techo de Seguridad de Memoria del Host" for="policy-ceiling" hint="Porcentaje de RAM física del host antes de restringir admisión de nuevos laboratorios">
-          <div class="radio-group" id="policy-ceiling">
+          <div class="radio-group radio-group-triple" id="policy-ceiling">
             @for (option of ceilingOptions; track option.value) {
               <label class="radio-pill" [class.selected]="selectedCeilingPct() === option.value">
                 <input
@@ -81,25 +81,27 @@
           for="policy-max-containers"
           hint="Techo de admisión: al alcanzarlo, los entornos nuevos responden «Cupo institucional lleno» hasta que uno se libere.">
           <div class="max-containers-control">
-            <input
-              id="policy-max-containers"
-              type="number"
-              class="form-input"
-              min="1"
-              max="500"
-              [ngModel]="selectedMaxContainers()"
-              (ngModelChange)="selectedMaxContainers.set($event)" />
-            @if (recommendedMaxContainers() > 0) {
-              <p class="capacity-hint">
-                Recomendado para este servidor ({{ hostTotalGB() }} GB de RAM):
-                <code>{{ recommendedMaxContainers() }}</code>
-                @if (selectedMaxContainers() !== recommendedMaxContainers()) {
-                  <button type="button" class="btn-outline" (click)="adoptRecommendedMaxContainers()">
-                    Usar recomendado
-                  </button>
-                }
-              </p>
-            }
+            <div class="max-containers-row">
+              <input
+                id="policy-max-containers"
+                type="number"
+                class="form-input"
+                min="1"
+                max="500"
+                [ngModel]="selectedMaxContainers()"
+                (ngModelChange)="selectedMaxContainers.set($event)" />
+              @if (recommendedMaxContainers() > 0) {
+                <p class="capacity-hint">
+                  Recomendado para este servidor ({{ hostTotalGB() }} GB de RAM):
+                  <code machineData>{{ recommendedMaxContainers() }}</code>
+                  @if (selectedMaxContainers() !== recommendedMaxContainers()) {
+                    <button type="button" class="btn-outline btn-compact" (click)="adoptRecommendedMaxContainers()">
+                      Usar recomendado
+                    </button>
+                  }
+                </p>
+              }
+            </div>
             @if (maxContainersError()) {
               <p class="capacity-error">{{ maxContainersError() }}</p>
             }
@@ -175,20 +177,20 @@
               de integridad y eliminación automática de los archivos más antiguos.
             </p>
           </div>
-          <button
-            type="button"
-            class="btn-outline trigger-btn"
-            (click)="triggerBackup()"
-            [disabled]="isTriggering()"
-            title="Crea ahora mismo una copia de seguridad completa y la agrega al historial de abajo">
-            <svg lucideDatabaseBackup class="btn-icon"></svg>
-            @if (isTriggering()) {
-              <span>Creando...</span>
-            } @else {
-              <span>Crear Respaldo Ahora</span>
-            }
-          </button>
         </div>
+        <button
+          type="button"
+          class="btn-outline trigger-btn"
+          (click)="triggerBackup()"
+          [disabled]="isTriggering()"
+          title="Crea ahora mismo una copia de seguridad completa y la agrega al historial de abajo">
+          <svg lucideDatabaseBackup class="btn-icon"></svg>
+          @if (isTriggering()) {
+            <span>Creando...</span>
+          } @else {
+            <span>Crear Respaldo Ahora</span>
+          }
+        </button>
       </div>
 
       @if (backupConfig(); as cfg) {
@@ -206,7 +208,7 @@
             <span class="storage-status-label">Próximo respaldo automático</span>
             <span class="storage-status-value">
               @if (cfg.next_scheduled_at) {
-                <time>{{ cfg.next_scheduled_at | dateText:'datetime' }}</time>
+                <time [attr.datetime]="cfg.next_scheduled_at">{{ cfg.next_scheduled_at | dateText:'datetime' }}</time>
               } @else {
                 <span>Según frecuencia activa</span>
               }
@@ -215,7 +217,7 @@
         </div>
 
         <div class="backup-strategy-grid" data-tour="server-backup-strategy">
-          <form-field label="Cada Cuántas Horas (automático)" for="backup-freq" hint="Cada cuántas horas se crea un respaldo solo" [error]="backupFrequencyError()">
+          <form-field label="Cada Cuántas Horas (automático)" for="backup-freq" hint="Cada cuántas horas se genera un respaldo automático" [error]="backupFrequencyError()">
             <div class="quick-pill-row">
               @for (hours of backupFreqQuick; track hours) {
                 <button
@@ -230,13 +232,13 @@
             <input
               id="backup-freq"
               type="number"
-              class="form-input"
+              class="form-input backup-compact-input"
               min="1"
               max="168"
               [ngModel]="backupFrequency() || cfg.local_frequency_hours"
               (ngModelChange)="backupFrequency.set($event)" />
           </form-field>
-          <form-field label="Conservar Respaldos (días)" for="backup-retention" hint="Cuántos días se guardan antes de borrarlos solos" [error]="backupRetentionError()">
+          <form-field label="Conservar Respaldos (días)" for="backup-retention" hint="Cantidad de días que se conservan antes de depurarse automáticamente" [error]="backupRetentionError()">
             <div class="quick-pill-row">
               @for (days of backupRetentionQuick; track days) {
                 <button
@@ -251,7 +253,7 @@
             <input
               id="backup-retention"
               type="number"
-              class="form-input"
+              class="form-input backup-compact-input"
               min="1"
               max="365"
               [ngModel]="backupRetention() || cfg.local_retention_days"
@@ -277,6 +279,13 @@
         </div>
       }
 
+      <div class="section-divider"></div>
+
+      <div class="table-section-header">
+        <h3 class="table-section-title">Historial de Respaldos</h3>
+        <p class="table-section-hint">Registros de copias ejecutadas, estado de verificación de integridad y descargas disponibles.</p>
+      </div>
+
       <!-- Historial de respaldos -->
       <div class="backups-table-wrap">
         <table class="data-table">
@@ -294,7 +303,7 @@
             @for (exec of paginatedBackups(); track trackByBackup($index, exec)) {
               <tr>
                 <td class="col-mono">{{ exec.file_name }}</td>
-                <td class="col-date font-date">{{ formatDate(exec.started_at) }}</td>
+                <td class="col-date font-date"><time [attr.datetime]="exec.started_at">{{ exec.started_at | dateText:'datetime' }}</time></td>
                 <td class="col-mono">{{ formatBytes(exec.file_size_bytes) }}</td>
                 <td>
                   <span class="status-badge" [class]="'backup-' + (exec.status === 'in_progress' ? 'progress' : exec.status)">
@@ -307,7 +316,7 @@
                     [class.verify-failed]="exec.last_verify_ok === false"
                     [class.verify-never]="exec.last_verify_ok === null || exec.last_verify_ok === undefined">
                     @if (exec.last_verify_ok === true) {
-                      Verificado @if (exec.last_verify_at) { <time class="font-mono">({{ exec.last_verify_at | dateText:'date' }})</time> }
+                      Verificado @if (exec.last_verify_at) { <time class="font-mono" [attr.datetime]="exec.last_verify_at">({{ exec.last_verify_at | dateText:'date' }})</time> }
                     } @else if (exec.last_verify_ok === false) {
                       Verificación fallida
                     } @else {

@@ -56,6 +56,8 @@ const mockSettings: AISettingsDTO = {
   hourly_quota_per_user: 30,
   timeout_seconds: 60,
   updated_at: '2026-10-24T12:00:00Z',
+  engine_profile: 'fast_cloud',
+  auto_timeout_range_label: '60s – 120s según complejidad de la tarea',
   provider_profiles: mockProfiles,
   custom_providers: mockCustomProviders
 };
@@ -534,5 +536,36 @@ describe('AdminConfigIaComponent', () => {
     expect(banner).toBeTruthy();
     expect(banner?.textContent).toContain('Este proveedor ya tiene su API Key cifrada guardada');
     expect(banner?.textContent).toContain(component.savedKey().masked);
+  });
+
+  it('detectedProfile consume el engine_profile del backend y marca los cambios sin guardar', () => {
+    fixture.detectChanges();
+
+    // 1. Sin cambios: manda la política que resolvió el servidor.
+    expect(component.detectedProfile().label).toBe('Motor Ágil en Nube');
+    expect(component.detectedProfile().budgetLabel).toBe('60s – 120s según complejidad de la tarea');
+
+    mockService.settings.set({
+      ...mockSettings,
+      engine_profile: 'local_gpu',
+      auto_timeout_range_label: '90s – 180s según complejidad de la tarea'
+    });
+    expect(component.detectedProfile().label).toBe('Servidor GPU Local Universitario');
+    expect(component.detectedProfile().budgetLabel).toBe('90s – 180s según complejidad de la tarea');
+
+    mockService.settings.set({ ...mockSettings, engine_profile: 'queued_or_reasoning' });
+    expect(component.detectedProfile().label).toBe('Modelo Gratuito / Razonamiento (Cola extendida)');
+
+    // 2. Un borrador distinto al guardado no se reclasifica en la vista.
+    mockService.settings.set({ ...mockSettings, engine_profile: 'fast_cloud' });
+    component.provider.set('custom_gpu' as any);
+    component.baseUrl.set('http://10.20.1.50:11434/v1');
+    expect(component.detectedProfile().label).toBe('Cambios sin guardar');
+    expect(component.detectedProfile().budgetLabel).toBe('Se recalcula al guardar');
+
+    // 3. Volver al proveedor y a la URL guardados restaura el perfil del backend.
+    component.provider.set('gemini');
+    component.baseUrl.set(GEMINI_URL);
+    expect(component.detectedProfile().label).toBe('Motor Ágil en Nube');
   });
 });

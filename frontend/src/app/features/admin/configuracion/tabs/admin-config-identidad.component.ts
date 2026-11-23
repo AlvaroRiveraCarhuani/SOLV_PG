@@ -285,14 +285,16 @@ export class AdminConfigIdentidadComponent implements OnInit, OnDestroy {
     const initial = this.identidadService.initialValues();
     const cfg = this.identidadService.currentConfig();
     const emailEnabled = initial.support_email.trim() !== '';
+    const rawLogo = initial.logo_url?.trim() ?? '';
     this.initial.set({
       ...initial,
+      logo_url: rawLogo,
       font_sans_family: cfg?.font_sans_family || `cat:${DEFAULT_SANS_SLUG}`,
       font_mono_family: cfg?.font_mono_family || `cat:${DEFAULT_MONO_SLUG}`,
       support_email_enabled: emailEnabled
     });
     this.institutionName.set(initial.institution_name);
-    this.logoUrl.set(initial.logo_url);
+    this.logoUrl.set(rawLogo);
     this.primaryColor.set(initial.tenant_primary_color);
     this.supportEmail.set(initial.support_email);
     this.supportEmailEnabled.set(emailEnabled);
@@ -313,6 +315,7 @@ export class AdminConfigIdentidadComponent implements OnInit, OnDestroy {
   // Logo: URL manual + subida real de archivo (multipart)
   // ------------------------------------------------------------------
   readonly logoPreviewFailed = signal(false);
+  readonly logoTouched = signal(false);
   /** Estado propio de subida: bloquea Subir Logo y Guardar Marca hasta terminar. */
   readonly isUploadingLogo = signal(false);
 
@@ -331,11 +334,18 @@ export class AdminConfigIdentidadComponent implements OnInit, OnDestroy {
   });
 
   onLogoUrlChange(value: string): void {
+    this.logoTouched.set(true);
     this.logoUrl.set(value);
     this.logoPreviewFailed.set(false);
   }
 
   onLogoError(): void {
+    if (!this.logoTouched()) {
+      // Fallback silencioso en la carga inicial: no activar chip rojo si el usuario no editó la URL
+      this.logoUrl.set('');
+      this.logoPreviewFailed.set(false);
+      return;
+    }
     this.logoPreviewFailed.set(true);
   }
 
@@ -481,6 +491,7 @@ export class AdminConfigIdentidadComponent implements OnInit, OnDestroy {
     this.formError.set(null);
     this.fontError.set(null);
     this.logoPreviewFailed.set(false);
+    this.logoTouched.set(false);
     this.revertFontPreview();
   }
 

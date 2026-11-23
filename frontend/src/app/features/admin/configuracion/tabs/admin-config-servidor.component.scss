@@ -65,6 +65,17 @@
   display: flex;
   flex-direction: column;
   gap: var(--space-2);
+
+  .max-containers-row {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: var(--space-3);
+
+    .form-input {
+      max-width: 180px;
+    }
+  }
 }
 
 .capacity-hint {
@@ -89,6 +100,19 @@
   display: flex;
   gap: var(--space-2);
   flex-wrap: wrap;
+}
+
+.radio-group-triple {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--space-2);
+  width: 100%;
+
+  .radio-pill {
+    justify-content: center;
+    text-align: center;
+    white-space: nowrap;
+  }
 }
 
 .radio-pill {
@@ -272,6 +296,35 @@
   }
 }
 
+.backup-compact-input {
+  max-width: 160px;
+}
+
+.section-divider {
+  height: 1px;
+  background-color: var(--border-subtle);
+  margin: var(--space-6) 0 var(--space-5);
+}
+
+.table-section-header {
+  margin-bottom: var(--space-4);
+
+  .table-section-title {
+    font-family: var(--font-sans);
+    font-size: var(--text-base);
+    font-weight: 600;
+    color: var(--text-primary);
+    margin: 0 0 var(--space-1);
+  }
+
+  .table-section-hint {
+    font-family: var(--font-sans);
+    font-size: var(--text-xs);
+    color: var(--text-secondary);
+    margin: 0;
+  }
+}
+
 .backups-table-wrap {
   overflow-x: auto;
 }
@@ -393,13 +446,13 @@
   padding: 0.1875rem 0.5rem;
   border-radius: var(--radius-full, 9999px);
   font-size: var(--text-xs);
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
+  font-weight: 500;
+  text-transform: none;
 
   &.backup-success {
-    background-color: var(--status-running-bg);
-    color: var(--status-running-color);
+    background-color: var(--bg-surface-subtle);
+    color: var(--text-secondary);
+    border: 1px solid var(--border-subtle);
   }
 
   &.backup-failed {
@@ -480,13 +533,13 @@
   padding: 0.1875rem 0.5rem;
   border-radius: var(--radius-full, 9999px);
   font-size: var(--text-xs);
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
+  font-weight: 500;
+  text-transform: none;
 
   &.verify-ok {
-    background-color: var(--status-running-bg);
-    color: var(--status-running-color);
+    background-color: var(--bg-surface-subtle);
+    color: var(--text-secondary);
+    border: 1px solid var(--border-subtle);
   }
 
   &.verify-failed {
@@ -495,7 +548,7 @@
   }
 
   &.verify-never {
-    background-color: var(--bg-surface-subtle);
-    color: var(--text-muted);
+    background-color: var(--status-pending-bg);
+    color: var(--status-pending-color);
   }
 }

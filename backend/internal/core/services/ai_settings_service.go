@@ -717,7 +717,7 @@ func (s *AISettingsService) CompleteJSON(ctx context.Context, tenantID, userID, 
 	}
 
 	effective := *settings
-	profile := classifyAIEngine(settings.Provider, settings.Model)
+	profile := classifyAIEngine(settings.Provider, settings.Model, settings.BaseURL)
 
 	if override, ok := resolveUserOverride(settings, userID); ok {
 		// BYOK: la credencial personal prevalece, opera incluso con la IA
@@ -726,7 +726,7 @@ func (s *AISettingsService) CompleteJSON(ctx context.Context, tenantID, userID, 
 		effective.Model = override.Model
 		effective.BaseURL = userOverrideBaseURL(settings, override)
 		effective.EncryptedAPIKey = override.EncryptedAPIKey
-		profile = classifyAIEngine(override.Provider, override.Model)
+		profile = classifyAIEngine(override.Provider, override.Model, effective.BaseURL)
 	} else {
 		if !settings.Enabled {
 			return "", 0, domain.ErrAIDisabled
@@ -1049,8 +1049,8 @@ func userOverrideBaseURL(settings *domain.AISettingsStored, override domain.AIUs
 }
 
 // classifyAIEngine resuelve el perfil de gobernanza del motor activo.
-func classifyAIEngine(provider, model string) string {
-	return domain.ClassifyAIEngine(provider, model)
+func classifyAIEngine(provider, model, baseURL string) string {
+	return domain.ClassifyAIEngine(provider, model, baseURL)
 }
 
 // effectiveAITimeout resuelve el presupuesto de tiempo final:
@@ -1190,7 +1190,7 @@ func (s *AISettingsService) TestConnection(ctx context.Context, tenantID string,
 	if err != nil {
 		return nil, err
 	}
-	reqCtx, cancel := context.WithTimeout(ctx, effectiveAITimeout(&probe, classifyAIEngine(provider, model), "test-connection"))
+	reqCtx, cancel := context.WithTimeout(ctx, effectiveAITimeout(&probe, classifyAIEngine(provider, model, probe.BaseURL), "test-connection"))
 	defer cancel()
 
 	content, latencyMS, callErr := aiProvider.Complete(reqCtx, payload, apiKey)
@@ -1407,7 +1407,8 @@ func (s *AISettingsService) GetEffectiveStatus(ctx context.Context, tenantID, us
 	}
 	resp := domain.NewAIStatusDTO(*stored)
 	if override, ok := resolveUserOverride(stored, userID); ok {
-		profile := domain.ClassifyAIEngine(override.Provider, override.Model)
+		overrideBaseURL := userOverrideBaseURL(stored, override)
+		profile := domain.ClassifyAIEngine(override.Provider, override.Model, overrideBaseURL)
 		resp.Enabled = true
 		resp.Provider = override.Provider
 		catalog := append(append([]domain.AICustomProviderStored{}, stored.CustomProviders...), override.CustomProviders...)

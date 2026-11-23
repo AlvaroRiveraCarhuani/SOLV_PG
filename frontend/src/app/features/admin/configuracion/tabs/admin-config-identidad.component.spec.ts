@@ -42,8 +42,8 @@ describe('AdminConfigIdentidadComponent', () => {
   let tenantMock: MockTenantService;
   let configSignal: ReturnType<typeof signal<TenantConfig | null>>;
 
-  const setup = async (): Promise<void> => {
-    configSignal = signal<TenantConfig | null>(makeConfig());
+  const setup = async (overrides: Partial<TenantConfig> = {}): Promise<void> => {
+    configSignal = signal<TenantConfig | null>(makeConfig(overrides));
     tenantMock = { config: configSignal, applyBranding: vi.fn(), applyTenantFonts: vi.fn() };
     mockService = {
       isSaving: signal(false),
@@ -215,6 +215,23 @@ describe('AdminConfigIdentidadComponent', () => {
     expect(component.logoInputValue()).toBe('https://x.edu.bo/logo.png');
   });
 
+  it('un logo guardado que no carga cae al fallback sin banner rojo mientras el usuario no edite', async () => {
+    await setup({ logo_url: 'https://cdn.uab.edu.bo/logo-inexistente.png' });
+
+    expect(component.logoUrl()).toBe('https://cdn.uab.edu.bo/logo-inexistente.png');
+    expect(component.logoPreviewFailed()).toBe(false);
+
+    // Error en carga inicial no activa chip rojo si el usuario no editó
+    component.onLogoError();
+    expect(component.logoUrl()).toBe('');
+    expect(component.logoPreviewFailed()).toBe(false);
+
+    // Si el usuario edita y luego falla, sí activa el error
+    component.onLogoUrlChange('https://invalido.com/logo.png');
+    component.onLogoError();
+    expect(component.logoPreviewFailed()).toBe(true);
+  });
+
   it('durante la subida el guardado queda bloqueado', async () => {
     await setup();
 
@@ -308,6 +325,8 @@ describe('AdminConfigIdentidadComponent', () => {
 
   it('typography hint disambiguates Aplicar (preview) from Guardar Marca (persist)', async () => {
     await setup();
+    component.toggleCustomFonts();
+    fixture.detectChanges();
 
     const hint: HTMLElement | null = fixture.nativeElement.querySelector('.typography-hint');
     expect(hint).not.toBeNull();

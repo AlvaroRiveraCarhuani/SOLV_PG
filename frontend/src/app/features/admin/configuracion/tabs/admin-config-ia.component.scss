@@ -44,10 +44,14 @@
 }
 
 .updated-badge {
-  font-family: var(--font-mono);
+  font-family: var(--font-sans);
   font-size: var(--text-xs);
   color: var(--text-muted);
   white-space: nowrap;
+
+  time {
+    font-family: var(--font-mono);
+  }
 }
 
 // Switch banner de habilitación
@@ -159,11 +163,19 @@
       gap: var(--space-2);
       flex-wrap: wrap;
 
+      // Placa neutra del logo: da contraste a marcas monocromas (incluidas las
+      // de proveedores custom por URL) en tema claro y oscuro, sin filtros por
+      // proveedor ni por selector de `src`.
       .provider-logo {
-        width: 18px;
-        height: 18px;
+        width: 20px;
+        height: 20px;
+        box-sizing: border-box;
+        padding: 2px;
         object-fit: contain;
         flex-shrink: 0;
+        background-color: var(--tech-logo-plate-bg);
+        border: 1px solid var(--tech-logo-plate-border);
+        border-radius: var(--radius-sm);
       }
 
       .provider-icon {

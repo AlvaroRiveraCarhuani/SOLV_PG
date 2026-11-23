@@ -29,7 +29,7 @@
           </div>
         </div>
         @if (settings()?.updated_at) {
-          <time class="updated-badge font-mono">{{ settings()!.updated_at! | dateText:'daymonth' }}</time>
+          <span class="updated-badge">Actualizado: <time class="font-date">{{ settings()!.updated_at! | dateText:'daymonth' }}</time></span>
         }
       </div>
 
@@ -354,12 +354,6 @@
               <div class="catalog-btn-group">
                 <button
                   type="button"
-                  class="btn-toggle-manual-secondary"
-                  (click)="manualModelMode.set(!manualModelMode())">
-                  {{ manualModelMode() ? 'Ocultar edición manual' : 'Escribir ID manualmente' }}
-                </button>
-                <button
-                  type="button"
                   class="btn-catalog"
                   (click)="fetchModels(true, false)"
                   [disabled]="loadingModels() || !canFetchModels()">
@@ -513,16 +507,8 @@
           </div>
           <div class="budgets-row">
             <div class="budget-pill">
-              <span class="budget-task">Componentes</span>
-              <span class="budget-val font-mono" machineData>{{ detectedProfile().componentsBudget }}</span>
-            </div>
-            <div class="budget-pill">
-              <span class="budget-task">Stacks y Reparación</span>
-              <span class="budget-val font-mono" machineData>{{ detectedProfile().stacksBudget }}</span>
-            </div>
-            <div class="budget-pill">
-              <span class="budget-task">Ejercicios del evaluador</span>
-              <span class="budget-val font-mono" machineData>{{ detectedProfile().exercisesBudget }}</span>
+              <span class="budget-task">Rango vigente</span>
+              <span class="budget-val font-mono" machineData>{{ detectedProfile().budgetLabel }}</span>
             </div>
           </div>
         </div>

@@ -1440,7 +1440,7 @@ func TestAISettingsAdaptiveGovernanceByProfileAndAction(t *testing.T) {
 	}
 
 	for _, tc := range profiles {
-		if got := domain.ClassifyAIEngine(tc.provider, tc.model); got != tc.profile {
+		if got := domain.ClassifyAIEngine(tc.provider, tc.model, ""); got != tc.profile {
 			t.Errorf("ClassifyAIEngine(%q, %q) = %q, esperaba %q", tc.provider, tc.model, got, tc.profile)
 		}
 		if got := domain.AIEngineAutoTimeoutRangeLabel(tc.profile); got != tc.label {
@@ -1483,12 +1483,42 @@ func TestAISettingsAdaptiveGovernanceByProfileAndAction(t *testing.T) {
 		"gemini-2.5-flash":                       domain.AIEngineProfileFastCloud,
 	}
 	for model, want := range classified {
-		if got := domain.ClassifyAIEngine(domain.AIProviderOpenRouter, model); got != want {
+		if got := domain.ClassifyAIEngine(domain.AIProviderOpenRouter, model, ""); got != want {
 			t.Errorf("ClassifyAIEngine(openrouter, %q) = %q, esperaba %q", model, got, want)
 		}
 	}
-	if got := domain.ClassifyAIEngine("custom_empresa", "llama-3.3-70b"); got != domain.AIEngineProfileLocalGPU {
-		t.Errorf("proveedor custom debía clasificarse como local_gpu, got %q", got)
+	// Un proveedor custom sin URL declarada no tiene motor propio: se trata
+	// como nube y jamás recibe el piso de cuota de la GPU local.
+	if got := domain.ClassifyAIEngine("custom_empresa", "llama-3.3-70b", ""); got != domain.AIEngineProfileFastCloud {
+		t.Errorf("proveedor custom sin URL debía clasificarse como nube (fast_cloud), got %q", got)
+	}
+
+	// Proveedores custom_* según base_url: LAN vs Cloud
+	customCases := []struct {
+		name     string
+		provider string
+		model    string
+		baseURL  string
+		want     string
+	}{
+		{"custom LAN 10.x", "custom_lab", "llama-3.3-70b", "http://10.20.1.50:11434/v1", domain.AIEngineProfileLocalGPU},
+		{"custom LAN 192.168.x", "custom_server", "qwen2.5-coder", "http://192.168.1.100:8000/v1", domain.AIEngineProfileLocalGPU},
+		{"custom LAN 172.20.x", "custom_gpu", "deepseek-coder", "http://172.20.0.5:11434/v1", domain.AIEngineProfileLocalGPU},
+		{"custom localhost", "custom_local", "mistral", "http://localhost:11434/v1", domain.AIEngineProfileLocalGPU},
+		{"custom 127.0.0.1", "custom_loopback", "mistral", "http://127.0.0.1:11434/v1", domain.AIEngineProfileLocalGPU},
+		{"custom ::1", "custom_ipv6", "mistral", "http://[::1]:11434/v1", domain.AIEngineProfileLocalGPU},
+		{"custom .local", "custom_mac", "mistral", "http://ollama-host.local:11434/v1", domain.AIEngineProfileLocalGPU},
+		{"custom .lan", "custom_box", "mistral", "http://servidor-ia.lan:8000/v1", domain.AIEngineProfileLocalGPU},
+		{"custom hostname sin punto", "custom_docker", "mistral", "http://ollama-container:11434/v1", domain.AIEngineProfileLocalGPU},
+		{"custom cloud publico https", "custom_inception", "mistral-large-2411", "https://api.inceptionlabs.ai/v1", domain.AIEngineProfileFastCloud},
+		{"custom cloud publico reasoning", "custom_reasoner", "deepseek-r1-distill", "https://api.inceptionlabs.ai/v1", domain.AIEngineProfileQueuedOrReasoning},
+		{"custom cloud publico thinking", "custom_thinker", "qwen-32b-thinking", "https://api.together.xyz/v1", domain.AIEngineProfileQueuedOrReasoning},
+		{"ollama_lan siempre es local_gpu", domain.AIProviderOllamaLAN, "qwen2.5", "https://api.inceptionlabs.ai/v1", domain.AIEngineProfileLocalGPU},
+	}
+	for _, tc := range customCases {
+		if got := domain.ClassifyAIEngine(tc.provider, tc.model, tc.baseURL); got != tc.want {
+			t.Errorf("[%s] ClassifyAIEngine(%q, %q, %q) = %q, esperaba %q", tc.name, tc.provider, tc.model, tc.baseURL, got, tc.want)
+		}
 	}
 
 	// Los DTO públicos exponen la política resuelta por el servidor.

@@ -141,7 +141,6 @@ export interface GovernanceTimeoutProfile {
   description: string;
   badge?: string;
 }
-
 export const GOVERNANCE_TIMEOUT_PROFILES: GovernanceTimeoutProfile[] = [
   {
     value: 20,
@@ -167,6 +166,56 @@ const DRAFT_ICON_ERROR_KEY = 'custom-draft-icon';
 const CLOUD_PROVIDER_IDS: ReadonlySet<string> = new Set(['gemini', 'openai', 'openrouter', 'deepseek']);
 
 const AI_CONFIG_HELP_KEY = 'ai-config';
+
+/** Perfil de gobernanza tal como lo resolvió el backend (`engine_profile`). */
+export interface DetectedEngineProfile {
+  label: string;
+  description: string;
+  budgetLabel: string;
+  quotaDescription: string;
+}
+
+/**
+ * Textos de los tres perfiles que resuelve `ClassifyAIEngine` en el backend.
+ * La vista no reclasifica el motor: muestra el `engine_profile` del servidor y,
+ * mientras haya cambios sin guardar, avisa que se recalcula al guardar.
+ */
+const ENGINE_PROFILE_COPY: Record<string, Omit<DetectedEngineProfile, 'budgetLabel'>> = {
+  local_gpu: {
+    label: 'Servidor GPU Local Universitario',
+    description:
+      'Inferencia en red LAN institucional sobre hardware propio. Sin costos de API externa ni consumo de cuota cloud.',
+    quotaDescription: 'Piso ampliado automático de 60 solic./h por docente (sin costo por token externo).'
+  },
+  queued_or_reasoning: {
+    label: 'Modelo Gratuito / Razonamiento (Cola extendida)',
+    description:
+      'Proveedores comunitarios o modelos con mayor tiempo de cómputo y colas de espera variables.',
+    quotaDescription:
+      'Protección automática con respaldo BYOK docente para evitar consumo del cupo institucional.'
+  },
+  fast_cloud: {
+    label: 'Motor Ágil en Nube',
+    description:
+      'Modelos comerciales optimizados para streaming rápido y generación interactiva continua.',
+    quotaDescription: 'Protección de cuota automática por docente con soporte de API Key Personal BYOK.'
+  }
+};
+
+const PENDING_ENGINE_PROFILE: DetectedEngineProfile = {
+  label: 'Cambios sin guardar',
+  description:
+    'El perfil del motor lo resuelve el servidor con la configuración guardada; se recalcula al guardar estos cambios.',
+  budgetLabel: 'Se recalcula al guardar',
+  quotaDescription: 'La protección de cuota vigente sigue siendo la de la configuración guardada.'
+};
+
+const UNCONFIGURED_ENGINE_PROFILE: DetectedEngineProfile = {
+  label: 'Sin configurar',
+  description: 'El servidor resolverá el perfil del motor cuando se guarde y habilite una conexión.',
+  budgetLabel: 'Pendiente de guardar',
+  quotaDescription: 'La protección de cuota se aplica sobre la configuración guardada.'
+};
 
 @Component({
   selector: 'admin-config-ia',
@@ -247,50 +296,25 @@ export class AdminConfigIaComponent implements OnInit, OnDestroy {
   readonly hourlyQuotaTouched = signal<boolean>(false);
   readonly timeoutSecondsTouched = signal<boolean>(false);
 
-  readonly detectedProfile = computed<{
-    label: string;
-    description: string;
-    componentsBudget: string;
-    stacksBudget: string;
-    exercisesBudget: string;
-    quotaDescription: string;
-  }>(() => {
-    const prov = this.provider();
-    const mdl = (this.model() || '').toLowerCase();
-
-    if (prov === 'ollama_lan' || prov.startsWith('custom_')) {
-      return {
-        label: 'Servidor GPU Local Universitario',
-        description: 'Inferencia en red LAN institucional sobre hardware propio. Sin costos de API externa ni consumo de cuota cloud.',
-        componentsBudget: '90 s',
-        stacksBudget: '120 s',
-        exercisesBudget: '180 s',
-        quotaDescription: 'Piso ampliado automático de 60 solic./h por docente (sin costo por token externo).'
-      };
+  readonly detectedProfile = computed<DetectedEngineProfile>(() => {
+    if (this.formDiffersFromSaved()) {
+      return PENDING_ENGINE_PROFILE;
     }
-
-    const reasoningTokens = [':free', 'r1', 'reasoner', 'thinking', 'nemotron', 'qwq', 'o1', 'o3'];
-    const isReasoningOrFree = reasoningTokens.some((tok) => mdl.includes(tok));
-
-    if (isReasoningOrFree) {
-      return {
-        label: 'Modelo Gratuito / Razonamiento (Cola extendida)',
-        description: 'Proveedores comunitarios o modelos con mayor tiempo de cómputo y colas de espera variables.',
-        componentsBudget: '90 s',
-        stacksBudget: '120 s',
-        exercisesBudget: '180 s',
-        quotaDescription: 'Protección automática con respaldo BYOK docente para evitar consumo del cupo institucional.'
-      };
+    const saved = this.settings();
+    const copy = saved?.engine_profile ? ENGINE_PROFILE_COPY[saved.engine_profile] : undefined;
+    if (!copy) {
+      return UNCONFIGURED_ENGINE_PROFILE;
     }
+    return { ...copy, budgetLabel: saved?.auto_timeout_range_label || 'Sin presupuesto informado' };
+  });
 
-    return {
-      label: 'Motor Ágil en Nube',
-      description: 'Modelos comerciales optimizados para streaming rápido y generación interactiva continua.',
-      componentsBudget: '60 s',
-      stacksBudget: '90 s',
-      exercisesBudget: '120 s',
-      quotaDescription: 'Protección de cuota automática por docente con soporte de API Key Personal BYOK.'
-    };
+  /** El formulario difiere de lo guardado: el `engine_profile` del backend ya no describe el borrador. */
+  private readonly formDiffersFromSaved = computed<boolean>(() => {
+    const saved = this.settings();
+    if (!saved) return false;
+    if (this.provider() !== saved.provider) return true;
+    const normalize = (url: string | undefined): string => (url ?? '').trim().replace(/\/+$/, '');
+    return normalize(this.baseUrl()) !== normalize(saved.base_url);
   });
 
   readonly customLabelError = computed<string>(() => {
@@ -493,7 +517,7 @@ export class AdminConfigIaComponent implements OnInit, OnDestroy {
       badge: 'Personalizado · Compatible OpenAI',
       iconUrl: cp.icon_url ?? '',
       model: cp.model ?? '',
-      isCloud: false,
+      isCloud: false, // los custom siempre muestran su avatar o logo, nunca el glifo nube/servidor
       isActiveInBackend: !isAdding && activeBackendProvider === cp.id,
       hasSavedKey: cp.has_api_key === true
     }));

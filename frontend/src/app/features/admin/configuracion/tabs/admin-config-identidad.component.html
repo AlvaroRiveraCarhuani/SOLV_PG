@@ -216,11 +216,11 @@
             0x1F ws-a3f9 RAM 512MB AC 42ms 24/09/2026 14:05:31
           </p>
         </div>
-        <p class="typography-hint">
-          Aplicar muestra la previa sin guardar. Guardar marca persiste marca y tipografía juntas.
-        </p>
 
         @if (showCustomFonts()) {
+          <p class="typography-hint">
+            Aplicar muestra la previa sin guardar. Guardar marca persiste marca y tipografía juntas.
+          </p>
           <div class="custom-fonts-panel">
             <p class="custom-fonts-hint">
               Avanzado: pega la URL de una hoja CSS de Google Fonts (dominio permitido).
@@ -316,7 +316,7 @@
           <p class="pv-judge-title">{{ evaluationEngineName }}</p>
           <div class="pv-verdict">
             <span class="pv-verdict-badge">AC</span>
-            <span class="pv-verdict-label">Accepted</span>
+            <span class="pv-verdict-label">Aceptado</span>
           </div>
           <button type="button" class="pv-btn-primary" [disabled]="true">
             Enviar Solución a Evaluación
