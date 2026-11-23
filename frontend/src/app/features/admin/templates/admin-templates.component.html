@@ -378,6 +378,12 @@
                     <span>{{ eol.label }}</span>
                   </span>
                 }
+                @if (item.cve_critical_count && item.cve_critical_count > 0) {
+                  <span class="cve-pill" title="Trivy detectó vulnerabilidades críticas en la imagen">
+                    <svg lucideShieldAlert class="eol-pill-icon"></svg>
+                    <span>{{ criticalCveLabel(item) }}</span>
+                  </span>
+                }
               </div>
 
               <div class="card-stack" aria-label="Tecnologías incluidas">
@@ -835,17 +841,13 @@
                 <svg lucideTriangleAlert class="details-alert-icon"></svg>
                 <span>{{ eol.label }}</span>
               </div>
-              @if (item.eol_message) {
-                <p class="details-alert-message">{{ item.eol_message }}</p>
+              @if (eolMessageText(item); as eolMessage) {
+                <p class="details-alert-message">{{ eolMessage }}</p>
               }
               <div class="details-alert-footer">
                 @if (item.eol_date) {
                   <span>Fin de soporte <time>{{ item.eol_date | dateText:'date' }}</time></span>
                 }
-                <button type="button" class="btn-ghost btn-sm is-primary" (click)="navigateToEditStudio(item); closeDetailsDrawer()">
-                  <svg lucidePencil class="btn-icon-xs"></svg>
-                  <span>Editar en Constructor</span>
-                </button>
               </div>
             </section>
           }
@@ -997,26 +999,54 @@
                 @if (item.smoke_test_status) {
                   <div class="details-fact">
                     <dt>Prueba de arranque</dt>
-                    <dd>{{ auditStatusLabel(item.smoke_test_status, true) }}</dd>
+                    <dd>
+                      <span [title]="auditStatusTooltip(item.smoke_test_status)">{{ auditStatusLabel(item.smoke_test_status, true) }}</span>
+                    </dd>
                   </div>
                 }
                 @if (item.security_audit_status) {
                   <div class="details-fact">
                     <dt>Escaneo de seguridad</dt>
-                    <dd>{{ auditStatusLabel(item.security_audit_status) }}</dd>
-                  </div>
-                }
-                @if (item.cve_critical_count || item.cve_high_count) {
-                  <div class="details-fact">
-                    <dt>Vulnerabilidades</dt>
                     <dd>
-                      <span machineData>{{ item.cve_critical_count || 0 }}</span> críticas
-                      <span class="meta-sep">·</span>
-                      <span machineData>{{ item.cve_high_count || 0 }}</span> altas
+                      <span [title]="auditStatusTooltip(item.security_audit_status)">{{ auditStatusLabel(item.security_audit_status, false, !item.security_audited_at && !item.smoke_test_status) }}</span>
+                      @if (item.cve_critical_count) {
+                        <span class="details-muted">
+                          <span class="meta-sep">·</span>
+                          <span machineData>{{ item.cve_critical_count }}</span> críticas
+                          <span class="meta-sep">·</span>
+                          <span machineData>{{ item.cve_high_count || 0 }}</span> altas
+                        </span>
+                      }
                     </dd>
                   </div>
                 }
+                @if (item.security_audited_at) {
+                  <div class="details-fact">
+                    <dt>Último análisis</dt>
+                    <dd><time>{{ item.security_audited_at | dateText:'datetime' }}</time></dd>
+                  </div>
+                }
               </dl>
+
+              @if (showSmokeOutput(item)) {
+                <div class="details-audit-output">
+                  <span class="details-audit-output-label">Salida de la prueba de arranque</span>
+                  <p machineData>{{ item.smoke_test_output }}</p>
+                </div>
+              }
+
+              @if (canRescan(item)) {
+                <div class="details-audit-actions">
+                  <button
+                    type="button"
+                    class="btn-ghost btn-sm"
+                    [disabled]="isRescanning(item.id) || item.security_audit_status === 'pending'"
+                    (click)="triggerAudit(item, $event)">
+                    <svg lucideRefreshCw class="btn-icon-xs" [class.motion-spin]="isRescanning(item.id)"></svg>
+                    <span>{{ auditActionLabel(item) }}</span>
+                  </button>
+                </div>
+              }
             </section>
           }
 

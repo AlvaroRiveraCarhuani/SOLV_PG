@@ -351,6 +351,24 @@
   flex-shrink: 0;
 }
 
+/* Aviso de críticas en la tarjeta: contorno en lugar de relleno para no
+   competir con la pastilla de soporte. */
+.cve-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 1px 7px;
+  border: 1px solid var(--status-failed-border);
+  border-radius: var(--radius-full);
+  background-color: transparent;
+  color: var(--status-failed-color);
+  font-family: var(--font-sans);
+  font-size: var(--text-2xs);
+  font-weight: 500;
+  line-height: 1.5;
+  white-space: nowrap;
+}
+
 .card-stack {
   display: flex;
   align-items: center;
@@ -456,6 +474,40 @@
   font-size: var(--text-xs);
   line-height: 1.45;
   color: var(--text-primary);
+}
+
+.details-audit-output {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  margin-top: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  background-color: var(--bg-surface-subtle);
+}
+
+.details-audit-output-label {
+  font-family: var(--font-sans);
+  font-size: var(--text-2xs);
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.details-audit-output p {
+  margin: 0;
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  line-height: 1.45;
+  color: var(--text-secondary);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.details-audit-actions {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: var(--space-3);
 }
 
 .details-alert-footer {

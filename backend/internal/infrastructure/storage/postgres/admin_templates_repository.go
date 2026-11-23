@@ -400,6 +400,40 @@ func (r *PostgresAdminGovernanceRepository) UpdateTemplateQuota(
 	return r.GetTemplateByID(ctx, templateID)
 }
 
+// ResetTemplateAudit devuelve el smoke y el escaneo a 'pending' para que el
+// worker vuelva a correrlos, sin tocar el estado del catálogo ni el motivo de
+// rechazo. Solo cambia las columnas de auditoría.
+func (r *PostgresAdminGovernanceRepository) ResetTemplateAudit(
+	ctx context.Context,
+	tenantID, templateID string,
+) (*domain.AdminTemplateReviewItem, error) {
+	query := `
+		UPDATE lab_templates
+		SET
+			smoke_test_status = 'pending',
+			smoke_test_output = '',
+			security_audit_status = 'pending',
+			cve_critical_count = 0,
+			cve_high_count = 0,
+			security_audit_report = '{}'::jsonb,
+			security_audited_at = NULL,
+			updated_at = NOW()
+		WHERE id::text = $1 AND (tenant_id::text = $2 OR tenant_id IS NULL)
+	`
+	res, err := r.db.ExecContext(ctx, query, templateID, tenantID)
+	if err != nil {
+		return nil, fmt.Errorf("error reseteando la auditoría de la plantilla: %w", err)
+	}
+	rows, err := res.RowsAffected()
+	if err != nil {
+		return nil, fmt.Errorf("error verificando el re-escaneo: %w", err)
+	}
+	if rows == 0 {
+		return nil, fmt.Errorf("template not found")
+	}
+	return r.GetTemplateByID(ctx, templateID)
+}
+
 func (r *PostgresAdminGovernanceRepository) CreateOfficialTemplate(
 	ctx context.Context,
 	tenantID, adminID string,
@@ -425,10 +459,14 @@ func (r *PostgresAdminGovernanceRepository) CreateOfficialTemplate(
 		}
 	}
 	initialStatus := domain.InitialTemplateStatus(dto.DockerImage, dto.StackConfig != nil)
-	// El alta no declara una comprobación que no ocurrió: el worker de
-	// auditoría escribe el resultado real del smoke test y de Trivy.
-	initialSmokeStatus := "pending"
-	initialSmokeOutput := ""
+	// El servicio adjunta el resultado del smoke cuando el Constructor ya
+	// comprobó la imagen. Sin verificación, el alta no declara una
+	// comprobación que no ocurrió: queda 'pending' hasta que audite el worker.
+	initialSmokeStatus := strings.TrimSpace(dto.SmokeTestStatus)
+	if initialSmokeStatus == "" {
+		initialSmokeStatus = "pending"
+	}
+	initialSmokeOutput := strings.TrimSpace(dto.SmokeTestOutput)
 
 	targetEnv := dto.TargetEnvironment
 	if targetEnv == "" {

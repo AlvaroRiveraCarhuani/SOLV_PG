@@ -569,6 +569,15 @@ func (r *PostgresAdminGovernanceRepository) UpdateOfficialTemplate(
 		}
 	}
 
+	// El servicio adjunta el resultado del smoke cuando el Constructor ya
+	// comprobó la imagen. Un cambio técnico reinicia la auditoría con ese
+	// valor; sin verificación, vuelve a 'pending'.
+	smokeStatus := strings.TrimSpace(dto.SmokeTestStatus)
+	if smokeStatus == "" {
+		smokeStatus = "pending"
+	}
+	smokeOutput := strings.TrimSpace(dto.SmokeTestOutput)
+
 	targetEnv := strings.TrimSpace(dto.TargetEnvironment)
 	if targetEnv == "" {
 		targetEnv = "IDE_PERSISTENTE"
@@ -611,8 +620,8 @@ func (r *PostgresAdminGovernanceRepository) UpdateOfficialTemplate(
 				WHEN %s AND status NOT IN ('PAUSADA', 'SUSPENDIDA', 'paused', 'suspended') THEN 'PENDIENTE_AUDITORIA'
 				ELSE status
 			END,
-			smoke_test_status = CASE WHEN %s THEN 'pending' ELSE smoke_test_status END,
-			smoke_test_output = CASE WHEN %s THEN '' ELSE smoke_test_output END,
+			smoke_test_status = CASE WHEN %s THEN CAST($18 AS VARCHAR) ELSE smoke_test_status END,
+			smoke_test_output = CASE WHEN %s THEN CAST($19 AS VARCHAR) ELSE smoke_test_output END,
 			security_audit_status = CASE WHEN %s THEN 'pending' ELSE security_audit_status END,
 			reviewed_by = NULLIF($15, '')::uuid,
 			updated_at = NOW()
@@ -647,6 +656,8 @@ func (r *PostgresAdminGovernanceRepository) UpdateOfficialTemplate(
 		adminID,
 		templateID,
 		tenantID,
+		smokeStatus,
+		smokeOutput,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("error updating template: %w", err)

@@ -1,6 +1,8 @@
 import { Component, OnInit, OnDestroy, effect, signal, computed, inject, HostListener } from '@angular/core';
 
 const TEMPLATES_HELP_KEY = 'templates-catalog';
+/** Cadencia del refresco mientras el worker audita una plantilla. */
+const AUDIT_POLL_MS = 5000;
 import { ContextHelpService } from '@shared/help/context-help.service';
 import { InteractiveTutorialService } from '@shared/help/interactive-tutorial.service';
 import { ProductTourService } from '@shared/help/product-tour.service';
@@ -40,7 +42,8 @@ import {
   LucideInfo,
   LucideBadgeCheck,
   LucideMoreVertical,
-  LucideDownloadCloud
+  LucideDownloadCloud,
+  LucideShieldAlert
 } from '@lucide/angular';
 import { TechLogoComponent, TechIconKey } from './components/tech-logo/tech-logo.component';
 import { SearchBarComponent } from '../../../shared/components/search-bar/search-bar.component';
@@ -169,6 +172,9 @@ export class AdminTemplatesComponent implements OnInit, OnDestroy {
   }
 
   cacheStatuses = signal<Map<string, TemplateCacheStatus>>(new Map());
+  /** Plantillas con un re-escaneo en envío. */
+  readonly rescanningIds = signal<Set<string>>(new Set());
+  private auditPoll: ReturnType<typeof setInterval> | null = null;
   isWarmingAll = signal<boolean>(false);
   warmingTemplateIds = signal<Set<string>>(new Set());
 
@@ -386,6 +392,7 @@ export class AdminTemplatesComponent implements OnInit, OnDestroy {
   ngOnDestroy(): void {
     this.help.unregisterGuides(TEMPLATES_HELP_KEY);
     this.help.unregisterScreen(TEMPLATES_HELP_KEY);
+    this.stopAuditPolling();
   }
 
   /** Tutorial de revisión: sólo avanza cuando la pestaña real lo permite. */
@@ -409,6 +416,7 @@ export class AdminTemplatesComponent implements OnInit, OnDestroy {
         }
         this.isLoading.set(false);
         this.loadCacheStatuses();
+        this.scheduleAuditPolling();
       },
       error: () => {
         this.isLoading.set(false);
@@ -527,24 +535,175 @@ export class AdminTemplatesComponent implements OnInit, OnDestroy {
   }
 
   /**
-   * Estado de auditoría en español. El backend envía `passed`, `failed`,
-   * `pending` y `skipped`; cualquier otro valor se muestra tal cual para no
-   * ocultar un estado nuevo. `feminine` ajusta la concordancia con el título
-   * de la fila ("prueba" frente a "escaneo").
+   * Estado de auditoría en español. El backend envía `passed`, `warning`,
+   * `failed`, `skipped`, `pending` y `error`; cualquier otro valor se muestra
+   * tal cual para no ocultar un estado nuevo. `feminine` ajusta la concordancia
+   * con el título de la fila ("prueba" frente a "escaneo") y `neverAudited`
+   * distingue un análisis en curso de uno que nunca corrió.
    */
-  auditStatusLabel(status: string | null | undefined, feminine = false): string {
+  auditStatusLabel(status: string | null | undefined, feminine = false, neverAudited = false): string {
     switch ((status ?? '').trim().toLowerCase()) {
       case 'passed':
         return feminine ? 'Aprobada' : 'Aprobado';
+      case 'warning':
+        return 'Con advertencias';
       case 'failed':
         return feminine ? 'Fallida' : 'Fallido';
       case 'pending':
-        return 'Pendiente';
+        return neverAudited ? 'Sin analizar' : 'En análisis';
       case 'skipped':
-        return 'Sin ejecutar';
+        return 'No aplica';
+      case 'error':
+        return 'Error de escáner';
       default:
-        return (status ?? '').trim() || 'Sin ejecutar';
+        return (status ?? '').trim() || 'Sin analizar';
     }
+  }
+
+  /** Aclaración de los estados que admiten matiz (tooltip de la fila). */
+  auditStatusTooltip(status: string | null | undefined): string {
+    switch ((status ?? '').trim().toLowerCase()) {
+      case 'skipped':
+        return 'Sin binarios declarados por la plantilla';
+      case 'pending':
+        return 'La auditoría está en curso';
+      case 'error':
+        return 'El escáner no pudo completarse; se reintentará';
+      default:
+        return '';
+    }
+  }
+
+  /** La salida del smoke solo aporta cuando la prueba falló o no pudo correr. */
+  showSmokeOutput(item: AdminTemplateItem): boolean {
+    const smoke = (item.smoke_test_status || '').toLowerCase();
+    return (smoke === 'failed' || smoke === 'error') && Boolean(item.smoke_test_output?.trim());
+  }
+
+  /** Etiqueta corta de las críticas detectadas, para la pastilla de la tarjeta. */
+  criticalCveLabel(item: AdminTemplateItem): string {
+    const count = item.cve_critical_count || 0;
+    return count === 1 ? '1 CVE crítica' : `${count} CVE críticas`;
+  }
+
+  /**
+   * El mensaje del backend repite la fecha de fin de soporte. El banner la
+   * muestra una sola vez en el pie, así que se quita del texto para no
+   * duplicarla en dos formatos distintos.
+   */
+  eolMessageText(item: AdminTemplateItem): string {
+    const message = (item.eol_message ?? '').trim();
+    if (!message) return '';
+    return message
+      .replace(/\s*\((?:finaliz[óo] el |finaliza el )?\d{4}-\d{2}-\d{2}\)\s*/gi, ' ')
+      .replace(/\s*\b(?:finaliz[óo]|finaliza) el \d{4}-\d{2}-\d{2}\b/gi, '')
+      .replace(/\s*\b\d{4}-\d{2}-\d{2}\b\s*/g, ' ')
+      .replace(/\s{2,}/g, ' ')
+      .replace(/\s+([.,;])/g, '$1')
+      .trim();
+  }
+
+  /** Los estados que decide una persona no admiten re-escaneo. */
+  canRescan(item: AdminTemplateItem): boolean {
+    switch ((item.status || '').trim().toLowerCase()) {
+      case 'pausada':
+      case 'paused':
+      case 'suspendida':
+      case 'suspended':
+      case 'rechazada':
+      case 'rejected':
+        return false;
+      default:
+        return true;
+    }
+  }
+
+  isRescanning(id: string): boolean {
+    return this.rescanningIds().has(id);
+  }
+
+  /** El botón comunica el análisis en curso en vez de ofrecer una acción ya tomada. */
+  auditActionLabel(item: AdminTemplateItem): string {
+    if (this.isRescanning(item.id) || item.security_audit_status === 'pending') {
+      return 'Analizando...';
+    }
+    return item.security_audited_at ? 'Re-escanear' : 'Analizar ahora';
+  }
+
+  /** Reencola smoke y Trivy sin cambiar el estado del catálogo. */
+  triggerAudit(item: AdminTemplateItem, event?: MouseEvent): void {
+    if (event) event.stopPropagation();
+    if (!this.canRescan(item) || this.isRescanning(item.id)) return;
+    const id = item.id;
+    this.rescanningIds.update(set => new Set(set).add(id));
+
+    this.templatesService.triggerAudit(id).subscribe({
+      next: updated => {
+        this.rescanningIds.update(set => {
+          const next = new Set(set);
+          next.delete(id);
+          return next;
+        });
+        this.allTemplates.update(list => list.map(t => (t.id === updated.id ? updated : t)));
+        if (this.detailsTemplate()?.id === id) {
+          this.detailsTemplate.set(updated);
+        }
+        this.showToast(`Análisis de ${updated.name} encolado. El resultado aparece al terminar.`, 'success');
+        this.scheduleAuditPolling();
+      },
+      error: err => {
+        this.rescanningIds.update(set => {
+          const next = new Set(set);
+          next.delete(id);
+          return next;
+        });
+        this.showToast(err.error?.message || 'No se pudo iniciar el análisis de seguridad.', 'error');
+      }
+    });
+  }
+
+  /** Hay smoke o escaneo pendientes o por reintentar: conviene refrescar. */
+  readonly hasPendingAudit = computed(() => this.allTemplates().some(item => this.auditInProgress(item)));
+
+  private auditInProgress(item: AdminTemplateItem): boolean {
+    const smoke = (item.smoke_test_status || '').toLowerCase();
+    const security = (item.security_audit_status || '').toLowerCase();
+    return smoke === 'pending' || smoke === 'error' || security === 'pending' || security === 'error';
+  }
+
+  /**
+   * Refresco acotado: solo corre mientras queda una auditoría en curso y se
+   * detiene sola, para no consultar la API en reposo.
+   */
+  private scheduleAuditPolling(): void {
+    if (!this.hasPendingAudit()) {
+      this.stopAuditPolling();
+      return;
+    }
+    if (this.auditPoll !== null) return;
+    this.auditPoll = setInterval(() => this.refreshAuditState(), AUDIT_POLL_MS);
+  }
+
+  private stopAuditPolling(): void {
+    if (this.auditPoll !== null) {
+      clearInterval(this.auditPoll);
+      this.auditPoll = null;
+    }
+  }
+
+  /** Relee la lista sin spinner para reflejar el avance del worker. */
+  private refreshAuditState(): void {
+    this.templatesService.getTemplates('all').subscribe({
+      next: data => {
+        this.allTemplates.set(data);
+        const openId = this.detailsTemplate()?.id;
+        if (openId) {
+          this.detailsTemplate.set(data.find(t => t.id === openId) ?? null);
+        }
+        this.scheduleAuditPolling();
+      },
+      error: () => this.stopAuditPolling()
+    });
   }
 
   hasSecurityDetails(item: AdminTemplateItem): boolean {

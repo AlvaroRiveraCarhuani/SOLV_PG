@@ -163,6 +163,7 @@ describe('AdminTemplatesComponent Spec', () => {
     getTemplatesCacheStatus: ReturnType<typeof vi.fn>;
     warmTemplate: ReturnType<typeof vi.fn>;
     warmAllTemplates: ReturnType<typeof vi.fn>;
+    triggerAudit: ReturnType<typeof vi.fn>;
     updateOfficialTemplate: ReturnType<typeof vi.fn>;
     updateTemplateQuota: ReturnType<typeof vi.fn>;
   };
@@ -224,6 +225,11 @@ describe('AdminTemplatesComponent Spec', () => {
         already_warm: 1,
         warmed_count: 1,
         failed_count: 0
+      })),
+      triggerAudit: vi.fn().mockImplementation((id: string) => of({
+        ...mockTemplates.find(t => t.id === id),
+        smoke_test_status: 'pending',
+        security_audit_status: 'pending'
       }))
     };
 
@@ -720,10 +726,185 @@ describe('AdminTemplatesComponent Spec', () => {
     expect(panelText).not.toContain('passed');
     expect(panelText).not.toContain('failed');
 
-    expect(component.auditStatusLabel('pending')).toBe('Pendiente');
-    expect(component.auditStatusLabel('skipped', true)).toBe('Sin ejecutar');
-    expect(component.auditStatusLabel('skipped')).toBe('Sin ejecutar');
-    expect(component.auditStatusLabel(undefined)).toBe('Sin ejecutar');
+    // Todos los estados del backend tienen etiqueta en español.
+    expect(component.auditStatusLabel('passed', true)).toBe('Aprobada');
+    expect(component.auditStatusLabel('passed')).toBe('Aprobado');
+    expect(component.auditStatusLabel('warning')).toBe('Con advertencias');
+    expect(component.auditStatusLabel('failed', true)).toBe('Fallida');
+    expect(component.auditStatusLabel('failed')).toBe('Fallido');
+    expect(component.auditStatusLabel('pending')).toBe('En análisis');
+    expect(component.auditStatusLabel('pending', false, true)).toBe('Sin analizar');
+    expect(component.auditStatusLabel('skipped')).toBe('No aplica');
+    expect(component.auditStatusLabel('error')).toBe('Error de escáner');
+    expect(component.auditStatusLabel(undefined)).toBe('Sin analizar');
+    expect(component.auditStatusTooltip('skipped')).toContain('Sin binarios declarados');
+    expect(component.auditStatusTooltip('failed')).toBe('');
+  });
+
+  it('muestra la pastilla de CVE críticas en la tarjeta del catálogo', () => {
+    const risky: AdminTemplateItem = {
+      id: 'tpl-riesgo',
+      name: 'Go Runner Base',
+      docker_image: 'golang:1.24-alpine',
+      base_ram_mb: 512,
+      status: 'APROBADA',
+      target_environment: 'JUEZ_EFIMERO',
+      cve_critical_count: 2,
+      cve_high_count: 478,
+      eol_status: 'eol',
+      eol_date: '2026-02-10',
+      eol_message: 'Versión sin soporte oficial (finalizó el 2026-02-10)',
+      created_at: '2026-09-23T00:00:00Z'
+    };
+
+    component.allTemplates.set([risky]);
+    component.activeTab.set('catalog');
+    component.viewMode.set('cards');
+    fixture.detectChanges();
+
+    const card = (fixture.nativeElement as HTMLElement).querySelector('.template-card') as HTMLElement;
+    const cvePill = card.querySelector('.cve-pill') as HTMLElement;
+    expect(cvePill).not.toBeNull();
+    expect(cvePill.textContent).toContain('2 CVE críticas');
+    // La pastilla de soporte sigue al lado, sin repetir información.
+    expect(card.querySelector('.eol-pill')?.textContent).toContain('Soporte vencido');
+  });
+
+  it('el banner EOL no duplica la acción ni la fecha', () => {
+    const eolTemplate: AdminTemplateItem = {
+      id: 'tpl-eol',
+      name: 'Python 3.8 Base',
+      docker_image: 'python:3.8-slim',
+      base_ram_mb: 512,
+      status: 'APROBADA',
+      target_environment: 'IDE_PERSISTENTE',
+      eol_status: 'eol',
+      eol_date: '2026-02-10',
+      eol_message: 'Versión sin soporte oficial (finalizó el 2026-02-10)',
+      created_at: '2026-09-23T00:00:00Z'
+    };
+
+    component.allTemplates.set([eolTemplate]);
+    component.activeTab.set('catalog');
+    component.viewMode.set('cards');
+    fixture.detectChanges();
+
+    const trigger = (fixture.nativeElement as HTMLElement).querySelector('.card-details-trigger') as HTMLButtonElement;
+    trigger.click();
+    fixture.detectChanges();
+
+    const banner = (fixture.nativeElement as HTMLElement).querySelector('.details-alert') as HTMLElement;
+    expect(banner.textContent).toContain('Soporte vencido');
+    // Una sola mención de la fecha, en formato canónico del pipe.
+    expect(banner.textContent?.match(/10\/02\/2026/g)?.length).toBe(1);
+    expect(banner.textContent).not.toContain('2026-02-10');
+    // La acción de edición vive solo en el pie del drawer.
+    expect(banner.querySelector('button')).toBeNull();
+  });
+
+  it('el drawer re-escanea y refleja el estado en español', () => {
+    const audited: AdminTemplateItem = {
+      id: 'tpl-audit-action',
+      name: 'Stack con críticas',
+      docker_image: 'solv-local/stack:aaa111',
+      base_ram_mb: 768,
+      status: 'APROBADA',
+      target_environment: 'IDE_PERSISTENTE',
+      smoke_test_status: 'failed',
+      smoke_test_output: 'Faltan las siguientes herramientas declaradas en la imagen: pip',
+      security_audit_status: 'failed',
+      cve_critical_count: 2,
+      cve_high_count: 5,
+      security_audited_at: '2026-11-20T10:30:00Z',
+      created_at: '2026-09-23T00:00:00Z'
+    };
+
+    component.allTemplates.set([audited]);
+    component.activeTab.set('catalog');
+    component.viewMode.set('cards');
+    fixture.detectChanges();
+
+    (fixture.nativeElement as HTMLElement).querySelector<HTMLButtonElement>('.card-details-trigger')?.click();
+    fixture.detectChanges();
+
+    const panel = (fixture.nativeElement as HTMLElement).querySelector('drawer .drawer-panel') as HTMLElement;
+    const panelText = panel.textContent || '';
+    expect(panelText).toContain('Fallida');
+    expect(panelText).toContain('Último análisis');
+    expect(panelText).toContain('20/11/2026');
+    expect(panelText).toContain('Salida de la prueba de arranque');
+    expect(panelText).toContain('Faltan las siguientes herramientas');
+
+    const rescan = panel.querySelector('.details-audit-actions button') as HTMLButtonElement;
+    expect(rescan.textContent).toContain('Re-escanear');
+    expect(rescan.disabled).toBe(false);
+    rescan.click();
+    fixture.detectChanges();
+
+    expect(mockTemplatesService.triggerAudit).toHaveBeenCalledWith('tpl-audit-action');
+    expect(component.isRescanning('tpl-audit-action')).toBe(false);
+    // La respuesta del backend deja el drawer en «En análisis».
+    expect(panel.textContent).toContain('En análisis');
+  });
+
+  it('el botón de re-escaneo se deshabilita mientras la auditoría está pendiente', () => {
+    const pending: AdminTemplateItem = {
+      id: 'tpl-en-cola',
+      name: 'Stack en cola',
+      docker_image: 'solv-local/stack:bbb222',
+      base_ram_mb: 512,
+      status: 'APROBADA',
+      target_environment: 'IDE_PERSISTENTE',
+      smoke_test_status: 'passed',
+      security_audit_status: 'pending',
+      created_at: '2026-09-23T00:00:00Z'
+    };
+
+    component.allTemplates.set([pending]);
+    component.activeTab.set('catalog');
+    component.viewMode.set('cards');
+    fixture.detectChanges();
+
+    (fixture.nativeElement as HTMLElement).querySelector<HTMLButtonElement>('.card-details-trigger')?.click();
+    fixture.detectChanges();
+
+    const rescan = (fixture.nativeElement as HTMLElement).querySelector('.details-audit-actions button') as HTMLButtonElement;
+    expect(rescan.textContent).toContain('Analizando...');
+    expect(rescan.disabled).toBe(true);
+  });
+
+  it('refresca cada 5 s solo mientras hay auditorías en curso', () => {
+    vi.useFakeTimers();
+    try {
+      const inProgress: AdminTemplateItem = {
+        id: 'tpl-poll',
+        name: 'Stack auditando',
+        docker_image: 'solv-local/stack:ccc333',
+        base_ram_mb: 512,
+        status: 'APROBADA',
+        target_environment: 'IDE_PERSISTENTE',
+        smoke_test_status: 'pending',
+        security_audit_status: 'pending',
+        created_at: '2026-09-23T00:00:00Z'
+      };
+      mockTemplatesService.getTemplates.mockReturnValue(of([inProgress]));
+
+      component.allTemplates.set([inProgress]);
+      component.triggerAudit(inProgress);
+      const callsAfterTrigger = mockTemplatesService.getTemplates.mock.calls.length;
+
+      vi.advanceTimersByTime(5000);
+      expect(mockTemplatesService.getTemplates.mock.calls.length).toBe(callsAfterTrigger + 1);
+
+      // Sin auditorías en curso el refresco se detiene solo.
+      mockTemplatesService.getTemplates.mockReturnValue(of([{ ...inProgress, smoke_test_status: 'passed', security_audit_status: 'passed' }]));
+      vi.advanceTimersByTime(5000);
+      const callsAfterSettle = mockTemplatesService.getTemplates.mock.calls.length;
+      vi.advanceTimersByTime(15000);
+      expect(mockTemplatesService.getTemplates.mock.calls.length).toBe(callsAfterSettle);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it('oculta la marca interna SYSTEM_SEED_RUNNER en la descripción', () => {

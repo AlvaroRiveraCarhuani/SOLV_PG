@@ -464,6 +464,7 @@ func main() {
 
 	templateAuditWorker := services.NewTemplateAuditWorker(cli, govRepo)
 	templateAuditWorker.Start(ctx)
+	govService.SetAuditWorker(templateAuditWorker)
 
 	// Slice 15: Notificaciones Proactivas (ADR-034). Se crea antes del worker
 	// de vencimientos para que el recordatorio también llegue a la campana.

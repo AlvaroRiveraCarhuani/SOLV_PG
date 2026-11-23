@@ -465,6 +465,12 @@ type TemplateQuotaRepository interface {
 	UpdateTemplateQuota(ctx context.Context, tenantID, templateID, adminID string, dto UpdateTemplateQuotaDTO) (*AdminTemplateReviewItem, error)
 }
 
+// TemplateAuditRepository reencola la auditoría técnica de una plantilla sin
+// tocar su estado en el catálogo: una acción operativa no retira ni publica.
+type TemplateAuditRepository interface {
+	ResetTemplateAudit(ctx context.Context, tenantID, templateID string) (*AdminTemplateReviewItem, error)
+}
+
 // CreateOfficialTemplateDTO DTO para que el administrador registre directamente una plantilla oficial
 type CreateOfficialTemplateDTO struct {
 	Name              string                   `json:"name" validate:"required"`
@@ -483,6 +489,10 @@ type CreateOfficialTemplateDTO struct {
 	ToolsDeclared     []string                 `json:"tools_declared,omitempty"`
 	StackConfig       *StackConfig             `json:"stack_config,omitempty"`
 	VerificationJobID string                   `json:"verification_job_id,omitempty"`
+	// SmokeTestStatus y SmokeTestOutput los completa el servicio con la
+	// comprobación del Constructor. No se aceptan desde el cliente.
+	SmokeTestStatus string `json:"-"`
+	SmokeTestOutput string `json:"-"`
 	// LanguageRunners declara los lenguajes que el entorno de evaluación sabe
 	// ejecutar. Un entorno de juez con un solo lenguaje lo declara con un único
 	// ejecutor; sin ejecutores se conserva el contrato anterior (entrypoint único).
@@ -505,6 +515,10 @@ type UpdateOfficialTemplateDTO struct {
 	ToolsDeclared     []string        `json:"tools_declared,omitempty"`
 	StackConfig       *StackConfig    `json:"stack_config,omitempty"`
 	VerificationJobID string          `json:"verification_job_id,omitempty"`
+	// SmokeTestStatus y SmokeTestOutput los completa el servicio con la
+	// comprobación del Constructor. No se aceptan desde el cliente.
+	SmokeTestStatus string `json:"-"`
+	SmokeTestOutput string `json:"-"`
 	// LanguageRunners reemplaza el conjunto de lenguajes del entorno. Vacío
 	// conserva los ejecutores ya guardados.
 	LanguageRunners []LanguageRunner `json:"language_runners,omitempty"`

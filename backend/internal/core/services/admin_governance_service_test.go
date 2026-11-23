@@ -12,6 +12,8 @@ import (
 
 type mockAdminGovernanceRepo struct {
 	lastCreatedDTO      *domain.CreateOfficialTemplateDTO
+	lastUpdatedDTO      *domain.UpdateOfficialTemplateDTO
+	lastResetAuditID    string
 	lastQuotaDTO        *domain.UpdateTemplateQuotaDTO
 	lastReviewedStatus  string
 	lastRejectionReason string
@@ -181,6 +183,7 @@ func (m *mockAdminGovernanceRepo) UpdateTemplateQuota(ctx context.Context, tenan
 	}, nil
 }
 func (m *mockAdminGovernanceRepo) UpdateOfficialTemplate(ctx context.Context, tenantID, templateID, adminID string, dto domain.UpdateOfficialTemplateDTO) (*domain.AdminTemplateReviewItem, error) {
+	m.lastUpdatedDTO = &dto
 	return &domain.AdminTemplateReviewItem{
 		ID:                templateID,
 		Name:              dto.Name,

@@ -393,6 +393,10 @@ func (s *AdminGovernanceService) UpdateOfficialTemplate(
 		if err := validateTemplateVerification(ctx, s.envTestJobs, tenantID, dto.VerificationJobID, verificationConfigForUpdate(dto), true); err != nil {
 			return nil, err
 		}
+		// La edición reconstruyó y comprobó la imagen en el Constructor: el
+		// smoke ya está aprobado y solo queda el escaneo de seguridad.
+		dto.SmokeTestStatus = "passed"
+		dto.SmokeTestOutput = constructorVerifiedSmokeOutput
 	}
 
 	if domain.IsJudgeEnvironment(dto.TargetEnvironment) {

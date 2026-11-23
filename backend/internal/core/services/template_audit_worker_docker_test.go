@@ -82,8 +82,8 @@ func TestTemplateAuditWorkerSmokeFailsWhenToolIsMissing(t *testing.T) {
 	}
 
 	finalStatus, reason := resolveAuditOutcome("APROBADA", status, output, "passed", 0)
-	if finalStatus != "RECHAZADA" {
-		t.Fatalf("una plantilla aprobada con smoke fallido debía quedar RECHAZADA, obtuve %q", finalStatus)
+	if finalStatus != "APROBADA" {
+		t.Fatalf("una plantilla publicada conserva APROBADA tras un smoke fallido, obtuve %q", finalStatus)
 	}
 	if !strings.Contains(reason, "solv-herramienta-inexistente") {
 		t.Fatalf("el motivo de degradación debía conservar el detalle del smoke, obtuve %q", reason)
@@ -122,8 +122,8 @@ func TestTemplateAuditWorkerTrivyFindsCriticalCVE(t *testing.T) {
 	}
 
 	finalStatus, reason := resolveAuditOutcome("APROBADA", "passed", "", status, critical)
-	if finalStatus != "RECHAZADA" {
-		t.Fatalf("una plantilla aprobada con CVEs críticos debía quedar RECHAZADA, obtuve %q", finalStatus)
+	if finalStatus != "APROBADA" {
+		t.Fatalf("una plantilla publicada conserva APROBADA con CVEs críticos, obtuve %q", finalStatus)
 	}
 	if !strings.Contains(reason, "vulnerabilidad") {
 		t.Fatalf("el motivo debía nombrar las vulnerabilidades críticas, obtuve %q", reason)

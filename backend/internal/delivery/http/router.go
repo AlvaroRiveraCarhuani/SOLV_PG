@@ -304,6 +304,9 @@ func registerAdminRoutes(mux *http.ServeMux, deps *Handlers) {
 		mux.Handle("POST /api/v1/admin/templates/{id}/promote-to-model", adminAudited(http.HandlerFunc(deps.AdminAcademicHandler.PromoteTemplateToModel)))
 		mux.Handle("GET /api/v1/admin/templates/cache-status", admin(http.HandlerFunc(deps.AdminAcademicHandler.GetTemplatesCacheStatus)))
 		mux.Handle("POST /api/v1/admin/templates/{id}/warm", adminAudited(http.HandlerFunc(deps.AdminAcademicHandler.WarmTemplate)))
+		// Re-escaneo operativo: reencola smoke y Trivy sin tocar el estado del
+		// catálogo, y despierta al worker en lugar de esperar el tick.
+		mux.Handle("POST /api/v1/admin/templates/{id}/audit", adminAudited(http.HandlerFunc(deps.AdminAcademicHandler.ReauditTemplate)))
 		mux.Handle("POST /api/v1/admin/templates/warm-all", adminAudited(http.HandlerFunc(deps.AdminAcademicHandler.WarmAllTemplates)))
 		mux.Handle("GET /api/v1/admin/template-categories", admin(http.HandlerFunc(deps.AdminAcademicHandler.ListTemplateCategories)))
 		mux.Handle("GET /api/v1/admin/manual", admin(http.HandlerFunc(deps.AdminAcademicHandler.GetAdminManual)))

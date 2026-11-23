@@ -86,8 +86,8 @@ func TestAuditTemplatePersistsAuditOutcome(t *testing.T) {
 			wantSec:         "passed",
 		},
 		{
-			name:        "degrada por un smoke fallido",
-			current:     "APROBADA",
+			name:        "rechaza en admisión por un smoke fallido",
+			current:     "PENDIENTE_AUDITORIA",
 			smokeStatus: "failed",
 			smokeOutput: "Falta la herramienta: ripgrep",
 			secStatus:   "passed",
@@ -98,8 +98,8 @@ func TestAuditTemplatePersistsAuditOutcome(t *testing.T) {
 			wantSec:     "passed",
 		},
 		{
-			name:         "degrada por un CVE crítico",
-			current:      "APROBADA",
+			name:         "rechaza en admisión por un CVE crítico",
+			current:      "PENDIENTE_AUDITORIA",
 			smokeStatus:  "passed",
 			secStatus:    "failed",
 			cveCritical:  3,
@@ -113,6 +113,21 @@ func TestAuditTemplatePersistsAuditOutcome(t *testing.T) {
 			wantHigh:     1,
 		},
 		{
+			name:            "un re-escaneo no retira una plantilla publicada",
+			current:         "APROBADA",
+			smokeStatus:     "passed",
+			secStatus:       "failed",
+			cveCritical:     2,
+			cveHigh:         478,
+			report:          []byte(`{"Critical":2,"High":478}`),
+			wantStatus:      "APROBADA",
+			wantReasonEmpty: true,
+			wantSmoke:       "passed",
+			wantSec:         "failed",
+			wantCritical:    2,
+			wantHigh:        478,
+		},
+		{
 			name:        "conserva pendiente cuando el escaneo no produce informe",
 			current:     "PENDIENTE_AUDITORIA",
 			smokeStatus: "passed",
@@ -124,15 +139,15 @@ func TestAuditTemplatePersistsAuditOutcome(t *testing.T) {
 			wantSec:     "failed",
 		},
 		{
-			name:        "conserva aprobada si Trivy no se pudo ejecutar",
-			current:     "APROBADA",
-			smokeStatus: "passed",
-			secStatus:   "error",
-			report:      []byte(`{"error":"trivy_unavailable"}`),
-			wantStatus:  "APROBADA",
-			wantReason:  "Auditoría no completada",
-			wantSmoke:   "passed",
-			wantSec:     "error",
+			name:            "conserva aprobada sin pisar el motivo si Trivy no se pudo ejecutar",
+			current:         "APROBADA",
+			smokeStatus:     "passed",
+			secStatus:       "error",
+			report:          []byte(`{"error":"trivy_unavailable"}`),
+			wantStatus:      "APROBADA",
+			wantReasonEmpty: true,
+			wantSmoke:       "passed",
+			wantSec:         "error",
 		},
 		{
 			name:        "conserva pendiente si el smoke no se pudo ejecutar",
@@ -236,6 +251,44 @@ func TestAuditTemplatePersistsAuditOutcome(t *testing.T) {
 				t.Fatalf("reporte = %s, quiero %s", call.secReportJSON, tc.report)
 			}
 		})
+	}
+}
+
+// Un re-escaneo que solo espera Trivy no vuelve a lanzar el contenedor de
+// smoke: conserva el estado aprobado y su salida.
+func TestAuditTemplateReusesPassedSmoke(t *testing.T) {
+	repo := &recordingAuditRepo{}
+	worker := NewTemplateAuditWorker(nil, repo)
+	smokeCalls := 0
+	worker.smokeRunner = func(context.Context, *domain.AdminTemplateReviewItem) (string, string) {
+		smokeCalls++
+		return "failed", "no debía ejecutarse"
+	}
+	worker.trivyRunner = func(context.Context, string) (string, int, int, []byte) {
+		return "passed", 0, 0, []byte(`{"ok":true}`)
+	}
+
+	item := &domain.AdminTemplateReviewItem{
+		ID:                  "tpl-reaudit",
+		Name:                "Plantilla reauditada",
+		DockerImage:         "local/audit-test",
+		Status:              "APROBADA",
+		SmokeTestStatus:     "passed",
+		SmokeTestOutput:     "Verificado durante la compilación en el Constructor",
+		SecurityAuditStatus: "pending",
+	}
+	if err := worker.AuditTemplate(context.Background(), item); err != nil {
+		t.Fatalf("AuditTemplate devolvió error: %v", err)
+	}
+	if smokeCalls != 0 {
+		t.Fatalf("el smoke se ejecutó %d veces; debía reaprovecharse el aprobado", smokeCalls)
+	}
+	call := repo.calls[0]
+	if call.smokeStatus != "passed" || call.smokeOutput != item.SmokeTestOutput {
+		t.Fatalf("smoke persistido = (%q, %q), quiero el aprobado original", call.smokeStatus, call.smokeOutput)
+	}
+	if call.finalStatus != "APROBADA" {
+		t.Fatalf("estado = %q, quiero APROBADA", call.finalStatus)
 	}
 }
 

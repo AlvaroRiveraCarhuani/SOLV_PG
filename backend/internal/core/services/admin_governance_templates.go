@@ -17,7 +17,12 @@ var (
 	ErrInvalidReviewStatus      = errors.New("status must be 'approved', 'rejected', 'paused', 'suspended' or 'pending_audit'")
 	ErrRejectionReasonRequired  = errors.New("rejection_reason is required when rejecting or suspending a template")
 	ErrTemplateQuotaNotEditable = errors.New("la plantilla no admite ajuste de cuota en su estado actual")
+	ErrTemplateNotAuditable    = errors.New("la plantilla no admite re-escaneo en su estado actual")
 )
+
+// constructorVerifiedSmokeOutput documenta de dónde viene un smoke aprobado
+// sin contenedor: la compilación del Constructor ya ejecutó la comprobación.
+const constructorVerifiedSmokeOutput = "Verificado durante la compilación en el Constructor"
 
 func (s *AdminGovernanceService) ListTemplates(
 	ctx context.Context,
@@ -232,6 +237,12 @@ func (s *AdminGovernanceService) CreateOfficialTemplate(
 		if err := validateTemplateVerification(ctx, s.envTestJobs, tenantID, dto.VerificationJobID, verificationConfigForCreate(dto), true); err != nil {
 			return nil, err
 		}
+		// El Constructor ya construyó la imagen y ejecutó el smoke con las
+		// herramientas declaradas. Se persiste ese resultado en vez de un
+		// 'pending' que da a entender que nadie comprobó nada; solo falta el
+		// escaneo de Trivy, que el worker toma de inmediato.
+		dto.SmokeTestStatus = "passed"
+		dto.SmokeTestOutput = constructorVerifiedSmokeOutput
 	}
 
 	if domain.IsJudgeEnvironment(dto.TargetEnvironment) {
@@ -346,6 +357,52 @@ func (s *AdminGovernanceService) UpdateTemplateQuota(
 			return nil, ErrTemplateNotFound
 		}
 		return nil, err
+	}
+	return updated, nil
+}
+
+// ReauditTemplate reencola la auditoría técnica sin tocar el estado del
+// catálogo: deja el smoke y el escaneo en "pending" y despierta al worker para
+// que empiece en segundos. Los estados que decide una persona no se reauditan.
+func (s *AdminGovernanceService) ReauditTemplate(
+	ctx context.Context,
+	tenantID, templateID string,
+) (*domain.AdminTemplateReviewItem, error) {
+	templateID = strings.TrimSpace(templateID)
+	if templateID == "" {
+		return nil, ErrTemplateNotFound
+	}
+
+	existing, err := s.govRepo.GetTemplateByID(ctx, templateID)
+	if err != nil {
+		if strings.Contains(strings.ToLower(err.Error()), "template not found") {
+			return nil, ErrTemplateNotFound
+		}
+		return nil, err
+	}
+	if existing == nil {
+		return nil, ErrTemplateNotFound
+	}
+	if existing.TenantID != nil {
+		if owner := strings.TrimSpace(*existing.TenantID); owner != "" && owner != tenantID {
+			return nil, ErrTemplateNotFound
+		}
+	}
+	if isHumanReviewStatus(existing.Status) {
+		return nil, ErrTemplateNotAuditable
+	}
+
+	repo, ok := s.govRepo.(domain.TemplateAuditRepository)
+	if !ok {
+		return nil, errors.New("el repositorio actual no admite re-escaneo de plantillas")
+	}
+	updated, err := repo.ResetTemplateAudit(ctx, tenantID, templateID)
+	if err != nil {
+		return nil, err
+	}
+
+	if s.auditWorker != nil {
+		s.auditWorker.EnqueueTemplate(templateID)
 	}
 	return updated, nil
 }

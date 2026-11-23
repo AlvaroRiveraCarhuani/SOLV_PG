@@ -218,6 +218,16 @@ export class AdminTemplatesService {
     );
   }
 
+  /**
+   * Reencola la auditoría técnica (smoke + Trivy) sin cambiar el estado del
+   * catálogo. El backend responde 202 con la plantilla ya reiniciada.
+   */
+  triggerAudit(id: string): Observable<AdminTemplateItem> {
+    return this.http.post<ApiResponse<AdminTemplateItem>>(`${this.apiUrl}/${id}/audit`, {}).pipe(
+      map(res => res.data)
+    );
+  }
+
   warmAllTemplates(): Observable<WarmAllSummary> {
     return this.http.post<ApiResponse<WarmAllSummary>>(`${this.apiUrl}/warm-all`, {}).pipe(
       map(res => res.data)

@@ -73,6 +73,12 @@ services:
       SEAWEEDFS_ENDPOINT: http://seaweedfs:8333
       MIGRATIONS_DIR: /app/migrations
       BACKUP_DIR: /var/lib/solv/backups
+      # Caché del escáner Trivy (Docker-out-of-Docker). El contenedor hermano
+      # aquasec/trivy lo crea el daemon con la ruta del host, así que la ruta
+      # debe ser idéntica dentro y fuera del backend: si el worker usara su
+      # ~/.cache, Trivy escribiría en un directorio distinto del que lee el
+      # worker. Ver volumes: el bind repite el mismo path absoluto.
+      TRIVY_CACHE_DIR: /var/lib/solv/trivy-cache
       # Preparación de dependencias por versión (ADR-069). La raíz de árboles
       # preparados la comparte el daemon: la ruta debe ser idéntica en el host y
       # en el contenedor, porque el bind lo arma el daemon con la ruta del host
@@ -96,6 +102,9 @@ services:
       - "/var/run/docker.sock:/var/run/docker.sock"
       - solv_backups:/var/lib/solv/backups
       - "${SOLV_DEPS_HOST_PATH:-/var/lib/solv/deps}:${SOLV_DEPS_HOST_PATH:-/var/lib/solv/deps}"
+      # Base CVE compartida con el contenedor hermano de Trivy: mismo path
+      # absoluto en host y contenedor, igual criterio que las dependencias.
+      - "/var/lib/solv/trivy-cache:/var/lib/solv/trivy-cache"
     depends_on:
       postgres:
         condition: service_healthy

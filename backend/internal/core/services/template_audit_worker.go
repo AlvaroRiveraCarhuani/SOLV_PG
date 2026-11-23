@@ -94,7 +94,13 @@ type TemplateAuditWorker struct {
 	govRepo   domain.AdminGovernanceRepository
 	cacheDir  string
 	mu        sync.Mutex
-	stopCh    chan struct{}
+	// retryMu protege solo los mapas de espaciado. EnqueueTemplate lo toma en
+	// el camino HTTP y no puede esperar a que termine un escaneo (w.mu).
+	retryMu sync.Mutex
+	// wakeCh despierta al reconciliador cuando un endpoint pide una auditoría:
+	// la capacidad 1 descarta avisos repetidos sin bloquear al emisor.
+	wakeCh chan struct{}
+	stopCh chan struct{}
 	// smokeRunner y trivyRunner permiten probar AuditTemplate sin daemon ni
 	// escáner reales. El constructor los enlaza a los métodos del worker.
 	smokeRunner func(context.Context, *domain.AdminTemplateReviewItem) (string, string)
@@ -177,6 +183,7 @@ func NewTemplateAuditWorker(dockerCli *client.Client, govRepo domain.AdminGovern
 		dockerCli: dockerCli,
 		govRepo:   govRepo,
 		cacheDir:  cacheDir,
+		wakeCh:    make(chan struct{}, 1),
 		stopCh:    make(chan struct{}),
 	}
 	worker.smokeRunner = worker.runSmokeTest
@@ -211,6 +218,9 @@ func (w *TemplateAuditWorker) Start(ctx context.Context) {
 				return
 			case <-w.stopCh:
 				return
+			case <-w.wakeCh:
+				w.ensureScanner(ctx)
+				w.reconcilePending(ctx)
 			case <-ticker.C:
 				w.ensureScanner(ctx)
 				w.reconcilePending(ctx)
@@ -239,6 +249,27 @@ func (w *TemplateAuditWorker) Start(ctx context.Context) {
 
 func (w *TemplateAuditWorker) Stop() {
 	close(w.stopCh)
+}
+
+// EnqueueTemplate adelanta la auditoría de una plantilla: borra el espaciado
+// por id acumulado por una falla de infraestructura y despierta al
+// reconciliador sin esperar el tick periódico. No bloquea y admite llamadas
+// repetidas: el canal descarta el aviso sobrante si ya había uno pendiente.
+func (w *TemplateAuditWorker) EnqueueTemplate(templateID string) {
+	id := strings.TrimSpace(templateID)
+	if id == "" {
+		return
+	}
+
+	w.retryMu.Lock()
+	delete(w.templateRetry, id)
+	delete(w.templateBackoff, id)
+	w.retryMu.Unlock()
+
+	select {
+	case w.wakeCh <- struct{}{}:
+	default:
+	}
 }
 
 // ensureScanner mantiene disponible la base CVE. Si falta, la descarga antes
@@ -350,7 +381,7 @@ func (w *TemplateAuditWorker) reconcilePending(ctx context.Context) {
 			log.Printf("[TemplateAuditWorker] Plantilla %s en estado %s: auditoría omitida", item.ID, item.Status)
 			continue
 		}
-		if next, ok := w.templateRetry[item.ID]; ok && w.now().Before(next) {
+		if w.retryScheduled(item.ID) {
 			continue
 		}
 		select {
@@ -363,26 +394,50 @@ func (w *TemplateAuditWorker) reconcilePending(ctx context.Context) {
 			err := w.AuditTemplate(ctx, item)
 			switch {
 			case errors.Is(err, errAuditInfrastructure):
-				delay := w.templateBackoff[item.ID]
-				if delay == 0 {
-					delay = templateRetryBase
-				} else if delay < templateRetryMax {
-					delay *= 2
-					if delay > templateRetryMax {
-						delay = templateRetryMax
-					}
-				}
-				w.templateBackoff[item.ID] = delay
-				w.templateRetry[item.ID] = w.now().Add(delay)
+				delay := w.scheduleRetry(item.ID)
 				log.Printf("[TemplateAuditWorker] Plantilla %s sin auditoría por infraestructura; próximo intento en %s", item.ID, delay)
 			case err != nil:
 				log.Printf("[TemplateAuditWorker] Error auditando plantilla %s: %v", item.ID, err)
 			default:
-				delete(w.templateBackoff, item.ID)
-				delete(w.templateRetry, item.ID)
+				w.clearRetry(item.ID)
 			}
 		}
 	}
+}
+
+// retryScheduled informa si la plantilla todavía espera su próximo intento.
+func (w *TemplateAuditWorker) retryScheduled(id string) bool {
+	w.retryMu.Lock()
+	defer w.retryMu.Unlock()
+	next, ok := w.templateRetry[id]
+	return ok && w.now().Before(next)
+}
+
+// scheduleRetry espacia el próximo intento de una plantilla con falla de
+// infraestructura y devuelve la espera aplicada.
+func (w *TemplateAuditWorker) scheduleRetry(id string) time.Duration {
+	w.retryMu.Lock()
+	defer w.retryMu.Unlock()
+	delay := w.templateBackoff[id]
+	if delay == 0 {
+		delay = templateRetryBase
+	} else if delay < templateRetryMax {
+		delay *= 2
+		if delay > templateRetryMax {
+			delay = templateRetryMax
+		}
+	}
+	w.templateBackoff[id] = delay
+	w.templateRetry[id] = w.now().Add(delay)
+	return delay
+}
+
+// clearRetry olvida el espaciado de una plantilla que ya se auditó.
+func (w *TemplateAuditWorker) clearRetry(id string) {
+	w.retryMu.Lock()
+	defer w.retryMu.Unlock()
+	delete(w.templateBackoff, id)
+	delete(w.templateRetry, id)
 }
 
 // AuditTemplate ejecuta el smoke test de herramientas y el escaneo de vulnerabilidades Trivy
@@ -399,7 +454,13 @@ func (w *TemplateAuditWorker) AuditTemplate(ctx context.Context, item *domain.Ad
 			smokeOutput := fmt.Sprintf("ram_exceeds_host: memoria declarada (%d MB) supera el techo permitido por el host (%d MB)", item.BaseRamMB, maxAllowedRAM)
 			secStatus := "skipped"
 			reportJSON := json.RawMessage(`{"error": "ram_exceeds_host"}`)
+			// Una plantilla publicada conserva su estado aunque la cuota declarada
+			// ya no quepa: retirarla dejaría sin laboratorio a los cursos en
+			// curso. El resultado queda registrado para que una persona decida.
 			finalStatus := "RECHAZADA"
+			if isApprovedTemplateStatus(item.Status) {
+				finalStatus = item.Status
+			}
 			_ = w.govRepo.UpdateAuditResults(
 				ctx,
 				item.ID,
@@ -410,17 +471,24 @@ func (w *TemplateAuditWorker) AuditTemplate(ctx context.Context, item *domain.Ad
 				0,
 				reportJSON,
 				finalStatus,
-				smokeOutput,
+				rejectionReasonFor(finalStatus, smokeOutput),
 			)
 			return err
 		}
 	}
 
-	// Paso 1: Smoke Test efímero de herramientas declaradas (B-02)
+	// Paso 1: Smoke Test efímero de herramientas declaradas (B-02). Un
+	// re-escaneo que solo espera Trivy reaprovecha el smoke ya aprobado: el
+	// contenedor efímero no aporta información nueva y cuesta arranque y RAM.
 	if w.smokeRunner == nil {
 		w.smokeRunner = w.runSmokeTest
 	}
-	smokeStatus, smokeOutput := w.smokeRunner(ctx, item)
+	smokeStatus, smokeOutput := "", ""
+	if keepsPassedSmoke(item) {
+		smokeStatus, smokeOutput = item.SmokeTestStatus, item.SmokeTestOutput
+	} else {
+		smokeStatus, smokeOutput = w.smokeRunner(ctx, item)
+	}
 
 	// Paso 2: Escaneo de vulnerabilidades CVE con Trivy (B-03). Si el smoke no
 	// pudo ni preparar la imagen, no se lanza el escáner: no hay nada que
@@ -462,7 +530,7 @@ func (w *TemplateAuditWorker) AuditTemplate(ctx context.Context, item *domain.Ad
 		cveHigh,
 		reportJSON,
 		finalStatus,
-		failureReason,
+		rejectionReasonFor(finalStatus, failureReason),
 	)
 	if err != nil {
 		return fmt.Errorf("error persistiendo auditoría: %w", err)
@@ -490,9 +558,12 @@ func (w *TemplateAuditWorker) AuditTemplate(ctx context.Context, item *domain.Ad
 // resolveAuditOutcome decide el estado final de una auditoría. Devuelve el
 // estado que se persiste y el motivo que verá el administrador.
 //
-// Un fallo de infraestructura no es un fallo de la imagen: se conserva el
-// estado actual y la cola reintenta. Solo un smoke fallido o CVE críticos
-// retiran la plantilla del catálogo.
+// La auditoría es una puerta de admisión, no un interruptor del catálogo. Un
+// fallo de infraestructura no es un fallo de la imagen: se conserva el estado
+// y la cola reintenta. Un smoke fallido o CVE críticos rechazan solo lo que
+// todavía no se publicó; una plantilla ya aprobada conserva su estado para no
+// tumbar laboratorios de cursos en curso, y el hallazgo queda registrado en las
+// columnas de auditoría para que una persona decida retirarla.
 func resolveAuditOutcome(currentStatus, smokeStatus, smokeOutput, secStatus string, cveCritical int) (string, string) {
 	current := strings.ToUpper(strings.TrimSpace(currentStatus))
 	smokeFailed := strings.EqualFold(smokeStatus, auditStatusFailed)
@@ -506,16 +577,25 @@ func resolveAuditOutcome(currentStatus, smokeStatus, smokeOutput, secStatus stri
 	}
 
 	if !smokeFailed && !securityFailed {
-		switch current {
-		case "PENDIENTE_AUDITORIA", "PENDING":
+		if isAwaitingAuditStatus(current) {
 			return "APROBADA", ""
-		default:
-			// Aprobada sigue aprobada; pausada, suspendida o rechazada espera
-			// una decisión humana.
-			return currentStatus, ""
 		}
+		// Aprobada sigue aprobada; pausada, suspendida o rechazada espera una
+		// decisión humana.
+		return currentStatus, ""
 	}
 
+	reason := auditFailureReason(smokeFailed, smokeOutput, securityFailed, cveCritical)
+
+	// Publicada y en revisión manual: el estado lo decide una persona.
+	if isApprovedTemplateStatus(current) || isHumanReviewStatus(current) {
+		return currentStatus, reason
+	}
+	return "RECHAZADA", reason
+}
+
+// auditFailureReason arma el motivo legible de un resultado en rojo.
+func auditFailureReason(smokeFailed bool, smokeOutput string, securityFailed bool, cveCritical int) string {
 	reasons := make([]string, 0, 2)
 	if smokeFailed {
 		reason := strings.TrimSpace(smokeOutput)
@@ -531,14 +611,45 @@ func resolveAuditOutcome(currentStatus, smokeStatus, smokeOutput, secStatus stri
 		}
 		reasons = append(reasons, fmt.Sprintf("Trivy detectó %d %s", cveCritical, label))
 	}
-	reason := strings.Join(reasons, ". ")
+	return strings.Join(reasons, ". ")
+}
 
-	switch current {
+// isAwaitingAuditStatus indica que la plantilla aún no se publicó y la
+// auditoría decide su admisión.
+func isAwaitingAuditStatus(status string) bool {
+	current := strings.ToUpper(strings.TrimSpace(status))
+	return current == "PENDIENTE_AUDITORIA" || current == "PENDING"
+}
+
+// isHumanReviewStatus agrupa los estados que solo cambia una persona.
+func isHumanReviewStatus(status string) bool {
+	switch strings.ToUpper(strings.TrimSpace(status)) {
 	case "PAUSADA", "PAUSED", "SUSPENDIDA", "SUSPENDED", "RECHAZADA", "REJECTED":
-		return currentStatus, reason
+		return true
 	default:
-		return "RECHAZADA", reason
+		return false
 	}
+}
+
+// keepsPassedSmoke indica que el smoke ya está aprobado y solo falta el
+// escaneo. Repetir el contenedor efímero en ese caso no aporta información:
+// se conserva el resultado guardado y se ejecuta Trivy directamente.
+func keepsPassedSmoke(item *domain.AdminTemplateReviewItem) bool {
+	if item == nil || !strings.EqualFold(item.SmokeTestStatus, auditStatusPassed) {
+		return false
+	}
+	security := strings.ToLower(strings.TrimSpace(item.SecurityAuditStatus))
+	return security == "pending" || security == auditStatusError
+}
+
+// rejectionReasonFor no pisa el motivo de una plantilla publicada: un
+// re-escaneo que encuentra hallazgos se registra en sus propias columnas y el
+// motivo de rechazo queda para cuando una persona retira la plantilla.
+func rejectionReasonFor(finalStatus, reason string) string {
+	if isApprovedTemplateStatus(finalStatus) {
+		return ""
+	}
+	return reason
 }
 
 func infrastructureAuditReason(smokeStatus, smokeOutput, secStatus string) string {

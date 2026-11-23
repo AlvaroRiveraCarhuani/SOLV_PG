@@ -314,6 +314,39 @@ func (h *AdminAcademicHandler) WarmTemplate(w http.ResponseWriter, r *http.Reque
 	SendJSON(w, http.StatusOK, status, "Plantilla precalentada exitosamente")
 }
 
+// ReauditTemplate reencola la auditoría técnica de una plantilla y adelanta al
+// worker. No cambia el estado del catálogo: la auditoría es una puerta de
+// admisión, no un interruptor.
+func (h *AdminAcademicHandler) ReauditTemplate(w http.ResponseWriter, r *http.Request) {
+	tenantID := getTenantFromCtx(r)
+	templateID := strings.TrimSpace(r.PathValue("id"))
+	if templateID == "" {
+		SendError(w, http.StatusBadRequest, "invalid_id", "ID de plantilla requerido")
+		return
+	}
+
+	if h.govService == nil {
+		SendError(w, http.StatusInternalServerError, "service_unavailable", "Servicio de gobernanza no configurado")
+		return
+	}
+
+	item, err := h.govService.ReauditTemplate(r.Context(), tenantID, templateID)
+	if err != nil {
+		if errors.Is(err, services.ErrTemplateNotFound) {
+			SendError(w, http.StatusNotFound, "template_not_found", "plantilla no encontrada")
+			return
+		}
+		if errors.Is(err, services.ErrTemplateNotAuditable) {
+			SendError(w, http.StatusConflict, "template_not_auditable", err.Error())
+			return
+		}
+		SendError(w, http.StatusInternalServerError, "audit_failed", err.Error())
+		return
+	}
+
+	SendJSON(w, http.StatusAccepted, item, "Auditoría de la plantilla encolada")
+}
+
 // WarmAllTemplates precalienta secuencialmente todas las plantillas activas que no se encuentren en disco
 func (h *AdminAcademicHandler) WarmAllTemplates(w http.ResponseWriter, r *http.Request) {
 	tenantID := getTenantFromCtx(r)

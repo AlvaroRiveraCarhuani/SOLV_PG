@@ -23,6 +23,9 @@ type AdminGovernanceService struct {
 	poolResetter func(ctx context.Context) (connectionsRecycled int64, err error)
 	cacheService *TemplateCacheService
 	envTestJobs  domain.EnvTestJobRepository
+	// auditWorker permite adelantar la auditoría técnica desde el panel sin
+	// esperar el tick del reconciliador. Se inyecta en main.go.
+	auditWorker *TemplateAuditWorker
 }
 
 func NewAdminGovernanceService(
@@ -42,6 +45,13 @@ func (s *AdminGovernanceService) SetEnvTestJobRepository(repo domain.EnvTestJobR
 
 func (s *AdminGovernanceService) SetCacheService(cache *TemplateCacheService) *AdminGovernanceService {
 	s.cacheService = cache
+	return s
+}
+
+// SetAuditWorker conecta el panel con el worker de auditoría para reencolar
+// una plantilla al instante tras un re-escaneo manual.
+func (s *AdminGovernanceService) SetAuditWorker(worker *TemplateAuditWorker) *AdminGovernanceService {
+	s.auditWorker = worker
 	return s
 }
 
