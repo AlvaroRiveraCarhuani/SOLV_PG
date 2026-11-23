@@ -10,17 +10,20 @@ import {
   LucideCheckCircle2,
   LucideChevronDown,
   LucideChevronUp,
+  LucideColumns2,
   LucideCopy,
   LucideExternalLink,
   LucideFileCode,
   LucideFileText,
   LucideLayers,
   LucideLoader2,
+  LucideMaximize2,
   LucidePlay,
   LucideRefreshCw,
   LucideRotateCcw,
   LucideShield,
-  LucideTerminal
+  LucideTerminal,
+  LucideX
 } from '@lucide/angular';
 import { MachineDataDirective } from '@shared/directives/machine-data.directive';
 import { CodeEditorComponent } from '@shared/components/code-editor/code-editor.component';
@@ -120,17 +123,20 @@ export function formatCPUQuota(cpuMillis: number): string {
     LucideCheckCircle2,
     LucideChevronDown,
     LucideChevronUp,
+    LucideColumns2,
     LucideCopy,
     LucideExternalLink,
     LucideFileCode,
     LucideFileText,
     LucideLayers,
     LucideLoader2,
+    LucideMaximize2,
     LucidePlay,
     LucideRefreshCw,
     LucideRotateCcw,
     LucideShield,
-    LucideTerminal
+    LucideTerminal,
+    LucideX
   ],
   templateUrl: './student-exercise-solver.component.html',
   styleUrl: './student-exercise-solver.component.scss'
@@ -166,6 +172,13 @@ export class StudentExerciseSolverComponent implements OnInit {
   readonly consoleOpen = signal<boolean>(true);
   readonly activeConsoleTab = signal<'test' | 'submit'>('test');
   readonly copiedCaseIndex = signal<number | null>(null);
+
+  // Layout interactivo: modo de visualización y splitters redimensionables
+  readonly viewMode = signal<'both' | 'statement' | 'editor'>('both');
+  readonly splitRatio = signal<number>(42);
+  readonly isDraggingSplitter = signal<boolean>(false);
+  readonly consoleHeight = signal<number>(248);
+  readonly isDraggingConsoleSplitter = signal<boolean>(false);
 
   // Modal de confirmación para examen
   readonly examConfirmModalOpen = signal<boolean>(false);
@@ -316,6 +329,7 @@ export class StudentExerciseSolverComponent implements OnInit {
 
   readonly canResubmitProject = computed<boolean>(() => this.exercise()?.allow_resubmit ?? true);
   readonly isExamProject = computed<boolean>(() => (this.exercise()?.purpose ?? 'class') === 'exam');
+  readonly examBannerDismissed = signal<boolean>(false);
 
   readonly isExamExpired = computed<boolean>(() => {
     const due = this.exercise()?.due_date;
@@ -444,6 +458,58 @@ export class StudentExerciseSolverComponent implements OnInit {
     }
   }
 
+  setViewMode(mode: 'both' | 'statement' | 'editor'): void {
+    this.viewMode.set(mode);
+  }
+
+  onSplitterMouseDown(event: MouseEvent): void {
+    event.preventDefault();
+    this.isDraggingSplitter.set(true);
+
+    const onMouseMove = (moveEvent: MouseEvent) => {
+      const container = document.querySelector('.workbench-split-layout') as HTMLElement;
+      if (!container) return;
+      const rect = container.getBoundingClientRect();
+      const currentX = moveEvent.clientX - rect.left;
+      const percent = (currentX / rect.width) * 100;
+      this.splitRatio.set(Math.max(20, Math.min(80, Math.round(percent))));
+    };
+
+    const onMouseUp = () => {
+      this.isDraggingSplitter.set(false);
+      window.removeEventListener('mousemove', onMouseMove);
+      window.removeEventListener('mouseup', onMouseUp);
+    };
+
+    window.addEventListener('mousemove', onMouseMove);
+    window.addEventListener('mouseup', onMouseUp);
+  }
+
+  onConsoleSplitterMouseDown(event: MouseEvent): void {
+    event.preventDefault();
+    if (!this.consoleOpen()) {
+      this.consoleOpen.set(true);
+    }
+    this.isDraggingConsoleSplitter.set(true);
+
+    const onMouseMove = (moveEvent: MouseEvent) => {
+      const container = document.querySelector('.workbench-right-pane') as HTMLElement;
+      if (!container) return;
+      const rect = container.getBoundingClientRect();
+      const newHeight = rect.bottom - moveEvent.clientY;
+      this.consoleHeight.set(Math.max(120, Math.min(Math.round(rect.height * 0.75), Math.round(newHeight))));
+    };
+
+    const onMouseUp = () => {
+      this.isDraggingConsoleSplitter.set(false);
+      window.removeEventListener('mousemove', onMouseMove);
+      window.removeEventListener('mouseup', onMouseUp);
+    };
+
+    window.addEventListener('mousemove', onMouseMove);
+    window.addEventListener('mouseup', onMouseUp);
+  }
+
   goBack(): void {
     if (typeof window !== 'undefined' && (window.history.state?.navigationId ?? 0) > 1) {
       this.location.back();
@@ -489,6 +555,11 @@ export class StudentExerciseSolverComponent implements OnInit {
     }
 
     this.exercise.set(data);
+    try {
+      this.examBannerDismissed.set(sessionStorage.getItem(`solv_exam_banner_dismissed_${id}`) === 'true');
+    } catch {
+      this.examBannerDismissed.set(false);
+    }
 
     // Cargar historial previo de este ejercicio si existe
     const history = this.studentService.submissionsHistory ? this.studentService.submissionsHistory() : [];
@@ -647,6 +718,18 @@ export class StudentExerciseSolverComponent implements OnInit {
       );
     } finally {
       this.isStartingEnvironment.set(false);
+    }
+  }
+
+  dismissExamBanner(): void {
+    this.examBannerDismissed.set(true);
+    const id = this.exercise()?.id;
+    if (id) {
+      try {
+        sessionStorage.setItem(`solv_exam_banner_dismissed_${id}`, 'true');
+      } catch {
+        // storage unavailable
+      }
     }
   }
 

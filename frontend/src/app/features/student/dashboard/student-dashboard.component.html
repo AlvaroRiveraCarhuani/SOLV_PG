@@ -144,34 +144,41 @@
           <ul class="due-list">
             @for (due of dueSoon(); track due.exercise_id) {
               <li class="due-row">
-                <div class="due-date-badge font-mono" machineData>
-                  <time class="due-date-day" [attr.datetime]="due.due_date">{{ due.due_date | dateText:'daymonth' }}</time>
-                </div>
-
-                <div class="due-main">
-                  <div class="due-title-row">
-                    @if (isIdeExercise(due)) {
-                      <svg lucideLaptop class="modality-icon" aria-hidden="true"></svg>
-                    } @else {
-                      <svg lucideTerminal class="modality-icon" aria-hidden="true"></svg>
-                    }
-                    <span class="due-title">{{ due.title }}</span>
-                    @if (isExam(due)) {
-                      <span class="exam-mini-badge">Examen</span>
-                    }
+                <a class="due-row-link" [routerLink]="['/student/exercises', due.exercise_id]">
+                  <div class="due-date-badge font-mono" machineData>
+                    <time class="due-date-day" [attr.datetime]="due.due_date">{{ due.due_date | dateText:'daymonth' }}</time>
+                    <time class="due-date-time font-mono" [attr.datetime]="due.due_date">{{ due.due_date | dateText:'time' }}</time>
                   </div>
-                  <div class="due-sub">
-                    <span class="subject-code font-mono" machineData>{{ due.subject_code }}</span>
-                    <span class="subject-name">{{ due.subject_name }}</span>
-                    <span class="meta-sep">·</span>
-                    <span class="urgency-label" [class.is-urgent]="getUrgencyLabel(due.due_date) === 'Hoy'">
-                      {{ getUrgencyLabel(due.due_date) }}
+
+                  <div class="due-main">
+                    <div class="due-title-row">
+                      @if (isIdeExercise(due)) {
+                        <svg lucideLaptop class="modality-icon" aria-hidden="true"></svg>
+                      } @else {
+                        <svg lucideTerminal class="modality-icon" aria-hidden="true"></svg>
+                      }
+                      <span class="due-title">{{ due.title }}</span>
+                      @if (isExam(due)) {
+                        <span class="exam-mini-badge">Examen</span>
+                      }
+                    </div>
+                    <div class="due-sub">
+                      <span class="subject-code font-mono" machineData>{{ due.subject_code }}</span>
+                      <span class="subject-name">{{ due.subject_name }}</span>
+                      <span class="meta-sep">·</span>
+                      <span class="urgency-label" [class.is-urgent]="getUrgencyLabel(due.due_date) === 'Hoy'">
+                        {{ getUrgencyLabel(due.due_date) }}
+                      </span>
+                      <span class="meta-sep">·</span>
+                      <span>Hasta <time class="font-mono" [attr.datetime]="due.due_date">{{ due.due_date | dateText:'time' }}</time></span>
+                    </div>
+                  </div>
+
+                  <div class="due-action-col">
+                    <span class="action-indicator">
+                      <span>{{ isExam(due) ? 'Iniciar' : 'Continuar' }} <span class="arrow">→</span></span>
                     </span>
                   </div>
-                </div>
-
-                <a class="btn-secondary btn-sm action-btn" [routerLink]="['/student/exercises', due.exercise_id]">
-                  <span>{{ isExam(due) ? 'Iniciar →' : 'Continuar →' }}</span>
                 </a>
               </li>
             }
@@ -246,21 +253,23 @@
           <ul class="recent-list">
             @for (sub of recent(); track sub.id) {
               <li class="recent-item">
-                <div class="recent-item-main">
-                  <span class="recent-title">{{ sub.exercise_title || 'Ejercicio' }}</span>
-                  <div class="recent-meta-line">
-                    @if (sub.score !== undefined && sub.score !== null) {
-                      <span class="recent-score font-mono" machineData>{{ sub.score }} / 100</span>
-                      <span class="meta-sep">·</span>
-                    }
-                    <time class="recent-date font-mono" [attr.datetime]="sub.submitted_at">
-                      {{ sub.submitted_at | dateText:'datetime' }}
-                    </time>
+                <a class="recent-item-link" [routerLink]="['/student/history', sub.id]">
+                  <div class="recent-item-main">
+                    <span class="recent-title">{{ sub.exercise_title || 'Ejercicio' }}</span>
+                    <div class="recent-meta-line">
+                      @if (sub.score !== undefined && sub.score !== null) {
+                        <span class="recent-score font-mono" machineData>{{ sub.score }} / 100</span>
+                        <span class="meta-sep">·</span>
+                      }
+                      <time class="recent-date font-mono" [attr.datetime]="sub.submitted_at">
+                        {{ sub.submitted_at | dateText:'datetime' }}
+                      </time>
+                    </div>
                   </div>
-                </div>
-                <div class="recent-badge-wrap">
-                  <verdict-badge [verdict]="sub.verdict" [origin]="sub.verdict_origin" size="sm" />
-                </div>
+                  <div class="recent-badge-wrap">
+                    <verdict-badge [verdict]="sub.verdict" [origin]="sub.verdict_origin" size="sm" />
+                  </div>
+                </a>
               </li>
             }
           </ul>

@@ -13,6 +13,7 @@ import {
 import { StudentService, CourseCurricularMap, CurricularModuleMap, CurricularExercise } from '@core/services/student.service';
 import { MachineDataDirective } from '@shared/directives/machine-data.directive';
 import { EnvironmentLabelPipe } from '@shared/pipes/environment-label.pipe';
+import { DateTextPipe } from '@shared/pipes/date-text.pipe';
 
 type CurricularFilterTab = 'all' | 'pending' | 'exam' | 'completed';
 
@@ -24,6 +25,7 @@ type CurricularFilterTab = 'all' | 'pending' | 'exam' | 'completed';
     RouterModule,
     MachineDataDirective,
     EnvironmentLabelPipe,
+    DateTextPipe,
     LucideAlertCircle,
     LucideBookOpen,
     LucideCheck,
@@ -119,7 +121,7 @@ export class CurricularMapComponent {
   }
 
   isExerciseCompleted(ex: CurricularExercise): boolean {
-    return (ex.best_score !== null && ex.best_score !== undefined && ex.best_score >= 60);
+    return ex.best_score !== null && ex.best_score !== undefined && ex.best_score >= 51;
   }
 
   isExerciseInProgress(ex: CurricularExercise): boolean {
@@ -138,5 +140,11 @@ export class CurricularMapComponent {
   getEnvironmentType(ex: CurricularExercise): string {
     const item = ex as unknown as { environment_type?: string };
     return item.environment_type || (this.isIdeExercise(ex) ? 'IDE_PERSISTENTE' : 'JUEZ_EFIMERO');
+  }
+
+  getExerciseLink(ex: CurricularExercise): string[] {
+    return this.isExerciseCompleted(ex)
+      ? ['/student/history', ex.id]
+      : ['/student/exercises', ex.id];
   }
 }

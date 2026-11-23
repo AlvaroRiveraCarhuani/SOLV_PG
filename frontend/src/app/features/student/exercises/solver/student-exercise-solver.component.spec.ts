@@ -584,4 +584,147 @@ describe('StudentExerciseSolverComponent', () => {
     backBtn?.click();
     expect(goBackSpy).toHaveBeenCalled();
   });
+
+  it('permite descartar el banner de modo examen y persiste en sessionStorage', () => {
+    sessionStorage.clear();
+    component.exercise.set({
+      id: 'ex-exam-1',
+      subject_id: 'subj-101',
+      title: 'Examen de Algoritmos',
+      description: 'Problema de examen',
+      type: 'algorithm',
+      environment_type: 'JUEZ_EFIMERO',
+      difficulty: 'medium',
+      purpose: 'exam',
+      language: 'python',
+      boilerplate: 'print("test")',
+      time_limit_ms: 1000,
+      memory_limit_mb: 256,
+      constraints: [],
+      public_test_cases: []
+    });
+    fixture.detectChanges();
+
+    expect(component.isExamProject()).toBe(true);
+    expect(component.examBannerDismissed()).toBe(false);
+
+    const bannerBefore = fixture.nativeElement.querySelector('.exam-amber-banner');
+    expect(bannerBefore).not.toBeNull();
+
+    const closeBtn = fixture.nativeElement.querySelector('.banner-close-btn') as HTMLButtonElement | null;
+    expect(closeBtn).not.toBeNull();
+    closeBtn?.click();
+    fixture.detectChanges();
+
+    expect(component.examBannerDismissed()).toBe(true);
+    expect(sessionStorage.getItem('solv_exam_banner_dismissed_ex-exam-1')).toBe('true');
+
+    const bannerAfter = fixture.nativeElement.querySelector('.exam-amber-banner');
+    expect(bannerAfter).toBeNull();
+  });
+
+  describe('modos de visualización y splitters interactivos', () => {
+    beforeEach(() => {
+      component.exercise.set({
+        id: 'ex-101',
+        subject_id: 'subj-101',
+        title: 'Suma de Enteros',
+        description: 'Lee dos números y muestra su suma.',
+        type: 'algorithm',
+        environment_type: 'JUEZ_EFIMERO',
+        difficulty: 'easy',
+        purpose: 'class',
+        language: 'python',
+        boilerplate: 'print("test")',
+        time_limit_ms: 1000,
+        memory_limit_mb: 128,
+        constraints: [],
+        public_test_cases: []
+      });
+      fixture.detectChanges();
+    });
+
+    it('inicia en modo dividido con proporción 42% por defecto', () => {
+      expect(component.viewMode()).toBe('both');
+      expect(component.splitRatio()).toBe(42);
+      expect(component.consoleHeight()).toBe(248);
+
+      const splitLayout = fixture.nativeElement.querySelector('.workbench-split-layout');
+      expect(splitLayout.classList).toContain('layout-both');
+      expect(fixture.nativeElement.querySelector('.workbench-left-pane')).not.toBeNull();
+      expect(fixture.nativeElement.querySelector('.workbench-right-pane')).not.toBeNull();
+      expect(fixture.nativeElement.querySelector('.layout-splitter')).not.toBeNull();
+    });
+
+    it('conmuta a modo consigna ocultando el editor y splitter', () => {
+      component.setViewMode('statement');
+      fixture.detectChanges();
+
+      expect(component.viewMode()).toBe('statement');
+      const splitLayout = fixture.nativeElement.querySelector('.workbench-split-layout');
+      expect(splitLayout.classList).toContain('layout-statement');
+      expect(fixture.nativeElement.querySelector('.workbench-left-pane')).not.toBeNull();
+      expect(fixture.nativeElement.querySelector('.workbench-right-pane')).toBeNull();
+      expect(fixture.nativeElement.querySelector('.layout-splitter')).toBeNull();
+    });
+
+    it('conmuta a modo editor (modo enfoque) ocultando la consigna y splitter', () => {
+      component.setViewMode('editor');
+      fixture.detectChanges();
+
+      expect(component.viewMode()).toBe('editor');
+      const splitLayout = fixture.nativeElement.querySelector('.workbench-split-layout');
+      expect(splitLayout.classList).toContain('layout-editor');
+      expect(fixture.nativeElement.querySelector('.workbench-left-pane')).toBeNull();
+      expect(fixture.nativeElement.querySelector('.workbench-right-pane')).not.toBeNull();
+      expect(fixture.nativeElement.querySelector('.layout-splitter')).toBeNull();
+    });
+
+    it('permite cambiar el modo desde los botones de la barra superior', () => {
+      const modeButtons = fixture.nativeElement.querySelectorAll('.btn-mode-toggle');
+      expect(modeButtons.length).toBe(3);
+
+      // Botón 1: Consigna
+      (modeButtons[1] as HTMLButtonElement).click();
+      fixture.detectChanges();
+      expect(component.viewMode()).toBe('statement');
+
+      // Botón 2: Editor
+      (modeButtons[2] as HTMLButtonElement).click();
+      fixture.detectChanges();
+      expect(component.viewMode()).toBe('editor');
+
+      // Botón 0: Dividido
+      (modeButtons[0] as HTMLButtonElement).click();
+      fixture.detectChanges();
+      expect(component.viewMode()).toBe('both');
+    });
+
+    it('inicia el arrastre del divisor de columnas con onSplitterMouseDown', () => {
+      const event = new MouseEvent('mousedown', { cancelable: true });
+      vi.spyOn(event, 'preventDefault');
+
+      component.onSplitterMouseDown(event);
+      expect(event.preventDefault).toHaveBeenCalled();
+      expect(component.isDraggingSplitter()).toBe(true);
+
+      // MouseUp finaliza el arrastre
+      window.dispatchEvent(new MouseEvent('mouseup'));
+      expect(component.isDraggingSplitter()).toBe(false);
+    });
+
+    it('inicia el arrastre del divisor de la consola con onConsoleSplitterMouseDown', () => {
+      component.consoleOpen.set(false);
+      const event = new MouseEvent('mousedown', { cancelable: true });
+      vi.spyOn(event, 'preventDefault');
+
+      component.onConsoleSplitterMouseDown(event);
+      expect(event.preventDefault).toHaveBeenCalled();
+      expect(component.consoleOpen()).toBe(true);
+      expect(component.isDraggingConsoleSplitter()).toBe(true);
+
+      window.dispatchEvent(new MouseEvent('mouseup'));
+      expect(component.isDraggingConsoleSplitter()).toBe(false);
+    });
+  });
 });

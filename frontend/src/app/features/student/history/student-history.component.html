@@ -6,53 +6,153 @@
     </div>
   </header>
 
+  <!-- Barra unificada de búsqueda y popover de filtros -->
   <div class="history-toolbar">
-    <div class="toolbar-field">
-      <span class="toolbar-label">Materia</span>
-      <combobox
-        [options]="subjectOptions()"
-        [value]="subjectFilter()"
-        (valueChange)="subjectFilter.set($event)"
-        [compact]="true"
-        [showSearchIcon]="false"
-        placeholder="Todas las materias"
-        inputAriaLabel="Filtrar por materia"
-      />
+    <div class="toolbar-left">
+      <div class="search-box">
+        <search-bar
+          [query]="searchQuery()"
+          placeholder="Buscar por título de ejercicio..."
+          ariaLabel="Buscar entregas"
+          (queryChange)="searchQuery.set($event)"
+          (cleared)="searchQuery.set('')"
+        />
+      </div>
+
+      <filter-popover
+        buttonLabel="Filtros"
+        [activeCount]="activeFilterCount()"
+        [canClear]="hasActiveFilters()"
+        width="540px"
+        triggerAriaLabel="Abrir filtros de entregas"
+        (cleared)="clearAllFilters()"
+      >
+        <div class="filters-grid">
+          <!-- Columna 1: Materia -->
+          <div class="filter-col">
+            <span class="filter-col-title">MATERIA</span>
+            <button
+              type="button"
+              class="filter-option"
+              [class.is-active]="subjectFilter() === 'all'"
+              (click)="setSubject('all')"
+            >
+              <span>Todas las materias</span>
+              @if (subjectFilter() === 'all') { <svg lucideCheck class="check-icon" aria-hidden="true"></svg> }
+            </button>
+            @for (opt of subjectFilterOptions(); track opt.id) {
+              <button
+                type="button"
+                class="filter-option"
+                [class.is-active]="subjectFilter() === opt.value"
+                (click)="setSubject(opt.value)"
+              >
+                <span class="option-text">{{ opt.label }}</span>
+                @if (subjectFilter() === opt.value) { <svg lucideCheck class="check-icon" aria-hidden="true"></svg> }
+              </button>
+            }
+          </div>
+
+          <!-- Columna 2: Resultado -->
+          <div class="filter-col">
+            <span class="filter-col-title">RESULTADO</span>
+            <button
+              type="button"
+              class="filter-option"
+              [class.is-active]="verdictFilter() === 'all'"
+              (click)="setVerdict('all')"
+            >
+              <span>Todos los resultados</span>
+              @if (verdictFilter() === 'all') { <svg lucideCheck class="check-icon" aria-hidden="true"></svg> }
+            </button>
+            @for (opt of verdictFilterOptions; track opt.id) {
+              <button
+                type="button"
+                class="filter-option"
+                [class.is-active]="verdictFilter() === opt.value"
+                (click)="setVerdict(opt.value)"
+              >
+                <span>{{ opt.label }}</span>
+                @if (verdictFilter() === opt.value) { <svg lucideCheck class="check-icon" aria-hidden="true"></svg> }
+              </button>
+            }
+          </div>
+
+          <!-- Columna 3: Entorno -->
+          <div class="filter-col">
+            <span class="filter-col-title">ENTORNO</span>
+            <button
+              type="button"
+              class="filter-option"
+              [class.is-active]="environmentFilter() === 'all'"
+              (click)="setEnvironment('all')"
+            >
+              <span>Todos los entornos</span>
+              @if (environmentFilter() === 'all') { <svg lucideCheck class="check-icon" aria-hidden="true"></svg> }
+            </button>
+            @for (opt of environmentFilterOptions; track opt.id) {
+              <button
+                type="button"
+                class="filter-option"
+                [class.is-active]="environmentFilter() === opt.value"
+                (click)="setEnvironment(opt.value)"
+              >
+                <span>{{ opt.label }}</span>
+                @if (environmentFilter() === opt.value) { <svg lucideCheck class="check-icon" aria-hidden="true"></svg> }
+              </button>
+            }
+          </div>
+        </div>
+      </filter-popover>
     </div>
-    <div class="toolbar-field">
-      <span class="toolbar-label">Resultado</span>
-      <combobox
-        [options]="verdictOptions"
-        [value]="verdictFilter()"
-        (valueChange)="verdictFilter.set($event)"
-        [compact]="true"
-        [showSearchIcon]="false"
-        placeholder="Todos los resultados"
-        inputAriaLabel="Filtrar por resultado"
-      />
-    </div>
-    <div class="toolbar-field">
-      <span class="toolbar-label">Entorno</span>
-      <combobox
-        [options]="environmentOptions"
-        [value]="environmentFilter()"
-        (valueChange)="environmentFilter.set($event)"
-        [compact]="true"
-        [showSearchIcon]="false"
-        placeholder="Todos los entornos"
-        inputAriaLabel="Filtrar por tipo de entorno"
-      />
-    </div>
-    <div class="toolbar-search">
-      <search-bar
-        [query]="searchQuery()"
-        placeholder="Buscar por título de ejercicio..."
-        ariaLabel="Buscar entregas"
-        (queryChange)="searchQuery.set($event)"
-        (cleared)="searchQuery.set('')"
-      />
+
+    <div class="toolbar-right">
+      <span class="submissions-count font-mono" machineData>
+        {{ filteredSubmissions().length }} de {{ submissions().length }} entregas
+      </span>
     </div>
   </div>
+
+  <!-- Chips removibles cuando hay filtros activos -->
+  @if (hasActiveFilters()) {
+    <div class="active-filters-bar">
+      @if (searchQuery().trim()) {
+        <span class="filter-chip">
+          <span>Búsqueda: "{{ searchQuery() }}"</span>
+          <button type="button" class="btn-chip-remove" (click)="searchQuery.set('')" aria-label="Quitar búsqueda">
+            <svg lucideX class="chip-x" aria-hidden="true"></svg>
+          </button>
+        </span>
+      }
+      @if (subjectFilter() !== 'all') {
+        <span class="filter-chip">
+          <span>Materia: {{ selectedSubjectLabel() }}</span>
+          <button type="button" class="btn-chip-remove" (click)="setSubject('all')" aria-label="Quitar filtro de materia">
+            <svg lucideX class="chip-x" aria-hidden="true"></svg>
+          </button>
+        </span>
+      }
+      @if (verdictFilter() !== 'all') {
+        <span class="filter-chip">
+          <span>Resultado: {{ selectedVerdictLabel() }}</span>
+          <button type="button" class="btn-chip-remove" (click)="setVerdict('all')" aria-label="Quitar filtro de resultado">
+            <svg lucideX class="chip-x" aria-hidden="true"></svg>
+          </button>
+        </span>
+      }
+      @if (environmentFilter() !== 'all') {
+        <span class="filter-chip">
+          <span>Entorno: {{ selectedEnvironmentLabel() }}</span>
+          <button type="button" class="btn-chip-remove" (click)="setEnvironment('all')" aria-label="Quitar filtro de entorno">
+            <svg lucideX class="chip-x" aria-hidden="true"></svg>
+          </button>
+        </span>
+      }
+      <button type="button" class="btn-ghost btn-sm clear-all-btn" (click)="clearAllFilters()">
+        Limpiar filtros
+      </button>
+    </div>
+  }
 
   @if (isLoading()) {
     <skeleton-loader variant="table" [rows]="4" [columns]="7" />
@@ -144,7 +244,6 @@
                 <span class="subject-name">{{ sub.subject_name }}</span>
               </td>
               <td class="cell-verdict">
-                <!-- Un proyecto no tiene veredicto del juez: la nota es la que habla. -->
                 @if (sub.verdict || sub.verdict_origin) {
                   <verdict-badge [verdict]="sub.verdict" [origin]="sub.verdict_origin" size="sm" />
                 }

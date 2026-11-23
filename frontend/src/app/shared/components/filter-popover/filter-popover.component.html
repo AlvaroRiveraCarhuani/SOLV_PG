@@ -27,7 +27,14 @@
       (dismiss)="close()">
       <header class="filter-panel-header">
         <span class="filter-panel-title">FILTROS</span>
-        <button type="button" class="btn-ghost filter-clear" (click)="clear()">Limpiar</button>
+        <button
+          type="button"
+          class="btn-ghost filter-clear"
+          [disabled]="!isClearable()"
+          (click)="clear()"
+        >
+          Limpiar
+        </button>
       </header>
       <div class="filter-panel-body">
         <ng-content />

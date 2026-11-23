@@ -3,6 +3,7 @@ import {
   Component,
   ElementRef,
   HostListener,
+  computed,
   input,
   output,
   signal,
@@ -40,12 +41,21 @@ export class FilterPopoverComponent {
   readonly activeCount = input<number>(0);
   readonly width = input<string>('440px');
   readonly triggerAriaLabel = input<string>('Abrir filtros');
+  readonly canClear = input<boolean | undefined>(undefined);
   readonly cleared = output<void>();
 
   readonly open = signal(false);
   readonly panelLeft = signal(0);
   readonly panelWidth = signal(FALLBACK_WIDTH);
   readonly panelId = `filter-popover-${nextFilterPopoverId++}`;
+
+  readonly isClearable = computed<boolean>(() => {
+    const explicit = this.canClear();
+    if (explicit !== undefined) {
+      return explicit;
+    }
+    return this.activeCount() > 0;
+  });
 
   private readonly trigger = viewChild.required<ElementRef<HTMLButtonElement>>('trigger');
 
@@ -63,6 +73,9 @@ export class FilterPopoverComponent {
   }
 
   clear(): void {
+    if (!this.isClearable()) {
+      return;
+    }
     this.cleared.emit();
   }
 

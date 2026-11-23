@@ -240,24 +240,50 @@
   padding: 0;
   list-style: none;
 
+  .exercise-row-item {
+    & + .exercise-row-item {
+      border-top: 1px solid var(--border-subtle);
+    }
+  }
+
   .exercise-row {
     display: flex;
     align-items: center;
     gap: var(--space-3);
     padding: 12px 16px;
     background: var(--bg-surface);
+    text-decoration: none;
+    color: inherit;
     transition: background 150ms ease;
 
-    & + .exercise-row {
-      border-top: 1px solid var(--border-subtle);
-    }
+    &:not(.is-disabled) {
+      cursor: pointer;
 
-    &:hover {
-      background: var(--bg-surface-subtle);
+      &:hover {
+        background: var(--bg-surface-subtle);
+
+        .exercise-title {
+          color: var(--tenant-primary);
+        }
+
+        .action-indicator {
+          color: var(--tenant-primary);
+
+          .arrow {
+            transform: translateX(3px);
+          }
+        }
+      }
+
+      &:focus-visible {
+        outline: 2px solid var(--tenant-primary);
+        outline-offset: -2px;
+      }
     }
 
     &.is-disabled {
       opacity: 0.6;
+      cursor: not-allowed;
     }
   }
 }
@@ -325,18 +351,14 @@
       flex-shrink: 0;
     }
 
-    .exercise-title-link {
+    .exercise-title {
       font-size: var(--text-sm);
       font-weight: 500;
       color: var(--text-primary);
-      text-decoration: none;
       white-space: nowrap;
       overflow: hidden;
       text-overflow: ellipsis;
-
-      &:hover {
-        color: var(--tenant-primary);
-      }
+      transition: color 150ms ease;
     }
 
     .exam-amber-badge {
@@ -361,6 +383,13 @@
       color: var(--border-strong);
     }
 
+    .due-info {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      color: var(--text-secondary);
+    }
+
     .score-text {
       color: var(--text-secondary);
     }
@@ -372,6 +401,22 @@
   align-items: center;
   justify-content: flex-end;
   flex-shrink: 0;
+
+  .action-indicator {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: var(--text-xs);
+    font-weight: 500;
+    color: var(--text-muted);
+    white-space: nowrap;
+    transition: color 150ms ease;
+
+    .arrow {
+      display: inline-block;
+      transition: transform 150ms ease;
+    }
+  }
 
   .btn-sm {
     height: 28px;

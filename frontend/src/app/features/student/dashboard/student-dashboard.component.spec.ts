@@ -182,7 +182,7 @@ describe('StudentDashboardComponent', () => {
     expect(row?.textContent).toContain('Listas enlazadas');
     expect(row?.textContent).toContain('SIS-211');
 
-    const actionLink = row?.querySelector('.action-btn') as HTMLAnchorElement;
+    const actionLink = row?.querySelector('.due-row-link') as HTMLAnchorElement;
     expect(actionLink?.getAttribute('href')).toBe('/student/exercises/ex-9');
   });
 

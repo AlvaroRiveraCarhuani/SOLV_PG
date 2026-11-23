@@ -1,11 +1,12 @@
 import { ChangeDetectionStrategy, Component, OnInit, computed, inject, signal } from '@angular/core';
 import { RouterLink } from '@angular/router';
+import { LucideCheck, LucideX } from '@lucide/angular';
 import { StudentService, StudentSubmissionHistoryItem } from '@core/services/student.service';
 import {
   VERDICT_FILTER_OPTIONS,
   matchesVerdictFilter
 } from '@core/models/verdict.model';
-import { ComboboxComponent, ComboboxOption } from '@shared/components/combobox/combobox.component';
+import { FilterPopoverComponent } from '@shared/components/filter-popover/filter-popover.component';
 import { SearchBarComponent } from '@shared/components/search-bar/search-bar.component';
 import { VerdictBadgeComponent } from '@shared/components/verdict-badge/verdict-badge.component';
 import { SkeletonLoaderComponent } from '@shared/components/skeleton/skeleton-loader.component';
@@ -15,13 +16,21 @@ import { MachineDataDirective } from '@shared/directives/machine-data.directive'
 import { DateTextPipe } from '@shared/pipes/date-text.pipe';
 import { environmentTypeOptions } from '@shared/constants/environment-types.constants';
 
+export interface HistoryFilterOption {
+  id: string;
+  label: string;
+  value: string;
+}
+
 @Component({
   selector: 'student-history',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [
     RouterLink,
-    ComboboxComponent,
+    LucideCheck,
+    LucideX,
+    FilterPopoverComponent,
     SearchBarComponent,
     VerdictBadgeComponent,
     SkeletonLoaderComponent,
@@ -46,14 +55,18 @@ export class StudentHistoryComponent implements OnInit {
     this.studentService.submissionsHistory()
   );
 
-  readonly verdictOptions: ComboboxOption[] = VERDICT_FILTER_OPTIONS;
+  readonly verdictOptions: HistoryFilterOption[] = VERDICT_FILTER_OPTIONS;
+  readonly verdictFilterOptions: HistoryFilterOption[] = VERDICT_FILTER_OPTIONS.filter((o) => o.value !== 'all');
 
-  readonly environmentOptions: ComboboxOption[] = [
+  readonly environmentOptions: HistoryFilterOption[] = [
     { id: 'all', label: 'Todos los entornos', value: 'all' },
     ...environmentTypeOptions({ include: ['IDE_PERSISTENTE', 'JUEZ_EFIMERO'] })
   ];
+  readonly environmentFilterOptions: HistoryFilterOption[] = environmentTypeOptions({
+    include: ['IDE_PERSISTENTE', 'JUEZ_EFIMERO']
+  });
 
-  readonly subjectOptions = computed<ComboboxOption[]>(() => {
+  readonly subjectOptions = computed<HistoryFilterOption[]>(() => {
     const labels = new Map<string, string>();
     for (const sub of this.submissions()) {
       const key = this.subjectKey(sub);
@@ -68,6 +81,33 @@ export class StudentHistoryComponent implements OnInit {
       { id: 'all', label: 'Todas las materias', value: 'all' },
       ...Array.from(labels, ([value, label]) => ({ id: value, label, value }))
     ];
+  });
+
+  readonly subjectFilterOptions = computed<HistoryFilterOption[]>(() =>
+    this.subjectOptions().filter((o) => o.value !== 'all')
+  );
+
+  readonly activeFilterCount = computed(() => {
+    let count = 0;
+    if (this.subjectFilter() !== 'all') count++;
+    if (this.verdictFilter() !== 'all') count++;
+    if (this.environmentFilter() !== 'all') count++;
+    return count;
+  });
+
+  readonly selectedSubjectLabel = computed(() => {
+    const opt = this.subjectOptions().find((o) => o.value === this.subjectFilter());
+    return opt?.label ?? this.subjectFilter();
+  });
+
+  readonly selectedVerdictLabel = computed(() => {
+    const opt = this.verdictOptions.find((o) => o.value === this.verdictFilter());
+    return opt?.label ?? this.verdictFilter();
+  });
+
+  readonly selectedEnvironmentLabel = computed(() => {
+    const opt = this.environmentOptions.find((o) => o.value === this.environmentFilter());
+    return opt?.label ?? this.environmentFilter();
   });
 
   readonly filteredSubmissions = computed<StudentSubmissionHistoryItem[]>(() => {
@@ -132,11 +172,27 @@ export class StudentHistoryComponent implements OnInit {
     this.searchQuery().trim() !== ''
   );
 
+  setSubject(value: string): void {
+    this.subjectFilter.set(value);
+  }
+
+  setVerdict(value: string): void {
+    this.verdictFilter.set(value);
+  }
+
+  setEnvironment(value: string): void {
+    this.environmentFilter.set(value);
+  }
+
   clearFilters(): void {
     this.subjectFilter.set('all');
     this.verdictFilter.set('all');
     this.environmentFilter.set('all');
     this.searchQuery.set('');
+  }
+
+  clearAllFilters(): void {
+    this.clearFilters();
   }
 
   onSortChange(event: { column: string; direction: SortDirection }): void {

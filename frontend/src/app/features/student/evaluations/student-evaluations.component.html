@@ -37,6 +37,7 @@
       <filter-popover
         buttonLabel="Filtros"
         [activeCount]="activeFilterCount()"
+        [canClear]="hasActiveFilters()"
         width="540px"
         triggerAriaLabel="Abrir filtros de actividades"
         (cleared)="clearAllFilters()"
@@ -218,13 +219,15 @@
 
           <div class="group-rows-container">
             @for (item of upcomingAndDue(); track item.exercise_id) {
-              <div
+              <a
                 class="activity-row"
                 [class.is-exam]="item.purpose === 'exam'"
+                [routerLink]="['/student/exercises', item.exercise_id]"
               >
                 <div class="row-date-badge font-mono" machineData>
                   @if (item.due_date) {
                     <time class="badge-day font-mono" [attr.datetime]="item.due_date">{{ item.due_date | dateText:'daymonth' }}</time>
+                    <time class="badge-time font-mono" [attr.datetime]="item.due_date">{{ item.due_date | dateText:'time' }}</time>
                   } @else {
                     <span class="badge-open">ABIERTO</span>
                   }
@@ -251,6 +254,10 @@
                       <span class="urgency-pill" [class.is-urgent]="getUrgencyLabel(item.due_date) === 'Hoy'">
                         {{ getUrgencyLabel(item.due_date) }}
                       </span>
+                      <span class="meta-sep">·</span>
+                      <span class="due-time-info">
+                        Hasta <time class="font-mono" [attr.datetime]="item.due_date">{{ item.due_date | dateText:'time' }}</time>
+                      </span>
                     }
                     @if (item.attempts_count > 0) {
                       <span class="meta-sep">·</span>
@@ -268,11 +275,12 @@
                 </div>
 
                 <div class="row-actions">
-                  <a class="btn-secondary btn-sm action-link" [routerLink]="['/student/exercises', item.exercise_id]">
+                  <span class="action-indicator">
                     <span>{{ actionLabel(item) }}</span>
-                  </a>
+                    <span class="arrow">→</span>
+                  </span>
                 </div>
-              </div>
+              </a>
             }
           </div>
         </section>
@@ -288,7 +296,10 @@
 
           <div class="group-rows-container is-calm">
             @for (item of openPractices(); track item.exercise_id) {
-              <div class="activity-row">
+              <a
+                class="activity-row"
+                [routerLink]="['/student/exercises', item.exercise_id]"
+              >
                 <div class="row-identity">
                   <div class="row-heading">
                     @if (isIdeExercise(item)) {
@@ -314,11 +325,12 @@
                 </div>
 
                 <div class="row-actions">
-                  <a class="btn-secondary btn-sm action-link" [routerLink]="['/student/exercises', item.exercise_id]">
+                  <span class="action-indicator">
                     <span>{{ actionLabel(item) }}</span>
-                  </a>
+                    <span class="arrow">→</span>
+                  </span>
                 </div>
-              </div>
+              </a>
             }
           </div>
         </section>

@@ -55,7 +55,7 @@ export type ActivityPurposeFilter = 'all' | 'exam' | 'class';
 export class StudentEvaluationsComponent implements OnInit {
   private studentService = inject(StudentService);
 
-  readonly isLoading = signal<boolean>(true);
+  readonly isLoading = signal<boolean>(this.studentService.evaluations().length === 0);
   readonly searchQuery = signal<string>('');
   readonly statusFilter = signal<AcademicStatusFilter>('all');
   readonly subjectFilter = signal<string>('all');
@@ -102,8 +102,14 @@ export class StudentEvaluationsComponent implements OnInit {
     });
 
     const top = sorted[0];
+    const isExam = top.purpose === 'exam';
+    const isInProgress = top.academic_status === 'in_progress';
+    const label = isInProgress
+      ? (isExam ? 'Continuar examen en curso →' : 'Continuar práctica en curso →')
+      : (isExam ? 'Resolver examen próximo →' : 'Resolver práctica próxima →');
+
     return {
-      label: `Continuar ${top.subject_code} →`,
+      label,
       exerciseId: top.exercise_id,
       title: top.title
     };
@@ -222,7 +228,7 @@ export class StudentEvaluationsComponent implements OnInit {
       case 'in_progress':
         return 'Continuar';
       case 'completed':
-        return 'Ver entrega →';
+        return 'Ver entrega';
       default:
         return 'Resolver';
     }
@@ -231,12 +237,14 @@ export class StudentEvaluationsComponent implements OnInit {
   ngOnInit(): void {
     if (this.studentService.evaluations().length > 0) {
       this.isLoading.set(false);
-      return;
     }
     void this.loadEvaluations();
   }
 
   private async loadEvaluations(): Promise<void> {
+    if (this.studentService.evaluations().length === 0) {
+      this.isLoading.set(true);
+    }
     try {
       await this.studentService.loadEvaluations();
     } finally {

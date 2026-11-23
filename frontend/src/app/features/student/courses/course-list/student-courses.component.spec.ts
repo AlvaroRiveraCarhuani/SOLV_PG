@@ -5,6 +5,7 @@ import { StudentCoursesComponent } from './student-courses.component';
 import { StudentDashboardData, StudentService, DueAssignment } from '@core/services/student.service';
 import { CourseColorService } from '@core/services/course-color.service';
 import { StatusTabsComponent } from '@shared/components/status-tabs/status-tabs.component';
+import { FilterPopoverComponent } from '@shared/components/filter-popover/filter-popover.component';
 import { SearchBarComponent } from '@shared/components/search-bar/search-bar.component';
 import { ViewSwitcherComponent } from '@shared/components/view-switcher/view-switcher.component';
 
@@ -22,7 +23,10 @@ const DASHBOARD: StudentDashboardData = {
       subject: { id: 's2', code: 'SIS-312', name: 'Sistemas Operativos' },
       total_exercises: 2,
       completed_exercises: 0,
-      progress_percent: 0
+      submitted_exercises: 1,
+      pending_review_exercises: 1,
+      progress_percent: 0,
+      submission_percent: 50
     },
     {
       subject: { id: 's3', code: 'MAT-101', name: 'Cálculo I' },
@@ -60,6 +64,10 @@ describe('StudentCoursesComponent', () => {
 
   function searchBar(): SearchBarComponent {
     return fixture.debugElement.query(By.directive(SearchBarComponent)).componentInstance as SearchBarComponent;
+  }
+
+  function filterPopover(): FilterPopoverComponent {
+    return fixture.debugElement.query(By.directive(FilterPopoverComponent)).componentInstance as FilterPopoverComponent;
   }
 
   async function setup(): Promise<void> {
@@ -196,5 +204,90 @@ describe('StudentCoursesComponent', () => {
     const dataCard = cards().find((card) => card.textContent?.includes('Sistemas Operativos'));
     expect(dataCard?.textContent).toContain('Sin entregas próximas');
     expect(dataCard?.querySelector('time')).toBeNull();
+  });
+
+  it('filtra por avance desde el popover de filtros', async () => {
+    await setup();
+
+    expect(component.activeFilterCount()).toBe(0);
+
+    component.setProgressFilter('completed');
+    fixture.detectChanges();
+    expect(component.activeFilterCount()).toBe(1);
+    expect(cards().length).toBe(1);
+    expect(cards()[0].textContent).toContain('Cálculo I');
+
+    component.setProgressFilter('unstarted');
+    fixture.detectChanges();
+    expect(cards().length).toBe(1);
+    expect(cards()[0].textContent).toContain('Sistemas Operativos');
+
+    component.setProgressFilter('in_progress');
+    fixture.detectChanges();
+    expect(cards().length).toBe(1);
+    expect(cards()[0].textContent).toContain('Estructuras de Datos');
+
+    component.setProgressFilter('all');
+    fixture.detectChanges();
+    expect(cards().length).toBe(3);
+    expect(component.activeFilterCount()).toBe(0);
+  });
+
+  it('filtra por actividad desde el popover de filtros', async () => {
+    await setup();
+
+    component.setActivityFilter('with_due');
+    fixture.detectChanges();
+    expect(component.activeFilterCount()).toBe(1);
+    expect(cards().length).toBe(1);
+    expect(cards()[0].textContent).toContain('Estructuras de Datos');
+
+    component.setActivityFilter('all');
+    fixture.detectChanges();
+    expect(cards().length).toBe(3);
+  });
+
+  it('limpia todos los filtros al emitir cleared desde el popover', async () => {
+    await setup();
+
+    component.setFilterMode('in_progress');
+    component.setProgressFilter('in_progress');
+    component.searchQuery.set('estructuras');
+    fixture.detectChanges();
+    expect(component.hasActiveFilters()).toBe(true);
+
+    filterPopover().cleared.emit();
+    fixture.detectChanges();
+    expect(component.filterMode()).toBe('all');
+    expect(component.progressFilter()).toBe('all');
+    expect(component.activityFilter()).toBe('all');
+    expect(component.searchQuery()).toBe('');
+    expect(component.hasActiveFilters()).toBe(false);
+    expect(cards().length).toBe(3);
+  });
+
+  it('muestra aviso de entregas en revisión docente cuando hay proyectos pendientes de corrección', async () => {
+    await setup();
+    fixture.detectChanges();
+
+    const pendingHints = fixture.nativeElement.querySelectorAll('.pending-review-hint');
+    expect(pendingHints.length).toBe(1);
+    expect(pendingHints[0].textContent).toContain('1 entrega en revisión docente');
+  });
+
+  it('abre el popover de selección de color al hacer click en el trigger de color', async () => {
+    await setup();
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.querySelector('.course-color-popover')).toBeNull();
+
+    const colorTrigger = fixture.nativeElement.querySelector('.course-code-btn') as HTMLButtonElement;
+    expect(colorTrigger).not.toBeNull();
+    colorTrigger.click();
+    fixture.detectChanges();
+
+    const popover = fixture.nativeElement.querySelector('.course-color-popover');
+    expect(popover).not.toBeNull();
+    expect(popover.querySelector('course-color-picker')).not.toBeNull();
   });
 });

@@ -86,4 +86,35 @@ describe('FilterPopoverComponent', () => {
 
     expect(fixture.nativeElement.querySelector('.filter-panel')).toBeNull();
   });
+
+  it('deshabilita el botón Limpiar cuando no hay filtros activos', () => {
+    setViewport(1366);
+    setTriggerRect(300);
+
+    const panel = openPanel();
+    const clearBtn = panel.querySelector('.filter-clear') as HTMLButtonElement;
+
+    expect(clearBtn.disabled).toBe(true);
+
+    const spy = vi.fn();
+    component.cleared.subscribe(spy);
+    clearBtn.click();
+    expect(spy).not.toHaveBeenCalled();
+  });
+
+  it('habilita el botón Limpiar cuando activeCount > 0 o canClear es true', () => {
+    setViewport(1366);
+    setTriggerRect(300);
+
+    fixture.componentRef.setInput('canClear', true);
+    const panel = openPanel();
+    const clearBtn = panel.querySelector('.filter-clear') as HTMLButtonElement;
+
+    expect(clearBtn.disabled).toBe(false);
+
+    const spy = vi.fn();
+    component.cleared.subscribe(spy);
+    clearBtn.click();
+    expect(spy).toHaveBeenCalled();
+  });
 });

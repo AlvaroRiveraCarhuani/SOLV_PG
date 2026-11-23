@@ -35,6 +35,47 @@
             (cleared)="searchQuery.set('')"
           />
         </div>
+
+        <filter-popover
+          buttonLabel="Filtros"
+          [activeCount]="activeFilterCount()"
+          [canClear]="hasActiveFilters()"
+          width="260px"
+          triggerAriaLabel="Abrir filtros de materias"
+          (cleared)="clearAllFilters()"
+        >
+          <div class="filter-column" style="grid-column: 1 / -1;">
+            <span class="filter-column-title">ACTIVIDAD</span>
+            <button
+              type="button"
+              class="filter-option"
+              [class.is-active]="activityFilter() === 'all'"
+              (click)="setActivityFilter('all')"
+            >
+              <span>Todas las materias</span>
+              @if (activityFilter() === 'all') { <svg lucideCheck class="filter-option-check" aria-hidden="true"></svg> }
+            </button>
+            <button
+              type="button"
+              class="filter-option"
+              [class.is-active]="activityFilter() === 'with_due'"
+              (click)="setActivityFilter('with_due')"
+            >
+              <span>Con entregas próximas</span>
+              @if (activityFilter() === 'with_due') { <svg lucideCheck class="filter-option-check" aria-hidden="true"></svg> }
+            </button>
+            <button
+              type="button"
+              class="filter-option"
+              [class.is-active]="activityFilter() === 'with_live'"
+              (click)="setActivityFilter('with_live')"
+            >
+              <span>Con clase en vivo</span>
+              @if (activityFilter() === 'with_live') { <svg lucideCheck class="filter-option-check" aria-hidden="true"></svg> }
+            </button>
+          </div>
+        </filter-popover>
+
         <view-switcher
           [(mode)]="viewMode"
           cardsLabel="Tarjetas"
@@ -42,6 +83,47 @@
           ariaLabel="Vista de materias"
         />
       </div>
+    </div>
+  }
+
+  <!-- Chips removibles cuando hay filtros activos -->
+  @if (hasActiveFilters()) {
+    <div class="active-filters-bar">
+      @if (searchQuery().trim()) {
+        <span class="filter-chip">
+          <span>Búsqueda: "{{ searchQuery() }}"</span>
+          <button type="button" class="btn-chip-remove" (click)="searchQuery.set('')" aria-label="Quitar búsqueda">
+            <svg lucideX class="chip-x" aria-hidden="true"></svg>
+          </button>
+        </span>
+      }
+      @if (filterMode() !== 'all') {
+        <span class="filter-chip">
+          <span>Estado: {{ filterMode() === 'in_progress' ? 'En curso' : 'Completadas' }}</span>
+          <button type="button" class="btn-chip-remove" (click)="setFilterMode('all')" aria-label="Quitar filtro de estado">
+            <svg lucideX class="chip-x" aria-hidden="true"></svg>
+          </button>
+        </span>
+      }
+      @if (progressFilter() !== 'all') {
+        <span class="filter-chip">
+          <span>Avance: {{ selectedProgressLabel() }}</span>
+          <button type="button" class="btn-chip-remove" (click)="setProgressFilter('all')" aria-label="Quitar filtro de avance">
+            <svg lucideX class="chip-x" aria-hidden="true"></svg>
+          </button>
+        </span>
+      }
+      @if (activityFilter() !== 'all') {
+        <span class="filter-chip">
+          <span>Actividad: {{ selectedActivityLabel() }}</span>
+          <button type="button" class="btn-chip-remove" (click)="setActivityFilter('all')" aria-label="Quitar filtro de actividad">
+            <svg lucideX class="chip-x" aria-hidden="true"></svg>
+          </button>
+        </span>
+      }
+      <button type="button" class="btn-ghost btn-sm clear-all-btn" (click)="clearAllFilters()">
+        Limpiar filtros
+      </button>
     </div>
   }
 
@@ -130,13 +212,21 @@
                 [style.width.%]="item.progress_percent ?? 0"
               ></div>
             </div>
+            @if ((item.pending_review_exercises ?? 0) > 0) {
+              <div class="pending-review-hint">
+                <span class="pending-dot" aria-hidden="true"></span>
+                <span>
+                  {{ item.pending_review_exercises }} {{ (item.pending_review_exercises === 1 ? 'entrega en revisión docente' : 'entregas en revisión docente') }}
+                </span>
+              </div>
+            }
           </div>
 
           <footer class="card-footer">
             <div class="card-footer-due">
               @if (nextDueFor(item.subject.id); as nextDue) {
                 <span class="due-label">Cierre:</span>
-                <span class="due-assignment-title">{{ nextDue.title }}</span>
+                <span class="due-assignment-title" [title]="nextDue.title">{{ nextDue.title }}</span>
                 <time class="due-date font-mono" [attr.datetime]="nextDue.due_date">
                   {{ nextDue.due_date | dateText:'daymonth' }}
                 </time>
@@ -144,8 +234,8 @@
                 <span class="due-empty">Sin entregas próximas</span>
               }
             </div>
-            <a class="btn-ghost btn-sm" [routerLink]="['/student/courses', item.subject.id]">
-              <span>Ver prácticas →</span>
+            <a class="action-link stretched-link" [routerLink]="['/student/courses', item.subject.id]">
+              <span>Ver prácticas <span class="arrow">→</span></span>
             </a>
           </footer>
         </article>
@@ -189,11 +279,16 @@
                 [style.width.%]="item.progress_percent ?? 0"
               ></div>
             </div>
+            @if ((item.pending_review_exercises ?? 0) > 0) {
+              <span class="list-pending-hint">
+                {{ item.pending_review_exercises }} en revisión
+              </span>
+            }
           </div>
 
           <div class="list-action-col">
-            <a class="btn-ghost btn-sm" [routerLink]="['/student/courses', item.subject.id]">
-              <span>Ver prácticas →</span>
+            <a class="action-link stretched-link" [routerLink]="['/student/courses', item.subject.id]">
+              <span>Ver prácticas <span class="arrow">→</span></span>
             </a>
           </div>
         </div>

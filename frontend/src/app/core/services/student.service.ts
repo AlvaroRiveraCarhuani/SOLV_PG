@@ -14,7 +14,10 @@ export interface StudentSubjectItem {
   };
   total_exercises?: number;
   completed_exercises?: number;
+  submitted_exercises?: number;
+  pending_review_exercises?: number;
   progress_percent?: number;
+  submission_percent?: number;
 }
 
 export interface StudentRecentSubmission {
@@ -101,6 +104,8 @@ export interface CurricularExercise {
   title: string;
   difficulty?: string;
   purpose: string;
+  environment_type?: string;
+  due_date?: string | null;
   best_score?: number;
   attempts: number;
   submittable: boolean;

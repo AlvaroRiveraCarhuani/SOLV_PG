@@ -199,22 +199,25 @@ describe('StudentEvaluationsComponent', () => {
   it('enruta cada actividad a la práctica que le corresponde', async () => {
     await setup();
 
-    const solverLink = itemFor('Recorrido de listas')?.querySelector<HTMLAnchorElement>('.row-actions a');
+    const solverLink = itemFor('Recorrido de listas') as HTMLAnchorElement;
     expect(solverLink?.getAttribute('href')).toBe('/student/exercises/e1');
     expect(solverLink?.textContent).toContain('Resolver');
 
-    expect(itemFor('Examen de grafos')?.querySelector('.row-actions a')?.textContent).toContain('Continuar');
-    expect(itemFor('Examen de ordenamiento')?.querySelector('.row-actions a')?.textContent).toContain('Resolver');
+    expect(itemFor('Examen de grafos')?.textContent).toContain('Continuar');
+    expect(itemFor('Examen de ordenamiento')?.textContent).toContain('Resolver');
 
     const labLink = itemFor('Práctica de árboles')?.querySelector<HTMLAnchorElement>('.action-link');
     expect(labLink?.getAttribute('href')).toBe('/student/exercises/e3');
   });
 
-  it('renderiza fechas como time semántico', async () => {
+  it('renderiza fechas como time semántico y expone la hora de entrega', async () => {
     await setup();
 
-    const pendingDue = itemFor('Recorrido de listas')?.querySelector('time');
-    expect(pendingDue?.getAttribute('datetime')).toBe('2026-11-05T23:59:00');
-    expect(pendingDue?.textContent?.trim()).toContain('05 nov');
+    const pendingItem = itemFor('Recorrido de listas');
+    const times = pendingItem?.querySelectorAll('time');
+    expect(times && times.length >= 2).toBe(true);
+    expect(times![0]?.getAttribute('datetime')).toBe('2026-11-05T23:59:00');
+    expect(times![0]?.textContent?.trim()).toContain('05 nov');
+    expect(times![1]?.textContent?.trim()).toContain('23:59');
   });
 });

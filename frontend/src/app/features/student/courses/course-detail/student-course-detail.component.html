@@ -93,6 +93,12 @@
             <dt class="breakdown-label">Completadas</dt>
             <dd class="breakdown-val font-mono" machineData>{{ completedExercises() }}</dd>
           </div>
+          @if (pendingReviewExercises() > 0) {
+            <div class="breakdown-row is-pending-review">
+              <dt class="breakdown-label">En revisión docente</dt>
+              <dd class="breakdown-val font-mono" machineData>{{ pendingReviewExercises() }}</dd>
+            </div>
+          }
           <div class="breakdown-row">
             <dt class="breakdown-label">En curso</dt>
             <dd class="breakdown-val font-mono" machineData>{{ inProgressExercises() }}</dd>

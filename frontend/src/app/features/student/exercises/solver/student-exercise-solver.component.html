@@ -28,6 +28,39 @@
 
     <div class="topbar-right">
       @if (exercise() && !isIdeExercise()) {
+        <div class="view-mode-group" role="tablist" aria-label="Modo de visualización">
+          <button
+            type="button"
+            class="btn-mode-toggle"
+            [class.active]="viewMode() === 'both'"
+            (click)="setViewMode('both')"
+            title="Ver consigna y editor simultáneamente"
+          >
+            <svg lucideColumns2 class="mode-icon" aria-hidden="true"></svg>
+            <span>Dividido</span>
+          </button>
+          <button
+            type="button"
+            class="btn-mode-toggle"
+            [class.active]="viewMode() === 'statement'"
+            (click)="setViewMode('statement')"
+            title="Solo consigna y casos de ejemplo"
+          >
+            <svg lucideFileText class="mode-icon" aria-hidden="true"></svg>
+            <span>Consigna</span>
+          </button>
+          <button
+            type="button"
+            class="btn-mode-toggle"
+            [class.active]="viewMode() === 'editor'"
+            (click)="setViewMode('editor')"
+            title="Solo editor de código (Modo enfoque)"
+          >
+            <svg lucideMaximize2 class="mode-icon" aria-hidden="true"></svg>
+            <span>Editor</span>
+          </button>
+        </div>
+
         <div class="lang-selector-group">
           <span class="lang-label">Lenguaje:</span>
           <combobox
@@ -148,10 +181,10 @@
             </div>
           }
 
-          @if (isExamProject()) {
+          @if (isExamProject() && !examBannerDismissed()) {
             <div class="exam-amber-banner" role="alert">
               <svg lucideAlertTriangle class="banner-icon"></svg>
-              <div>
+              <div class="banner-content">
                 <strong>Examen supervisado:</strong>
                 @if (exercise()?.exam_network === 'egress') {
                   <span> Este examen tiene acceso a internet por una excepción declarada por el docente.</span>
@@ -173,6 +206,14 @@
                   }
                 </div>
               </div>
+              <button
+                type="button"
+                class="banner-close-btn"
+                (click)="dismissExamBanner()"
+                aria-label="Cerrar aviso de examen"
+              >
+                <svg lucideX class="close-icon"></svg>
+              </button>
             </div>
           }
 
@@ -378,15 +419,31 @@
       </div>
     } @else {
       <!-- ARQUETIPO: JUEZ_EFIMERO (Sección 10.7 Split-Pane) -->
-      <div class="workbench-split-layout">
+      <div
+        class="workbench-split-layout"
+        [class.layout-both]="viewMode() === 'both'"
+        [class.layout-statement]="viewMode() === 'statement'"
+        [class.layout-editor]="viewMode() === 'editor'"
+        [class.is-resizing]="isDraggingSplitter() || isDraggingConsoleSplitter()"
+        [style.--statement-col-width.%]="splitRatio()"
+      >
         <!-- Panel Izquierdo (~42%): Enunciado y Casos de ejemplo -->
-        <section class="workbench-left-pane">
-          @if (isExamProject()) {
+        @if (viewMode() === 'both' || viewMode() === 'statement') {
+          <section class="workbench-left-pane">
+          @if (isExamProject() && !examBannerDismissed()) {
             <div class="exam-amber-banner" role="alert">
               <svg lucideAlertTriangle class="banner-icon"></svg>
-              <div>
+              <div class="banner-content">
                 <strong>Modo examen:</strong> Evaluación supervisada. Siga las instrucciones y recuerde enviar su solución antes de la hora de cierre.
               </div>
+              <button
+                type="button"
+                class="banner-close-btn"
+                (click)="dismissExamBanner()"
+                aria-label="Cerrar aviso de examen"
+              >
+                <svg lucideX class="close-icon"></svg>
+              </button>
             </div>
           }
 
@@ -462,8 +519,22 @@
             </div>
           </article>
         </section>
+      }
 
-        <!-- Panel Derecho (~58%): Editor + Consola inferior plegable de 2 pestañas -->
+      <!-- Divisor Redimensionable de Columnas -->
+      @if (viewMode() === 'both') {
+        <div
+          class="layout-splitter"
+          [class.is-dragging]="isDraggingSplitter()"
+          (mousedown)="onSplitterMouseDown($event)"
+          title="Arrastra para redimensionar las columnas"
+        >
+          <div class="splitter-line"></div>
+        </div>
+      }
+
+      <!-- Panel Derecho (~58%): Editor + Consola inferior plegable de 2 pestañas -->
+      @if (viewMode() === 'both' || viewMode() === 'editor') {
         <section class="workbench-right-pane">
           <!-- Sub-barra del archivo -->
           <div class="file-subbar">
@@ -501,8 +572,24 @@
             }
           </div>
 
-          <!-- Consola inferior plegable (248px abierta / 38px cerrada) con 2 pestañas -->
-          <div class="solver-bottom-console" [class.is-collapsed]="!consoleOpen()">
+          <!-- Divisor vertical de la consola cuando está desplegada -->
+          @if (consoleOpen()) {
+            <div
+              class="console-splitter"
+              [class.is-dragging]="isDraggingConsoleSplitter()"
+              (mousedown)="onConsoleSplitterMouseDown($event)"
+              title="Arrastra para ajustar la altura de la consola"
+            >
+              <div class="console-splitter-line"></div>
+            </div>
+          }
+
+          <!-- Consola inferior plegable con 2 pestañas -->
+          <div
+            class="solver-bottom-console"
+            [class.is-collapsed]="!consoleOpen()"
+            [style.--console-height.px]="consoleHeight()"
+          >
             <div class="console-header">
               <div class="console-tabs-group" role="tablist">
                 <button
@@ -653,7 +740,8 @@
             }
           </div>
         </section>
-      </div>
+      }
+    </div>
     }
   }
 

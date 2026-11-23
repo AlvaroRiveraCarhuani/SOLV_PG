@@ -109,62 +109,108 @@
               } @else {
                 <ul class="exercise-rows-list">
                   @for (ex of filteredModuleExercises; track ex.id) {
-                    <li class="exercise-row" [class.is-disabled]="!ex.submittable">
-                      <!-- Nodo visual de recorrido -->
-                      <div class="journey-node">
-                        @if (isExerciseCompleted(ex)) {
-                          <span class="node-icon is-completed" title="Completada">
-                            <svg lucideCheck class="node-check"></svg>
-                          </span>
-                        } @else if (isExerciseInProgress(ex)) {
-                          <span class="node-icon is-in-progress" title="En curso"></span>
-                        } @else {
-                          <span class="node-icon is-pending" title="Pendiente"></span>
-                        }
-                      </div>
+                    <li class="exercise-row-item">
+                      @if (ex.submittable || isExerciseCompleted(ex)) {
+                        <a class="exercise-row" [routerLink]="getExerciseLink(ex)">
+                          <!-- Nodo visual de recorrido -->
+                          <div class="journey-node">
+                            @if (isExerciseCompleted(ex)) {
+                              <span class="node-icon is-completed" title="Completada">
+                                <svg lucideCheck class="node-check"></svg>
+                              </span>
+                            } @else if (isExerciseInProgress(ex)) {
+                              <span class="node-icon is-in-progress" title="En curso"></span>
+                            } @else {
+                              <span class="node-icon is-pending" title="Pendiente"></span>
+                            }
+                          </div>
 
-                      <div class="exercise-main">
-                        <div class="exercise-title-line">
-                          @if (isIdeExercise(ex)) {
-                            <svg lucideLaptop class="modality-icon" aria-hidden="true"></svg>
-                          } @else {
-                            <svg lucideTerminal class="modality-icon" aria-hidden="true"></svg>
-                          }
-                          <a class="exercise-title-link" [routerLink]="['/student/exercises', ex.id]">
-                            {{ ex.title }}
-                          </a>
-                          @if (ex.purpose === 'exam') {
-                            <span class="exam-badge exam-amber-badge">Examen</span>
-                          }
+                          <div class="exercise-main">
+                            <div class="exercise-title-line">
+                              @if (isIdeExercise(ex)) {
+                                <svg lucideLaptop class="modality-icon" aria-hidden="true"></svg>
+                              } @else {
+                                <svg lucideTerminal class="modality-icon" aria-hidden="true"></svg>
+                              }
+                              <span class="exercise-title">{{ ex.title }}</span>
+                              @if (ex.purpose === 'exam') {
+                                <span class="exam-badge exam-amber-badge">Examen</span>
+                              }
+                            </div>
+
+                            <div class="exercise-meta-line">
+                              <span class="modality-text">
+                                {{ getEnvironmentType(ex) | environmentLabel }}
+                              </span>
+                              @if (ex.due_date) {
+                                <span class="meta-sep">·</span>
+                                <span class="due-info">
+                                  <time class="font-mono" [attr.datetime]="ex.due_date">{{ ex.due_date | dateText:'daymonth' }}</time>
+                                  <span class="meta-sep">·</span>
+                                  <time class="font-mono" [attr.datetime]="ex.due_date">{{ ex.due_date | dateText:'time' }}</time>
+                                </span>
+                              }
+                              @if (ex.best_score !== null && ex.best_score !== undefined) {
+                                <span class="meta-sep">·</span>
+                                <span class="score-text font-mono" machineData>{{ ex.best_score }} pts</span>
+                              }
+                            </div>
+                          </div>
+
+                          <div class="exercise-action-col">
+                            @if (isExerciseCompleted(ex)) {
+                              <span class="action-indicator">
+                                <span>Ver entrega</span> <span class="arrow">→</span>
+                              </span>
+                            } @else {
+                              <span class="action-indicator">
+                                <span>Resolver</span> <span class="arrow">→</span>
+                              </span>
+                            }
+                          </div>
+                        </a>
+                      } @else {
+                        <div class="exercise-row is-disabled">
+                          <div class="journey-node">
+                            <span class="node-icon is-pending" title="Pendiente"></span>
+                          </div>
+
+                          <div class="exercise-main">
+                            <div class="exercise-title-line">
+                              @if (isIdeExercise(ex)) {
+                                <svg lucideLaptop class="modality-icon" aria-hidden="true"></svg>
+                              } @else {
+                                <svg lucideTerminal class="modality-icon" aria-hidden="true"></svg>
+                              }
+                              <span class="exercise-title">{{ ex.title }}</span>
+                              @if (ex.purpose === 'exam') {
+                                <span class="exam-badge exam-amber-badge">Examen</span>
+                              }
+                            </div>
+
+                            <div class="exercise-meta-line">
+                              <span class="modality-text">
+                                {{ getEnvironmentType(ex) | environmentLabel }}
+                              </span>
+                              @if (ex.due_date) {
+                                <span class="meta-sep">·</span>
+                                <span class="due-info">
+                                  <time class="font-mono" [attr.datetime]="ex.due_date">{{ ex.due_date | dateText:'daymonth' }}</time>
+                                  <span class="meta-sep">·</span>
+                                  <time class="font-mono" [attr.datetime]="ex.due_date">{{ ex.due_date | dateText:'time' }}</time>
+                                </span>
+                              }
+                            </div>
+                          </div>
+
+                          <div class="exercise-action-col">
+                            <span class="locked-text">
+                              <svg lucideLock class="locked-icon" aria-hidden="true"></svg>
+                              Bloqueado
+                            </span>
+                          </div>
                         </div>
-
-                        <div class="exercise-meta-line">
-                          <span class="modality-text">
-                            {{ getEnvironmentType(ex) | environmentLabel }}
-                          </span>
-                          @if (ex.best_score !== null && ex.best_score !== undefined) {
-                            <span class="meta-sep">·</span>
-                            <span class="score-text font-mono" machineData>{{ ex.best_score }} pts</span>
-                          }
-                        </div>
-                      </div>
-
-                      <div class="exercise-action-col">
-                        @if (isExerciseCompleted(ex)) {
-                          <a class="btn-ghost btn-sm" [routerLink]="['/student/history', ex.id]">
-                            <span>Ver entrega →</span>
-                          </a>
-                        } @else if (ex.submittable) {
-                          <a class="btn-secondary btn-sm" [routerLink]="['/student/exercises', ex.id]">
-                            <span>Resolver →</span>
-                          </a>
-                        } @else {
-                          <span class="locked-text">
-                            <svg lucideLock class="locked-icon" aria-hidden="true"></svg>
-                            Bloqueado
-                          </span>
-                        }
-                      </div>
+                      }
                     </li>
                   }
                 </ul>
@@ -190,61 +236,107 @@
 
         <ul class="exercise-rows-list">
           @for (ex of unassignedExercises(); track ex.id) {
-            <li class="exercise-row">
-              <div class="journey-node">
-                @if (isExerciseCompleted(ex)) {
-                  <span class="node-icon is-completed" title="Completada">
-                    <svg lucideCheck class="node-check"></svg>
-                  </span>
-                } @else if (isExerciseInProgress(ex)) {
-                  <span class="node-icon is-in-progress" title="En curso"></span>
-                } @else {
-                  <span class="node-icon is-pending" title="Pendiente"></span>
-                }
-              </div>
+            <li class="exercise-row-item">
+              @if (ex.submittable || isExerciseCompleted(ex)) {
+                <a class="exercise-row" [routerLink]="getExerciseLink(ex)">
+                  <div class="journey-node">
+                    @if (isExerciseCompleted(ex)) {
+                      <span class="node-icon is-completed" title="Completada">
+                        <svg lucideCheck class="node-check"></svg>
+                      </span>
+                    } @else if (isExerciseInProgress(ex)) {
+                      <span class="node-icon is-in-progress" title="En curso"></span>
+                    } @else {
+                      <span class="node-icon is-pending" title="Pendiente"></span>
+                    }
+                  </div>
 
-              <div class="exercise-main">
-                <div class="exercise-title-line">
-                  @if (isIdeExercise(ex)) {
-                    <svg lucideLaptop class="modality-icon" aria-hidden="true"></svg>
-                  } @else {
-                    <svg lucideTerminal class="modality-icon" aria-hidden="true"></svg>
-                  }
-                  <a class="exercise-title-link" [routerLink]="['/student/exercises', ex.id]">
-                    {{ ex.title }}
-                  </a>
-                  @if (ex.purpose === 'exam') {
-                    <span class="exam-badge exam-amber-badge">Examen</span>
-                  }
+                  <div class="exercise-main">
+                    <div class="exercise-title-line">
+                      @if (isIdeExercise(ex)) {
+                        <svg lucideLaptop class="modality-icon" aria-hidden="true"></svg>
+                      } @else {
+                        <svg lucideTerminal class="modality-icon" aria-hidden="true"></svg>
+                      }
+                      <span class="exercise-title">{{ ex.title }}</span>
+                      @if (ex.purpose === 'exam') {
+                        <span class="exam-badge exam-amber-badge">Examen</span>
+                      }
+                    </div>
+
+                    <div class="exercise-meta-line">
+                      <span class="modality-text">
+                        {{ getEnvironmentType(ex) | environmentLabel }}
+                      </span>
+                      @if (ex.due_date) {
+                        <span class="meta-sep">·</span>
+                        <span class="due-info">
+                          <time class="font-mono" [attr.datetime]="ex.due_date">{{ ex.due_date | dateText:'daymonth' }}</time>
+                          <span class="meta-sep">·</span>
+                          <time class="font-mono" [attr.datetime]="ex.due_date">{{ ex.due_date | dateText:'time' }}</time>
+                        </span>
+                      }
+                      @if (ex.best_score !== null && ex.best_score !== undefined) {
+                        <span class="meta-sep">·</span>
+                        <span class="score-text font-mono" machineData>{{ ex.best_score }} pts</span>
+                      }
+                    </div>
+                  </div>
+
+                  <div class="exercise-action-col">
+                    @if (isExerciseCompleted(ex)) {
+                      <span class="action-indicator">
+                        <span>Ver entrega</span> <span class="arrow">→</span>
+                      </span>
+                    } @else {
+                      <span class="action-indicator">
+                        <span>Resolver</span> <span class="arrow">→</span>
+                      </span>
+                    }
+                  </div>
+                </a>
+              } @else {
+                <div class="exercise-row is-disabled">
+                  <div class="journey-node">
+                    <span class="node-icon is-pending" title="Pendiente"></span>
+                  </div>
+
+                  <div class="exercise-main">
+                    <div class="exercise-title-line">
+                      @if (isIdeExercise(ex)) {
+                        <svg lucideLaptop class="modality-icon" aria-hidden="true"></svg>
+                      } @else {
+                        <svg lucideTerminal class="modality-icon" aria-hidden="true"></svg>
+                      }
+                      <span class="exercise-title">{{ ex.title }}</span>
+                      @if (ex.purpose === 'exam') {
+                        <span class="exam-badge exam-amber-badge">Examen</span>
+                      }
+                    </div>
+
+                    <div class="exercise-meta-line">
+                      <span class="modality-text">
+                        {{ getEnvironmentType(ex) | environmentLabel }}
+                      </span>
+                      @if (ex.due_date) {
+                        <span class="meta-sep">·</span>
+                        <span class="due-info">
+                          <time class="font-mono" [attr.datetime]="ex.due_date">{{ ex.due_date | dateText:'daymonth' }}</time>
+                          <span class="meta-sep">·</span>
+                          <time class="font-mono" [attr.datetime]="ex.due_date">{{ ex.due_date | dateText:'time' }}</time>
+                        </span>
+                      }
+                    </div>
+                  </div>
+
+                  <div class="exercise-action-col">
+                    <span class="locked-text">
+                      <svg lucideLock class="locked-icon" aria-hidden="true"></svg>
+                      Bloqueado
+                    </span>
+                  </div>
                 </div>
-
-                <div class="exercise-meta-line">
-                  <span class="modality-text">
-                    {{ getEnvironmentType(ex) | environmentLabel }}
-                  </span>
-                  @if (ex.best_score !== null && ex.best_score !== undefined) {
-                    <span class="meta-sep">·</span>
-                    <span class="score-text font-mono" machineData>{{ ex.best_score }} pts</span>
-                  }
-                </div>
-              </div>
-
-              <div class="exercise-action-col">
-                @if (isExerciseCompleted(ex)) {
-                  <a class="btn-ghost btn-sm" [routerLink]="['/student/history', ex.id]">
-                    <span>Ver entrega →</span>
-                  </a>
-                } @else if (ex.submittable) {
-                  <a class="btn-secondary btn-sm" [routerLink]="['/student/exercises', ex.id]">
-                    <span>Resolver →</span>
-                  </a>
-                } @else {
-                  <span class="locked-text">
-                    <svg lucideLock class="locked-icon" aria-hidden="true"></svg>
-                    Bloqueado
-                  </span>
-                }
-              </div>
+              }
             </li>
           }
         </ul>

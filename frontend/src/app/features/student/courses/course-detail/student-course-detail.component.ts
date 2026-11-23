@@ -41,6 +41,7 @@ export class StudentCourseDetailComponent implements OnInit {
 
   readonly totalExercises = computed(() => this.subjectItem()?.total_exercises ?? 0);
   readonly completedExercises = computed(() => this.subjectItem()?.completed_exercises ?? 0);
+  readonly pendingReviewExercises = computed(() => this.subjectItem()?.pending_review_exercises ?? 0);
   readonly progressPercent = computed(() => this.subjectItem()?.progress_percent ?? 0);
 
   readonly hasLiveAula = computed(() => {

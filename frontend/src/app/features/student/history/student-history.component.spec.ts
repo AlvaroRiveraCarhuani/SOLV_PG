@@ -3,7 +3,7 @@ import { By } from '@angular/platform-browser';
 import { provideRouter } from '@angular/router';
 import { StudentHistoryComponent } from './student-history.component';
 import { StudentService, StudentSubmissionHistoryItem } from '@core/services/student.service';
-import { ComboboxComponent } from '@shared/components/combobox/combobox.component';
+import { FilterPopoverComponent } from '@shared/components/filter-popover/filter-popover.component';
 import { SearchBarComponent } from '@shared/components/search-bar/search-bar.component';
 
 const SUBMISSIONS: StudentSubmissionHistoryItem[] = [
@@ -96,10 +96,9 @@ describe('StudentHistoryComponent', () => {
     return rows().find((row) => row.textContent?.includes(title));
   }
 
-  function comboboxes(): ComboboxComponent[] {
-    return fixture.debugElement
-      .queryAll(By.directive(ComboboxComponent))
-      .map((debugElement) => debugElement.componentInstance as ComboboxComponent);
+  function filterPopover(): FilterPopoverComponent {
+    return fixture.debugElement.query(By.directive(FilterPopoverComponent))
+      .componentInstance as FilterPopoverComponent;
   }
 
   function searchBar(): SearchBarComponent {
@@ -161,43 +160,61 @@ describe('StudentHistoryComponent', () => {
     expect(exerciseLink?.textContent?.trim()).toBe('Ver entrega');
   });
 
-  it('filtra por materia desde el combobox', async () => {
+  it('filtra por materia y actualiza el contador de filtros activos', async () => {
     await setup();
 
     expect(rows().length).toBe(5);
+    expect(component.activeFilterCount()).toBe(0);
 
-    const [subjectCombo] = comboboxes();
-    subjectCombo.valueChange.emit('s2');
+    component.setSubject('s2');
     fixture.detectChanges();
 
     expect(component.subjectFilter()).toBe('s2');
+    expect(component.activeFilterCount()).toBe(1);
     expect(rows().length).toBe(2);
     expect(rowFor('Práctica de árboles')).toBeTruthy();
     expect(rowFor('Examen de ordenamiento')).toBeTruthy();
 
-    subjectCombo.valueChange.emit('all');
+    component.setSubject('all');
     fixture.detectChanges();
     expect(rows().length).toBe(5);
+    expect(component.activeFilterCount()).toBe(0);
   });
 
   it('filtra por resultado y AST_BLOCKED incluye AST_VIOLATION', async () => {
     await setup();
 
-    const [, verdictCombo] = comboboxes();
-
-    verdictCombo.valueChange.emit('AC');
+    component.setVerdict('AC');
     fixture.detectChanges();
     expect(rows().length).toBe(2);
     expect(rows()[0].textContent).toContain('Recorrido de listas');
     expect(rows()[1].textContent).toContain('API REST con autenticación');
 
-    verdictCombo.valueChange.emit('AST_BLOCKED');
+    component.setVerdict('AST_BLOCKED');
     fixture.detectChanges();
     expect(component.verdictFilter()).toBe('AST_BLOCKED');
     expect(rows().length).toBe(1);
     expect(rows()[0].textContent).toContain('Práctica de árboles');
 
-    verdictCombo.valueChange.emit('all');
+    component.setVerdict('all');
+    fixture.detectChanges();
+    expect(rows().length).toBe(5);
+  });
+
+  it('filtra por tipo de entorno', async () => {
+    await setup();
+
+    component.setEnvironment('IDE_PERSISTENTE');
+    fixture.detectChanges();
+    expect(component.environmentFilter()).toBe('IDE_PERSISTENTE');
+    expect(rows().length).toBe(1);
+    expect(rows()[0].textContent).toContain('API REST con autenticación');
+
+    component.setEnvironment('JUEZ_EFIMERO');
+    fixture.detectChanges();
+    expect(rows().length).toBe(4);
+
+    component.setEnvironment('all');
     fixture.detectChanges();
     expect(rows().length).toBe(5);
   });
@@ -212,6 +229,28 @@ describe('StudentHistoryComponent', () => {
 
     searchBar().cleared.emit();
     fixture.detectChanges();
+    expect(rows().length).toBe(5);
+  });
+
+  it('limpia todos los filtros con clearAllFilters', async () => {
+    await setup();
+
+    component.setSubject('s1');
+    component.setVerdict('AC');
+    component.searchQuery.set('listas');
+    fixture.detectChanges();
+
+    expect(component.hasActiveFilters()).toBe(true);
+    expect(component.activeFilterCount()).toBe(2);
+
+    filterPopover().cleared.emit();
+    fixture.detectChanges();
+
+    expect(component.subjectFilter()).toBe('all');
+    expect(component.verdictFilter()).toBe('all');
+    expect(component.environmentFilter()).toBe('all');
+    expect(component.searchQuery()).toBe('');
+    expect(component.activeFilterCount()).toBe(0);
     expect(rows().length).toBe(5);
   });
 
