@@ -17,7 +17,7 @@ var (
 	ErrInvalidReviewStatus      = errors.New("status must be 'approved', 'rejected', 'paused', 'suspended' or 'pending_audit'")
 	ErrRejectionReasonRequired  = errors.New("rejection_reason is required when rejecting or suspending a template")
 	ErrTemplateQuotaNotEditable = errors.New("la plantilla no admite ajuste de cuota en su estado actual")
-	ErrTemplateNotAuditable    = errors.New("la plantilla no admite re-escaneo en su estado actual")
+	ErrTemplateNotAuditable     = errors.New("la plantilla no admite re-escaneo en su estado actual")
 )
 
 // constructorVerifiedSmokeOutput documenta de dónde viene un smoke aprobado

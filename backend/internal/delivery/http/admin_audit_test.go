@@ -11,10 +11,10 @@ import (
 )
 
 type mockAuditRepo struct {
-	logs        []*domain.AuditLog
-	total       int
-	err         error
-	passedLimit int
+	logs         []*domain.AuditLog
+	total        int
+	err          error
+	passedLimit  int
 	passedOffset int
 	passedSearch string
 	passedAction string
