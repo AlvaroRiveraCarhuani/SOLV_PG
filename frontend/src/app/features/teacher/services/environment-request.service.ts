@@ -68,6 +68,13 @@ export class EnvironmentRequestService {
       .pipe(map(res => res.data || []));
   }
 
+  /** Detalle individual para revisión: incluye la receta completa del pedido. */
+  getAdminRequest(requestId: string): Observable<EnvironmentRequest> {
+    return this.http
+      .get<ApiResponse<EnvironmentRequest>>(`${this.adminUrl}/${requestId}`)
+      .pipe(map(res => res.data));
+  }
+
   review(requestId: string, payload: ReviewEnvironmentRequestPayload): Observable<EnvironmentRequest> {
     return this.http
       .patch<ApiResponse<EnvironmentRequest>>(`${this.adminUrl}/${requestId}`, payload)

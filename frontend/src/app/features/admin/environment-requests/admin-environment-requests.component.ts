@@ -1,42 +1,60 @@
-import { Component, OnInit, OnDestroy, computed, inject, signal } from '@angular/core';
+import {
+  Component,
+  OnInit,
+  OnDestroy,
+  computed,
+  inject,
+  signal,
+  viewChild,
+  ElementRef,
+  HostListener
+} from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { RouterLink } from '@angular/router';
 import {
   LucideAlertCircle,
+  LucideArrowRight,
   LucideCheck,
-  LucideClock,
   LucideInbox,
-  LucideMessageSquare
+  LucideMessageSquare,
+  LucidePlus,
+  LucideSearch
 } from '@lucide/angular';
 import { DateTextPipe } from '@shared/pipes/date-text.pipe';
+import { EnvironmentLabelPipe } from '@shared/pipes/environment-label.pipe';
 import { SkeletonLoaderComponent } from '@shared/components/skeleton/skeleton-loader.component';
+import { StatusTabsComponent, StatusTabItem } from '@shared/components/status-tabs/status-tabs.component';
+import { DrawerComponent } from '@shared/components/drawer/drawer.component';
+import { TechLogoComponent } from '@features/admin/templates/components/tech-logo/tech-logo.component';
 import { ContextHelpService } from '@shared/help/context-help.service';
 import { ProductTourService } from '@shared/help/product-tour.service';
 import { InteractiveTutorialService } from '@shared/help/interactive-tutorial.service';
-
-const REQUESTS_HELP_KEY = 'environment-requests';
-import { EnvironmentLabelPipe } from '@shared/pipes/environment-label.pipe';
-import {
-  buildEnvironmentRequestsTour,
-  buildEnvironmentRequestsTutorial
-} from './environment-requests-help.definitions';
 import { environmentCovers } from '@shared/constants/environment-types.constants';
 import { EnvironmentRequestService } from '@features/teacher/services/environment-request.service';
 import {
   ENVIRONMENT_REQUEST_STATUS_LABEL,
   ENVIRONMENT_REQUEST_STATUS_TONE,
+  EnvironmentMissingComponent,
   EnvironmentRequest,
-  EnvironmentRequestStatus
+  EnvironmentRequestComponent,
+  EnvironmentRequestStatus,
+  environmentLayerLabel
 } from '@features/teacher/templates/environment-request.models';
 import { AdminTemplatesService } from '../services/admin-templates.service';
 import { AdminTemplateItem } from '../models/admin-templates.models';
+import {
+  buildEnvironmentRequestsTour,
+  buildEnvironmentRequestsTutorial
+} from './environment-requests-help.definitions';
+
+const REQUESTS_HELP_KEY = 'environment-requests';
 
 /**
  * Cola de solicitudes de entorno del docente.
  *
- * La ficha llega armada: piezas reconocidas, las que faltan en el catálogo y el
- * uso declarado. Aprobar exige enlazar la plantilla que resuelve el pedido,
- * porque el docente necesita algo que pueda usar, no un cambio de estado.
+ * Muestra las solicitudes académicas en tabla estructurada con Drawer lateral
+ * de resolución y permite vincular plantillas aprobadas o actualizar resoluciones previas.
  */
 @Component({
   selector: 'admin-environment-requests',
@@ -44,29 +62,38 @@ import { AdminTemplateItem } from '../models/admin-templates.models';
   imports: [
     CommonModule,
     FormsModule,
+    RouterLink,
+    DateTextPipe,
+    EnvironmentLabelPipe,
+    SkeletonLoaderComponent,
+    StatusTabsComponent,
+    DrawerComponent,
+    TechLogoComponent,
     LucideAlertCircle,
+    LucideArrowRight,
     LucideCheck,
-    LucideClock,
     LucideInbox,
     LucideMessageSquare,
-    DateTextPipe,
-    SkeletonLoaderComponent,
-    EnvironmentLabelPipe
+    LucidePlus,
+    LucideSearch
   ],
   templateUrl: './admin-environment-requests.component.html',
   styleUrl: './admin-environment-requests.component.scss'
 })
 export class AdminEnvironmentRequestsComponent implements OnInit, OnDestroy {
-  private requestService = inject(EnvironmentRequestService);
+  private readonly requestService = inject(EnvironmentRequestService);
+  private readonly templatesService = inject(AdminTemplatesService);
   private readonly help = inject(ContextHelpService);
   private readonly productTour = inject(ProductTourService);
   private readonly tutorial = inject(InteractiveTutorialService);
-  private templatesService = inject(AdminTemplatesService);
+
+  readonly searchInput = viewChild<ElementRef<HTMLInputElement>>('searchInput');
 
   requests = signal<EnvironmentRequest[]>([]);
   templates = signal<AdminTemplateItem[]>([]);
   isLoading = signal<boolean>(true);
-  filter = signal<'pending' | 'answered'>('pending');
+  activeTab = signal<string>('pending');
+  searchQuery = signal<string>('');
 
   selected = signal<EnvironmentRequest | null>(null);
   selectedTemplateId = signal<string>('');
@@ -78,13 +105,70 @@ export class AdminEnvironmentRequestsComponent implements OnInit, OnDestroy {
   readonly pending = computed(() =>
     this.requests().filter(item => item.status === 'EN_REVISION')
   );
-  readonly answered = computed(() =>
-    this.requests().filter(item => item.status !== 'EN_REVISION')
+  readonly changes = computed(() =>
+    this.requests().filter(item => item.status === 'NECESITA_CAMBIO')
   );
-  readonly visible = computed(() => (this.filter() === 'pending' ? this.pending() : this.answered()));
+  readonly approved = computed(() =>
+    this.requests().filter(item => item.status === 'APROBADA')
+  );
+  readonly rejected = computed(() =>
+    this.requests().filter(item => item.status === 'NO_VIABLE')
+  );
 
-  // Aprobar con una plantilla que no cubre la modalidad pedida deja al docente
-  // con un entorno que no puede usar. La cola solo ofrece lo que sí sirve.
+  readonly pendingCount = computed(() => this.pending().length);
+  readonly changesCount = computed(() => this.changes().length);
+  readonly approvedCount = computed(() => this.approved().length);
+  readonly rejectedCount = computed(() => this.rejected().length);
+  readonly allCount = computed(() => this.requests().length);
+
+  readonly tabs = computed<StatusTabItem[]>(() => [
+    { id: 'pending', label: 'En revisión', count: this.pendingCount(), badgeVariant: 'neutral' },
+    { id: 'changes', label: 'Necesita cambio', count: this.changesCount(), badgeVariant: 'neutral' },
+    { id: 'approved', label: 'Aprobadas', count: this.approvedCount(), badgeVariant: 'neutral' },
+    { id: 'rejected', label: 'No viables', count: this.rejectedCount(), badgeVariant: 'neutral' },
+    { id: 'all', label: 'Todas', count: this.allCount(), badgeVariant: 'neutral' }
+  ]);
+
+  readonly currentTabRequests = computed(() => {
+    switch (this.activeTab()) {
+      case 'pending':
+        return this.pending();
+      case 'changes':
+        return this.changes();
+      case 'approved':
+        return this.approved();
+      case 'rejected':
+        return this.rejected();
+      case 'all':
+      default:
+        return this.requests();
+    }
+  });
+
+  readonly filteredRequests = computed(() => {
+    const list = this.currentTabRequests();
+    const query = this.searchQuery().trim().toLowerCase();
+    if (!query) {
+      return list;
+    }
+    return list.filter(item => {
+      const matchTitle = (item.title || '').toLowerCase().includes(query);
+      const matchRequester = (item.requester_name || '').toLowerCase().includes(query);
+      const matchSubjects = (item.subjects || []).some(s =>
+        (s.subject_name || '').toLowerCase().includes(query)
+      );
+      const matchComponents = (item.components || []).some(c =>
+        (c.name || '').toLowerCase().includes(query)
+      );
+      const matchMissing = (item.missing_components || []).some(m =>
+        (m.name || '').toLowerCase().includes(query)
+      );
+      return matchTitle || matchRequester || matchSubjects || matchComponents || matchMissing;
+    });
+  });
+
+  readonly isDrawerOpen = computed(() => this.selected() !== null);
+
   readonly compatibleTemplates = computed(() => {
     const request = this.selected();
     if (!request) return [];
@@ -114,6 +198,26 @@ export class AdminEnvironmentRequestsComponent implements OnInit, OnDestroy {
     });
   }
 
+  ngOnDestroy(): void {
+    this.help.unregisterGuides(REQUESTS_HELP_KEY);
+    this.help.unregisterScreen(REQUESTS_HELP_KEY);
+  }
+
+  @HostListener('document:keydown', ['$event'])
+  handleKeyboardShortcut(event: KeyboardEvent): void {
+    if (event.key === '/' && !this.isDrawerOpen()) {
+      const activeEl = document.activeElement;
+      const isInput =
+        activeEl instanceof HTMLInputElement ||
+        activeEl instanceof HTMLTextAreaElement ||
+        (activeEl as HTMLElement)?.isContentEditable;
+      if (!isInput) {
+        event.preventDefault();
+        this.searchInput()?.nativeElement.focus();
+      }
+    }
+  }
+
   load(): void {
     this.isLoading.set(true);
     this.requestService.listForReview().subscribe({
@@ -128,8 +232,32 @@ export class AdminEnvironmentRequestsComponent implements OnInit, OnDestroy {
     });
   }
 
-  setFilter(value: 'pending' | 'answered'): void {
-    this.filter.set(value);
+  onTabChange(tabId: string): void {
+    this.activeTab.set(tabId);
+  }
+
+  onSearchChange(value: string): void {
+    this.searchQuery.set(value);
+  }
+
+  clearSearch(): void {
+    this.searchQuery.set('');
+  }
+
+  openDrawer(request: EnvironmentRequest): void {
+    this.selected.set(request);
+    this.selectedTemplateId.set(request.resolved_template_id || '');
+    this.reviewNote.set('');
+    this.error.set(null);
+  }
+
+  closeDrawer(): void {
+    this.selected.set(null);
+    this.error.set(null);
+  }
+
+  canReview(request: EnvironmentRequest): boolean {
+    return request.status === 'EN_REVISION' || request.status === 'NECESITA_CAMBIO';
   }
 
   statusLabel(status: EnvironmentRequestStatus): string {
@@ -140,39 +268,106 @@ export class AdminEnvironmentRequestsComponent implements OnInit, OnDestroy {
     return ENVIRONMENT_REQUEST_STATUS_TONE[status] || 'neutral';
   }
 
-  usesLabel(request: EnvironmentRequest): string {
-    const labels: string[] = [];
-    if (request.uses?.includes('practice')) labels.push('Practicar en clase');
-    if (request.uses?.includes('grade')) labels.push('Entregar y calificar');
-    return labels.join(' · ') || 'Sin uso declarado';
+  /** El docente elige tecnologías, no capas: se muestra la capa en español. */
+  layerLabel(layer?: string | null): string {
+    return environmentLayerLabel(layer);
   }
 
-  ngOnDestroy(): void {
-    this.help.unregisterGuides(REQUESTS_HELP_KEY);
-    this.help.unregisterScreen(REQUESTS_HELP_KEY);
+  actionButtonLabel(request: EnvironmentRequest): string {
+    switch (request.status) {
+      case 'EN_REVISION':
+        return 'Responder';
+      case 'NECESITA_CAMBIO':
+        return 'Actualizar';
+      case 'APROBADA':
+      case 'NO_VIABLE':
+      default:
+        return 'Ver detalle';
+    }
   }
 
-  /** Tutorial de la cola: valida ficha abierta y plantilla; no ejecuta la decisión. */
+  visibleComponents(request: EnvironmentRequest): EnvironmentRequestComponent[] {
+    return (request.components || []).slice(0, 2);
+  }
+
+  extraComponentsCount(request: EnvironmentRequest): number {
+    const total = (request.components || []).length;
+    return total > 2 ? total - 2 : 0;
+  }
+
+  extraComponentsTooltip(request: EnvironmentRequest): string {
+    const extra = (request.components || []).slice(2);
+    return extra.map(c => c.name).join(', ');
+  }
+
+  visibleMissing(request: EnvironmentRequest): EnvironmentMissingComponent[] {
+    return (request.missing_components || []).slice(0, 2);
+  }
+
+  extraMissingCount(request: EnvironmentRequest): number {
+    const total = (request.missing_components || []).length;
+    return total > 2 ? total - 2 : 0;
+  }
+
+  extraMissingTooltip(request: EnvironmentRequest): string {
+    const extra = (request.missing_components || []).slice(2);
+    return extra.map(m => m.name).join(', ');
+  }
+
+  hasAnyTech(request: EnvironmentRequest): boolean {
+    return (request.components?.length || 0) > 0 || (request.missing_components?.length || 0) > 0;
+  }
+
+  subjectsTooltip(request: EnvironmentRequest): string {
+    return (request.subjects || []).map(s => s.subject_name).join(', ');
+  }
+
+  emptyStateTitle(): string {
+    if (this.searchQuery().trim()) {
+      return 'Sin resultados para la búsqueda';
+    }
+    switch (this.activeTab()) {
+      case 'pending':
+        return 'No hay solicitudes en revisión';
+      case 'changes':
+        return 'No hay solicitudes con ajuste pendiente';
+      case 'approved':
+        return 'No hay solicitudes aprobadas';
+      case 'rejected':
+        return 'No hay solicitudes no viables';
+      case 'all':
+      default:
+        return 'No hay solicitudes registradas';
+    }
+  }
+
+  emptyStateDescription(): string {
+    if (this.searchQuery().trim()) {
+      return `No se encontraron solicitudes que coincidan con «${this.searchQuery().trim()}» en esta pestaña.`;
+    }
+    switch (this.activeTab()) {
+      case 'pending':
+        return 'Cuando un docente solicite un entorno que no existe en el catálogo, aparecerá aquí.';
+      case 'changes':
+        return 'Las solicitudes que requieran ajustes por parte del docente quedarán listadas aquí.';
+      case 'approved':
+        return 'Las solicitudes aprobadas y vinculadas a una plantilla aparecerán registradas aquí.';
+      case 'rejected':
+        return 'Las solicitudes marcadas como no viables aparecerán registradas en esta cola.';
+      case 'all':
+      default:
+        return 'Las solicitudes de entornos enviadas por docentes se listarán en esta pantalla.';
+    }
+  }
+
   startRequestsTutorial(): void {
     this.tutorial.start(
       buildEnvironmentRequestsTutorial({
-        reviewOpen: () => this.selected() !== null,
+        reviewOpen: () => this.isDrawerOpen(),
         hasTemplate: () => this.selectedTemplateId() !== '',
         note: () => this.reviewNote()
       })
     );
-  }
-
-  openReview(request: EnvironmentRequest): void {
-    this.selected.set(request);
-    this.selectedTemplateId.set('');
-    this.reviewNote.set('');
-    this.error.set(null);
-  }
-
-  closeReview(): void {
-    this.selected.set(null);
-    this.error.set(null);
   }
 
   approve(): void {
@@ -189,7 +384,7 @@ export class AdminEnvironmentRequestsComponent implements OnInit, OnDestroy {
 
   requestChanges(): void {
     if (this.reviewNote().trim().length < 5) {
-      this.error.set('Explica qué falta para poder continuar.');
+      this.error.set('Explica qué falta para poder continuar (mínimo 5 caracteres).');
       return;
     }
     this.submit({ status: 'NECESITA_CAMBIO', review_note: this.reviewNote() });
@@ -197,7 +392,7 @@ export class AdminEnvironmentRequestsComponent implements OnInit, OnDestroy {
 
   reject(): void {
     if (this.reviewNote().trim().length < 5) {
-      this.error.set('Explica por qué no es viable.');
+      this.error.set('Explica por qué no es viable (mínimo 5 caracteres).');
       return;
     }
     this.submit({ status: 'NO_VIABLE', review_note: this.reviewNote() });
@@ -219,8 +414,7 @@ export class AdminEnvironmentRequestsComponent implements OnInit, OnDestroy {
         this.isSaving.set(false);
         this.requests.update(list => list.map(item => (item.id === updated.id ? updated : item)));
         this.notice.set(`Solicitud «${updated.title}» actualizada: ${this.statusLabel(updated.status)}.`);
-        this.closeReview();
-        this.filter.set(payload.status === 'APROBADA' ? 'answered' : 'pending');
+        this.closeDrawer();
       },
       error: err => {
         this.isSaving.set(false);

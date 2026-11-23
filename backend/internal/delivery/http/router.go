@@ -480,6 +480,7 @@ func registerEnvironmentRequestRoutes(mux *http.ServeMux, deps *Handlers) {
 	mux.Handle("GET /api/v1/teacher/environment-requests/{id}", tm(http.HandlerFunc(h.GetByID)))
 
 	mux.Handle("GET /api/v1/admin/environment-requests", tm(adminOnly(http.HandlerFunc(h.ListForReview))))
+	mux.Handle("GET /api/v1/admin/environment-requests/{id}", tm(adminOnly(http.HandlerFunc(h.GetAdminRequest))))
 	mux.Handle("PATCH /api/v1/admin/environment-requests/{id}", tm(am(adminOnly(http.HandlerFunc(h.Review)))))
 }
 

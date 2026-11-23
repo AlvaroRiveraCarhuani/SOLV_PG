@@ -4,6 +4,9 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
+	"strings"
+
+	"github.com/google/uuid"
 
 	"solv-backend/internal/core/domain"
 	"solv-backend/internal/core/services"
@@ -105,6 +108,38 @@ func (h *EnvironmentRequestHandler) GetByID(w http.ResponseWriter, r *http.Reque
 		}
 	}
 	SendError(w, http.StatusNotFound, "not_found", "Solicitud de entorno no encontrada")
+}
+
+// GetAdminRequest devuelve la ficha completa de una solicitud de la cola.
+// El listado ya trae stack_config y piezas; esta ruta permite abrir una ficha
+// concreta (y precargar el Constructor) sin descargar la cola entera.
+func (h *EnvironmentRequestHandler) GetAdminRequest(w http.ResponseWriter, r *http.Request) {
+	if !requireAdminRole(w, r) {
+		return
+	}
+	id := strings.TrimSpace(r.PathValue("id"))
+	if id == "" {
+		SendError(w, http.StatusBadRequest, "missing_id", "Falta el identificador de la solicitud")
+		return
+	}
+	if _, err := uuid.Parse(id); err != nil {
+		SendError(w, http.StatusBadRequest, "invalid_id", "El identificador de la solicitud no es válido")
+		return
+	}
+
+	request, err := h.service.GetForAdmin(r.Context(), getTenantFromCtx(r), id)
+	if err != nil {
+		switch {
+		case errors.Is(err, domain.ErrEnvironmentRequestNotFound):
+			SendError(w, http.StatusNotFound, "not_found", "Solicitud de entorno no encontrada")
+		case errors.Is(err, domain.ErrEnvironmentRequestInvalid):
+			SendError(w, http.StatusBadRequest, "invalid_request", err.Error())
+		default:
+			SendError(w, http.StatusInternalServerError, "fetch_failed", err.Error())
+		}
+		return
+	}
+	SendJSON(w, http.StatusOK, request, "Solicitud de entorno")
 }
 
 // ListForReview es la cola del administrador.

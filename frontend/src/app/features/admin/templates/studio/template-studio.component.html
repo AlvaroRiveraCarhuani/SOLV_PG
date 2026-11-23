@@ -48,6 +48,65 @@
 
   <div class="studio-grid">
     <div class="studio-left-column">
+      @if (linkedRequest(); as req) {
+        <section class="request-context" aria-label="Solicitud de entorno vinculada" data-tour="studio-request">
+          <div class="request-context-head">
+            <div class="request-context-titles">
+              <span class="request-context-kicker">Solicitud del docente</span>
+              <h2 class="request-context-title">{{ req.title }}</h2>
+              <p class="request-context-meta">
+                <span>{{ req.requester_name || 'Docente de la institución' }}</span>
+                <span aria-hidden="true">·</span>
+                <span>{{ req.target_environment | environmentLabel }}</span>
+              </p>
+            </div>
+            <button
+              type="button"
+              class="request-context-dismiss"
+              (click)="dismissLinkedRequest()"
+            >
+              Desvincular
+            </button>
+          </div>
+
+          @if (req.subjects?.length) {
+            <div class="request-context-row">
+              <span class="request-context-label">Materias que la esperan</span>
+              <div class="request-context-chips">
+                @for (subject of req.subjects; track subject.subject_name) {
+                  <span class="request-context-chip">{{ subject.subject_name }}</span>
+                }
+              </div>
+            </div>
+          }
+
+          @if (req.missing_components?.length) {
+            <div class="request-context-row">
+              <span class="request-context-label">Tecnologías que faltan en el catálogo</span>
+              <div class="request-context-chips">
+                @for (missing of req.missing_components; track missing.name) {
+                  <span
+                    class="request-context-chip request-context-chip-warning"
+                    [title]="missing.reason || 'Tecnología no disponible en el catálogo'"
+                  >
+                    {{ missing.name }}
+                  </span>
+                }
+              </div>
+            </div>
+          }
+
+          <label class="request-context-check">
+            <input
+              type="checkbox"
+              [checked]="autoLinkRequest()"
+              (change)="onAutoLinkChange($event)"
+            />
+            <span>Al publicar, aprobar y vincular automáticamente esta solicitud</span>
+          </label>
+        </section>
+      }
+
       <section class="studio-block">
         <div class="block-head">
           <div class="block-title">

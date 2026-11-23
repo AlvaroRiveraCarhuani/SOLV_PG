@@ -17,6 +17,11 @@ import {
   TemplateComponent
 } from '../../services/admin-templates.service';
 import { EnvTestJob, EnvTestJobService } from '../../services/env-test-job.service';
+import { EnvironmentRequestService } from '@features/teacher/services/environment-request.service';
+import {
+  EnvironmentRequest,
+  EnvironmentRequestStackConfig
+} from '@features/teacher/templates/environment-request.models';
 import { ProductTourService } from '@shared/help/product-tour.service';
 import { InteractiveTutorialService } from '@shared/help/interactive-tutorial.service';
 import { ContextHelpService } from '@shared/help/context-help.service';
@@ -143,6 +148,7 @@ const STUDIO_HELP_KEY = 'studio-template-builder';
 export class TemplateStudioComponent implements OnInit, OnDestroy {
   private readonly templatesService = inject(AdminTemplatesService);
   private readonly envTestService = inject(EnvTestJobService);
+  private readonly environmentRequests = inject(EnvironmentRequestService);
   private readonly aiService = inject(AdminConfigIaService);
   private readonly copilot = inject(StudioCopilotService);
   private readonly aiOperations = inject(AiOperations);
@@ -316,6 +322,11 @@ export class TemplateStudioComponent implements OnInit, OnDestroy {
   readonly isSubmitting = signal<boolean>(false);
   readonly showTechnicalLogs = signal<boolean>(false);
   readonly toast = signal<{ message: string; type: 'success' | 'error' } | null>(null);
+
+  // Solicitud de entorno que abrió el Constructor (?requestId=). El banner la
+  // muestra y, al publicar, puede aprobarla y vincularla con la plantilla nueva.
+  readonly linkedRequest = signal<EnvironmentRequest | null>(null);
+  readonly autoLinkRequest = signal<boolean>(true);
 
   readonly showComponentModal = signal<boolean>(false);
   readonly modalDefaultLayer = signal<ComponentLayer>('addon');
@@ -773,11 +784,16 @@ export class TemplateStudioComponent implements OnInit, OnDestroy {
 
     const editId = this.route.snapshot.paramMap.get('id');
     const duplicateId = this.route.snapshot.queryParamMap.get('duplicar');
+    const requestId = (this.route.snapshot.queryParamMap.get('requestId') || '').trim();
     if (editId) {
       this.editingTemplateId.set(editId);
       this.loadExistingTemplate(editId, false);
     } else if (duplicateId) {
       this.loadExistingTemplate(duplicateId, true);
+    } else if (requestId) {
+      // La solicitud manda sobre el borrador anterior: el admin viene a resolver
+      // un pedido concreto y mezclarlo con restos de otra visita lo confundiría.
+      this.preloadLinkedRequest(requestId);
     } else if (this.pendingDraft && this.isMeaningfulDraft(this.pendingDraft)) {
       this.applyDraft(this.pendingDraft);
       this.toastService.show('Borrador del Studio restaurado.', 'info');
@@ -843,6 +859,119 @@ export class TemplateStudioComponent implements OnInit, OnDestroy {
       },
       error: () => {}
     });
+  }
+
+  /**
+   * Recupera la solicitud que abrió el Constructor y precarga modalidad,
+   * descripción y piezas del Paso 2. Un identificador viejo o ajeno solo deja
+   * un aviso: el Constructor sigue disponible para crear el entorno a mano.
+   */
+  preloadLinkedRequest(requestId: string): void {
+    this.environmentRequests.getAdminRequest(requestId).subscribe({
+      next: request => {
+        if (!request) {
+          this.noticeMissingRequest();
+          return;
+        }
+        this.applyLinkedRequest(request);
+      },
+      error: () => this.noticeMissingRequest()
+    });
+  }
+
+  dismissLinkedRequest(): void {
+    this.linkedRequest.set(null);
+    this.autoLinkRequest.set(false);
+    this.toastService.show('Solicitud desvinculada: el entorno se creará aparte.', 'info');
+  }
+
+  onAutoLinkChange(event: Event): void {
+    this.autoLinkRequest.set((event.target as HTMLInputElement).checked);
+  }
+
+  private noticeMissingRequest(): void {
+    this.toastService.show(
+      'No pudimos recuperar la solicitud indicada. Puede continuar el Constructor desde cero.',
+      'info'
+    );
+  }
+
+  private applyLinkedRequest(request: EnvironmentRequest): void {
+    this.linkedRequest.set(request);
+    this.autoLinkRequest.set(true);
+
+    if (request.description?.trim()) {
+      this.description.set(request.description);
+    }
+    // Las piezas primero: la modalidad decide si esa receta es de evaluación y
+    // necesita además los lenguajes del juez.
+    this.hydrateStackFromRequest(request.stack_config);
+
+    const env = request.target_environment;
+    if (env === 'IDE_PERSISTENTE' || env === 'JUEZ_EFIMERO' || env === 'AMBOS') {
+      this.setTargetEnvironment(env);
+    } else {
+      this.recalculateFromVisualSelection();
+    }
+  }
+
+  /**
+   * Hidrata la selección visual con la receta pedida, igual que al abrir una
+   * plantilla. Se apoya en ids o slugs del catálogo y no inventa nombre: el
+   * Constructor sigue sugiriendo el nombre a partir de las tecnologías.
+   */
+  private hydrateStackFromRequest(cfg: EnvironmentRequestStackConfig | undefined): void {
+    if (!cfg) return;
+
+    this.selectedRuntimeId.set(cfg.runtime_id || null);
+    this.selectedWebPlatformId.set(cfg.web_platform_id || null);
+    this.selectedAddonIds.set([...(cfg.addon_ids || [])]);
+
+    let databaseId = cfg.database_id || 'db-none';
+    let auxiliaryId: string | null = null;
+    for (const service of cfg.services || []) {
+      if (service.role === 'cache') {
+        auxiliaryId = service.component_id || null;
+      } else if (service.role === 'primary_database') {
+        databaseId = service.component_id || databaseId;
+      }
+    }
+    this.selectedDatabaseId.set(databaseId);
+    this.selectedAuxiliaryId.set(auxiliaryId);
+
+    this.recalculateFromVisualSelection();
+  }
+
+  /**
+   * Cierra el ciclo de la solicitud: al crear la plantilla, la aprueba y la
+   * vincula. Si el enlace falla, la creación ya está hecha y el aviso lo dice;
+   * nunca se deshace la plantilla para tapar el error.
+   */
+  private linkRequestAfterPublish(templateId: string): void {
+    const request = this.linkedRequest();
+    if (!request || !this.autoLinkRequest() || !templateId) return;
+
+    this.environmentRequests
+      .review(request.id, {
+        status: 'APROBADA',
+        review_note: '',
+        resolved_template_id: templateId
+      })
+      .subscribe({
+        next: () => {
+          this.linkedRequest.set(null);
+          this.toastService.show(
+            `La solicitud «${request.title}» quedó aprobada y vinculada al entorno creado.`,
+            'success'
+          );
+        },
+        error: () => {
+          this.toastService.show(
+            `El entorno se creó correctamente, pero no pudimos vincular la solicitud «${request.title}». Vincúlala manualmente desde Solicitudes.`,
+            'error'
+          );
+        }
+      });
   }
 
   private applyTemplateToStudio(tpl: AdminTemplateItem, isDuplicate: boolean): void {
@@ -1610,6 +1739,11 @@ export class TemplateStudioComponent implements OnInit, OnDestroy {
       next: saved => {
         this.isSubmitting.set(false);
         this.copilot.clearDraft();
+        // La solicitud vinculada se resuelve solo al crear: una edición no
+        // aprueba pedidos nuevos.
+        if (!editId) {
+          this.linkRequestAfterPublish(saved?.id || '');
+        }
         // Una imagen pública no se publica por tener stack_config: queda en
         // auditoría hasta que el worker complete el smoke y Trivy. La imagen
         // local ya comprobada sí entra al catálogo.

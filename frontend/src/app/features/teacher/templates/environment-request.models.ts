@@ -51,6 +51,8 @@ export interface EnvironmentRequest {
   teacher_text: string;
   uses: EnvironmentRequestUse[];
   target_environment: 'IDE_PERSISTENTE' | 'JUEZ_EFIMERO' | 'AMBOS' | string;
+  /** Receta pedida por el docente: el Constructor la usa para precargar el Paso 2. */
+  stack_config?: EnvironmentRequestStackConfig;
   components: EnvironmentRequestComponent[];
   missing_components: EnvironmentMissingComponent[];
   subjects: EnvironmentRequestSubject[];
@@ -139,3 +141,16 @@ export const ENVIRONMENT_REQUEST_STATUS_TONE: Record<EnvironmentRequestStatus, s
   NECESITA_CAMBIO: 'warning',
   NO_VIABLE: 'error'
 };
+
+/** Capas del catálogo en palabras de persona: la API devuelve el identificador. */
+export const ENVIRONMENT_LAYER_LABEL: Record<string, string> = {
+  runtime: 'Lenguaje principal',
+  web_platform: 'Interfaz web',
+  addon: 'Complemento',
+  database: 'Base de datos'
+};
+
+export function environmentLayerLabel(layer?: string | null): string {
+  const key = (layer || '').trim().toLowerCase();
+  return ENVIRONMENT_LAYER_LABEL[key] || 'Otro';
+}

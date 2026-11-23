@@ -1,6 +1,6 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { By } from '@angular/platform-browser';
-import { provideRouter } from '@angular/router';
+import { ActivatedRoute, Router, convertToParamMap, provideRouter } from '@angular/router';
 import { of, throwError } from 'rxjs';
 import { vi } from 'vitest';
 import { TemplateStudioComponent } from './template-studio.component';
@@ -8,6 +8,9 @@ import { AdminTemplatesService, RuntimeCapabilities } from '../../services/admin
 import { AdminConfigIaService } from '../../configuracion/admin-config-ia.service';
 import { AdminTemplateItem, TemplateComponent } from '@features/admin/models/admin-templates.models';
 import { EnvTestJobService } from '../../services/env-test-job.service';
+import { EnvironmentRequestService } from '@features/teacher/services/environment-request.service';
+import { EnvironmentRequest } from '@features/teacher/templates/environment-request.models';
+import { ToastService } from '@shared/services/toast.service';
 import { ComponentFormModalComponent } from '../components/model-library/components/component-form-modal/component-form-modal.component';
 import { classifyAddonComponent } from './template-studio.utils';
 import {
@@ -241,8 +244,30 @@ const MOCK_CATALOG_ITEMS: TemplateComponent[] = [
 describe('TemplateStudioComponent', () => {
   let component: TemplateStudioComponent;
   let fixture: ComponentFixture<TemplateStudioComponent>;
+  let requestServiceMock: {
+    getAdminRequest: ReturnType<typeof vi.fn>;
+    review: ReturnType<typeof vi.fn>;
+  };
+
+  // El Constructor se abre también con ?requestId=: el snapshot de la ruta se
+  // resuelve en cada lectura para que un test pueda traer una solicitud.
+  let routeQueryParams: Record<string, string> = {};
+  const routeStub = {
+    get snapshot() {
+      return {
+        paramMap: convertToParamMap({}),
+        queryParamMap: convertToParamMap(routeQueryParams)
+      };
+    }
+  };
 
   beforeEach(async () => {
+    routeQueryParams = {};
+    requestServiceMock = {
+      getAdminRequest: vi.fn().mockReturnValue(of(null)),
+      review: vi.fn().mockReturnValue(of({}))
+    };
+
     const mockTemplatesService = {
       getTechCatalog: vi.fn().mockReturnValue(of(MOCK_CATALOG_ITEMS)),
       getCategories: vi.fn().mockReturnValue(of([{ id: 'cat-1', name: 'Desarrollo Web', created_at: '', updated_at: '' }])),
@@ -365,6 +390,8 @@ describe('TemplateStudioComponent', () => {
       imports: [TemplateStudioComponent],
       providers: [
         provideRouter([]),
+        { provide: ActivatedRoute, useValue: routeStub },
+        { provide: EnvironmentRequestService, useValue: requestServiceMock },
         { provide: AdminTemplatesService, useValue: mockTemplatesService },
         { provide: EnvTestJobService, useValue: mockEnvTestService },
         { provide: AdminConfigIaService, useValue: mockAiService }
@@ -2325,6 +2352,132 @@ describe('TemplateStudioComponent', () => {
       const badges = fixture.nativeElement.querySelectorAll('.comp-ram-badge') as NodeListOf<HTMLElement>;
       const badgeTexts = Array.from(badges).map(b => b.textContent?.trim());
       expect(badgeTexts.some(t => t?.includes('nodo ~') || t?.includes('sin costo de nodo'))).toBe(true);
+    });
+  });
+
+  describe('solicitud de entorno vinculada', () => {
+    const linkedRequest: EnvironmentRequest = {
+      id: 'req-seed',
+      tenant_id: 'ten-1',
+      requested_by: 'c0000000-0000-4000-8000-000000000001',
+      requester_name: 'Carla Mendoza',
+      title: 'Kotlin y Android para Programación Móvil',
+      description: 'Los estudiantes deben construir una app Android con Kotlin y consumir una API.',
+      teacher_text: '',
+      uses: ['practice'],
+      target_environment: 'IDE_PERSISTENTE',
+      stack_config: { mode: 'code', runtime_id: 'java-21', database_id: 'db-none' },
+      components: [
+        { id: 'a0000000-0000-0000-0000-000000000003', slug: 'java-21', name: 'Java 21 LTS', layer: 'runtime' }
+      ],
+      missing_components: [
+        { name: 'Kotlin 2.0', layer: 'runtime', reason: 'El catálogo no tiene runtime de Kotlin' },
+        { name: 'Android SDK 35', layer: 'addon', reason: 'Se necesita para compilar y emular la app' }
+      ],
+      subjects: [{ subject_name: 'Programación I', added_at: '2026-11-17T10:20:00Z' }],
+      stack_signature: 'sig-seed',
+      status: 'EN_REVISION',
+      review_note: '',
+      created_at: '2026-11-17T10:20:00Z',
+      updated_at: '2026-11-17T10:20:00Z'
+    };
+
+    // La imagen del pedido se construye a medida: publicar exige la comprobación
+    // de arranque, así que el test simula una verificación ya hecha.
+    const markVerified = (local: TemplateStudioComponent) => {
+      local.activeEnvTestJob.set({ status: 'success' } as any);
+      local.verifiedFingerprint.set(local.currentVerificationFingerprint());
+    };
+
+    const openWithRequest = () => {
+      routeQueryParams = { requestId: linkedRequest.id };
+      requestServiceMock.getAdminRequest.mockReturnValue(of(linkedRequest));
+      // Publicar navega al catálogo: el test no monta esa ruta.
+      vi.spyOn(TestBed.inject(Router), 'navigate').mockResolvedValue(true);
+      const localFixture = TestBed.createComponent(TemplateStudioComponent);
+      localFixture.detectChanges();
+      return localFixture;
+    };
+
+    it('lee ?requestId= y precarga modalidad, descripción y piezas del Paso 2', () => {
+      const localFixture = openWithRequest();
+      const local = localFixture.componentInstance;
+
+      expect(requestServiceMock.getAdminRequest).toHaveBeenCalledWith('req-seed');
+      expect(local.targetEnvironment()).toBe('IDE_PERSISTENTE');
+      expect(local.description()).toBe(linkedRequest.description);
+      expect(local.selectedRuntimeId()).toBe('java-21');
+      expect(local.selectedRuntimeComponent()?.id).toBe('rt-java-21');
+      // El nombre final lo sugiere el Constructor: el título pedagógico no se impone.
+      expect(local.name()).not.toBe(linkedRequest.title);
+    });
+
+    it('muestra el banner con materias, faltantes y el checkbox de aprobación', () => {
+      const localFixture = openWithRequest();
+      const text = (localFixture.nativeElement as HTMLElement).textContent || '';
+
+      expect(text).toContain(linkedRequest.title);
+      expect(text).toContain('Carla Mendoza');
+      expect(text).toContain('Programación I');
+      expect(text).toContain('Kotlin 2.0');
+      expect(text).toContain('Android SDK 35');
+      expect(text).toContain('Al publicar, aprobar y vincular automáticamente esta solicitud');
+
+      const check = localFixture.nativeElement.querySelector(
+        '.request-context-check input'
+      ) as HTMLInputElement;
+      expect(check?.checked).toBe(true);
+    });
+
+    it('aprueba y vincula la solicitud al publicar con el checkbox activo', () => {
+      const localFixture = openWithRequest();
+      const local = localFixture.componentInstance;
+      local.name.set('Entorno Kotlin y Android');
+      markVerified(local);
+
+      expect(local.publishBlocker()).toBeNull();
+      local.publishTemplate();
+
+      expect(requestServiceMock.review).toHaveBeenCalledWith('req-seed', {
+        status: 'APROBADA',
+        review_note: '',
+        resolved_template_id: 'tpl-new-1'
+      });
+    });
+
+    it('si el enlace falla avisa que la plantilla ya se creó', () => {
+      requestServiceMock.review.mockReturnValue(throwError(() => new Error('boom')));
+      const localFixture = openWithRequest();
+      const local = localFixture.componentInstance;
+      local.name.set('Entorno Kotlin y Android');
+      markVerified(local);
+      local.publishTemplate();
+
+      const toast = TestBed.inject(ToastService).toast();
+      expect(toast?.type).toBe('error');
+      expect(toast?.message).toContain('Vincúlala manualmente desde Solicitudes');
+    });
+
+    it('permite desvincular la solicitud y no la aprueba al publicar', () => {
+      const localFixture = openWithRequest();
+      const local = localFixture.componentInstance;
+      local.dismissLinkedRequest();
+      expect(local.linkedRequest()).toBeNull();
+
+      local.name.set('Entorno aparte');
+      local.publishTemplate();
+
+      expect(requestServiceMock.review).not.toHaveBeenCalled();
+    });
+
+    it('avisa y deja el Constructor disponible si la solicitud no existe', () => {
+      routeQueryParams = { requestId: 'req-inexistente' };
+      requestServiceMock.getAdminRequest.mockReturnValue(throwError(() => ({ status: 404 })));
+      const localFixture = TestBed.createComponent(TemplateStudioComponent);
+      localFixture.detectChanges();
+
+      expect(localFixture.componentInstance.linkedRequest()).toBeNull();
+      expect(TestBed.inject(ToastService).toast()?.message).toContain('No pudimos recuperar la solicitud');
     });
   });
 });

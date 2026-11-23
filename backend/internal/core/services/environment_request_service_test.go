@@ -280,6 +280,58 @@ func TestReviewRejectsNoViableWithoutReason(t *testing.T) {
 	}
 }
 
+// El detalle para administración devuelve la ficha completa, con la receta que
+// el Constructor necesita para precargar el Paso 2.
+func TestGetForAdminReturnsFullRequest(t *testing.T) {
+	repo := &fakeEnvironmentRequestRepo{}
+	request := newPendingRequest(t, repo)
+	request.StackConfig = domain.StackConfig{RuntimeID: "java-21", DatabaseID: "db-none"}
+	svc := NewEnvironmentRequestService(repo, nil)
+
+	got, err := svc.GetForAdmin(context.Background(), "tenant", request.ID)
+	if err != nil {
+		t.Fatalf("detalle de solicitud existente: %v", err)
+	}
+	if got.ID != request.ID {
+		t.Fatalf("esperaba la solicitud %s, obtuve %s", request.ID, got.ID)
+	}
+	if got.StackConfig.RuntimeID != "java-21" {
+		t.Fatalf("la receta debe viajar completa, obtuve %#v", got.StackConfig)
+	}
+}
+
+func TestGetForAdminUnknownRequestIsNotFound(t *testing.T) {
+	svc := NewEnvironmentRequestService(&fakeEnvironmentRequestRepo{}, nil)
+	_, err := svc.GetForAdmin(context.Background(), "tenant", "req-inexistente")
+	if !errors.Is(err, domain.ErrEnvironmentRequestNotFound) {
+		t.Fatalf("esperaba ErrEnvironmentRequestNotFound, obtuve %v", err)
+	}
+}
+
+// Una solicitud de otra institución se comporta como inexistente: el detalle
+// nunca cruza el aislamiento por tenant.
+func TestGetForAdminDoesNotCrossTenants(t *testing.T) {
+	repo := &fakeEnvironmentRequestRepo{}
+	request := newPendingRequest(t, repo)
+	svc := NewEnvironmentRequestService(repo, nil)
+
+	_, err := svc.GetForAdmin(context.Background(), "otra-institucion", request.ID)
+	if !errors.Is(err, domain.ErrEnvironmentRequestNotFound) {
+		t.Fatalf("esperaba ErrEnvironmentRequestNotFound al cruzar tenants, obtuve %v", err)
+	}
+}
+
+func TestGetForAdminRejectsEmptyIDs(t *testing.T) {
+	svc := NewEnvironmentRequestService(&fakeEnvironmentRequestRepo{}, nil)
+
+	if _, err := svc.GetForAdmin(context.Background(), "tenant", "  "); !errors.Is(err, domain.ErrEnvironmentRequestInvalid) {
+		t.Fatalf("sin identificador debe fallar como inválido, obtuve %v", err)
+	}
+	if _, err := svc.GetForAdmin(context.Background(), "", "req-a"); !errors.Is(err, domain.ErrEnvironmentRequestInvalid) {
+		t.Fatalf("sin institución debe fallar como inválido, obtuve %v", err)
+	}
+}
+
 func newPendingRequest(t *testing.T, repo *fakeEnvironmentRequestRepo) *domain.EnvironmentRequest {
 	t.Helper()
 	request, err := repo.Create(context.Background(), &domain.EnvironmentRequest{
@@ -360,9 +412,9 @@ func (f *fakeEnvironmentRequestRepo) AddSubject(_ context.Context, requestID str
 	return nil
 }
 
-func (f *fakeEnvironmentRequestRepo) GetByID(_ context.Context, _, id string) (*domain.EnvironmentRequest, error) {
+func (f *fakeEnvironmentRequestRepo) GetByID(_ context.Context, tenantID, id string) (*domain.EnvironmentRequest, error) {
 	for _, req := range f.requests {
-		if req.ID == id {
+		if req.ID == id && req.TenantID == tenantID {
 			return req, nil
 		}
 	}

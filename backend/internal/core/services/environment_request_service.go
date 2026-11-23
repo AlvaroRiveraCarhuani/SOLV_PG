@@ -2,6 +2,7 @@ package services
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strings"
 	"time"
@@ -210,6 +211,37 @@ func (s *EnvironmentRequestService) ListMine(
 	ctx context.Context, tenantID, userID string,
 ) ([]*domain.EnvironmentRequest, error) {
 	return s.repo.ListMine(ctx, tenantID, userID)
+}
+
+// GetForAdmin devuelve la ficha completa de una solicitud para el panel de
+// administración: es la misma foto que el listado, con stack_config, piezas,
+// faltantes y materias, y el Constructor la usa para precargar el Paso 2.
+//
+// La consulta va acotada al tenant de la sesión, así que un identificador de
+// otra institución se comporta igual que uno inexistente.
+func (s *EnvironmentRequestService) GetForAdmin(
+	ctx context.Context, tenantID, requestID string,
+) (*domain.EnvironmentRequest, error) {
+	tenant := strings.TrimSpace(tenantID)
+	if tenant == "" {
+		return nil, fmt.Errorf("%w: falta la institución de la solicitud", domain.ErrEnvironmentRequestInvalid)
+	}
+	id := strings.TrimSpace(requestID)
+	if id == "" {
+		return nil, fmt.Errorf("%w: falta el identificador de la solicitud", domain.ErrEnvironmentRequestInvalid)
+	}
+
+	request, err := s.repo.GetByID(ctx, tenant, id)
+	if err != nil {
+		if errors.Is(err, domain.ErrEnvironmentRequestNotFound) {
+			return nil, domain.ErrEnvironmentRequestNotFound
+		}
+		return nil, err
+	}
+	if request == nil {
+		return nil, domain.ErrEnvironmentRequestNotFound
+	}
+	return request, nil
 }
 
 func (s *EnvironmentRequestService) ListForReview(

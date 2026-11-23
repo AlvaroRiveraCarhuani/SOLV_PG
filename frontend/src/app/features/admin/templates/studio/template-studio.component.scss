@@ -1424,6 +1424,116 @@
   background-color: transparent;
 }
 
+// Contexto de la solicitud que abrió el Constructor: superficie elevada por
+// encima del Paso 01, con lo que el docente pidió y lo que falta en el catálogo.
+.request-context {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: var(--space-4);
+  background-color: var(--studio-surface-1);
+  border: 1px solid var(--studio-surface-1-border);
+  border-left: 3px solid var(--tenant-primary);
+  border-radius: var(--radius-md);
+  box-shadow: var(--studio-surface-1-shadow);
+}
+
+.request-context-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
+.request-context-titles {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.request-context-kicker {
+  color: var(--text-muted);
+  font-size: var(--text-2xs);
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.request-context-title {
+  margin: 0;
+  color: var(--text-primary);
+  font-size: var(--text-base);
+  font-weight: 600;
+}
+
+.request-context-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: var(--text-xs);
+}
+
+.request-context-dismiss {
+  flex: none;
+  padding: var(--space-1) var(--space-2);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  background-color: transparent;
+  color: var(--text-muted);
+  font-size: var(--text-2xs);
+  cursor: pointer;
+
+  &:hover {
+    border-color: var(--border-strong);
+    color: var(--text-primary);
+  }
+}
+
+.request-context-row {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.request-context-label {
+  color: var(--text-muted);
+  font-size: var(--text-2xs);
+  font-weight: 600;
+}
+
+.request-context-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.request-context-chip {
+  padding: var(--space-1) var(--space-2);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  background-color: var(--studio-surface-inset);
+  color: var(--text-secondary);
+  font-size: var(--text-2xs);
+}
+
+.request-context-chip-warning {
+  border-color: var(--color-warning-border);
+  background-color: var(--color-warning-subtle);
+  color: var(--color-warning);
+}
+
+.request-context-check {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  color: var(--text-secondary);
+  font-size: var(--text-xs);
+  cursor: pointer;
+}
+
 @media (max-width: 1100px) {
   .studio-header {
     align-items: flex-start;

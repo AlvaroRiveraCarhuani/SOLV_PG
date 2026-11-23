@@ -38,6 +38,8 @@ Dos botones con contador:
 | Respuesta guardada | La nota de una respuesta anterior, si existe. |
 | Plantilla resuelta | Nombre de la plantilla enlazada cuando la solicitud fue aprobada. |
 
+El docente se nombra una sola vez, en la línea de metadatos de la ficha, junto al estado, la modalidad y la fecha. Las capas de las piezas se muestran en español: *Lenguaje principal*, *Interfaz web*, *Complemento*, *Base de datos*. La nota adicional del docente solo aparece cuando escribió algo.
+
 Modo de operaciones (uso declarado): el docente declara si el entorno se usará para practicar en clase, para entregar y calificar o para ambas cosas. La modalidad pedida decide qué plantillas puede aceptar la solicitud.
 
 ---
@@ -47,8 +49,9 @@ Modo de operaciones (uso declarado): el docente declara si el entorno se usará 
 `[Responder]` despliega el panel de revisión dentro de la ficha, sin salir de la cola.
 
 1. **Plantilla que resuelve la solicitud.** Solo aparecen plantillas aprobadas que cubren la modalidad pedida. Si la lista está vacía, el panel indica que hay que crear el entorno en el Constructor y volver.
-2. **Respuesta para el docente.** Texto libre que queda guardado en la ficha.
-3. **Decisión.**
+2. **Crear en Constructor.** Abre `/admin/plantillas/nueva?requestId=<id>` en la misma pestaña. El Constructor carga la ficha, precarga modalidad, descripción y piezas, y muestra las que faltan en el catálogo. Al publicar con el checkbox activo, la solicitud queda aprobada y vinculada a la plantilla nueva; si el enlace falla, la plantilla se conserva y el aviso pide vincularla a mano.
+3. **Respuesta para el docente.** Texto libre que queda guardado en la ficha.
+4. **Decisión.**
 
 | Acción | Requisito | Efecto |
 | :--- | :--- | :--- |
@@ -87,6 +90,7 @@ Al aprobar, la solicitud pasa a «Respondidas». Pedir ajuste y no viable la man
 | Método | Endpoint | Propósito |
 | :--- | :--- | :--- |
 | `GET` | `/api/v1/admin/environment-requests` | Cola de solicitudes, opcionalmente filtrada por estado. |
+| `GET` | `/api/v1/admin/environment-requests/{id}` | Ficha completa de una solicitud, con `stack_config` y piezas, para el Drawer y el Constructor. |
 | `PATCH` | `/api/v1/admin/environment-requests/{id}` | Responder con `status`, `review_note` y `resolved_template_id` cuando se aprueba. |
 | `POST` | `/api/v1/teacher/environment-requests` | Origen del pedido, desde la vista del docente. |
 | `GET` | `/api/v1/admin/templates?status=approved` | Plantillas aprobadas que pueden resolver una solicitud. |

@@ -1,14 +1,24 @@
 <div class="requests-page">
+  <!-- Cabecera de la página (ADR-093) -->
   <header class="page-header" data-tour="requests-header">
-    <div>
-      <h1 class="page-title">Solicitudes de entornos</h1>
+    <div class="header-info">
+      <div class="title-with-badge">
+        <h1 class="page-title">Solicitudes de entornos</h1>
+        <span class="header-badge font-mono">{{ pendingCount() }} pendientes</span>
+      </div>
       <p class="page-subtitle">
-        Lo que los docentes piden cuando el catálogo no alcanza. Cada ficha trae las piezas
-        reconocidas, las que faltan y el uso declarado.
+        Evalúe las necesidades de entornos solicitadas por docentes y vincule plantillas aprobadas del catálogo.
       </p>
+    </div>
+    <div class="header-actions">
+      <a routerLink="/admin/plantillas/nueva" class="btn-secondary btn-sm">
+        <svg lucidePlus class="btn-icon"></svg>
+        <span>Abrir Constructor</span>
+      </a>
     </div>
   </header>
 
+  <!-- Notificación de acción -->
   @if (notice()) {
     <div class="notice-banner" role="status">
       <svg lucideCheck class="banner-icon"></svg>
@@ -16,178 +26,399 @@
     </div>
   }
 
-  <div class="filter-row" data-tour="requests-filters">
-    <button
-      type="button"
-      class="filter-chip"
-      [class.active]="filter() === 'pending'"
-      (click)="setFilter('pending')"
-    >
-      <svg lucideClock class="chip-icon"></svg>
-      En revisión
-      <span class="chip-count">{{ pending().length }}</span>
-    </button>
-    <button
-      type="button"
-      class="filter-chip"
-      [class.active]="filter() === 'answered'"
-      (click)="setFilter('answered')"
-    >
-      <svg lucideInbox class="chip-icon"></svg>
-      Respondidas
-      <span class="chip-count">{{ answered().length }}</span>
-    </button>
+  <!-- Pestañas de estado compartidas -->
+  <div class="tabs-wrap" data-tour="requests-filters">
+    <status-tabs
+      [tabs]="tabs()"
+      [activeTab]="activeTab()"
+      (tabChange)="onTabChange($event)"
+    />
   </div>
 
+  <!-- Buscador minimalista con atajo / -->
+  <div class="search-bar-wrap">
+    <div class="search-input-box">
+      <svg lucideSearch class="search-icon"></svg>
+      <input
+        #searchInput
+        type="text"
+        class="search-input"
+        [ngModel]="searchQuery()"
+        (ngModelChange)="onSearchChange($event)"
+        placeholder="Buscar por título, docente, materia o tecnología..."
+      />
+      <kbd class="search-kbd">/</kbd>
+    </div>
+    <span class="search-count font-mono">
+      {{ filteredRequests().length }} de {{ currentTabRequests().length }} solicitudes
+    </span>
+  </div>
+
+  <!-- Contenido principal: Tabla o estados -->
   @if (isLoading()) {
     <skeleton-loader variant="cards" [count]="3" />
-  } @else if (visible().length === 0) {
-    <div class="empty-state">
-      <svg lucideInbox class="empty-icon"></svg>
-      <h3>{{ filter() === 'pending' ? 'No hay solicitudes por revisar' : 'Todavía no ha respondido solicitudes' }}</h3>
-      <p>
-        {{ filter() === 'pending'
-          ? 'Cuando un docente pida un entorno que no existe, aparecerá aquí.'
-          : 'Las solicitudes que apruebes o rechaces quedan listadas en esta pestaña.' }}
-      </p>
+  } @else if (filteredRequests().length === 0) {
+    <div class="empty-state motion-fade">
+      <div class="empty-icon-wrap">
+        <svg lucideInbox class="empty-icon"></svg>
+      </div>
+      <h3 class="empty-title">{{ emptyStateTitle() }}</h3>
+      <p class="empty-description">{{ emptyStateDescription() }}</p>
+      @if (searchQuery()) {
+        <button type="button" class="btn-secondary btn-sm" (click)="clearSearch()">
+          Limpiar búsqueda
+        </button>
+      }
     </div>
   } @else {
-    <div class="requests-list">
-      @for (request of visible(); track request.id) {
-        <article class="request-card" data-tour="requests-card">
-          <div class="card-head">
-            <div class="head-texts">
-              <h2 class="request-title">{{ request.title }}</h2>
-              <span class="request-meta">
-                {{ request.requester_name || 'Docente de la institución' }}
-                · <time>{{ request.created_at | dateText }}</time>
-                · {{ request.target_environment | environmentLabel }}
-              </span>
-              @if (request.resolved_template_name) {
-                <span class="request-meta">Resuelta con {{ request.resolved_template_name }}</span>
-              }
-            </div>
-            <span class="request-status" [class]="statusTone(request.status)">
-              {{ statusLabel(request.status) }}
-            </span>
-          </div>
-
-          <div class="card-columns">
-            <div class="column" data-tour="requests-pieces">
-              <span class="column-label">Piezas reconocidas</span>
-              @if (request.components.length === 0) {
-                <p class="column-empty">Sin piezas: el docente pidió solo con texto.</p>
-              } @else {
-                <div class="chip-row">
-                  @for (piece of request.components; track piece.id) {
-                    <span class="piece-chip">{{ piece.name }}</span>
-                  }
-                </div>
-              }
-
-              @if (request.missing_components.length > 0) {
-                <span class="column-label spaced">No están en el catálogo</span>
-                <div class="chip-row" data-tour="requests-missing">
-                  @for (missing of request.missing_components; track missing.name) {
-                    <span class="piece-chip missing">{{ missing.name }}</span>
-                  }
-                </div>
-              }
-            </div>
-
-            <div class="column" data-tour="requests-uses">
-              <span class="column-label">Uso declarado</span>
-              <p class="column-value">{{ usesLabel(request) }}</p>
-
-              <span class="column-label spaced">Materias que lo esperan</span>
-              @if (request.subjects.length === 0) {
-                <p class="column-empty">Sin materia asignada.</p>
-              } @else {
-                <div class="chip-row">
-                  @for (subject of request.subjects; track subject.subject_name) {
-                    <span class="subject-chip">{{ subject.subject_name }}</span>
-                  }
-                </div>
-              }
-            </div>
-          </div>
-
-          <div class="justification">
-            <span class="column-label">Qué deben lograr los estudiantes</span>
-            <p>{{ request.description }}</p>
-            @if (request.teacher_text) {
-              <blockquote class="teacher-text">{{ request.teacher_text }}</blockquote>
+    <div class="table-card table-responsive" data-tour="requests-card">
+      <table class="data-table" [class.has-status-col]="activeTab() === 'all'">
+        <thead>
+          <tr>
+            <th class="col-request">Solicitud</th>
+            <th class="col-tech">Tecnologías</th>
+            <th class="col-subjects">Materias</th>
+            @if (activeTab() === 'all') {
+              <th class="col-status">Estado</th>
             }
-          </div>
-
-          @if (request.review_note) {
-            <div class="review-note">
-              <svg lucideMessageSquare class="banner-icon"></svg>
-              <span>{{ request.review_note }}</span>
-            </div>
-          }
-
-          @if (request.status === 'EN_REVISION') {
-            @if (selected()?.id === request.id) {
-              <div class="review-panel">
-                <label class="field" data-tour="requests-template">
-                  <span class="field-label">Plantilla que resuelve la solicitud</span>
-                  <select [ngModel]="selectedTemplateId()" (ngModelChange)="selectedTemplateId.set($event)">
-                    <option value="">Seleccione una plantilla...</option>
-                    @for (template of compatibleTemplates(); track template.id) {
-                      <option [value]="template.id">{{ template.name }}</option>
-                    }
-                  </select>
-                  @if (compatibleTemplates().length === 0) {
-                    <p class="column-empty">
-                      No hay plantillas aprobadas para esta modalidad. Cree el entorno en el Constructor y vuelva a responder.
-                    </p>
+            <th class="col-actions text-right">Acción</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (request of filteredRequests(); track request.id) {
+            <tr class="request-row" (click)="openDrawer(request)">
+              <!-- Columna 1: Solicitud -->
+              <td class="col-request">
+                <div class="cell-title-block">
+                  <span class="cell-title font-semibold">{{ request.title }}</span>
+                  <div class="cell-meta">
+                    <span class="meta-item">{{ request.requester_name || 'Docente de la institución' }}</span>
+                    <span class="meta-sep">·</span>
+                    <span class="meta-item">{{ request.target_environment | environmentLabel }}</span>
+                    <span class="meta-sep">·</span>
+                    <time class="meta-item">{{ request.created_at | dateText }}</time>
+                  </div>
+                  @if (request.resolved_template_name) {
+                    <div class="cell-resolved">
+                      <span class="resolved-label">Resuelta con</span>
+                      <span class="resolved-name font-mono">{{ request.resolved_template_name }}</span>
+                    </div>
                   }
-                </label>
+                </div>
+              </td>
 
-                <label class="field" data-tour="requests-note">
-                  <span class="field-label">Respuesta para el docente</span>
-                  <textarea
-                    rows="2"
-                    placeholder="Qué se hizo, qué falta o por qué no es viable."
-                    [ngModel]="reviewNote()"
-                    (ngModelChange)="reviewNote.set($event)"
-                  ></textarea>
-                </label>
-
-                @if (error()) {
-                  <div class="error-banner" role="alert">
-                    <svg lucideAlertCircle class="banner-icon"></svg>
-                    <span>{{ error() }}</span>
+              <!-- Columna 2: Tecnologías -->
+              <td class="col-tech">
+                @if (!hasAnyTech(request)) {
+                  <span class="cell-empty">Sin tecnologías especificadas</span>
+                } @else {
+                  <div class="tech-chips-row">
+                    @for (piece of visibleComponents(request); track piece.id) {
+                      <span class="tech-chip">
+                        <tech-logo [iconType]="piece.icon_key || piece.slug || 'docker'" size="chip" />
+                        <span>{{ piece.name }}</span>
+                      </span>
+                    }
+                    @if (extraComponentsCount(request) > 0) {
+                      <span class="tech-chip tech-chip-more" [title]="extraComponentsTooltip(request)">
+                        +{{ extraComponentsCount(request) }}
+                      </span>
+                    }
+                    @for (missing of visibleMissing(request); track missing.name) {
+                      <span class="missing-chip" [title]="missing.reason || 'Tecnología no disponible en el catálogo'">
+                        <span>{{ missing.name }}</span>
+                      </span>
+                    }
+                    @if (extraMissingCount(request) > 0) {
+                      <span class="missing-chip missing-chip-more" [title]="extraMissingTooltip(request)">
+                        +{{ extraMissingCount(request) }} faltantes
+                      </span>
+                    }
                   </div>
                 }
+              </td>
 
-                <div class="review-actions" data-tour="requests-actions">
-                  <button type="button" class="btn-secondary btn-sm" [disabled]="isSaving()" (click)="closeReview()">
-                    Cancelar
-                  </button>
-                  <button type="button" class="btn-ghost btn-sm danger-action" [disabled]="isSaving()" (click)="reject()">
-                    No es viable
-                  </button>
-                  <button type="button" class="btn-secondary btn-sm" [disabled]="isSaving()" (click)="requestChanges()">
-                    Pedir ajuste
-                  </button>
-                  <button type="button" class="btn-primary btn-sm" [disabled]="isSaving()" (click)="approve()">
-                    <svg lucideCheck class="btn-icon"></svg>
-                    Aprobar con esta plantilla
-                  </button>
-                </div>
-              </div>
-            } @else {
-              <div class="card-actions" data-tour="requests-open">
-                <button type="button" class="btn-secondary btn-sm" (click)="openReview(request)">
-                  Responder
+              <!-- Columna 3: Materias -->
+              <td class="col-subjects">
+                @if (request.subjects.length === 1) {
+                  <span class="subject-chip">{{ request.subjects[0].subject_name }}</span>
+                } @else if (request.subjects.length > 1) {
+                  <span class="subject-chip subject-chip-multi" [title]="subjectsTooltip(request)">
+                    {{ request.subjects.length }} materias
+                  </span>
+                } @else {
+                  <span class="cell-empty">Sin materias</span>
+                }
+              </td>
+
+              <!-- Columna 4: Estado (solo visible en 'Todas') -->
+              @if (activeTab() === 'all') {
+                <td class="col-status">
+                  <span class="status-badge is-{{ statusTone(request.status) }}">
+                    {{ statusLabel(request.status) }}
+                  </span>
+                </td>
+              }
+
+              <!-- Columna 5: Acción -->
+              <td class="col-actions text-right">
+                <button
+                  type="button"
+                  class="btn-secondary btn-xs action-btn"
+                  data-tour="requests-open"
+                  (click)="$event.stopPropagation(); openDrawer(request)"
+                >
+                  {{ actionButtonLabel(request) }}
                 </button>
-              </div>
-            }
+              </td>
+            </tr>
           }
-        </article>
-      }
+        </tbody>
+      </table>
     </div>
   }
 </div>
+
+<!-- Drawer lateral de detalle y resolución -->
+<drawer
+  [open]="isDrawerOpen()"
+  [title]="selected()?.title || ''"
+  width="540px"
+  (closed)="closeDrawer()"
+>
+  @if (selected(); as req) {
+    <!-- Metadatos superiores de cabecera -->
+    <div class="drawer-header-meta">
+      <div class="meta-row">
+        <span class="status-badge is-{{ statusTone(req.status) }}">
+          {{ statusLabel(req.status) }}
+        </span>
+        <span class="meta-dot">·</span>
+        <span class="meta-teacher">{{ req.requester_name || 'Docente de la institución' }}</span>
+        <span class="meta-dot">·</span>
+        <span class="meta-env">{{ req.target_environment | environmentLabel }}</span>
+        <span class="meta-dot">·</span>
+        <time class="meta-date">{{ req.created_at | dateText }}</time>
+      </div>
+    </div>
+
+    <!-- Contexto pedagógico -->
+    <section class="drawer-section">
+      <h3 class="section-title">Contexto pedagógico</h3>
+      <div class="field-block">
+        <span class="field-label">Qué deben lograr los estudiantes</span>
+        <p class="field-text">{{ req.description }}</p>
+      </div>
+      @if (req.teacher_text?.trim()) {
+        <div class="field-block">
+          <span class="field-label">Nota adicional del docente</span>
+          <blockquote class="drawer-quote">{{ req.teacher_text }}</blockquote>
+        </div>
+      }
+      <div class="field-block">
+        <span class="field-label">Materias que lo esperan</span>
+        @if (req.subjects.length === 0) {
+          <p class="empty-hint">Sin materias registradas</p>
+        } @else {
+          <div class="subject-chips-list">
+            @for (sub of req.subjects; track sub.subject_name) {
+              <span class="subject-chip">{{ sub.subject_name }}</span>
+            }
+          </div>
+        }
+      </div>
+    </section>
+
+    <!-- Tecnologías completas -->
+    <section class="drawer-section">
+      <h3 class="section-title">Tecnologías</h3>
+      <div class="field-block" data-tour="requests-pieces">
+        <span class="field-label">Piezas reconocidas en el catálogo</span>
+        @if (req.components.length === 0) {
+          <p class="empty-hint">Sin piezas reconocidas</p>
+        } @else {
+          <div class="tech-items-grid">
+            @for (piece of req.components; track piece.id) {
+              <div class="tech-item-card">
+                <tech-logo [iconType]="piece.icon_key || piece.slug || 'docker'" size="compact" />
+                <div class="tech-item-info">
+                  <span class="tech-item-name">{{ piece.name }}</span>
+                  <span class="tech-item-layer">{{ layerLabel(piece.layer) }}</span>
+                </div>
+              </div>
+            }
+          </div>
+        }
+      </div>
+
+      @if (req.missing_components.length > 0) {
+        <div class="field-block" data-tour="requests-missing">
+          <span class="field-label">No están en el catálogo</span>
+          <div class="missing-items-list">
+            @for (missing of req.missing_components; track missing.name) {
+              <div class="missing-item-card">
+                <div class="missing-item-head">
+                  <span class="missing-name">{{ missing.name }}</span>
+                  <span class="missing-badge font-mono">Faltante</span>
+                </div>
+                @if (missing.reason) {
+                  <p class="missing-reason">{{ missing.reason }}</p>
+                }
+              </div>
+            }
+          </div>
+        </div>
+      }
+    </section>
+
+    <!-- Bloque de resolución abierta (EN_REVISION o NECESITA_CAMBIO) -->
+    @if (canReview(req)) {
+      <section class="drawer-section resolution-section">
+        <h3 class="section-title">
+          {{ req.status === 'NECESITA_CAMBIO' ? 'Actualizar resolución' : 'Resolución' }}
+        </h3>
+
+        @if (req.status === 'NECESITA_CAMBIO') {
+          <div class="previous-note-banner">
+            <div class="banner-head">
+              <svg lucideMessageSquare class="banner-icon"></svg>
+              <span class="banner-title">Ajuste solicitado anteriormente</span>
+              @if (req.reviewed_at) {
+                <time class="banner-time">{{ req.reviewed_at | dateText }}</time>
+              }
+            </div>
+            <p class="banner-text">{{ req.review_note }}</p>
+          </div>
+        }
+
+        <div class="form-group" data-tour="requests-template">
+          <div class="form-label-row">
+            <label class="form-label" for="drawer-template-select">
+              Plantilla que resuelve la solicitud
+            </label>
+            <a
+              [routerLink]="['/admin/plantillas/nueva']"
+              [queryParams]="{ requestId: req.id }"
+              class="constructor-link"
+            >
+              <span>Crear en Constructor</span>
+              <svg lucideArrowRight class="link-icon"></svg>
+            </a>
+          </div>
+          <select
+            id="drawer-template-select"
+            class="form-select"
+            [ngModel]="selectedTemplateId()"
+            (ngModelChange)="selectedTemplateId.set($event)"
+          >
+            <option value="">Seleccione una plantilla...</option>
+            @for (template of compatibleTemplates(); track template.id) {
+              <option [value]="template.id">{{ template.name }}</option>
+            }
+          </select>
+          @if (compatibleTemplates().length === 0) {
+            <p class="field-hint text-warning">
+              No hay plantillas aprobadas que cubran esta modalidad. Cree el entorno en el Constructor para poder aprobar.
+            </p>
+          }
+        </div>
+
+        <div class="form-group" data-tour="requests-note">
+          <label class="form-label" for="drawer-review-note">
+            Respuesta para el docente
+          </label>
+          <textarea
+            id="drawer-review-note"
+            class="form-textarea"
+            rows="3"
+            placeholder="Qué se hizo, qué falta o por qué no es viable..."
+            [ngModel]="reviewNote()"
+            (ngModelChange)="reviewNote.set($event)"
+          ></textarea>
+          <span class="field-hint">
+            Opcional para aprobar; obligatoria con mínimo 5 caracteres para pedir ajuste o no viable.
+          </span>
+        </div>
+
+        @if (error()) {
+          <div class="error-banner" role="alert">
+            <svg lucideAlertCircle class="banner-icon"></svg>
+            <span>{{ error() }}</span>
+          </div>
+        }
+      </section>
+    } @else {
+      <!-- Bloque de resolución cerrada (APROBADA o NO_VIABLE) -->
+      <section class="drawer-section resolution-closed-section">
+        <h3 class="section-title">Resolución registrada</h3>
+
+        <div class="closed-resolution-card">
+          <div class="card-meta-row">
+            <span class="card-meta-label">Fecha de respuesta:</span>
+            @if (req.reviewed_at) {
+              <time class="card-meta-time">{{ req.reviewed_at | dateText }}</time>
+            } @else {
+              <span class="card-meta-empty">No registrada</span>
+            }
+          </div>
+
+          @if (req.resolved_template_id && req.resolved_template_name) {
+            <div class="card-template-row">
+              <span class="card-meta-label">Plantilla vinculada:</span>
+              <a
+                [routerLink]="['/admin/plantillas']"
+                [queryParams]="{ search: req.resolved_template_name }"
+                class="resolved-template-link"
+              >
+                <span>{{ req.resolved_template_name }}</span>
+                <svg lucideArrowRight class="link-icon"></svg>
+              </a>
+            </div>
+          }
+
+          @if (req.review_note) {
+            <div class="card-note-row">
+              <span class="card-meta-label">Nota enviada al docente:</span>
+              <p class="resolved-note-text">{{ req.review_note }}</p>
+            </div>
+          }
+        </div>
+      </section>
+    }
+  }
+
+  <!-- Pie del Drawer proyectado -->
+  <div drawer-footer class="drawer-footer-content" data-tour="requests-actions">
+    @if (selected() && canReview(selected()!)) {
+      <button
+        type="button"
+        class="btn-ghost btn-sm danger-action"
+        [disabled]="isSaving()"
+        (click)="reject()"
+      >
+        No es viable
+      </button>
+      <button
+        type="button"
+        class="btn-secondary btn-sm"
+        [disabled]="isSaving()"
+        (click)="requestChanges()"
+      >
+        Pedir ajuste
+      </button>
+      <button
+        type="button"
+        class="btn-primary btn-sm"
+        [disabled]="isSaving()"
+        (click)="approve()"
+      >
+        <svg lucideCheck class="btn-icon"></svg>
+        <span>Aprobar con esta plantilla</span>
+      </button>
+    } @else {
+      <button type="button" class="btn-secondary btn-sm" (click)="closeDrawer()">
+        Cerrar
+      </button>
+    }
+  </div>
+</drawer>

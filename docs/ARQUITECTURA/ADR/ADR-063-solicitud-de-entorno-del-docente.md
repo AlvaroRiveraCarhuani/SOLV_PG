@@ -82,6 +82,7 @@ Nueva página `/admin/solicitudes-entorno`: piezas reconocidas, piezas faltantes
 | `GET` | `/api/v1/teacher/environment-requests` | docente/admin | Solo las solicitudes propias |
 | `GET` | `/api/v1/teacher/environment-requests/{id}` | docente/admin | Detalle propio |
 | `GET` | `/api/v1/admin/environment-requests` | admin | Cola de revisión, con filtro por estado |
+| `GET` | `/api/v1/admin/environment-requests/{id}` | admin | Ficha completa de la cola, acotada al tenant: `stack_config`, piezas, faltantes y materias |
 | `PATCH` | `/api/v1/admin/environment-requests/{id}` | admin | `APROBADA` (exige `resolved_template_id`), `NECESITA_CAMBIO`, `NO_VIABLE` |
 | `POST` | `/api/v1/teacher/ai/suggest-environment` | docente/admin | Interpreta la descripción y devuelve piezas + faltantes |
 
@@ -94,6 +95,16 @@ Aprobar deja de ser un cambio de estado. El servicio valida que la plantilla exi
 Si la respuesta queda vacía, el servicio escribe `Tu solicitud quedó resuelta con el entorno «<nombre>».` para que el docente sepa qué plantilla la resolvió. `NO_VIABLE` también exige motivo, como ya pedía el punto 7. La solicitud devuelve `resolved_template_name` en la cola y en «Mis solicitudes», y el docente puede abrir el catálogo filtrado por ese nombre.
 
 Notificar al docente por correo sigue fuera de este ADR: el estado y la respuesta se consultan en la pestaña de solicitudes.
+
+### 10. De la cola al Constructor sin reescribir el pedido (2026-11-23)
+
+La cola ya no obliga a elegir entre una plantilla existente o crear una a mano. El botón **Crear en Constructor** abre `/admin/plantillas/nueva?requestId=<id>` en la misma pestaña y el Constructor pregunta por la ficha con `GET /api/v1/admin/environment-requests/{id}`.
+
+La precarga respeta la nomenclatura del catálogo: toma la modalidad de `target_environment`, la descripción pedagógica del docente y las piezas de `stack_config` (runtime, interfaz web, complementos y servicios), emparejando por id o slug. El título del pedido no se impone como nombre del entorno: el Constructor sigue sugiriendo el nombre a partir de las tecnologías y el administrador lo edita.
+
+Sobre el Paso 01 aparece el banner de la solicitud con docente, materias y las piezas que faltan en el catálogo, cada una con su motivo. El checkbox **Al publicar, aprobar y vincular automáticamente esta solicitud** llega marcado; al crear la plantilla se envía el `PATCH` de aprobación con `resolved_template_id`. Si ese enlace falla, la plantilla creada se conserva y el aviso indica que la solicitud debe vincularse manualmente desde la cola. **Desvincular** descarta el contexto y deja el Constructor vacío.
+
+El detalle sigue acotado al tenant de la sesión: un identificador de otra institución responde `404`, igual que uno inexistente.
 
 ---
 
