@@ -122,6 +122,8 @@ export class AdminConfigServidorService {
   readonly orphanPlan = signal<OrphanVolumePlan | null>(null);
   readonly orphansLoading = signal(false);
   readonly orphansError = signal<string | null>(null);
+  /** Momento de la última lectura del daemon que sí terminó. */
+  readonly orphansCheckedAt = signal<string | null>(null);
 
   loadAll(): void {
     this.isLoading.set(true);
@@ -156,14 +158,20 @@ export class AdminConfigServidorService {
     });
   }
 
-  /** Lee el daemon y cruza los volúmenes sin contenedor contra los entornos en base. */
-  loadOrphanVolumes(): void {
+  /**
+   * Lee el daemon y cruza los volúmenes sin contenedor contra los entornos en base.
+   * El callback opcional avisa que la lectura terminó, para que quien la pidió
+   * pueda confirmar el resultado en vez de dejar al usuario sin respuesta.
+   */
+  loadOrphanVolumes(onDone?: () => void): void {
     this.orphansLoading.set(true);
     this.orphansError.set(null);
     this.http.get<ApiEnvelope<OrphanVolumePlan>>('/api/v1/admin/server/storage/orphans').subscribe({
       next: (res) => {
         this.orphanPlan.set(res.data);
+        this.orphansCheckedAt.set(new Date().toISOString());
         this.orphansLoading.set(false);
+        onDone?.();
       },
       error: (err) => {
         this.orphansError.set(this.resolveError(err));
@@ -211,6 +219,15 @@ export class AdminConfigServidorService {
 
   verifyBackup(id: string): Observable<ApiEnvelope<VerifyBackupResult>> {
     return this.http.post<ApiEnvelope<VerifyBackupResult>>(`/api/v1/admin/backups/${id}/verify`, {});
+  }
+
+  /**
+   * El archivo se pide por HttpClient, no por navegación directa: el endpoint
+   * exige Authorization y ese encabezado lo agrega el interceptor, cosa que un
+   * href no hace (el navegador abre una pestaña sin credenciales y responde 401).
+   */
+  downloadBackup(id: string): Observable<Blob> {
+    return this.http.get(`/api/v1/admin/backups/${id}/download`, { responseType: 'blob' });
   }
 
   resolveError(err: unknown): string {
