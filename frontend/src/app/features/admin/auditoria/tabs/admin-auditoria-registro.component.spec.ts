@@ -67,9 +67,9 @@ describe('AdminAuditoriaRegistroComponent', () => {
     expect(kinds).toEqual(['Creación', 'Actualización', 'Eliminación']);
 
     const pills = [...fixture.nativeElement.querySelectorAll('.cell-status .status-pill')].map((el: HTMLElement) => el.className);
-    expect(pills[0]).toContain('status-success');
-    expect(pills[1]).toContain('status-info');
-    expect(pills[2]).toContain('status-error');
+    expect(pills[0]).toContain('status-neutral');
+    expect(pills[1]).toContain('status-neutral');
+    expect(pills[2]).toContain('status-warning');
   });
 
   it('muestra el email institucional del actor resuelto por el backend', () => {
@@ -93,30 +93,28 @@ describe('AdminAuditoriaRegistroComponent', () => {
     expect(listSpy).toHaveBeenLastCalledWith(1, 20, { action: 'DELETE' });
   });
 
-  it('muestra una sola búsqueda de toolbar y deja Acción como filtro independiente', () => {
+  it('muestra una barra alineada en 1 fila con control segmentado compacto', () => {
     listSpy.mockReturnValue(of({ tenant_id: 't', limit: 20, offset: 0, total: 0, data: [] }));
     fixture.detectChanges();
 
     const toolbar = fixture.nativeElement.querySelector('.toolbar');
     expect(toolbar.querySelectorAll('input[aria-label="Buscar eventos de auditoría"]').length).toBe(1);
-    expect(toolbar.querySelector('#audit-actor-filter')).toBeNull();
-    expect(toolbar.querySelector('combobox')).not.toBeNull();
-    expect(toolbar.querySelector('select')).toBeNull();
+    expect(toolbar.querySelector('.segmented-control')).not.toBeNull();
+    const segments = toolbar.querySelectorAll('.segment-btn');
+    expect(segments.length).toBe(5);
+    expect(segments[0].textContent.trim()).toBe('Todas');
+    expect(segments[1].textContent.trim()).toBe('Creaciones');
+    expect(segments[2].textContent.trim()).toBe('Actualizaciones');
+    expect(segments[3].textContent.trim()).toBe('Eliminaciones');
+    expect(segments[4].textContent.trim()).toBe('Emergencias');
   });
 
-  it('selecciona un verbo desde el combobox de Acción', () => {
+  it('selecciona un verbo desde el control segmentado de Acción', () => {
     listSpy.mockReturnValue(of({ tenant_id: 't', limit: 20, offset: 0, total: 0, data: [] }));
     fixture.detectChanges();
 
-    const actionCombobox = fixture.nativeElement.querySelector('#audit-action-filter');
-    expect(actionCombobox).not.toBeNull();
-    expect(actionCombobox.querySelector('input').getAttribute('aria-label')).toBe('Filtrar por verbo de acción');
-    actionCombobox.querySelector('.toggle-btn').click();
-    fixture.detectChanges();
-
-    const deleteOption = [...actionCombobox.querySelectorAll('[role="option"]')]
-      .find((option: HTMLElement) => option.textContent?.includes('Eliminación')) as HTMLElement;
-    deleteOption.click();
+    const segments = fixture.nativeElement.querySelectorAll('.segment-btn') as NodeListOf<HTMLButtonElement>;
+    segments[3].click(); // Eliminaciones -> DELETE
     fixture.detectChanges();
 
     expect(component.actionFilter()).toBe('DELETE');
@@ -152,28 +150,40 @@ describe('AdminAuditoriaRegistroComponent', () => {
     expect(listSpy).toHaveBeenLastCalledWith(3, 20, {});
   });
 
-  it('el drawer carga la cronología del actor seleccionado', () => {
+  it('el drawer carga la ficha resumida del evento y la cronología del actor', () => {
     const actorId = '22222222-2222-2222-2222-222222222222';
     listSpy.mockReturnValue(of({
       tenant_id: 't', limit: 20, offset: 0, total: 1,
-      data: [makeLog({ actor_id: actorId, actor_email: 'alovelace@uab.edu.bo' })]
+      data: [makeLog({ actor_id: actorId, actor_email: 'alovelace@uab.edu.bo', action: 'CLASS_FROZEN' })]
     }));
     timelineSpy.mockReturnValue(of({
       tenant_id: 't', actor_id: actorId, count: 2,
       data: [
-        makeLog({ actor_id: actorId, action: 'POST /api/v1/subjects', created_at: new Date().toISOString() }),
-        makeLog({ actor_id: actorId, action: 'PUT /api/v1/labs/4', created_at: new Date(Date.now() - 86_400_000).toISOString() })
+        makeLog({ actor_id: actorId, action: 'CLASS_FROZEN', created_at: new Date().toISOString() }),
+        makeLog({ actor_id: actorId, action: 'CLASS_UNFROZEN', created_at: new Date(Date.now() - 86_400_000).toISOString() })
       ]
     }));
     fixture.detectChanges();
 
-    fixture.nativeElement.querySelector('.open-drawer-btn').click();
+    fixture.nativeElement.querySelector('.btn-detail').click();
     fixture.detectChanges();
 
     expect(timelineSpy).toHaveBeenCalledWith(actorId, 200);
     expect(component.drawerOpen()).toBe(true);
+
+    // Summary card arriba
+    const summaryCard = fixture.nativeElement.querySelector('.drawer-summary-card');
+    expect(summaryCard).not.toBeNull();
+    expect(summaryCard.textContent).toContain('Sesión de clase congelada');
+
+    // Botón de cierre visible y accesible con aria-label="Cerrar panel"
+    const closeBtn = fixture.nativeElement.querySelector('.drawer-close');
+    expect(closeBtn).not.toBeNull();
+    expect(closeBtn.getAttribute('aria-label')).toBe('Cerrar panel');
+
+    // Timeline debajo
     expect(fixture.nativeElement.querySelectorAll('.timeline-item').length).toBe(2);
-    expect(fixture.nativeElement.querySelector('.drawer-title p').textContent).toContain('alovelace@uab.edu.bo');
+    expect(fixture.nativeElement.querySelector('.drawer-subtitle').textContent).toContain('alovelace@uab.edu.bo');
   });
 
   it('usa el total del backend para la paginación en vez de estimarlo', () => {

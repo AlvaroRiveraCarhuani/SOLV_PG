@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"strconv"
 
+	"solv-backend/internal/core/domain"
 	"solv-backend/internal/delivery/http/middleware"
 )
 
@@ -47,6 +48,12 @@ func (h *AdminHandler) ListAuditLogs(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Un resultado vacío viaja como [] y no como null: el cliente itera data
+	// directamente y null lo deja sin lista.
+	if logs == nil {
+		logs = make([]*domain.AuditLog, 0)
+	}
+
 	w.Header().Set("Content-Type", "application/json")
 	_ = json.NewEncoder(w).Encode(map[string]interface{}{
 		"tenant_id": tenantID,
@@ -82,6 +89,10 @@ func (h *AdminHandler) GetActorTimeline(w http.ResponseWriter, r *http.Request) 
 	if err != nil {
 		http.Error(w, `{"error":"Failed to retrieve actor timeline"}`, http.StatusInternalServerError)
 		return
+	}
+
+	if logs == nil {
+		logs = make([]*domain.AuditLog, 0)
 	}
 
 	w.Header().Set("Content-Type", "application/json")

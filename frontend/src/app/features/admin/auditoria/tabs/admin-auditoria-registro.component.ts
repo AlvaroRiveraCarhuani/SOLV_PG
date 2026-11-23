@@ -1,4 +1,5 @@
 import { Component, OnInit, OnDestroy, computed, inject, signal } from '@angular/core';
+import { CommonModule } from '@angular/common';
 import { ContextHelpService } from '@shared/help/context-help.service';
 import { ProductTourService } from '@shared/help/product-tour.service';
 import { InteractiveTutorialService } from '@shared/help/interactive-tutorial.service';
@@ -6,27 +7,28 @@ import {
   buildAuditRegistroTour,
   buildAuditRegistroTutorial
 } from './audit-registro-help.definitions';
-import { CommonModule } from '@angular/common';
 import { DateTextPipe } from '@shared/pipes/date-text.pipe';
 import { SearchBarComponent } from '@shared/components/search-bar/search-bar.component';
 import { PaginationBarComponent } from '@shared/components/pagination-bar/pagination-bar.component';
-import { ComboboxComponent, ComboboxOption } from '@shared/components/combobox/combobox.component';
-import { MachineDataDirective } from '@shared/directives/machine-data.directive';
 import { DismissibleDirective } from '@shared/directives/dismissible.directive';
 import { AdminAuditoriaService, AuditLogListResponse } from '../admin-auditoria.service';
 import {
   AuditLog,
   EnrichedAction,
   StatusInfo,
+  auditActionLabel,
+  auditResourceLabel,
   describeStatus,
   enrichAction,
   metadataReason
 } from '@core/models/audit-log.model';
-import { LucideActivity, LucidePanelRightOpen } from '@lucide/angular';
+import { LucideActivity, LucideX } from '@lucide/angular';
 
-interface AuditRow {
+export interface AuditRow {
   log: AuditLog;
   enriched: EnrichedAction;
+  actionLabel: string;
+  resourceLabel: string;
   status: StatusInfo;
   reason: string | null;
 }
@@ -37,12 +39,20 @@ const AUDIT_LOG_HELP_KEY = 'audit-log';
 /**
  * Pestaña Registro de Auditoría (wireframe AUDIT_LOGS.md, ADR-027).
  * Tabla cronológica con enriquecimiento semántico, filtros, paginación y
- * off-canvas drawer con la cronología aislada del actor seleccionado.
+ * off-canvas drawer con la ficha del evento seleccionado y cronología del actor.
  */
 @Component({
   selector: 'admin-auditoria-registro',
   standalone: true,
-  imports: [CommonModule, DateTextPipe, SearchBarComponent, PaginationBarComponent, ComboboxComponent, MachineDataDirective, DismissibleDirective, LucideActivity, LucidePanelRightOpen],
+  imports: [
+    CommonModule,
+    DateTextPipe,
+    SearchBarComponent,
+    PaginationBarComponent,
+    DismissibleDirective,
+    LucideActivity,
+    LucideX
+  ],
   templateUrl: './admin-auditoria-registro.component.html',
   styleUrl: './admin-auditoria-registro.component.scss'
 })
@@ -62,10 +72,19 @@ export class AdminAuditoriaRegistroComponent implements OnInit, OnDestroy {
   readonly searchQuery = signal('');
   readonly actionFilter = signal('');
 
+  readonly selectedRow = signal<AuditRow | null>(null);
   readonly drawerOpen = signal(false);
   readonly drawerActorEmail = signal('');
   readonly drawerTimeline = signal<AuditRow[]>([]);
   readonly drawerLoading = signal(false);
+
+  readonly actionSegments = [
+    { label: 'Todas', value: '' },
+    { label: 'Creaciones', value: 'POST' },
+    { label: 'Actualizaciones', value: 'PUT' },
+    { label: 'Eliminaciones', value: 'DELETE' },
+    { label: 'Emergencias', value: 'EMERGENCY_' }
+  ];
 
   readonly hasActiveFilters = computed(() =>
     this.searchQuery().trim() !== '' || this.actionFilter() !== ''
@@ -81,17 +100,6 @@ export class AdminAuditoriaRegistroComponent implements OnInit, OnDestroy {
   });
 
   private searchDebounce: ReturnType<typeof setTimeout> | null = null;
-
-  readonly actionOptions: ComboboxOption<string>[] = [
-    { id: 'all-actions', value: '', label: 'Todas las acciones' },
-    { id: 'create-action', value: 'POST', label: 'Creación' },
-    { id: 'update-action', value: 'PUT', label: 'Actualización' },
-    { id: 'delete-action', value: 'DELETE', label: 'Eliminación' }
-  ];
-
-  readonly selectedActionLabel = computed(() =>
-    this.actionOptions.find((option) => option.value === this.actionFilter())?.label ?? this.actionOptions[0].label
-  );
 
   ngOnInit(): void {
     this.help.registerScreen(AUDIT_LOG_HELP_KEY);
@@ -138,9 +146,10 @@ export class AdminAuditoriaRegistroComponent implements OnInit, OnDestroy {
 
     this.auditoriaService.listAuditLogs(this.currentPage(), PAGE_SIZE, filters).subscribe({
       next: (resp: AuditLogListResponse) => {
-        this.rows.set(resp.data.map((log) => this.toRow(log)));
-        this.totalKnown.set(resp.total);
-        this.totalPages.set(Math.max(1, Math.ceil(resp.total / PAGE_SIZE)));
+        const data = resp?.data ?? [];
+        this.rows.set(data.map((log) => this.toRow(log)));
+        this.totalKnown.set(resp?.total ?? 0);
+        this.totalPages.set(Math.max(1, Math.ceil((resp?.total ?? 0) / PAGE_SIZE)));
         this.isLoading.set(false);
       },
       error: () => {
@@ -180,6 +189,7 @@ export class AdminAuditoriaRegistroComponent implements OnInit, OnDestroy {
   }
 
   openDrawer(row: AuditRow): void {
+    this.selectedRow.set(row);
     this.drawerOpen.set(true);
     this.drawerActorEmail.set(row.log.actor_email);
     this.drawerTimeline.set([]);
@@ -187,7 +197,8 @@ export class AdminAuditoriaRegistroComponent implements OnInit, OnDestroy {
 
     this.auditoriaService.getActorTimeline(row.log.actor_id, 200).subscribe({
       next: (resp) => {
-        this.drawerTimeline.set(resp.data.map((log) => this.toRow(log)));
+        const data = resp?.data ?? [];
+        this.drawerTimeline.set(data.map((log) => this.toRow(log)));
         this.drawerLoading.set(false);
       },
       error: () => {
@@ -198,6 +209,7 @@ export class AdminAuditoriaRegistroComponent implements OnInit, OnDestroy {
 
   closeDrawer(): void {
     this.drawerOpen.set(false);
+    this.selectedRow.set(null);
   }
 
   onDrawerBackdropClick(event: MouseEvent): void {
@@ -211,7 +223,9 @@ export class AdminAuditoriaRegistroComponent implements OnInit, OnDestroy {
     return {
       log,
       enriched,
-      status: describeStatus(log.status_code, enriched.kind),
+      actionLabel: enriched.label,
+      resourceLabel: auditResourceLabel(log.resource_type),
+      status: describeStatus(log.status_code),
       reason: metadataReason(log)
     };
   }

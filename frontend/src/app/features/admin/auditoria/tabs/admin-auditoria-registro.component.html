@@ -1,24 +1,25 @@
 <div class="registro-panel">
   <div class="toolbar" data-tour="audit-toolbar">
-    <search-bar
-      [query]="searchQuery()"
-      placeholder="Buscar evento, actor o recurso..."
-      ariaLabel="Buscar eventos de auditoría"
-      (queryChange)="onSearchChange($event)"
-    />
-
-    <div class="action-filter">
-      <span class="filter-label">Acción</span>
-      <combobox
-        id="audit-action-filter"
-        [value]="selectedActionLabel()"
-        [options]="actionOptions"
-        [compact]="true"
-        [showSearchIcon]="false"
-        placeholder="Filtrar acciones..."
-        inputAriaLabel="Filtrar por verbo de acción"
-        (optionSelected)="onActionFilterChange($event.value)"
+    <div class="search-box">
+      <search-bar
+        [query]="searchQuery()"
+        placeholder="Buscar evento, actor o recurso..."
+        ariaLabel="Buscar eventos de auditoría"
+        (queryChange)="onSearchChange($event)"
       />
+    </div>
+
+    <div class="segmented-control" role="group" aria-label="Filtrar por acción de auditoría">
+      @for (seg of actionSegments; track seg.value) {
+        <button
+          type="button"
+          class="segment-btn"
+          [class.active]="actionFilter() === seg.value"
+          (click)="onActionFilterChange(seg.value)"
+        >
+          {{ seg.label }}
+        </button>
+      }
     </div>
 
     @if (hasActiveFilters()) {
@@ -42,38 +43,42 @@
       <table class="audit-table">
         <thead>
           <tr>
-            <th>Timestamp</th>
-            <th>Actor</th>
-            <th>Acción</th>
-            <th>Recurso</th>
-            <th>Status</th>
-            <th class="cell-open-header" data-tour="audit-timeline">
-              <span class="visually-hidden">Ver cronología</span>
-              <div class="header-icon-wrapper" title="Ver cronología del actor">
-                <svg lucidePanelRightOpen class="header-icon" aria-hidden="true"></svg>
-                <span class="tooltip">Ver cronología</span>
-              </div>
+            <th class="th-timestamp">Fecha y Hora</th>
+            <th class="th-actor">Actor</th>
+            <th class="th-action">Acción</th>
+            <th class="th-resource">Recurso</th>
+            <th class="th-status">Resultado</th>
+            <th class="th-detail" data-tour="audit-timeline">
+              <span class="visually-hidden">Detalle</span>
             </th>
           </tr>
         </thead>
         <tbody>
           @for (row of rows(); track row.log.id) {
-            <tr>
-              <td class="cell-timestamp font-date"><time>{{ row.log.created_at | dateText:'compact-datetime' }}</time></td>
-              <td class="cell-actor" [title]="row.log.actor_id">{{ row.log.actor_email }}</td>
+            <tr class="audit-row" (click)="openDrawer(row)">
+              <td class="cell-timestamp font-date">
+                <time [attr.datetime]="row.log.created_at">{{ row.log.created_at | dateText:'compact-datetime' }}</time>
+              </td>
+              <td class="cell-actor" [title]="row.log.actor_email || row.log.actor_id">{{ row.log.actor_email }}</td>
               <td class="cell-action">
-                <span class="action-kind" [class]="'kind-' + row.enriched.kind">{{ row.enriched.label }}</span>
+                <span class="action-kind" [class]="'kind-' + row.enriched.kind">{{ row.actionLabel }}</span>
                 @if (row.reason) {
                   <span class="action-reason" [title]="row.reason">{{ row.reason }}</span>
                 }
               </td>
-              <td class="cell-resource" machineData>{{ row.log.resource_type }}</td>
+              <td class="cell-resource">{{ row.resourceLabel }}</td>
               <td class="cell-status">
                 <span [class]="'status-pill status-' + row.status.kind">{{ row.status.label }}</span>
               </td>
-              <td class="cell-open">
-                <button type="button" class="open-drawer-btn" data-tour="audit-open" (click)="openDrawer(row)" aria-label="Ver cronología del actor">
-                  <svg lucidePanelRightOpen aria-hidden="true"></svg>
+              <td class="cell-detail">
+                <button
+                  type="button"
+                  class="btn-detail"
+                  data-tour="audit-open"
+                  (click)="$event.stopPropagation(); openDrawer(row)"
+                  aria-label="Ver detalle del evento"
+                >
+                  Ver detalle
                 </button>
               </td>
             </tr>
@@ -96,14 +101,14 @@
 
   @if (drawerOpen()) {
     <div class="drawer-backdrop" (click)="onDrawerBackdropClick($event)">
-      <aside 
-        class="drawer" 
+      <aside
+        class="drawer"
         data-tour="audit-drawer"
-        dismissible 
-        (dismiss)="closeDrawer()" 
-        role="dialog" 
-        aria-modal="true" 
-        [attr.aria-label]="'Cronología de ' + drawerActorEmail()"
+        dismissible
+        (dismiss)="closeDrawer()"
+        role="dialog"
+        aria-modal="true"
+        [attr.aria-label]="'Detalle y cronología de ' + drawerActorEmail()"
       >
         <header class="drawer-header">
           <div class="drawer-title">
@@ -111,37 +116,88 @@
               <svg lucideActivity aria-hidden="true"></svg>
             </div>
             <div>
-              <h3>Cronología de Actividad</h3>
-              <p>{{ drawerActorEmail() }}</p>
+              <h3>Detalle del Evento</h3>
+              <p class="drawer-subtitle">{{ drawerActorEmail() }}</p>
             </div>
           </div>
-          <button type="button" class="drawer-close" (click)="closeDrawer()" aria-label="Cerrar cronología">
+          <button type="button" class="drawer-close" (click)="closeDrawer()" aria-label="Cerrar panel">
             <svg lucideX aria-hidden="true"></svg>
           </button>
         </header>
 
-        @if (drawerLoading()) {
-          <p class="drawer-loading">Cargando cronología...</p>
-        } @else if (drawerTimeline().length === 0) {
-          <p class="drawer-loading">Sin eventos para este actor.</p>
-        } @else {
-          <ol class="timeline">
-            @for (row of drawerTimeline(); track row.log.id) {
-              <li class="timeline-item">
-                <span class="timeline-dot" [class]="'dot-' + row.status.kind"></span>
-                <div class="timeline-body">
-                  <p class="timeline-headline">
-                    {{ row.enriched.label }} de <span machineData>{{ row.log.resource_type }}</span>
-                    <span [class]="'status-pill status-' + row.status.kind">{{ row.status.label }}</span>
-                  </p><p class="timeline-meta font-date"><time>{{ row.log.created_at | dateText:'long-datetime' }}</time></p>
-                  @if (row.reason) {
-                    <p class="timeline-reason">Motivo: {{ row.reason }}</p>
-                  }
+        <div class="drawer-content">
+          @if (selectedRow(); as selected) {
+            <section class="drawer-summary-card">
+              <div class="summary-field summary-action-row">
+                <span class="summary-label">Acción</span>
+                <span class="summary-action-title">{{ selected.actionLabel }}</span>
+              </div>
+
+              <div class="summary-grid">
+                <div class="summary-field">
+                  <span class="summary-label">Recurso</span>
+                  <span class="summary-value">{{ selected.resourceLabel }}</span>
                 </div>
-              </li>
+                <div class="summary-field">
+                  <span class="summary-label">Resultado</span>
+                  <span [class]="'status-pill status-' + selected.status.kind">{{ selected.status.label }}</span>
+                </div>
+              </div>
+
+              <div class="summary-grid">
+                <div class="summary-field">
+                  <span class="summary-label">Actor</span>
+                  <span class="summary-value-actor" [title]="selected.log.actor_id">{{ selected.log.actor_email }}</span>
+                </div>
+                <div class="summary-field">
+                  <span class="summary-label">Fecha y hora</span>
+                  <time class="summary-time font-date" [attr.datetime]="selected.log.created_at">
+                    {{ selected.log.created_at | dateText:'long-datetime' }}
+                  </time>
+                </div>
+              </div>
+
+              @if (selected.reason) {
+                <div class="summary-field summary-reason-box">
+                  <span class="summary-label">Motivo registrado</span>
+                  <p class="summary-reason-text">{{ selected.reason }}</p>
+                </div>
+              }
+            </section>
+          }
+
+          <section class="drawer-timeline-section">
+            <h4 class="timeline-section-title">Cronología de actividad del actor</h4>
+
+            @if (drawerLoading()) {
+              <p class="drawer-loading">Cargando cronología...</p>
+            } @else if (drawerTimeline().length === 0) {
+              <p class="drawer-empty">Sin eventos para este actor.</p>
+            } @else {
+              <ol class="timeline">
+                @for (row of drawerTimeline(); track row.log.id) {
+                  <li class="timeline-item">
+                    <span class="timeline-dot" [class]="'dot-' + row.status.kind"></span>
+                    <div class="timeline-body">
+                      <p class="timeline-headline">{{ row.actionLabel }}</p>
+                      <div class="timeline-meta-row">
+                        <span class="timeline-resource">{{ row.resourceLabel }}</span>
+                        <span class="timeline-separator">·</span>
+                        <time class="timeline-time font-date" [attr.datetime]="row.log.created_at">
+                          {{ row.log.created_at | dateText:'compact-datetime' }}
+                        </time>
+                        <span [class]="'status-pill status-' + row.status.kind">{{ row.status.label }}</span>
+                      </div>
+                      @if (row.reason) {
+                        <p class="timeline-reason">Motivo: {{ row.reason }}</p>
+                      }
+                    </div>
+                  </li>
+                }
+              </ol>
             }
-          </ol>
-        }
+          </section>
+        </div>
       </aside>
     </div>
   }

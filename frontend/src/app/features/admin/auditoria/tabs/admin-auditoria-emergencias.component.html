@@ -21,42 +21,75 @@
     </div>
   }
 
-  <div class="actions-grid" data-tour="emergency-actions">
-    @for (action of actions; track action.id) {
-      <article class="action-card" [class.destructive]="action.impact === 'destructiva'" data-tour="emergency-action-card">
-        <header class="action-head">
-          <h3>{{ action.label }}</h3>
-          <span class="impact-tag" [class]="'impact-' + action.impact">{{ action.impact }}</span>
-        </header>
-        <p class="action-desc">{{ action.description }}</p>
-        <button
-          type="button"
-          class="btn-outline execute-btn"
-          [disabled]="isExecuting() && executingAction() === action.id"
-          (click)="openConfirmation(action)"
-        >
-          @if (isExecuting() && executingAction() === action.id) {
-            Ejecutando...
-          } @else {
-            <svg lucideSiren aria-hidden="true"></svg>
-            Ejecutar acción
-          }
-        </button>
-      </article>
-    }
-  </div>
+  <!-- Sección 1 — Contención de entornos activos -->
+  <section class="emergency-section" data-tour="emergency-actions">
+    <h3 class="section-title">Contención de entornos activos</h3>
+    <div class="actions-grid grid-2">
+      @for (action of containmentActions; track action.id) {
+        <article class="action-card" [class.destructive]="action.impact === 'destructiva'" data-tour="emergency-action-card">
+          <header class="action-head">
+            <h4>{{ action.label }}</h4>
+            <span class="impact-tag" [class]="'impact-' + action.impact">{{ action.impact === 'destructiva' ? 'Destructiva' : 'Operativa' }}</span>
+          </header>
+          <p class="action-desc">{{ action.description }}</p>
+          <button
+            type="button"
+            class="btn-outline execute-btn"
+            [disabled]="isExecuting() && executingAction() === action.id"
+            (click)="openConfirmation(action)"
+          >
+            @if (isExecuting() && executingAction() === action.id) {
+              Ejecutando...
+            } @else {
+              <svg lucideSiren aria-hidden="true"></svg>
+              {{ action.btnLabel }}
+            }
+          </button>
+        </article>
+      }
+    </div>
+  </section>
+
+  <!-- Sección 2 — Mantenimiento del servidor -->
+  <section class="emergency-section">
+    <h3 class="section-title">Mantenimiento del servidor</h3>
+    <div class="actions-grid grid-3">
+      @for (action of maintenanceActions; track action.id) {
+        <article class="action-card" data-tour="emergency-action-card">
+          <header class="action-head">
+            <h4>{{ action.label }}</h4>
+            <span class="impact-tag impact-operativa">Operativa</span>
+          </header>
+          <p class="action-desc">{{ action.description }}</p>
+          <button
+            type="button"
+            class="btn-outline execute-btn"
+            [disabled]="isExecuting() && executingAction() === action.id"
+            (click)="openConfirmation(action)"
+          >
+            @if (isExecuting() && executingAction() === action.id) {
+              Ejecutando...
+            } @else {
+              <svg lucideSiren aria-hidden="true"></svg>
+              {{ action.btnLabel }}
+            }
+          </button>
+        </article>
+      }
+    </div>
+  </section>
 
   <section class="history-section" data-tour="emergency-history">
     <h3>Últimas emergencias ejecutadas</h3>
     @if (historyLoading()) {
       <p class="history-loading">Consultando historial...</p>
     } @else if (history().length === 0) {
-      <p class="history-loading">No se han ejecutado acciones de emergencia registradas.</p>
+      <p class="history-empty">No se han ejecutado acciones de emergencia registradas.</p>
     } @else {
       <ul class="history-list">
         @for (row of paginatedHistory(); track row.log.id) {
           <li class="history-item">
-            <time class="history-date font-date">{{ row.log.created_at | dateText:'datetime-sec' }}</time>
+            <time class="history-date font-date" [attr.datetime]="row.log.created_at">{{ row.log.created_at | dateText:'datetime-sec' }}</time>
             <span class="history-action">{{ row.label }}</span>
             <span class="history-actor" [title]="row.log.actor_id">{{ row.log.actor_email }}</span>
           </li>
@@ -84,11 +117,17 @@
   @if (confirmTarget(); as target) {
     <modal-shell animate.leave="motion-modal-out"
       [title]="target.label"
-      [subtitle]="'Acción de impacto ' + target.impact"
+      [subtitle]="target.impact === 'destructiva' ? 'Acción destructiva' : 'Acción operativa'"
       [intent]="confirmIntent()"
       [disableClose]="isExecuting()"
       (close)="closeConfirmation()"
     >
+      @if (target.impact === 'destructiva') {
+        <svg modal-icon lucideTriangleAlert aria-hidden="true"></svg>
+      } @else {
+        <svg modal-icon lucideWrench aria-hidden="true"></svg>
+      }
+
       <div class="confirm-body">
         <p class="confirm-desc">{{ target.description }}</p>
         <p class="confirm-warning">
@@ -131,7 +170,15 @@
           <button type="button" class="btn-outline" [disabled]="isExecuting()" (click)="closeConfirmation()">
             Cancelar
           </button>
-          <button type="button" class="btn-primary confirm-execute" data-tour="emergency-submit" [disabled]="confirmDisabled()" (click)="executeConfirmed()">
+          <button
+            type="button"
+            class="btn-primary confirm-execute"
+            [class.execute-destructive]="target.impact === 'destructiva'"
+            [class.execute-operative]="target.impact === 'operativa'"
+            data-tour="emergency-submit"
+            [disabled]="confirmDisabled()"
+            (click)="executeConfirmed()"
+          >
             @if (isExecuting()) {
               Ejecutando...
             } @else {

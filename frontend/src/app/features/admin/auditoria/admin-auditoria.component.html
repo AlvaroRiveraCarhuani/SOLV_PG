@@ -23,7 +23,9 @@
     }
   </nav>
 
-  <p class="tab-description" data-tour="audit-tab-description">{{ activeDef().description }}</p>
+  @if (activeTab() === 'registro') {
+    <p class="tab-description" data-tour="audit-tab-description">{{ activeDef().description }}</p>
+  }
 
   <div class="auditoria-tab-panel" role="tabpanel">
     @switch (activeTab()) {

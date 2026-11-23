@@ -29,38 +29,48 @@ export interface EmergencyActionResult {
 export const EMERGENCY_ACTIONS = [
   {
     id: 'terminate_all_environments',
-    label: 'Terminar todos los environments',
+    label: 'Terminar todos los entornos',
     phrase: 'TERMINAR TODOS LOS ENTORNOS',
     impact: 'destructiva' as const,
-    description: 'Detiene y destruye todos los contenedores activos del tenant.'
+    description: 'Detiene y destruye todos los contenedores activos de la institución.',
+    btnLabel: 'Terminar entornos',
+    section: 'containment' as const
   },
   {
     id: 'hibernate_all_environments',
-    label: 'Hibernar todos los environments',
+    label: 'Hibernar todos los entornos',
     phrase: 'HIBERNAR TODOS LOS ENTORNOS',
     impact: 'operativa' as const,
-    description: 'Pausa todos los contenedores activos preservando su estado.'
+    description: 'Pausa todos los contenedores activos preservando su estado.',
+    btnLabel: 'Hibernar entornos',
+    section: 'containment' as const
   },
   {
     id: 'kill_zombies',
-    label: 'Limpiar zombies Docker',
+    label: 'Limpiar zombis Docker',
     phrase: 'LIMPIAR ZOMBIES DOCKER',
     impact: 'operativa' as const,
-    description: 'Elimina contenedores huérfanos o zombies del daemon Docker.'
+    description: 'Elimina contenedores huérfanos o zombies del daemon Docker.',
+    btnLabel: 'Limpiar zombis',
+    section: 'maintenance' as const
   },
   {
     id: 'docker_prune',
     label: 'Purgar imágenes y volúmenes huérfanos',
     phrase: 'PURGAR CAPAS HUERFANAS',
     impact: 'operativa' as const,
-    description: 'Libera espacio en disco eliminando capas huérfanas sin tocar volúmenes nombrados.'
+    description: 'Libera espacio en disco eliminando capas huérfanas sin tocar volúmenes nombrados.',
+    btnLabel: 'Purgar imágenes',
+    section: 'maintenance' as const
   },
   {
     id: 'reset_pools',
     label: 'Reiniciar pools y circuit breakers',
     phrase: 'REINICIAR POOLS',
     impact: 'operativa' as const,
-    description: 'Reinicia el pool de conexiones de PostgreSQL y contadores de circuit breakers.'
+    description: 'Reinicia el pool de conexiones de PostgreSQL y contadores de circuit breakers.',
+    btnLabel: 'Reiniciar pools',
+    section: 'maintenance' as const
   }
 ] as const;
 

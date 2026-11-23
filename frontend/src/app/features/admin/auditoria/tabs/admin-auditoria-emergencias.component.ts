@@ -2,12 +2,13 @@ import { Component, OnInit, OnDestroy, computed, inject, signal } from '@angular
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { HttpErrorResponse } from '@angular/common/http';
+import { finalize } from 'rxjs';
 import { DateTextPipe } from '@shared/pipes/date-text.pipe';
 import { ContextHelpService } from '@shared/help/context-help.service';
 import { ProductTourService } from '@shared/help/product-tour.service';
 import { InteractiveTutorialService } from '@shared/help/interactive-tutorial.service';
 import { buildEmergenciasTour, buildEmergenciasTutorial } from './emergencias-help.definitions';
-import { LucideSiren, LucideTriangleAlert } from '@lucide/angular';
+import { LucideSiren, LucideTriangleAlert, LucideWrench } from '@lucide/angular';
 import { ModalShellComponent, ModalIntent } from '@shared/components/modal-shell/modal-shell.component';
 import { FormFieldComponent } from '@shared/components/form-field/form-field.component';
 import { PaginationBarComponent } from '@shared/components/pagination-bar/pagination-bar.component';
@@ -20,35 +21,46 @@ import {
 } from '../admin-auditoria.service';
 import { AuditLog, auditActionLabel } from '@core/models/audit-log.model';
 
-interface EmergencyActionDef {
+export interface EmergencyActionDef {
   id: EmergencyActionId;
   label: string;
   phrase: string;
   impact: 'destructiva' | 'operativa';
   description: string;
+  btnLabel: string;
+  section: 'containment' | 'maintenance';
 }
 
-interface EmergencyHistoryRow {
+export interface EmergencyHistoryRow {
   log: AuditLog;
   label: string;
 }
 
 /**
  * Pestaña Emergencias (ADR-032): centro de control con las 5 acciones del
- * catálogo clasificadas por impacto, doble confirmación por frase tipada,
- * motivo obligatorio y trazabilidad de ejecuciones previas.
+ * catálogo clasificadas por impacto en dos secciones simétricas,
+ * doble confirmación por frase tipada, motivo obligatorio y trazabilidad.
  */
 const EMERGENCY_HELP_KEY = 'emergency-console';
 
 @Component({
   selector: 'admin-auditoria-emergencias',
   standalone: true,
-  imports: [CommonModule, FormsModule, DateTextPipe, LucideSiren, LucideTriangleAlert, ModalShellComponent, FormFieldComponent, PaginationBarComponent],
+  imports: [
+    CommonModule,
+    FormsModule,
+    DateTextPipe,
+    LucideSiren,
+    LucideTriangleAlert,
+    LucideWrench,
+    ModalShellComponent,
+    FormFieldComponent,
+    PaginationBarComponent
+  ],
   templateUrl: './admin-auditoria-emergencias.component.html',
   styleUrl: './admin-auditoria-emergencias.component.scss'
 })
 export class AdminAuditoriaEmergenciasComponent implements OnInit, OnDestroy {
-
   private readonly help = inject(ContextHelpService);
   private readonly productTour = inject(ProductTourService);
   private readonly tutorial = inject(InteractiveTutorialService);
@@ -56,6 +68,8 @@ export class AdminAuditoriaEmergenciasComponent implements OnInit, OnDestroy {
   private readonly metricsService = inject(AdminMetricsService);
 
   readonly actions: EmergencyActionDef[] = [...EMERGENCY_ACTIONS];
+  readonly containmentActions: EmergencyActionDef[] = EMERGENCY_ACTIONS.filter((a) => a.section === 'containment');
+  readonly maintenanceActions: EmergencyActionDef[] = EMERGENCY_ACTIONS.filter((a) => a.section === 'maintenance');
 
   readonly isExecuting = this.auditoriaService.isExecuting;
   readonly executingAction = signal<EmergencyActionId | null>(null);
@@ -198,46 +212,24 @@ export class AdminAuditoriaEmergenciasComponent implements OnInit, OnDestroy {
 
   private loadHistory(): void {
     this.historyLoading.set(true);
-    // El filtro de acción del backend es igualdad exacta: se consultan los
-    // 5 eventos EMERGENCY_* del catálogo y se fusionan por fecha desc.
-    const events = [
-      'EMERGENCY_TERMINATE_ALL',
-      'EMERGENCY_HIBERNATE_ALL',
-      'EMERGENCY_KILL_ZOMBIES',
-      'EMERGENCY_PRUNE_DOCKER',
-      'EMERGENCY_RESET_POOLS'
-    ];
-    let pending = events.length;
-    const merged: EmergencyHistoryRow[] = [];
-    if (pending === 0) {
-      this.historyLoading.set(false);
-      return;
-    }
-    for (const event of events) {
-      this.auditoriaService.listAuditLogs(1, 100, { action: event }).subscribe({
+    this.auditoriaService
+      .listAuditLogs(1, 20, { action: 'EMERGENCY_' })
+      .pipe(finalize(() => this.historyLoading.set(false)))
+      .subscribe({
         next: (resp) => {
-          for (const log of resp.data) {
-            merged.push({ log, label: auditActionLabel(log.action) });
-          }
-          pending--;
-          if (pending === 0) {
-            merged.sort((a, b) => b.log.created_at.localeCompare(a.log.created_at));
-            this.history.set(merged); // Guardar TODOS, paginación la maneja el cliente
-            this.historyCurrentPage.set(1); // Reset a página 1 al recargar
-            this.historyLoading.set(false);
-          }
+          const logs = resp?.data ?? [];
+          const rows: EmergencyHistoryRow[] = logs.map((log) => ({
+            log,
+            label: auditActionLabel(log.action)
+          }));
+          rows.sort((a, b) => b.log.created_at.localeCompare(a.log.created_at));
+          this.history.set(rows);
+          this.historyCurrentPage.set(1);
         },
         error: () => {
-          pending--;
-          if (pending === 0) {
-            merged.sort((a, b) => b.log.created_at.localeCompare(a.log.created_at));
-            this.history.set(merged);
-            this.historyCurrentPage.set(1);
-            this.historyLoading.set(false);
-          }
+          this.history.set([]);
         }
       });
-    }
   }
 
   private showToast(message: string, type: 'success' | 'error'): void {

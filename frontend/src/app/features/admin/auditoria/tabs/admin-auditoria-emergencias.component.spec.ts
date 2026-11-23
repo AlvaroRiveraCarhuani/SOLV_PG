@@ -48,12 +48,17 @@ describe('AdminAuditoriaEmergenciasComponent', () => {
     fixture.detectChanges();
   });
 
-  it('renderiza las 5 acciones del catálogo ADR-032 con su clasificación de impacto', () => {
+  it('renderiza las 5 acciones del catálogo ADR-032 en 2 secciones simétricas', () => {
     const cards = fixture.nativeElement.querySelectorAll('.action-card');
     expect(cards.length).toBe(5);
     const destructive = fixture.nativeElement.querySelectorAll('.action-card.destructive');
     expect(destructive.length).toBe(1);
-    expect(destructive[0].textContent).toContain('Terminar todos los environments');
+    expect(destructive[0].textContent).toContain('Terminar todos los entornos');
+
+    const sections = fixture.nativeElement.querySelectorAll('.emergency-section');
+    expect(sections.length).toBe(2);
+    expect(sections[0].textContent).toContain('Contención de entornos activos');
+    expect(sections[1].textContent).toContain('Mantenimiento del servidor');
   });
 
   it('el modal exige la frase exacta y un motivo de al menos 10 caracteres', () => {
@@ -139,11 +144,11 @@ describe('AdminAuditoriaEmergenciasComponent', () => {
     expect(fixture.nativeElement.querySelector('.critical-banner')).not.toBeNull();
   });
 
-  it('renderiza el historial con el evento de auditoría más reciente primero', () => {
+  it('renderiza el historial con 1 sola llamada a action EMERGENCY_ y clase empty dedicada', () => {
     listSpy.mockImplementation((_page: number, _limit: number, filters?: { action?: string }) => {
-      if (filters?.action === 'EMERGENCY_PRUNE_DOCKER') {
+      if (filters?.action === 'EMERGENCY_') {
         return of({
-          tenant_id: 't', limit: 10, offset: 0,
+          tenant_id: 't', limit: 20, offset: 0,
           data: [
             {
               id: 'log-1', tenant_id: 't', actor_id: 'a', actor_email: 'admin@uab.edu.bo',
@@ -160,6 +165,7 @@ describe('AdminAuditoriaEmergenciasComponent', () => {
     component.ngOnInit();
     fixture.detectChanges();
 
+    expect(listSpy).toHaveBeenCalledWith(1, 20, { action: 'EMERGENCY_' });
     const items = fixture.nativeElement.querySelectorAll('.history-item');
     expect(items.length).toBe(1);
     expect(items[0].textContent).toContain('admin@uab.edu.bo');
