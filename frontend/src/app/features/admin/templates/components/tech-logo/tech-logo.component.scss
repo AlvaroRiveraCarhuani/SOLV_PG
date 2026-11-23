@@ -1,36 +1,23 @@
+// Placa neutra única para cualquier logo: los íconos conservan sus colores
+// originales y resultan legibles tanto en tema claro como oscuro. No hay
+// fondos por marca ni filter: invert(), que distorsionaba logos multicolor.
 .tech-logo-container {
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  box-sizing: border-box;
   border-radius: var(--radius-md);
   padding: var(--space-1);
   flex-shrink: 0;
-  background-color: var(--bg-surface);
-  border: 1px solid var(--border-subtle);
+  background-color: var(--tech-logo-plate-bg);
+  border: 1px solid var(--tech-logo-plate-border);
   transition: transform var(--transition-fast);
   overflow: hidden;
 
-  &.logo-python { background-color: var(--color-blue-50); border-color: var(--color-sky-100); }
-  &.logo-rust { background-color: var(--color-orange-100); border-color: var(--color-orange-200); }
-  &.logo-node { background-color: var(--color-green-50); border-color: var(--color-green-200); }
-  &.logo-go { background-color: var(--color-blue-50); border-color: var(--color-sky-100); }
-  &.logo-java { background-color: var(--color-orange-100); border-color: var(--color-orange-100); }
-  &.logo-cpp { background-color: var(--color-blue-50); border-color: var(--color-blue-200); }
-  &.logo-db { background-color: var(--color-blue-50); border-color: var(--color-sky-100); }
-  &.logo-docker { background-color: var(--color-blue-50); border-color: var(--color-blue-200); }
-
   &.is-monogram {
-    background-color: var(--text-primary);
-    border-color: var(--text-primary);
+    background-color: var(--bg-surface-active);
+    border-color: var(--border-strong);
   }
-}
-
-// En oscuro los logos conservan su imagen, pero el fondo deja de ser un bloque
-// pastel claro y pasa a una caja elevada: los logos de trazo oscuro (Rust,
-// Express, PostgreSQL) se leen sobre ella.
-:host-context([data-theme="dark"]) .tech-logo-container:not(.is-monogram) {
-  background-color: var(--studio-icon-surface);
-  border-color: var(--studio-icon-border);
 }
 
 .tech-logo-img {
@@ -45,7 +32,7 @@
   font-size: var(--text-2xs);
   font-weight: 800;
   line-height: 1;
-  color: var(--text-inverse);
+  color: var(--text-primary);
   letter-spacing: 0.02em;
   user-select: none;
 }

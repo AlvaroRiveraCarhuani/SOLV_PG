@@ -49,6 +49,12 @@
   --studio-primary-disabled-text:   var(--text-muted);
   --studio-primary-disabled-border: var(--border-subtle);
 
+  // Placa neutra de logos tecnológicos (<tech-logo>). Es clara y atenuada en
+  // ambos temas para que logos de trazo oscuro, claros o multicolor sean
+  // legibles sobre ella sin filtros de inversión ni fondos por marca.
+  --tech-logo-plate-bg:     #F4F4F5;
+  --tech-logo-plate-border: #E4E4E7;
+
   // Semánticos Base + Alias de tokens huérfanos
   --color-success:         #16A34A;
   --color-success-dark:    #15803D;
@@ -154,6 +160,11 @@
   --studio-primary-disabled-bg:     #1F1F26;
   --studio-primary-disabled-text:   #71717E;
   --studio-primary-disabled-border: #2D2D37;
+
+  // Placa clara atenuada (no blanco puro) para que los logos no encandilen
+  // en oscuro pero conserven contraste sobre el carbón de la tabla.
+  --tech-logo-plate-bg:     #DEDEE3;
+  --tech-logo-plate-border: rgba(255, 255, 255, 0.14);
 
   --color-success:         #4ADE80;
   --color-success-dark:    #4ADE80;

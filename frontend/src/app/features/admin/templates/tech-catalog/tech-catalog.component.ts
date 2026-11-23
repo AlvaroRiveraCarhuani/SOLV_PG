@@ -8,14 +8,15 @@ import {
   ComponentLayer,
   UpdateTemplateComponentDTO
 } from '../../services/admin-templates.service';
-import { ComboboxComponent, ComboboxOption } from '@shared/components/combobox/combobox.component';
+import { StatusTabsComponent, StatusTabItem } from '@shared/components/status-tabs/status-tabs.component';
+import { FilterPopoverComponent } from '@shared/components/filter-popover/filter-popover.component';
+import { PaginationBarComponent } from '@shared/components/pagination-bar/pagination-bar.component';
 import { SearchBarComponent } from '@shared/components/search-bar/search-bar.component';
 import { SkeletonLoaderComponent } from '@shared/components/skeleton/skeleton-loader.component';
 import { ConfirmModalComponent } from '@shared/components/confirm-modal/confirm-modal.component';
 import { ViewSwitcherComponent } from '@shared/components/view-switcher/view-switcher.component';
 import { ToastService } from '@shared/services/toast.service';
 import { ComponentFormModalComponent } from '../components/model-library/components/component-form-modal/component-form-modal.component';
-import { CatalogTreeComponent } from '../components/model-library/components/catalog-tree/catalog-tree.component';
 import { TechLogoComponent } from '../components/tech-logo/tech-logo.component';
 import { ContextHelpService } from '@shared/help/context-help.service';
 import { ProductTourService } from '@shared/help/product-tour.service';
@@ -25,19 +26,17 @@ import {
   buildTechCatalogTutorial
 } from './tech-catalog-help.definitions';
 import {
-  LucideCpu,
   LucidePlus,
   LucidePencil,
   LucideTrash2,
   LucideCheck,
-  LucidePower,
   LucideAlertTriangle,
-  LucideNetwork,
-  LucideBoxes
+  LucideBoxes,
+  LucideArrowUp,
+  LucideArrowDown
 } from '@lucide/angular';
 import {
   computeComponentMemoryBadge,
-  filterAndSortTechComponentsForLibrary,
   getAddonEcosystemLabel,
   getCompatibleAddonsCountForRuntime,
   getComponentProfileLabel,
@@ -47,13 +46,15 @@ import {
 
 export const TECH_CATALOG_HELP_KEY = 'tech-catalog';
 
-type DeleteDialog = {
+export type DeleteDialog = {
   title: string;
   message: string;
   confirmText: string;
   type: 'danger' | 'primary';
   action: 'delete' | 'deactivate' | 'close';
 };
+
+export type TechSortField = 'name' | 'profile' | 'usage';
 
 @Component({
   selector: 'tech-catalog',
@@ -62,23 +63,23 @@ type DeleteDialog = {
     CommonModule,
     FormsModule,
     MachineDataDirective,
-    ComboboxComponent,
+    StatusTabsComponent,
+    FilterPopoverComponent,
+    PaginationBarComponent,
     SearchBarComponent,
     SkeletonLoaderComponent,
     ConfirmModalComponent,
     ViewSwitcherComponent,
     ComponentFormModalComponent,
-    CatalogTreeComponent,
     TechLogoComponent,
-    LucideCpu,
     LucidePlus,
     LucidePencil,
     LucideTrash2,
     LucideCheck,
-    LucidePower,
     LucideAlertTriangle,
-    LucideNetwork,
-    LucideBoxes
+    LucideBoxes,
+    LucideArrowUp,
+    LucideArrowDown
   ],
   templateUrl: './tech-catalog.component.html',
   styleUrls: ['./tech-catalog.component.scss']
@@ -90,8 +91,7 @@ export class TechCatalogComponent implements OnInit, OnDestroy {
   private readonly tutorial = inject(InteractiveTutorialService);
   private readonly toast = inject(ToastService);
 
-  readonly activeTab = signal<'components' | 'map'>('components');
-  readonly viewMode = signal<'cards' | 'table'>('cards');
+  readonly viewMode = signal<'table' | 'cards'>('table');
   readonly isLoading = signal<boolean>(false);
 
   readonly techComponents = signal<TemplateComponent[]>([]);
@@ -102,8 +102,23 @@ export class TechCatalogComponent implements OnInit, OnDestroy {
   readonly editingComponent = signal<TemplateComponent | null>(null);
 
   readonly componentSearchQuery = signal<string>('');
-  readonly componentProfileFilter = signal<'ALL' | 'BACKEND' | 'WEB' | 'ADDON' | 'DATABASE'>('ALL');
-  readonly componentStatusFilter = signal<'ALL' | 'ACTIVE' | 'INACTIVE'>('ALL');
+  readonly selectedProfileTab = signal<'ALL' | 'BACKEND' | 'WEB' | 'ADDON' | 'DATABASE'>('ALL');
+  readonly statusFilter = signal<'ALL' | 'ACTIVE' | 'INACTIVE'>('ALL');
+  readonly originFilter = signal<'ALL' | 'OFFICIAL' | 'CUSTOM'>('ALL');
+
+  // Alias para mantener compatibilidad con tests y consumers existentes
+  get componentProfileFilter() {
+    return this.selectedProfileTab;
+  }
+  get componentStatusFilter() {
+    return this.statusFilter;
+  }
+
+  readonly sortField = signal<TechSortField>('name');
+  readonly sortDirection = signal<'asc' | 'desc'>('asc');
+
+  readonly pageSize = signal<number>(12);
+  readonly currentPage = signal<number>(1);
 
   readonly totalComponentsCount = computed(() => this.techComponents().length);
   readonly activeComponentsCount = computed(
@@ -122,40 +137,91 @@ export class TechCatalogComponent implements OnInit, OnDestroy {
     () => this.techComponents().filter(c => c.layer === 'database').length
   );
 
-  // Los conteos viven donde se filtra: la opción declara cuántos elementos
-  // selecciona. Antes ocupaban cinco tarjetas KPI que empujaban el catálogo
-  // bajo el pliegue sin aportar una decisión.
-  readonly componentProfileFilterOptions = computed<ComboboxOption[]>(() => [
-    { id: 'ALL', label: `Todos los perfiles (${this.totalComponentsCount()})`, value: 'ALL' },
-    { id: 'BACKEND', label: `Lenguaje Principal (${this.backendRuntimesCount()})`, value: 'BACKEND' },
-    { id: 'WEB', label: `Interfaz Web / Frontend (${this.webRuntimesCount()})`, value: 'WEB' },
-    { id: 'ADDON', label: `Complemento / Librería (${this.addonsCount()})`, value: 'ADDON' },
-    { id: 'DATABASE', label: `Base de Datos (${this.databasesCount()})`, value: 'DATABASE' }
+  readonly profileTabs = computed<StatusTabItem[]>(() => [
+    { id: 'ALL', label: 'Todas', count: this.totalComponentsCount(), badgeVariant: 'neutral' },
+    { id: 'BACKEND', label: 'Lenguajes', count: this.backendRuntimesCount(), badgeVariant: 'neutral' },
+    { id: 'WEB', label: 'Interfaz Web', count: this.webRuntimesCount(), badgeVariant: 'neutral' },
+    { id: 'ADDON', label: 'Complementos', count: this.addonsCount(), badgeVariant: 'neutral' },
+    { id: 'DATABASE', label: 'Bases de datos', count: this.databasesCount(), badgeVariant: 'neutral' }
   ]);
 
-  readonly selectedComponentProfileFilterLabel = computed<string>(() => {
-    const val = this.componentProfileFilter();
-    return this.componentProfileFilterOptions().find(o => o.value === val)?.label || 'Todos los perfiles';
+  readonly activeFilterCount = computed<number>(() => {
+    let count = 0;
+    if (this.statusFilter() !== 'ALL') count++;
+    if (this.originFilter() !== 'ALL') count++;
+    return count;
   });
 
-  readonly componentStatusFilterOptions = computed<ComboboxOption[]>(() => [
-    { id: 'ALL', label: 'Todos los estados', value: 'ALL' },
-    { id: 'ACTIVE', label: 'Solo Activos', value: 'ACTIVE' },
-    { id: 'INACTIVE', label: 'Solo Inactivos', value: 'INACTIVE' }
-  ]);
+  readonly filteredTechComponents = computed(() => {
+    const query = this.componentSearchQuery().trim().toLowerCase();
+    const profile = this.selectedProfileTab();
+    const status = this.statusFilter();
+    const origin = this.originFilter();
+    const sField = this.sortField();
+    const sDir = this.sortDirection() === 'asc' ? 1 : -1;
 
-  readonly selectedComponentStatusFilterLabel = computed<string>(() => {
-    const val = this.componentStatusFilter();
-    return this.componentStatusFilterOptions().find(o => o.value === val)?.label || 'Todos los estados';
+    const items = this.techComponents().filter(c => {
+      if (!isManageableTechComponent(c)) return false;
+
+      if (profile === 'BACKEND' && (c.layer !== 'runtime' || c.sub_category === 'web')) return false;
+      if (profile === 'WEB' && (c.layer !== 'runtime' || c.sub_category !== 'web')) return false;
+      if (profile === 'ADDON' && c.layer !== 'addon') return false;
+      if (profile === 'DATABASE' && c.layer !== 'database') return false;
+
+      if (status === 'ACTIVE' && c.is_active === false) return false;
+      if (status === 'INACTIVE' && c.is_active !== false) return false;
+
+      if (origin === 'OFFICIAL' && !c.is_system) return false;
+      if (origin === 'CUSTOM' && c.is_system) return false;
+
+      if (query) {
+        const matchesName = (c.name || '').toLowerCase().includes(query);
+        const matchesSlug = (c.slug || '').toLowerCase().includes(query);
+        const matchesDesc = (c.description || '').toLowerCase().includes(query);
+        const matchesImage = (c.base_image || '').toLowerCase().includes(query);
+        const matchesTools = (c.tools_provided || []).some(t => t.toLowerCase().includes(query));
+        const matchesPkgs = (c.package_names || []).some(p => p.toLowerCase().includes(query));
+        if (!matchesName && !matchesSlug && !matchesDesc && !matchesImage && !matchesTools && !matchesPkgs) {
+          return false;
+        }
+      }
+
+      return true;
+    });
+
+    return items.sort((a, b) => {
+      if (sField === 'usage') {
+        const uA = a.usage_count ?? 0;
+        const uB = b.usage_count ?? 0;
+        if (uA !== uB) return (uA - uB) * sDir;
+        return (a.name || '').localeCompare(b.name || '');
+      }
+
+      if (sField === 'profile') {
+        const pA = this.getProfileDisplayLabel(a);
+        const pB = this.getProfileDisplayLabel(b);
+        const cmp = pA.localeCompare(pB);
+        if (cmp !== 0) return cmp * sDir;
+        return (a.name || '').localeCompare(b.name || '');
+      }
+
+      return (a.name || '').localeCompare(b.name || '') * sDir;
+    });
   });
 
-  readonly filteredTechComponents = computed(() =>
-    filterAndSortTechComponentsForLibrary({
-      components: this.techComponents(),
-      searchQuery: this.componentSearchQuery(),
-      profileFilter: this.componentProfileFilter(),
-      statusFilter: this.componentStatusFilter()
-    })
+  readonly totalFilteredItems = computed(() => this.filteredTechComponents().length);
+  readonly totalPages = computed(() => Math.max(1, Math.ceil(this.totalFilteredItems() / this.pageSize())));
+
+  readonly paginatedComponents = computed(() => {
+    const start = (this.currentPage() - 1) * this.pageSize();
+    return this.filteredTechComponents().slice(start, start + this.pageSize());
+  });
+
+  readonly paginationFrom = computed(() =>
+    this.totalFilteredItems() === 0 ? 0 : (this.currentPage() - 1) * this.pageSize() + 1
+  );
+  readonly paginationTo = computed(() =>
+    Math.min(this.currentPage() * this.pageSize(), this.totalFilteredItems())
   );
 
   readonly pendingDelete = signal<TemplateComponent | null>(null);
@@ -163,9 +229,7 @@ export class TechCatalogComponent implements OnInit, OnDestroy {
 
   readonly deleteDialog = computed<DeleteDialog | null>(() => {
     const comp = this.pendingDelete();
-    if (!comp) {
-      return null;
-    }
+    if (!comp) return null;
     const usage = comp.usage_count ?? 0;
     if (usage > 0) {
       if (comp.is_active === false) {
@@ -199,7 +263,7 @@ export class TechCatalogComponent implements OnInit, OnDestroy {
     this.help.registerGuides(TECH_CATALOG_HELP_KEY, {
       tour: {
         label: 'Recorrido visual',
-        hint: 'Señala pestañas, filtros, tarjetas y acciones de baja.',
+        hint: 'Señala pestañas, filtros, tabla y acciones de baja.',
         run: () => void this.productTour.start(buildTechCatalogTour())
       },
       tutorial: {
@@ -216,7 +280,6 @@ export class TechCatalogComponent implements OnInit, OnDestroy {
     this.help.unregisterScreen(TECH_CATALOG_HELP_KEY);
   }
 
-  /** Tutorial de retiro seguro: no exige un botón que el catálogo oficial no tiene. */
   startTechCatalogTutorial(): void {
     this.tutorial.start(
       buildTechCatalogTutorial({
@@ -243,18 +306,48 @@ export class TechCatalogComponent implements OnInit, OnDestroy {
     });
   }
 
-  onComponentProfileSelected(opt: ComboboxOption): void {
-    this.componentProfileFilter.set((opt.value as 'ALL' | 'BACKEND' | 'WEB' | 'ADDON' | 'DATABASE') || 'ALL');
+  onTabChange(tabId: string): void {
+    this.selectedProfileTab.set(tabId as 'ALL' | 'BACKEND' | 'WEB' | 'ADDON' | 'DATABASE');
+    this.currentPage.set(1);
   }
 
-  onComponentStatusSelected(opt: ComboboxOption): void {
-    this.componentStatusFilter.set((opt.value as 'ALL' | 'ACTIVE' | 'INACTIVE') || 'ALL');
+  onSearchChange(query: string): void {
+    this.componentSearchQuery.set(query);
+    this.currentPage.set(1);
+  }
+
+  setStatusFilter(status: 'ALL' | 'ACTIVE' | 'INACTIVE'): void {
+    this.statusFilter.set(status);
+    this.currentPage.set(1);
+  }
+
+  setOriginFilter(origin: 'ALL' | 'OFFICIAL' | 'CUSTOM'): void {
+    this.originFilter.set(origin);
+    this.currentPage.set(1);
+  }
+
+  clearFilters(): void {
+    this.statusFilter.set('ALL');
+    this.originFilter.set('ALL');
+    this.currentPage.set(1);
   }
 
   resetComponentFilters(): void {
     this.componentSearchQuery.set('');
-    this.componentProfileFilter.set('ALL');
-    this.componentStatusFilter.set('ALL');
+    this.selectedProfileTab.set('ALL');
+    this.statusFilter.set('ALL');
+    this.originFilter.set('ALL');
+    this.currentPage.set(1);
+  }
+
+  toggleSort(field: TechSortField): void {
+    if (this.sortField() === field) {
+      this.sortDirection.update(d => (d === 'asc' ? 'desc' : 'asc'));
+    } else {
+      this.sortField.set(field);
+      this.sortDirection.set(field === 'usage' ? 'desc' : 'asc');
+    }
+    this.currentPage.set(1);
   }
 
   openNewComponentModal(
@@ -266,7 +359,7 @@ export class TechCatalogComponent implements OnInit, OnDestroy {
     let resolvedSubCategory = subCategory;
 
     if (!resolvedLayer) {
-      const profile = this.componentProfileFilter();
+      const profile = this.selectedProfileTab();
       if (profile === 'WEB') {
         resolvedLayer = 'runtime';
         resolvedSubCategory = 'web';
@@ -346,6 +439,17 @@ export class TechCatalogComponent implements OnInit, OnDestroy {
     return getComponentProfileLabel(comp);
   }
 
+  getProfileDisplayLabel(comp: TemplateComponent): string {
+    if (comp.layer === 'runtime') {
+      return comp.sub_category === 'web' ? 'Interfaz Web' : 'Lenguaje';
+    }
+    if (comp.layer === 'addon') {
+      const eco = getAddonEcosystemLabel(comp);
+      return eco && eco !== 'Universal' ? `Complemento · ${eco}` : 'Complemento';
+    }
+    return 'Base de datos';
+  }
+
   getAddonEcosystemLabel(comp: TemplateComponent): string {
     return getAddonEcosystemLabel(comp);
   }
@@ -356,6 +460,29 @@ export class TechCatalogComponent implements OnInit, OnDestroy {
 
   getCompatibleAddonsCount(runtimeComp: TemplateComponent): number {
     return getCompatibleAddonsCountForRuntime(runtimeComp, this.techComponents());
+  }
+
+  /** Concordancia del uso: «entorno» para 1, «entornos» para el resto. */
+  getUsageNoun(comp: TemplateComponent): string {
+    return (comp.usage_count ?? 0) === 1 ? 'entorno' : 'entornos';
+  }
+
+  getUsageTooltip(comp: TemplateComponent): string {
+    const usage = comp.usage_count ?? 0;
+    return usage === 1 ? 'La referencia 1 entorno' : `La referencian ${usage} entornos`;
+  }
+
+  /**
+   * Memoria RAM a mostrar. Los lenguajes base (runtime que no es interfaz web)
+   * declaran su memoria base sin «+»; las capas que suman RAM encima
+   * (interfaz web, complementos y bases de datos) la muestran como delta.
+   * Devuelve cadena vacía cuando no hay cuota que mostrar.
+   */
+  getRamLabel(comp: TemplateComponent): string {
+    const mb = comp.ram_delta_mb ?? 0;
+    if (mb <= 0) return '';
+    const isAdditiveLayer = !(comp.layer === 'runtime' && comp.sub_category !== 'web');
+    return isAdditiveLayer ? `+${mb} MB` : `${mb} MB`;
   }
 
   getComponentMemoryBadge(
@@ -393,9 +520,8 @@ export class TechCatalogComponent implements OnInit, OnDestroy {
   onDeleteConfirmed(): void {
     const dialog = this.deleteDialog();
     const comp = this.pendingDelete();
-    if (!dialog || !comp) {
-      return;
-    }
+    if (!dialog || !comp) return;
+
     if (dialog.action === 'close') {
       this.pendingDelete.set(null);
       return;

@@ -75,6 +75,22 @@ describe('TechLogoComponent', () => {
     expect(monogramEl?.textContent?.trim()).toBe('EL');
   });
 
+  it('renders every logo on a single neutral plate without inline brand backgrounds or inversion filters', () => {
+    for (const icon of ['mysql', 'rust', 'sqlalchemy', 'python', 'react']) {
+      component.iconType = icon;
+      fixture.detectChanges();
+
+      const container = fixture.nativeElement.querySelector('.tech-logo-container') as HTMLElement;
+      const img = container.querySelector('img.tech-logo-img') as HTMLImageElement;
+
+      expect(container.classList.contains('tech-logo-container')).toBe(true);
+      // La placa y el tratamiento se resuelven por token en SCSS, nunca por
+      // estilos en línea ni por filtros aplicados a la imagen.
+      expect(container.style.backgroundColor).toBe('');
+      expect(img.style.filter).toBe('');
+    }
+  });
+
   it('should resolve standard size variants (chip, avatar, hero) to canonical dimensions', () => {
     component.iconType = 'node';
     component.size = 'chip';

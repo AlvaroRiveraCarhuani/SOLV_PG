@@ -158,3 +158,42 @@
   padding: var(--space-1) var(--space-2);
   font-size: var(--text-xs);
 }
+
+.installed-presets-section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin-top: var(--space-1);
+}
+
+.installed-presets-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  background: transparent;
+  border: none;
+  padding: var(--space-1) var(--space-2);
+  font-family: var(--font-sans);
+  font-size: var(--text-xs);
+  font-weight: 600;
+  color: var(--text-secondary);
+  cursor: pointer;
+  border-radius: var(--radius-xs);
+  width: fit-content;
+  transition: color var(--motion-fast) var(--motion-ease-standard), background-color var(--motion-fast) var(--motion-ease-standard);
+
+  &:hover {
+    color: var(--text-primary);
+    background-color: var(--bg-surface-subtle);
+  }
+
+  .toggle-icon {
+    width: 14px;
+    height: 14px;
+  }
+}
+
+.installed-grid {
+  opacity: 0.9;
+}
+
