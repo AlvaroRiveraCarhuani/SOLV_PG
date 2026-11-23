@@ -515,7 +515,6 @@ jobs:
       SEAWEEDFS_ACCESS_KEY: e2e-access-key
       SEAWEEDFS_SECRET_KEY: e2e-secret-key
       E2E_BASE_URL: http://127.0.0.1:4200
-      PORT: '3000'
       # Perfil A de ADR-089: las tres sesiones de rol salen por 127.0.0.1 y
       # comparten el cupo por IP del backend. El límite protege frente a un
       # cliente externo, no a un stack que corre en loopback.
@@ -569,6 +568,8 @@ jobs:
             psql -U solv_user -d solv_e2e -f /seeds/e2e_actors.sql
 
       - name: Build and start backend
+        env:
+          PORT: '3000'
         run: |
           set -euo pipefail
           cd backend
@@ -588,6 +589,8 @@ jobs:
           exit 1
 
       - name: Start frontend
+        env:
+          PORT: '4200'
         run: |
           set -euo pipefail
           cd frontend
