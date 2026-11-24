@@ -1,0 +1,14 @@
+=== RUN   TestASTPlagiarismEngine_VariableRenamingAndWhitespace
+--- PASS: TestASTPlagiarismEngine_VariableRenamingAndWhitespace (0.00s)
+=== RUN   TestASTPlagiarismEngine_DissimilarAlgorithms
+--- PASS: TestASTPlagiarismEngine_DissimilarAlgorithms (0.00s)
+=== RUN   TestASTPlagiarismEngine_AnalyzeSubmissions
+--- PASS: TestASTPlagiarismEngine_AnalyzeSubmissions (0.00s)
+=== RUN   TestASTPlagiarismEngine_BoilerplateSubtractionRemovesFalsePositive
+--- PASS: TestASTPlagiarismEngine_BoilerplateSubtractionRemovesFalsePositive (0.00s)
+=== RUN   TestASTPlagiarismEngine_RangePointsToRealSourceLines
+--- PASS: TestASTPlagiarismEngine_RangePointsToRealSourceLines (0.00s)
+=== RUN   TestASTPlagiarismEngine_IDERangesPerFile
+--- PASS: TestASTPlagiarismEngine_IDERangesPerFile (0.00s)
+PASS
+ok  	solv-backend/internal/core/services	0.016s

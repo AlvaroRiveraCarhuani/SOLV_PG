@@ -1,0 +1,31 @@
+{
+  "clean_code_stats": {
+    "scenario": "E4",
+    "metric": "AST Pre-check (Clean Code - PASS)",
+    "n": 200,
+    "mean_ms": 0.10002199499999996,
+    "std_dev_ms": 0.08589688475262053,
+    "p50_ms": 0.080178,
+    "p95_ms": 0.309554,
+    "p99_ms": 0.508952,
+    "min_ms": 0.044957,
+    "max_ms": 0.526275
+  },
+  "forbidden_code_stats": {
+    "scenario": "E4",
+    "metric": "AST Pre-check (Forbidden Code - AST_BLOCKED)",
+    "n": 200,
+    "mean_ms": 0.027348619999999997,
+    "std_dev_ms": 0.04419560798954575,
+    "p50_ms": 0.016919,
+    "p95_ms": 0.062073,
+    "p99_ms": 0.258985,
+    "min_ms": 0.010482,
+    "max_ms": 0.454826
+  },
+  "layers_active": 2,
+  "layers_explanation": "Host lacks semgrep CLI in PATH or ~/.local/bin; running 2 of 3 layers (AST + regex rules) per Trampa #6",
+  "scenario": "E4",
+  "semgrep_host_cli_present": false,
+  "timestamp_utc": "2026-11-24T11:30:08Z"
+}

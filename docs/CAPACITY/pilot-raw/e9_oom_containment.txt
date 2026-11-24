@@ -1,0 +1,8 @@
+=== E9: OOM CONTAINMENT TEST ===
+Host memory before: Mem:           11852        3735        2390         292        6346        8116
+Launching container limited to 50MB allocating 100MB...
+Container ExitCode: 137
+Container OOMKilled: true
+Container Status: exited
+Host memory after: Mem:           11852        3694        2430         292        6346        8157
+Neighbor health: solv_backend is healthy

@@ -1,0 +1,14 @@
+=== RUN   TestPackageExercise_ExcludesConfiguredPaths
+--- PASS: TestPackageExercise_ExcludesConfiguredPaths (0.00s)
+=== RUN   TestPackageExercise_RejectsTooManyFiles
+--- PASS: TestPackageExercise_RejectsTooManyFiles (0.00s)
+=== RUN   TestUnpackSnapshot_DropsUnsafeAndPlatformPaths
+--- PASS: TestUnpackSnapshot_DropsUnsafeAndPlatformPaths (0.00s)
+=== RUN   TestUnpackSnapshot_RejectsTooManyFiles
+--- PASS: TestUnpackSnapshot_RejectsTooManyFiles (0.00s)
+=== RUN   TestPackageFiles_AppliesConfiguredExclusions
+--- PASS: TestPackageFiles_AppliesConfiguredExclusions (0.00s)
+=== RUN   TestPackageFiles_RejectsTooManyFiles
+--- PASS: TestPackageFiles_RejectsTooManyFiles (0.00s)
+PASS
+ok  	solv-backend/internal/infrastructure/storage/seaweedfs	0.012s

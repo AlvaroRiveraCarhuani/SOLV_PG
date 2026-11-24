@@ -1,0 +1,4 @@
+=== RUN   TestExamNetwork_E2E_Isolation
+--- PASS: TestExamNetwork_E2E_Isolation (4.00s)
+PASS
+ok  	solv-backend/internal/infrastructure/docker	4.012s

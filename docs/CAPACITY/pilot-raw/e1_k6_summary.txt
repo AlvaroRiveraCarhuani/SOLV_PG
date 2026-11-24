@@ -1,0 +1,759 @@
+
+         /\      Grafana   /‾‾/  
+    /\  /  \     |\  __   /  /   
+   /  \/    \    | |/ /  /   ‾‾\ 
+  /          \   |   (  |  (‾)  |
+ / __________ \  |_|\_\  \_____/ 
+
+     execution: local
+        script: load-tests/exam-deadline-peak.js
+        output: -
+
+     scenarios: (100.00%) 1 scenario, 200 max VUs, 2m50s max duration (incl. graceful stop):
+              * default: Up to 200 looping VUs for 2m20s over 4 stages (gracefulRampDown: 30s, gracefulStop: 30s)
+
+
+running (0m00.9s), 002/200 VUs, 0 complete and 0 interrupted iterations
+default   [   1% ] 002/200 VUs  0m00.9s/2m20.0s
+
+running (0m01.9s), 004/200 VUs, 0 complete and 0 interrupted iterations
+default   [   1% ] 004/200 VUs  0m01.9s/2m20.0s
+
+running (0m02.9s), 005/200 VUs, 0 complete and 0 interrupted iterations
+default   [   2% ] 005/200 VUs  0m02.9s/2m20.0s
+
+running (0m03.9s), 007/200 VUs, 0 complete and 0 interrupted iterations
+default   [   3% ] 007/200 VUs  0m03.9s/2m20.0s
+
+running (0m04.9s), 008/200 VUs, 0 complete and 0 interrupted iterations
+default   [   3% ] 008/200 VUs  0m04.9s/2m20.0s
+
+running (0m05.9s), 010/200 VUs, 0 complete and 0 interrupted iterations
+default   [   4% ] 010/200 VUs  0m05.9s/2m20.0s
+
+running (0m06.9s), 012/200 VUs, 0 complete and 0 interrupted iterations
+default   [   5% ] 012/200 VUs  0m06.9s/2m20.0s
+
+running (0m07.9s), 013/200 VUs, 1 complete and 0 interrupted iterations
+default   [   6% ] 013/200 VUs  0m07.9s/2m20.0s
+
+running (0m08.9s), 015/200 VUs, 1 complete and 0 interrupted iterations
+default   [   6% ] 015/200 VUs  0m08.9s/2m20.0s
+
+running (0m09.9s), 017/200 VUs, 1 complete and 0 interrupted iterations
+default   [   7% ] 017/200 VUs  0m09.9s/2m20.0s
+
+running (0m10.9s), 018/200 VUs, 1 complete and 0 interrupted iterations
+default   [   8% ] 018/200 VUs  0m10.9s/2m20.0s
+
+running (0m11.9s), 020/200 VUs, 1 complete and 0 interrupted iterations
+default   [   8% ] 020/200 VUs  0m11.9s/2m20.0s
+
+running (0m12.9s), 022/200 VUs, 1 complete and 0 interrupted iterations
+default   [   9% ] 022/200 VUs  0m12.9s/2m20.0s
+
+running (0m13.9s), 023/200 VUs, 1 complete and 0 interrupted iterations
+default   [  10% ] 023/200 VUs  0m13.9s/2m20.0s
+
+running (0m14.9s), 025/200 VUs, 1 complete and 0 interrupted iterations
+default   [  11% ] 025/200 VUs  0m14.9s/2m20.0s
+
+running (0m15.9s), 026/200 VUs, 1 complete and 0 interrupted iterations
+default   [  11% ] 026/200 VUs  0m15.9s/2m20.0s
+
+running (0m16.9s), 028/200 VUs, 1 complete and 0 interrupted iterations
+default   [  12% ] 028/200 VUs  0m16.9s/2m20.0s
+
+running (0m17.9s), 030/200 VUs, 1 complete and 0 interrupted iterations
+default   [  13% ] 030/200 VUs  0m17.9s/2m20.0s
+
+running (0m18.9s), 031/200 VUs, 1 complete and 0 interrupted iterations
+default   [  13% ] 031/200 VUs  0m18.9s/2m20.0s
+
+running (0m19.9s), 033/200 VUs, 1 complete and 0 interrupted iterations
+default   [  14% ] 033/200 VUs  0m19.9s/2m20.0s
+
+running (0m20.9s), 035/200 VUs, 1 complete and 0 interrupted iterations
+default   [  15% ] 035/200 VUs  0m20.9s/2m20.0s
+
+running (0m21.9s), 036/200 VUs, 1 complete and 0 interrupted iterations
+default   [  16% ] 036/200 VUs  0m21.9s/2m20.0s
+
+running (0m22.9s), 038/200 VUs, 1 complete and 0 interrupted iterations
+default   [  16% ] 038/200 VUs  0m22.9s/2m20.0s
+
+running (0m23.9s), 039/200 VUs, 1 complete and 0 interrupted iterations
+default   [  17% ] 039/200 VUs  0m23.9s/2m20.0s
+
+running (0m24.9s), 041/200 VUs, 1 complete and 0 interrupted iterations
+default   [  18% ] 041/200 VUs  0m24.9s/2m20.0s
+
+running (0m25.9s), 043/200 VUs, 1 complete and 0 interrupted iterations
+default   [  18% ] 043/200 VUs  0m25.9s/2m20.0s
+
+running (0m26.9s), 044/200 VUs, 1 complete and 0 interrupted iterations
+default   [  19% ] 044/200 VUs  0m26.9s/2m20.0s
+
+running (0m27.9s), 046/200 VUs, 1 complete and 0 interrupted iterations
+default   [  20% ] 046/200 VUs  0m27.9s/2m20.0s
+
+running (0m28.9s), 048/200 VUs, 1 complete and 0 interrupted iterations
+default   [  21% ] 048/200 VUs  0m28.9s/2m20.0s
+
+running (0m29.9s), 049/200 VUs, 1 complete and 0 interrupted iterations
+default   [  21% ] 049/200 VUs  0m29.9s/2m20.0s
+
+running (0m30.9s), 050/200 VUs, 1 complete and 0 interrupted iterations
+default   [  22% ] 050/200 VUs  0m30.9s/2m20.0s
+
+running (0m31.9s), 052/200 VUs, 1 complete and 0 interrupted iterations
+default   [  23% ] 052/200 VUs  0m31.9s/2m20.0s
+
+running (0m32.9s), 053/200 VUs, 1 complete and 0 interrupted iterations
+default   [  23% ] 053/200 VUs  0m32.9s/2m20.0s
+
+running (0m33.9s), 054/200 VUs, 1 complete and 0 interrupted iterations
+default   [  24% ] 054/200 VUs  0m33.9s/2m20.0s
+
+running (0m34.9s), 055/200 VUs, 1 complete and 0 interrupted iterations
+default   [  25% ] 055/200 VUs  0m34.9s/2m20.0s
+
+running (0m35.9s), 056/200 VUs, 1 complete and 0 interrupted iterations
+default   [  26% ] 056/200 VUs  0m35.9s/2m20.0s
+
+running (0m36.9s), 057/200 VUs, 1 complete and 0 interrupted iterations
+default   [  26% ] 057/200 VUs  0m36.9s/2m20.0s
+
+running (0m37.9s), 058/200 VUs, 1 complete and 0 interrupted iterations
+default   [  27% ] 058/200 VUs  0m37.9s/2m20.0s
+
+running (0m38.9s), 059/200 VUs, 1 complete and 0 interrupted iterations
+default   [  28% ] 059/200 VUs  0m38.9s/2m20.0s
+
+running (0m39.9s), 060/200 VUs, 1 complete and 0 interrupted iterations
+default   [  28% ] 060/200 VUs  0m39.9s/2m20.0s
+
+running (0m40.9s), 062/200 VUs, 1 complete and 0 interrupted iterations
+default   [  29% ] 062/200 VUs  0m40.9s/2m20.0s
+
+running (0m41.9s), 063/200 VUs, 1 complete and 0 interrupted iterations
+default   [  30% ] 063/200 VUs  0m41.9s/2m20.0s
+
+running (0m42.9s), 064/200 VUs, 1 complete and 0 interrupted iterations
+default   [  31% ] 064/200 VUs  0m42.9s/2m20.0s
+
+running (0m43.9s), 065/200 VUs, 1 complete and 0 interrupted iterations
+default   [  31% ] 065/200 VUs  0m43.9s/2m20.0s
+
+running (0m44.9s), 066/200 VUs, 1 complete and 0 interrupted iterations
+default   [  32% ] 066/200 VUs  0m44.9s/2m20.0s
+
+running (0m45.9s), 067/200 VUs, 1 complete and 0 interrupted iterations
+default   [  33% ] 067/200 VUs  0m45.9s/2m20.0s
+
+running (0m46.9s), 068/200 VUs, 1 complete and 0 interrupted iterations
+default   [  33% ] 068/200 VUs  0m46.9s/2m20.0s
+
+running (0m47.9s), 069/200 VUs, 1 complete and 0 interrupted iterations
+default   [  34% ] 069/200 VUs  0m47.9s/2m20.0s
+
+running (0m48.9s), 070/200 VUs, 1 complete and 0 interrupted iterations
+default   [  35% ] 070/200 VUs  0m48.9s/2m20.0s
+
+running (0m49.9s), 072/200 VUs, 1 complete and 0 interrupted iterations
+default   [  36% ] 072/200 VUs  0m49.9s/2m20.0s
+
+running (0m50.9s), 073/200 VUs, 1 complete and 0 interrupted iterations
+default   [  36% ] 073/200 VUs  0m50.9s/2m20.0s
+
+running (0m51.9s), 074/200 VUs, 1 complete and 0 interrupted iterations
+default   [  37% ] 074/200 VUs  0m51.9s/2m20.0s
+
+running (0m52.9s), 075/200 VUs, 1 complete and 0 interrupted iterations
+default   [  38% ] 075/200 VUs  0m52.9s/2m20.0s
+
+running (0m53.9s), 076/200 VUs, 1 complete and 0 interrupted iterations
+default   [  38% ] 076/200 VUs  0m53.9s/2m20.0s
+
+running (0m54.9s), 077/200 VUs, 1 complete and 0 interrupted iterations
+default   [  39% ] 077/200 VUs  0m54.9s/2m20.0s
+
+running (0m55.9s), 078/200 VUs, 1 complete and 0 interrupted iterations
+default   [  40% ] 078/200 VUs  0m55.9s/2m20.0s
+
+running (0m56.9s), 079/200 VUs, 1 complete and 0 interrupted iterations
+default   [  41% ] 079/200 VUs  0m56.9s/2m20.0s
+
+running (0m57.9s), 080/200 VUs, 1 complete and 0 interrupted iterations
+default   [  41% ] 080/200 VUs  0m57.9s/2m20.0s
+
+running (0m58.9s), 082/200 VUs, 1 complete and 0 interrupted iterations
+default   [  42% ] 082/200 VUs  0m58.9s/2m20.0s
+
+running (0m59.9s), 083/200 VUs, 1 complete and 0 interrupted iterations
+default   [  43% ] 083/200 VUs  0m59.9s/2m20.0s
+time="2026-11-24T11:35:17Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+
+running (1m00.9s), 084/200 VUs, 1 complete and 0 interrupted iterations
+default   [  43% ] 084/200 VUs  1m00.9s/2m20.0s
+time="2026-11-24T11:35:18Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+
+running (1m01.9s), 085/200 VUs, 1 complete and 0 interrupted iterations
+default   [  44% ] 085/200 VUs  1m01.9s/2m20.0s
+time="2026-11-24T11:35:18Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+time="2026-11-24T11:35:19Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+
+running (1m02.9s), 086/200 VUs, 1 complete and 0 interrupted iterations
+default   [  45% ] 086/200 VUs  1m02.9s/2m20.0s
+time="2026-11-24T11:35:20Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+time="2026-11-24T11:35:20Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+
+running (1m03.9s), 087/200 VUs, 1 complete and 0 interrupted iterations
+default   [  46% ] 087/200 VUs  1m03.9s/2m20.0s
+time="2026-11-24T11:35:21Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+
+running (1m04.9s), 088/200 VUs, 1 complete and 0 interrupted iterations
+default   [  46% ] 088/200 VUs  1m04.9s/2m20.0s
+time="2026-11-24T11:35:21Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+time="2026-11-24T11:35:22Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+
+running (1m05.9s), 089/200 VUs, 1 complete and 0 interrupted iterations
+default   [  47% ] 089/200 VUs  1m05.9s/2m20.0s
+time="2026-11-24T11:35:23Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+time="2026-11-24T11:35:23Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+
+running (1m06.9s), 090/200 VUs, 1 complete and 0 interrupted iterations
+default   [  48% ] 090/200 VUs  1m06.9s/2m20.0s
+time="2026-11-24T11:35:24Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+time="2026-11-24T11:35:24Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+
+running (1m07.9s), 092/200 VUs, 3 complete and 0 interrupted iterations
+default   [  48% ] 092/200 VUs  1m07.9s/2m20.0s
+time="2026-11-24T11:35:25Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+time="2026-11-24T11:35:25Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+
+running (1m08.9s), 093/200 VUs, 4 complete and 0 interrupted iterations
+default   [  49% ] 093/200 VUs  1m08.9s/2m20.0s
+time="2026-11-24T11:35:26Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+time="2026-11-24T11:35:26Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+
+running (1m09.9s), 094/200 VUs, 4 complete and 0 interrupted iterations
+default   [  50% ] 094/200 VUs  1m09.9s/2m20.0s
+time="2026-11-24T11:35:27Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+
+running (1m10.9s), 095/200 VUs, 7 complete and 0 interrupted iterations
+default   [  51% ] 095/200 VUs  1m10.9s/2m20.0s
+time="2026-11-24T11:35:27Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+
+running (1m11.9s), 096/200 VUs, 8 complete and 0 interrupted iterations
+default   [  51% ] 096/200 VUs  1m11.9s/2m20.0s
+time="2026-11-24T11:35:29Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+time="2026-11-24T11:35:29Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+
+running (1m12.9s), 097/200 VUs, 8 complete and 0 interrupted iterations
+default   [  52% ] 097/200 VUs  1m12.9s/2m20.0s
+time="2026-11-24T11:35:29Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+time="2026-11-24T11:35:30Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+
+running (1m13.9s), 098/200 VUs, 13 complete and 0 interrupted iterations
+default   [  53% ] 098/200 VUs  1m13.9s/2m20.0s
+time="2026-11-24T11:35:31Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+time="2026-11-24T11:35:31Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+
+running (1m14.9s), 099/200 VUs, 13 complete and 0 interrupted iterations
+default   [  53% ] 099/200 VUs  1m14.9s/2m20.0s
+time="2026-11-24T11:35:32Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+
+running (1m15.9s), 101/200 VUs, 15 complete and 0 interrupted iterations
+default   [  54% ] 101/200 VUs  1m15.9s/2m20.0s
+time="2026-11-24T11:35:32Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+time="2026-11-24T11:35:33Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+
+running (1m16.9s), 104/200 VUs, 17 complete and 0 interrupted iterations
+default   [  55% ] 104/200 VUs  1m16.9s/2m20.0s
+time="2026-11-24T11:35:34Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+time="2026-11-24T11:35:34Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+
+running (1m17.9s), 106/200 VUs, 20 complete and 0 interrupted iterations
+default   [  56% ] 106/200 VUs  1m17.9s/2m20.0s
+time="2026-11-24T11:35:35Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+
+running (1m18.9s), 108/200 VUs, 21 complete and 0 interrupted iterations
+default   [  56% ] 108/200 VUs  1m18.9s/2m20.0s
+time="2026-11-24T11:35:35Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+time="2026-11-24T11:35:36Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+
+running (1m19.9s), 110/200 VUs, 23 complete and 0 interrupted iterations
+default   [  57% ] 110/200 VUs  1m19.9s/2m20.0s
+time="2026-11-24T11:35:37Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+time="2026-11-24T11:35:37Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+
+running (1m20.9s), 113/200 VUs, 24 complete and 0 interrupted iterations
+default   [  58% ] 113/200 VUs  1m20.9s/2m20.0s
+time="2026-11-24T11:35:38Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+
+running (1m21.9s), 115/200 VUs, 25 complete and 0 interrupted iterations
+default   [  58% ] 115/200 VUs  1m21.9s/2m20.0s
+time="2026-11-24T11:35:39Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+time="2026-11-24T11:35:39Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+
+running (1m22.9s), 117/200 VUs, 27 complete and 0 interrupted iterations
+default   [  59% ] 117/200 VUs  1m22.9s/2m20.0s
+time="2026-11-24T11:35:40Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+
+running (1m23.9s), 119/200 VUs, 29 complete and 0 interrupted iterations
+default   [  60% ] 119/200 VUs  1m23.9s/2m20.0s
+time="2026-11-24T11:35:40Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+time="2026-11-24T11:35:41Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+
+running (1m24.9s), 121/200 VUs, 31 complete and 0 interrupted iterations
+default   [  61% ] 121/200 VUs  1m24.9s/2m20.0s
+time="2026-11-24T11:35:42Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+time="2026-11-24T11:35:42Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+
+running (1m25.9s), 124/200 VUs, 32 complete and 0 interrupted iterations
+default   [  61% ] 124/200 VUs  1m25.9s/2m20.0s
+time="2026-11-24T11:35:43Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+
+running (1m26.9s), 126/200 VUs, 34 complete and 0 interrupted iterations
+default   [  62% ] 126/200 VUs  1m26.9s/2m20.0s
+time="2026-11-24T11:35:43Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+time="2026-11-24T11:35:44Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+
+running (1m27.9s), 128/200 VUs, 36 complete and 0 interrupted iterations
+default   [  63% ] 128/200 VUs  1m27.9s/2m20.0s
+time="2026-11-24T11:35:45Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+time="2026-11-24T11:35:45Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+
+running (1m28.9s), 130/200 VUs, 37 complete and 0 interrupted iterations
+default   [  63% ] 130/200 VUs  1m28.9s/2m20.0s
+time="2026-11-24T11:35:46Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+
+running (1m29.9s), 133/200 VUs, 38 complete and 0 interrupted iterations
+default   [  64% ] 133/200 VUs  1m29.9s/2m20.0s
+time="2026-11-24T11:35:46Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+
+running (1m30.9s), 135/200 VUs, 41 complete and 0 interrupted iterations
+default   [  65% ] 135/200 VUs  1m30.9s/2m20.0s
+time="2026-11-24T11:35:47Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+time="2026-11-24T11:35:48Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+
+running (1m31.9s), 137/200 VUs, 43 complete and 0 interrupted iterations
+default   [  66% ] 137/200 VUs  1m31.9s/2m20.0s
+time="2026-11-24T11:35:49Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+
+running (1m32.9s), 139/200 VUs, 43 complete and 0 interrupted iterations
+default   [  66% ] 139/200 VUs  1m32.9s/2m20.0s
+time="2026-11-24T11:35:50Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+
+running (1m33.9s), 141/200 VUs, 46 complete and 0 interrupted iterations
+default   [  67% ] 141/200 VUs  1m33.9s/2m20.0s
+time="2026-11-24T11:35:51Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+
+running (1m34.9s), 144/200 VUs, 47 complete and 0 interrupted iterations
+default   [  68% ] 144/200 VUs  1m34.9s/2m20.0s
+time="2026-11-24T11:35:52Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+
+running (1m35.9s), 146/200 VUs, 48 complete and 0 interrupted iterations
+default   [  68% ] 146/200 VUs  1m35.9s/2m20.0s
+time="2026-11-24T11:35:53Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+
+running (1m36.9s), 148/200 VUs, 50 complete and 0 interrupted iterations
+default   [  69% ] 148/200 VUs  1m36.9s/2m20.0s
+time="2026-11-24T11:35:54Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+
+running (1m37.9s), 150/200 VUs, 51 complete and 0 interrupted iterations
+default   [  70% ] 150/200 VUs  1m37.9s/2m20.0s
+time="2026-11-24T11:35:54Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+
+running (1m38.9s), 153/200 VUs, 53 complete and 0 interrupted iterations
+default   [  71% ] 153/200 VUs  1m38.9s/2m20.0s
+time="2026-11-24T11:35:55Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+
+running (1m39.9s), 155/200 VUs, 53 complete and 0 interrupted iterations
+default   [  71% ] 155/200 VUs  1m39.9s/2m20.0s
+time="2026-11-24T11:35:56Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+time="2026-11-24T11:35:57Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+
+running (1m40.9s), 157/200 VUs, 54 complete and 0 interrupted iterations
+default   [  72% ] 157/200 VUs  1m40.9s/2m20.0s
+time="2026-11-24T11:35:58Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+
+running (1m41.9s), 159/200 VUs, 56 complete and 0 interrupted iterations
+default   [  73% ] 159/200 VUs  1m41.9s/2m20.0s
+time="2026-11-24T11:35:59Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+
+running (1m42.9s), 161/200 VUs, 57 complete and 0 interrupted iterations
+default   [  73% ] 161/200 VUs  1m42.9s/2m20.0s
+time="2026-11-24T11:36:00Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+
+running (1m43.9s), 164/200 VUs, 59 complete and 0 interrupted iterations
+default   [  74% ] 164/200 VUs  1m43.9s/2m20.0s
+time="2026-11-24T11:36:01Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+
+running (1m44.9s), 166/200 VUs, 59 complete and 0 interrupted iterations
+default   [  75% ] 166/200 VUs  1m44.9s/2m20.0s
+time="2026-11-24T11:36:02Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+
+running (1m45.9s), 168/200 VUs, 60 complete and 0 interrupted iterations
+default   [  76% ] 168/200 VUs  1m45.9s/2m20.0s
+time="2026-11-24T11:36:03Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+
+running (1m46.9s), 170/200 VUs, 61 complete and 0 interrupted iterations
+default   [  76% ] 170/200 VUs  1m46.9s/2m20.0s
+time="2026-11-24T11:36:04Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+
+running (1m47.9s), 173/200 VUs, 63 complete and 0 interrupted iterations
+default   [  77% ] 173/200 VUs  1m47.9s/2m20.0s
+time="2026-11-24T11:36:04Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+
+running (1m48.9s), 175/200 VUs, 64 complete and 0 interrupted iterations
+default   [  78% ] 175/200 VUs  1m48.9s/2m20.0s
+time="2026-11-24T11:36:05Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+time="2026-11-24T11:36:06Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+
+running (1m49.9s), 177/200 VUs, 64 complete and 0 interrupted iterations
+default   [  78% ] 177/200 VUs  1m49.9s/2m20.0s
+time="2026-11-24T11:36:07Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+
+running (1m50.9s), 179/200 VUs, 66 complete and 0 interrupted iterations
+default   [  79% ] 179/200 VUs  1m50.9s/2m20.0s
+time="2026-11-24T11:36:08Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+
+running (1m51.9s), 181/200 VUs, 67 complete and 0 interrupted iterations
+default   [  80% ] 181/200 VUs  1m51.9s/2m20.0s
+time="2026-11-24T11:36:09Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+
+running (1m52.9s), 184/200 VUs, 67 complete and 0 interrupted iterations
+default   [  81% ] 184/200 VUs  1m52.9s/2m20.0s
+time="2026-11-24T11:36:10Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+
+running (1m53.9s), 186/200 VUs, 68 complete and 0 interrupted iterations
+default   [  81% ] 186/200 VUs  1m53.9s/2m20.0s
+time="2026-11-24T11:36:11Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+
+running (1m54.9s), 188/200 VUs, 70 complete and 0 interrupted iterations
+default   [  82% ] 188/200 VUs  1m54.9s/2m20.0s
+time="2026-11-24T11:36:12Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+
+running (1m55.9s), 190/200 VUs, 71 complete and 0 interrupted iterations
+default   [  83% ] 190/200 VUs  1m55.9s/2m20.0s
+time="2026-11-24T11:36:12Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+
+running (1m56.9s), 193/200 VUs, 72 complete and 0 interrupted iterations
+default   [  83% ] 193/200 VUs  1m56.9s/2m20.0s
+time="2026-11-24T11:36:13Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+
+running (1m57.9s), 195/200 VUs, 74 complete and 0 interrupted iterations
+default   [  84% ] 195/200 VUs  1m57.9s/2m20.0s
+time="2026-11-24T11:36:14Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+time="2026-11-24T11:36:15Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+
+running (1m58.9s), 197/200 VUs, 74 complete and 0 interrupted iterations
+default   [  85% ] 197/200 VUs  1m58.9s/2m20.0s
+time="2026-11-24T11:36:16Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+
+running (1m59.9s), 199/200 VUs, 75 complete and 0 interrupted iterations
+default   [  86% ] 199/200 VUs  1m59.9s/2m20.0s
+time="2026-11-24T11:36:17Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+
+running (2m00.9s), 200/200 VUs, 77 complete and 0 interrupted iterations
+default   [  86% ] 200/200 VUs  2m00.9s/2m20.0s
+time="2026-11-24T11:36:18Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+
+running (2m01.9s), 200/200 VUs, 79 complete and 0 interrupted iterations
+default   [  87% ] 200/200 VUs  2m01.9s/2m20.0s
+time="2026-11-24T11:36:19Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+
+running (2m02.9s), 200/200 VUs, 80 complete and 0 interrupted iterations
+default   [  88% ] 200/200 VUs  2m02.9s/2m20.0s
+time="2026-11-24T11:36:20Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+
+running (2m03.9s), 200/200 VUs, 80 complete and 0 interrupted iterations
+default   [  88% ] 200/200 VUs  2m03.9s/2m20.0s
+time="2026-11-24T11:36:21Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+
+running (2m04.9s), 200/200 VUs, 82 complete and 0 interrupted iterations
+default   [  89% ] 200/200 VUs  2m04.9s/2m20.0s
+time="2026-11-24T11:36:22Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+
+running (2m05.9s), 200/200 VUs, 83 complete and 0 interrupted iterations
+default   [  90% ] 200/200 VUs  2m05.9s/2m20.0s
+time="2026-11-24T11:36:22Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+
+running (2m06.9s), 200/200 VUs, 83 complete and 0 interrupted iterations
+default   [  91% ] 200/200 VUs  2m06.9s/2m20.0s
+time="2026-11-24T11:36:23Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+time="2026-11-24T11:36:23Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+time="2026-11-24T11:36:24Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+time="2026-11-24T11:36:24Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+
+running (2m07.9s), 200/200 VUs, 85 complete and 0 interrupted iterations
+default   [  91% ] 200/200 VUs  2m07.9s/2m20.0s
+time="2026-11-24T11:36:25Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+time="2026-11-24T11:36:25Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+
+running (2m08.9s), 200/200 VUs, 86 complete and 0 interrupted iterations
+default   [  92% ] 200/200 VUs  2m08.9s/2m20.0s
+time="2026-11-24T11:36:26Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+
+running (2m09.9s), 200/200 VUs, 87 complete and 0 interrupted iterations
+default   [  93% ] 200/200 VUs  2m09.9s/2m20.0s
+time="2026-11-24T11:36:27Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+time="2026-11-24T11:36:27Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+time="2026-11-24T11:36:27Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+time="2026-11-24T11:36:27Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+
+running (2m10.9s), 200/200 VUs, 88 complete and 0 interrupted iterations
+default   [  93% ] 200/200 VUs  2m10.9s/2m20.0s
+time="2026-11-24T11:36:28Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+time="2026-11-24T11:36:28Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+
+running (2m11.9s), 200/200 VUs, 89 complete and 0 interrupted iterations
+default   [  94% ] 200/200 VUs  2m11.9s/2m20.0s
+time="2026-11-24T11:36:29Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+
+running (2m12.9s), 200/200 VUs, 89 complete and 0 interrupted iterations
+default   [  95% ] 200/200 VUs  2m12.9s/2m20.0s
+time="2026-11-24T11:36:29Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+time="2026-11-24T11:36:29Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+time="2026-11-24T11:36:30Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+time="2026-11-24T11:36:30Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+time="2026-11-24T11:36:30Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+time="2026-11-24T11:36:30Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+
+running (2m13.9s), 198/200 VUs, 91 complete and 0 interrupted iterations
+default   [  96% ] 198/200 VUs  2m13.9s/2m20.0s
+time="2026-11-24T11:36:31Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+
+running (2m14.9s), 196/200 VUs, 94 complete and 0 interrupted iterations
+default   [  96% ] 196/200 VUs  2m14.9s/2m20.0s
+time="2026-11-24T11:36:31Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+time="2026-11-24T11:36:32Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+time="2026-11-24T11:36:32Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+time="2026-11-24T11:36:32Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+
+running (2m15.9s), 196/200 VUs, 95 complete and 0 interrupted iterations
+default   [  97% ] 196/200 VUs  2m15.9s/2m20.0s
+time="2026-11-24T11:36:32Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+time="2026-11-24T11:36:32Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+time="2026-11-24T11:36:33Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+time="2026-11-24T11:36:33Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+time="2026-11-24T11:36:33Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+
+running (2m16.9s), 193/200 VUs, 100 complete and 0 interrupted iterations
+default   [  98% ] 193/200 VUs  2m16.9s/2m20.0s
+time="2026-11-24T11:36:33Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+time="2026-11-24T11:36:34Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+time="2026-11-24T11:36:34Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+time="2026-11-24T11:36:34Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+time="2026-11-24T11:36:34Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+
+running (2m17.9s), 192/200 VUs, 103 complete and 0 interrupted iterations
+default   [  98% ] 192/200 VUs  2m17.9s/2m20.0s
+time="2026-11-24T11:36:35Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+time="2026-11-24T11:36:35Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+
+running (2m18.9s), 192/200 VUs, 104 complete and 0 interrupted iterations
+default   [  99% ] 192/200 VUs  2m18.9s/2m20.0s
+time="2026-11-24T11:36:35Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+time="2026-11-24T11:36:35Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+time="2026-11-24T11:36:35Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+time="2026-11-24T11:36:35Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+time="2026-11-24T11:36:36Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+
+running (2m19.9s), 190/200 VUs, 108 complete and 0 interrupted iterations
+default   [ 100% ] 190/200 VUs  2m19.9s/2m20.0s
+time="2026-11-24T11:36:36Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+time="2026-11-24T11:36:37Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+time="2026-11-24T11:36:37Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+
+running (2m20.9s), 189/200 VUs, 109 complete and 0 interrupted iterations
+default ↓ [ 100% ] 190/200 VUs  2m20s
+time="2026-11-24T11:36:37Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+time="2026-11-24T11:36:38Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+time="2026-11-24T11:36:38Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+time="2026-11-24T11:36:38Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+
+running (2m21.9s), 185/200 VUs, 113 complete and 0 interrupted iterations
+default ↓ [ 100% ] 190/200 VUs  2m20s
+time="2026-11-24T11:36:39Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+time="2026-11-24T11:36:39Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+time="2026-11-24T11:36:39Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+time="2026-11-24T11:36:39Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+
+running (2m22.9s), 181/200 VUs, 117 complete and 0 interrupted iterations
+default ↓ [ 100% ] 190/200 VUs  2m20s
+time="2026-11-24T11:36:40Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+time="2026-11-24T11:36:40Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+time="2026-11-24T11:36:40Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+time="2026-11-24T11:36:40Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+
+running (2m23.9s), 178/200 VUs, 120 complete and 0 interrupted iterations
+default ↓ [ 100% ] 190/200 VUs  2m20s
+time="2026-11-24T11:36:40Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+time="2026-11-24T11:36:41Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+time="2026-11-24T11:36:41Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+time="2026-11-24T11:36:41Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+
+running (2m24.9s), 172/200 VUs, 126 complete and 0 interrupted iterations
+default ↓ [ 100% ] 190/200 VUs  2m20s
+time="2026-11-24T11:36:41Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+time="2026-11-24T11:36:42Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+time="2026-11-24T11:36:42Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+time="2026-11-24T11:36:42Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+
+running (2m25.9s), 168/200 VUs, 130 complete and 0 interrupted iterations
+default ↓ [ 100% ] 190/200 VUs  2m20s
+time="2026-11-24T11:36:42Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+time="2026-11-24T11:36:43Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+time="2026-11-24T11:36:43Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+time="2026-11-24T11:36:43Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+
+running (2m26.9s), 165/200 VUs, 133 complete and 0 interrupted iterations
+default ↓ [ 100% ] 190/200 VUs  2m20s
+time="2026-11-24T11:36:43Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+time="2026-11-24T11:36:44Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+time="2026-11-24T11:36:44Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+time="2026-11-24T11:36:44Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+
+running (2m27.9s), 163/200 VUs, 135 complete and 0 interrupted iterations
+default ↓ [ 100% ] 190/200 VUs  2m20s
+time="2026-11-24T11:36:45Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+time="2026-11-24T11:36:45Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+time="2026-11-24T11:36:45Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+
+running (2m28.9s), 158/200 VUs, 140 complete and 0 interrupted iterations
+default ↓ [ 100% ] 190/200 VUs  2m20s
+time="2026-11-24T11:36:45Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+time="2026-11-24T11:36:46Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+time="2026-11-24T11:36:46Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+
+running (2m29.9s), 155/200 VUs, 143 complete and 0 interrupted iterations
+default ↓ [ 100% ] 190/200 VUs  2m20s
+time="2026-11-24T11:36:46Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+time="2026-11-24T11:36:47Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+time="2026-11-24T11:36:47Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+time="2026-11-24T11:36:47Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+time="2026-11-24T11:36:47Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+time="2026-11-24T11:36:47Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+
+running (2m30.9s), 142/200 VUs, 148 complete and 8 interrupted iterations
+default ↓ [ 100% ] 190/200 VUs  2m20s
+time="2026-11-24T11:36:48Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+time="2026-11-24T11:36:48Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+time="2026-11-24T11:36:48Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+time="2026-11-24T11:36:48Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+
+running (2m31.9s), 128/200 VUs, 152 complete and 18 interrupted iterations
+default ↓ [ 100% ] 190/200 VUs  2m20s
+time="2026-11-24T11:36:48Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+time="2026-11-24T11:36:49Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+
+running (2m32.9s), 112/200 VUs, 158 complete and 28 interrupted iterations
+default ↓ [ 100% ] 190/200 VUs  2m20s
+time="2026-11-24T11:36:49Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+time="2026-11-24T11:36:49Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+time="2026-11-24T11:36:49Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+time="2026-11-24T11:36:49Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+time="2026-11-24T11:36:50Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+
+running (2m33.9s), 098/200 VUs, 162 complete and 38 interrupted iterations
+default ↓ [ 100% ] 190/200 VUs  2m20s
+time="2026-11-24T11:36:50Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+time="2026-11-24T11:36:51Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+time="2026-11-24T11:36:51Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+time="2026-11-24T11:36:51Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+
+running (2m34.9s), 086/200 VUs, 164 complete and 48 interrupted iterations
+default ↓ [ 100% ] 190/200 VUs  2m20s
+time="2026-11-24T11:36:52Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+time="2026-11-24T11:36:52Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+
+running (2m35.9s), 072/200 VUs, 168 complete and 58 interrupted iterations
+default ↓ [ 100% ] 190/200 VUs  2m20s
+time="2026-11-24T11:36:52Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+time="2026-11-24T11:36:53Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+
+running (2m36.9s), 059/200 VUs, 172 complete and 67 interrupted iterations
+default ↓ [ 100% ] 190/200 VUs  2m20s
+time="2026-11-24T11:36:54Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+
+running (2m37.9s), 056/200 VUs, 175 complete and 67 interrupted iterations
+default ↓ [ 100% ] 190/200 VUs  2m20s
+time="2026-11-24T11:36:55Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+time="2026-11-24T11:36:55Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+
+running (2m38.9s), 055/200 VUs, 176 complete and 67 interrupted iterations
+default ↓ [ 100% ] 190/200 VUs  2m20s
+
+running (2m39.9s), 054/200 VUs, 177 complete and 67 interrupted iterations
+default ↓ [ 100% ] 190/200 VUs  2m20s
+time="2026-11-24T11:36:57Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+
+running (2m40.9s), 052/200 VUs, 179 complete and 67 interrupted iterations
+default ↓ [ 100% ] 190/200 VUs  2m20s
+time="2026-11-24T11:36:57Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+time="2026-11-24T11:36:58Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+
+running (2m41.9s), 046/200 VUs, 179 complete and 73 interrupted iterations
+default ↓ [ 100% ] 190/200 VUs  2m20s
+time="2026-11-24T11:36:58Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+
+running (2m42.9s), 032/200 VUs, 183 complete and 83 interrupted iterations
+default ↓ [ 100% ] 190/200 VUs  2m20s
+time="2026-11-24T11:37:00Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+time="2026-11-24T11:37:00Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+
+running (2m43.9s), 022/200 VUs, 183 complete and 93 interrupted iterations
+default ↓ [ 100% ] 190/200 VUs  2m20s
+
+running (2m44.9s), 011/200 VUs, 184 complete and 103 interrupted iterations
+default ↓ [ 100% ] 190/200 VUs  2m20s
+
+running (2m45.9s), 009/200 VUs, 184 complete and 105 interrupted iterations
+default ↓ [ 100% ] 190/200 VUs  2m20s
+
+running (2m46.9s), 009/200 VUs, 184 complete and 105 interrupted iterations
+default ↓ [ 100% ] 190/200 VUs  2m20s
+
+running (2m47.9s), 009/200 VUs, 184 complete and 105 interrupted iterations
+default ↓ [ 100% ] 190/200 VUs  2m20s
+
+running (2m48.9s), 009/200 VUs, 184 complete and 105 interrupted iterations
+default ↓ [ 100% ] 190/200 VUs  2m20s
+
+running (2m49.9s), 002/200 VUs, 184 complete and 112 interrupted iterations
+default ↓ [ 100% ] 190/200 VUs  2m20s
+
+     ✓ get exercise status 200
+     ✗ evaluation status 200
+      ↳  0% — ✓ 0 / ✗ 204
+
+     checks.........................: 59.36%  298 out of 502
+     data_received..................: 566 kB  3.3 kB/s
+     data_sent......................: 259 kB  1.5 kB/s
+   ✗ errors.........................: 100.00% 204 out of 204
+     http_req_blocked...............: avg=8.41ms   min=256ns   med=1.26µs   max=560.18ms p(90)=10.24ms  p(95)=12.73ms 
+     http_req_connecting............: avg=166.65µs min=0s      med=0s       max=6.61ms   p(90)=428.9µs  p(95)=465.48µs
+     http_req_duration..............: avg=24.27s   min=5.71ms  med=21.58ms  max=1m0s     p(90)=1m0s     p(95)=1m0s    
+       { expected_response:true }...: avg=18.7ms   min=5.71ms  med=19.84ms  max=208.59ms p(90)=22.85ms  p(95)=24.9ms  
+     ✓ { name:get_exercise }........: avg=18.7ms   min=5.71ms  med=19.84ms  max=208.59ms p(90)=22.85ms  p(95)=24.9ms  
+     ✓ { name:get_submission }......: avg=0s       min=0s      med=0s       max=0s       p(90)=0s       p(95)=0s      
+     ✗ { name:post_evaluations }....: avg=59.7s    min=6.01ms  med=1m0s     max=1m0s     p(90)=1m0s     p(95)=1m0s    
+     ✓ { name:post_submissions }....: avg=0s       min=0s      med=0s       max=0s       p(90)=0s       p(95)=0s      
+   ✗ http_req_failed................: 40.63%  204 out of 502
+     http_req_receiving.............: avg=85.15µs  min=0s      med=70.39µs  max=639.14µs p(90)=197.85µs p(95)=216.55µs
+     http_req_sending...............: avg=229.55µs min=51.75µs med=209.95µs max=733.49µs p(90)=379.7µs  p(95)=420.17µs
+     http_req_tls_handshaking.......: avg=8.14ms   min=0s      med=0s       max=559.78ms p(90)=9.52ms   p(95)=11.53ms 
+     http_req_waiting...............: avg=24.27s   min=5.56ms  med=21.11ms  max=1m0s     p(90)=1m0s     p(95)=1m0s    
+     http_reqs......................: 502     2.952916/s
+     iteration_duration.............: avg=1m6s     min=7.14s   med=1m6s     max=1m8s     p(90)=1m7s     p(95)=1m7s    
+     iterations.....................: 184     1.082344/s
+     vus............................: 2       min=2          max=200
+     vus_max........................: 200     min=200        max=200
+
+
+running (2m50.0s), 000/200 VUs, 184 complete and 114 interrupted iterations
+default ✓ [ 100% ] 001/200 VUs  2m20s
+time="2026-11-24T11:37:07Z" level=error msg="thresholds on metrics 'errors, http_req_duration{name:post_evaluations}, http_req_failed' have been crossed"

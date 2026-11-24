@@ -1,0 +1,12 @@
+=== RUN   TestAnalyzeComplexity
+=== RUN   TestAnalyzeComplexity/Insufficient_measurements_fallback_to_unknown
+=== RUN   TestAnalyzeComplexity/Detects_Linear_O(N)
+=== RUN   TestAnalyzeComplexity/Detects_Quadratic_O(N²)
+=== RUN   TestAnalyzeComplexity/Detects_Constant_O(1)
+--- PASS: TestAnalyzeComplexity (0.00s)
+    --- PASS: TestAnalyzeComplexity/Insufficient_measurements_fallback_to_unknown (0.00s)
+    --- PASS: TestAnalyzeComplexity/Detects_Linear_O(N) (0.00s)
+    --- PASS: TestAnalyzeComplexity/Detects_Quadratic_O(N²) (0.00s)
+    --- PASS: TestAnalyzeComplexity/Detects_Constant_O(1) (0.00s)
+PASS
+ok  	solv-backend/internal/core/services	0.014s

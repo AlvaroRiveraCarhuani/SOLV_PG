@@ -6,10 +6,14 @@ DECLARE
     v_tenant_id UUID := '00000000-0000-0000-0000-000000000001';
     v_subject_id UUID := 'c0000000-0000-0000-0000-000000000001';
     v_exercise_id UUID;
+    v_template_id UUID;
     v_student_id UUID;
     v_i INT;
     v_j INT;
 BEGIN
+    -- Resolver plantilla base para ejercicios de evaluacion de python
+    SELECT id INTO v_template_id FROM lab_templates WHERE target_environment='JUEZ_EFIMERO' AND status IN ('approved','APROBADA') AND name LIKE 'Python%' LIMIT 1;
+
     -- 1. Crear o asegurar asignatura / curso de prueba
     INSERT INTO subjects (id, tenant_id, name, code)
     VALUES (v_subject_id, v_tenant_id, 'Algoritmos y Estructuras de Datos - Load Test', 'CS-LOAD-2026')
@@ -23,7 +27,7 @@ BEGIN
             id, tenant_id, subject_id, title, description, type,
             difficulty, tags, purpose, status, language,
             time_limit_ms, memory_limit_mb, reference_solution,
-            config
+            config, template_id, environment_type
         )
         VALUES (
             v_exercise_id,
@@ -40,7 +44,9 @@ BEGIN
             2000,
             128,
             'print(sum(map(int, input().split())))',
-            '{"algorithm": {"time_limit_ms": 2000, "memory_limit_mb": 128, "ast_rules": {"forbidden_imports": [], "forbidden_functions": []}}, "input_format": {"type": "integers", "count": 2}}'::jsonb
+            '{"algorithm": {"time_limit_ms": 2000, "memory_limit_mb": 128, "ast_rules": {"forbidden_imports": [], "forbidden_functions": []}}, "input_format": {"type": "integers", "count": 2}}'::jsonb,
+            v_template_id,
+            'JUEZ_EFIMERO'
         )
         ON CONFLICT (id) DO UPDATE SET
             status = 'published',
