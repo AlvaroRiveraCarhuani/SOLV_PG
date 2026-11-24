@@ -237,7 +237,11 @@ export class StudentExerciseSolverComponent implements OnInit {
   });
 
   readonly constraintsList = computed<string[]>(() => {
-    return this.exercise()?.constraints ?? [];
+    return (this.exercise()?.constraints ?? []).map((constraint) =>
+      constraint
+        .replace(/^Forbidden import: /, 'Importación prohibida: ')
+        .replace(/^Forbidden function: /, 'Función prohibida: ')
+    );
   });
 
   readonly isIdeExercise = computed<boolean>(() => {

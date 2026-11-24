@@ -718,7 +718,7 @@
                         @if (lastSubmissionId()) {
                           <div class="official-id-line">
                             <span>Identificador de entrega:</span>
-                            <code class="font-mono" machineData>{{ lastSubmissionId() }}</code>
+                            <code class="font-mono" machineData title="{{ lastSubmissionId() }}">{{ lastSubmissionId().slice(0, 8) }}</code>
                           </div>
                         }
 
