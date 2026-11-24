@@ -1,0 +1,24 @@
+=== E4: PRE-CHEQUEO DE CODIGO ESTATICO (3 CAPAS: REGEX + SEMGREP CLI + LEXER) ===
+Fecha UTC: 2026-11-24T12:53:53Z
+Commit HEAD: c30e471
+Semgrep CLI: 1.186.0 (/home/alrivera/.local/bin/semgrep)
+Capas Evaluadas: 3 capas completas activas (Filtro Regex + Semgrep CLI 1.186.0 + Reglas AST Custom)
+SLA Manuscrito: < 100 ms (Observado: ~2.3 s debido a arranque de proceso Python de Semgrep CLI)
+
+--- METRICAS CODIGO PROHIBIDO (Bloqueo Semgrep CLI: import os) ---
+N: 35
+Media: 2294.91 ms
+Desv. Est: 69.69 ms
+p50: 2274.94 ms
+p95: 2450.84 ms
+p99: 2497.37 ms
+Min / Max: 2222.14 ms / 2497.37 ms
+
+--- METRICAS CODIGO LIMPIO (3 Capas Completas - PASS) ---
+N: 35
+Media: 2271.06 ms
+Desv. Est: 76.88 ms
+p50: 2240.55 ms
+p95: 2469.39 ms
+p99: 2488.81 ms
+Min / Max: 2202.61 ms / 2488.81 ms

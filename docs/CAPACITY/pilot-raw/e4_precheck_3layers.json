@@ -1,0 +1,33 @@
+{
+  "clean_code_stats": {
+    "scenario": "E4",
+    "metric": "AST + Semgrep CLI + Lexer Pre-check (Clean Code - PASS)",
+    "n": 35,
+    "mean_ms": 2271.06,
+    "std_dev_ms": 76.88,
+    "p50_ms": 2240.55,
+    "p95_ms": 2469.39,
+    "p99_ms": 2488.81,
+    "min_ms": 2202.61,
+    "max_ms": 2488.81
+  },
+  "forbidden_code_stats": {
+    "scenario": "E4",
+    "metric": "AST + Semgrep CLI + Lexer Pre-check (Forbidden Code - AST_BLOCKED by Semgrep CLI)",
+    "n": 35,
+    "mean_ms": 2294.91,
+    "std_dev_ms": 69.69,
+    "p50_ms": 2274.94,
+    "p95_ms": 2450.84,
+    "p99_ms": 2497.37,
+    "min_ms": 2222.14,
+    "max_ms": 2497.37
+  },
+  "layers_active": 3,
+  "layers_explanation": "Complete 3-layer pre-check: Regex filter + Semgrep CLI (1.186.0 via pipx) + Custom AST rules",
+  "scenario": "E4",
+  "semgrep_host_cli_present": true,
+  "semgrep_version": "1.186.0",
+  "semgrep_path": "/home/alrivera/.local/bin/semgrep",
+  "timestamp_utc": "2026-11-24T12:53:53Z"
+}

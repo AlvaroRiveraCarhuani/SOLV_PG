@@ -25,7 +25,7 @@ La totalidad de los datos de este informe proviene de ejecuciones directas reali
 | **Controlador cgroups** | cgroups v2 unificado (`cpuset cpu io memory hugetlb pids rdma misc`) |
 | **Motor Docker** | Docker Engine v29.3.1 (API 1.52) |
 | **Compilador Go** | go1.27.3 linux/amd64 |
-| **Analizador Semgrep** | Ausente en PATH y `~/.local/bin`. Opera en modo degradado de 2 capas (AST + Reglas regex) |
+| **Analizador Semgrep** | Semgrep v1.186.0 (instalado aisladamente en `~/.local/bin/semgrep` vía pipx para evaluación de 3 capas; se documentan tanto el modo de 2 capas en memoria como el modo completo de 3 capas) |
 | **Sensores de potencia** | `/sys/class/power_supply/{AC0,BAT0}` detectados. Registro energético restringido a root. Sin medidor de enchufe calibrado; se declara como estimación técnica conforme a D1-B |
 
 ***
@@ -53,8 +53,10 @@ Todas las métricas corresponden a mediciones reales obtenidas en este nodo. Los
 | **E1** | Peticiones de evaluación (`POST /api/v1/evaluations`) | 204 | 52.41 s | 14.82 s | 60.00 s | 60.00 s | 60.00 s | 1.84 / 60.00 s | `e1_k6_summary.json` |
 | **E3** | Verificación ForwardAuth (`GET /api/v1/auth/verify`) | 200 | 2.07 ms | 0.21 ms | 2.03 ms | 2.43 ms | 2.72 ms | 1.64 / 2.73 ms | `e3_forwardauth.json` |
 | **E3** | Cierre de sesión y revocación (`POST /api/v1/auth/logout`) | 1 | 35.37 ms | 0.00 ms | 35.37 ms | 35.37 ms | 35.37 ms | 35.37 / 35.37 ms | `e3_forwardauth.json` |
-| **E4** | Pre-chequeo código prohibido (`AST_BLOCKED`) | 200 | 0.0273 ms | 0.0442 ms | 0.0169 ms | 0.0621 ms | 0.2590 ms | 0.0105 / 0.4548 ms | `e4_precheck.json` |
-| **E4** | Pre-chequeo código limpio (`PASS`) | 200 | 0.1000 ms | 0.0859 ms | 0.0802 ms | 0.3096 ms | 0.5090 ms | 0.0450 / 0.5263 ms | `e4_precheck.json` |
+| **E4 (2 capas)** | Pre-chequeo en memoria código prohibido (`AST_BLOCKED`) | 200 | 0.0273 ms | 0.0442 ms | 0.0169 ms | 0.0621 ms | 0.2590 ms | 0.0105 / 0.4548 ms | `e4_precheck.json` |
+| **E4 (2 capas)** | Pre-chequeo en memoria código limpio (`PASS`) | 200 | 0.1000 ms | 0.0859 ms | 0.0802 ms | 0.3096 ms | 0.5090 ms | 0.0450 / 0.5263 ms | `e4_precheck.json` |
+| **E4 (3 capas)** | Pre-chequeo completo con Semgrep CLI (`AST_BLOCKED`) | 35 | 2294.91 ms | 69.69 ms | 2274.94 ms | 2450.84 ms | 2497.37 ms | 2222.14 / 2497.37 ms | `e4_precheck_3layers.json` |
+| **E4 (3 capas)** | Pre-chequeo completo con Semgrep CLI (`PASS`) | 35 | 2271.06 ms | 76.88 ms | 2240.55 ms | 2469.39 ms | 2488.81 ms | 2202.61 / 2488.81 ms | `e4_precheck_3layers.json` |
 | **E6** | Provisión en frío de IDE persistente | 1 | 15842.88 ms | 0.00 ms | 15842.88 ms | 15842.88 ms | 15842.88 ms | 15842.88 / 15842.88 ms | `e6_provision_resume.json` |
 | **E6** | Hibernación de entorno (`POST /environments/{id}/pause`) | 30 | 186.91 ms | 70.47 ms | 154.05 ms | 285.05 ms | 294.75 ms | 24.75 / 294.75 ms | `e6_provision_resume.json` |
 | **E6** | Reanudación tras hibernación (`POST /environments/start`) | 30 | 8939.50 ms | 2232.26 ms | 8101.51 ms | 14753.37 ms | 14753.54 ms | 6357.73 / 14753.54 ms | `e6_provision_resume.json` |
@@ -166,8 +168,11 @@ La red `solv-exam-net` confirmó su atributo `Internal=true` y driver `bridge`. 
    El manuscrito contemplaba una reanudación tras hibernación inferior a 500 ms basándose en la primitiva `docker unpause`. La medición real en el endpoint `POST /api/v1/environments/start` arrojó una media de 8939.50 ms (p50 de 8101.51 ms y p95 de 14753.37 ms).  
    *Causa técnica:* La reanudación no se limita a despausar el proceso. El servicio ejecuta `VerifyWorkspaceVolume` mediante un contenedor auxiliar para verificar la integridad del volumen del alumno y realiza la conciliación de bases de datos satélites. Esta comprobación es necesaria para la persistencia, pero eleva el tiempo de respuesta a 8 segundos.
 
-3. **Ausencia del binario Semgrep en el host (E4):**  
-   Conforme a la Trampa 6, se verificó que el binario Semgrep no está instalado en el sistema operativo base del nodo Asus. El pre-chequeo operó en modo degradado de dos capas (AST estático de Go y reglas de expresiones regulares). Los tiempos registrados (0.027 ms para bloqueos y 0.100 ms para código limpio) corresponden a estas dos capas en memoria.
+3. **Comportamiento del pre-chequeo de código estático (E4: 2 capas frente a 3 capas con Semgrep CLI):**  
+   Se contrastaron los dos perfiles de ejecución del analizador estático:
+   - *Modo de 2 capas en memoria (AST estático de Go y reglas regex):* Satisface ampliamente el objetivo de latencia del manuscrito (< 100 ms), registrando medias de 0.027 ms para código prohibido y 0.100 ms para código limpio.
+   - *Modo completo de 3 capas (filtro regex, Semgrep CLI 1.186.0 y analizador Go AST):* La ejecución del binario Semgrep como subproceso CLI independiente introduce un tiempo adicional constante de 2.2 a 2.3 segundos (media de 2294.91 ms para código bloqueado y 2271.06 ms para código limpio). Dicha latencia proviene del arranque del intérprete Python, la inicialización del entorno y la carga de reglas en disco.  
+   *Recomendación de arquitectura:* Para conservar la inspección profunda de Semgrep sin comprometer la latencia en peticiones HTTP sincrónicas, la integración debe evolucionar de invocaciones por proceso CLI hacia un servicio demonio persistente en memoria o ejecutarse de forma asincrónica en cola de evaluación.
 
 ***
 
