@@ -281,16 +281,7 @@ func (c *Client) StartPracticeEnvironmentContainer(ctx context.Context, config d
 		envList = append(envList, fmt.Sprintf("NODE_OPTIONS=--max-old-space-size=%d", maxOldSpace))
 	}
 
-	labels := config.Labels
-	if config.ExamNoEgress {
-		labels = make(map[string]string, len(config.Labels)+1)
-		for key, value := range config.Labels {
-			labels[key] = value
-		}
-		for key, value := range examNoEgressLabels() {
-			labels[key] = value
-		}
-	}
+	labels := containerLabelsForPracticeEnvironment(config)
 	containerConfig := &container.Config{
 		Image:        config.Image,
 		Labels:       mergeTestRunLabels(labels),
@@ -726,6 +717,11 @@ func isPracticeEnvironmentManagedContainer(names []string, labels map[string]str
 	// efímero. Si el collector los listara, los borraría como huérfanos aunque
 	// el docente los esté usando.
 	if labels["solv.review_environment"] == "true" {
+		return false
+	}
+	// El proxy del editor de un examen cuelga del contenedor principal (solv.exam.proxy);
+	// su ciclo de vida se gobierna vía removeExamProxy al retirar el contenedor padre.
+	if labels[examProxyLabel] != "" {
 		return false
 	}
 	// Contenedores gestionados por compose (como solv_backend o solv_frontend)

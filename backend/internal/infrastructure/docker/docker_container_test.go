@@ -111,6 +111,7 @@ func TestIsPracticeEnvironmentManagedContainer(t *testing.T) {
 		{name: "satélite con nombre de environment excluido igual", names: []string{"/solv-environment-falso"}, labels: map[string]string{"solv.managed": "true", "solv.satellite": "redis"}, want: false},
 		{name: "servicio compose excluido por proyecto", names: []string{"/solv_backend"}, labels: map[string]string{"traefik.enable": "true", "com.docker.compose.project": "solv_pg"}, want: false},
 		{name: "servicio de plataforma excluido por nombre", names: []string{"/solv_backend"}, labels: map[string]string{"traefik.enable": "true"}, want: false},
+		{name: "proxy de examen sin salida excluido", names: []string{"/solv-environment-abc123-proxy"}, labels: map[string]string{"traefik.enable": "true", "solv.exam.proxy": "solv-environment-abc123"}, want: false},
 		{name: "contenedor ajeno", names: []string{"/traefik"}, labels: map[string]string{}, want: false},
 	}
 
@@ -242,5 +243,42 @@ func TestPracticeEnvironmentContainer_HostConfigResources(t *testing.T) {
 				t.Errorf("PidsLimit esperado %d, obtenido %d", tc.wantPidsLimit, pidsLimit)
 			}
 		})
+	}
+}
+
+func TestContainerLabelsForPracticeEnvironment_ExamNoEgressStripsTraefik(t *testing.T) {
+	baseLabels := map[string]string{
+		"traefik.enable":                                       "true",
+		"traefik.docker.network":                               "solv-traefik-net",
+		"traefik.http.routers.env-1.rule":                      "Host(`env-1.solv.dedyn.io`)",
+		"traefik.http.services.env-1.loadbalancer.server.port": "3000",
+		"solv.managed":                                         "true",
+	}
+
+	normal := containerLabelsForPracticeEnvironment(domain.PracticeEnvironmentContainerConfig{
+		Labels:       baseLabels,
+		ExamNoEgress: false,
+	})
+	if normal["traefik.enable"] != "true" {
+		t.Fatalf("entorno normal debe conservar traefik.enable=true")
+	}
+	if normal[examNoEgressLabel] != "" {
+		t.Fatalf("entorno normal no debe marcar %s", examNoEgressLabel)
+	}
+
+	exam := containerLabelsForPracticeEnvironment(domain.PracticeEnvironmentContainerConfig{
+		Labels:       baseLabels,
+		ExamNoEgress: true,
+	})
+	for key := range exam {
+		if strings.HasPrefix(key, "traefik.") {
+			t.Fatalf("contenedor principal de examen sin salida no debe publicar etiqueta %q", key)
+		}
+	}
+	if exam["solv.managed"] != "true" {
+		t.Fatalf("contenedor principal debe conservar etiquetas no-Traefik")
+	}
+	if exam[examNoEgressLabel] != "true" {
+		t.Fatalf("contenedor principal debe incluir %s=true", examNoEgressLabel)
 	}
 }

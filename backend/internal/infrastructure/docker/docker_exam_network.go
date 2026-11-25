@@ -195,3 +195,24 @@ func (c *Client) removeExamProxy(ctx context.Context, containerID string) {
 func examNoEgressLabels() map[string]string {
 	return map[string]string{examNoEgressLabel: "true"}
 }
+
+// containerLabelsForPracticeEnvironment prepara las etiquetas del contenedor
+// principal. En exámenes sin salida retira las etiquetas traefik.* para que
+// Traefik enrute únicamente al contenedor -proxy y no intente alcanzar la IP
+// interna aislada del examen.
+func containerLabelsForPracticeEnvironment(config domain.PracticeEnvironmentContainerConfig) map[string]string {
+	if !config.ExamNoEgress {
+		return config.Labels
+	}
+	labels := make(map[string]string, len(config.Labels)+1)
+	for key, value := range config.Labels {
+		if strings.HasPrefix(key, "traefik.") {
+			continue
+		}
+		labels[key] = value
+	}
+	for key, value := range examNoEgressLabels() {
+		labels[key] = value
+	}
+	return labels
+}
