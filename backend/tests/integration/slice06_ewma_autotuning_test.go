@@ -132,7 +132,11 @@ func TestSlice6NetworkICCDisabledAndZombieCollector(t *testing.T) {
 		_ = dockerClient.StopAndRemoveContainer(ctx, orphanID)
 	}()
 
-	// Ejecutar reconciliación de contenedores huérfanos
+	// Ejecutar reconciliación de contenedores huérfanos: la primera pasada registra
+	// el contenedor en pendingOrphans; tras cumplir el intervalo (1s), la segunda
+	// pasada lo confirma como huérfano y lo elimina.
+	zombieWorker.ReconcileOrphanContainers(ctx)
+	time.Sleep(1100 * time.Millisecond)
 	zombieWorker.ReconcileOrphanContainers(ctx)
 
 	// Verificar si el contenedor huérfano fue eliminado de Docker
