@@ -199,9 +199,9 @@ test.describe('Categoría 05 (Badges & Calificación): Progreso del Estudiante y
         await studentPage.goto('/student');
 
         // "Tus materias": la materia matriculada aparece con su avance
-        const courseRow = studentPage.locator('a.course-row', { hasText: courseCode });
+        const courseRow = studentPage.locator('a.subject-row-link, a.course-row', { hasText: courseCode });
         await expect(courseRow).toBeVisible();
-        await expect(courseRow.locator('.course-progress')).toContainText('1/1');
+        await expect(courseRow.locator('.subject-progress-text, .course-progress')).toContainText(/1\s*\/\s*1/);
 
         // "Últimas entregas": título del ejercicio, veredicto y tiempo semántico
         const recentItem = studentPage.locator('.recent-item', { hasText: exerciseTitle });

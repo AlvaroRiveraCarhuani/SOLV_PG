@@ -251,7 +251,7 @@ test.describe('J05 — Desbloqueo curricular encadenado y examen con semilla por
         });
         await expect(moduleTwoCard).toBeVisible({ timeout: 45000 });
         await expect(moduleTwoCard).toHaveClass(/is-locked/);
-        await expect(moduleTwoCard.locator('.module-state')).toHaveText('Bloqueado');
+        await expect(moduleTwoCard.locator('.lock-icon')).toBeVisible();
       });
 
       await test.step('Paso 2: El estudiante resuelve el ejercicio del Módulo 1 desde la UI y obtiene AC', async () => {
@@ -303,8 +303,8 @@ test.describe('J05 — Desbloqueo curricular encadenado y examen con semilla por
           hasText: 'Módulo 2: Avanzado'
         });
         await expect(moduleTwoCard).toBeVisible({ timeout: 45000 });
-        await expect(moduleTwoCard).toHaveClass(/is-unlocked/);
-        await expect(moduleTwoCard.locator('.module-state')).toHaveText('Disponible');
+        await expect(moduleTwoCard).not.toHaveClass(/is-locked/);
+        await expect(moduleTwoCard.locator('.lock-icon')).not.toBeVisible();
       });
 
       const solveSeededExam = async (page) => {

@@ -10,7 +10,7 @@
           @if (courseInfo()?.code) {
             <code class="course-code font-mono" machineData>{{ courseInfo()?.code }}</code>
           }
-          <h1 class="course-name">{{ courseInfo()?.name || 'Detalle del Curso' }}</h1>
+          <h1 class="course-name page-title">{{ courseInfo()?.name || 'Detalle del Curso' }}</h1>
         </div>
         <p class="course-metrics font-mono">
           <span machineData>{{ studentsCount() }}</span> estudiantes

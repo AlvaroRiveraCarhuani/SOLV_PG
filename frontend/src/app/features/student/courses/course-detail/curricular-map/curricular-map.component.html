@@ -74,6 +74,7 @@
             <article
               class="module-card"
               [class.is-locked]="module.state === 'locked'"
+              [class.is-unlocked]="module.state !== 'locked'"
               [class.is-completed]="module.state === 'completed'"
             >
               <header class="module-header">

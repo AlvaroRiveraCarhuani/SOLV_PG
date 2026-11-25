@@ -73,7 +73,7 @@ test.describe('J02 — Pipeline de Autoría del Docente (UI) y Validación de St
         forensic.recordStep('Docente abre el editor en 3 pasos y completa la identidad del ejercicio');
 
         await teacherPage.goto(`/teacher/cursos/${sharedState.courseId}`, { waitUntil: 'domcontentloaded' });
-        await expect(teacherPage.locator('h1.page-title')).toContainText(courseName, { timeout: 45000 });
+        await expect(teacherPage.locator('h1.course-name, h1.page-title')).toContainText(courseName, { timeout: 45000 });
 
         const newLabBtn = teacherPage.locator('button.btn-new-lab', { hasText: 'Nuevo Laboratorio' });
         await expect(newLabBtn).toBeVisible({ timeout: 45_000 });

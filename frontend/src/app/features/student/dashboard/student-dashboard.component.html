@@ -205,13 +205,13 @@
           <ul class="subjects-list">
             @for (item of topSubjects(); track item.subject.id) {
               <li class="subject-row">
-                <a class="subject-row-link" [routerLink]="['/student/courses', item.subject.id]">
+                <a class="subject-row-link course-row" [routerLink]="['/student/courses', item.subject.id]">
                   <div class="subject-row-head">
                     <span class="subject-code font-mono" machineData>{{ item.subject.code }}</span>
                     <span class="subject-row-name" [title]="item.subject.name">{{ item.subject.name }}</span>
                   </div>
                   <div class="subject-row-meta">
-                    <span class="subject-progress-text font-mono" machineData>
+                    <span class="subject-progress-text course-progress font-mono" machineData>
                       {{ item.completed_exercises ?? 0 }} / {{ item.total_exercises ?? 0 }} prácticas
                     </span>
                     <span class="subject-status-tag" [class.is-complete]="(item.completed_exercises ?? 0) === (item.total_exercises ?? 0) && (item.total_exercises ?? 0) > 0">
