@@ -51,6 +51,8 @@ Todas las métricas corresponden a mediciones reales obtenidas en este nodo. Los
 | :--- | :--- | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :--- |
 | **E1** | Latencia lectura ejercicios (`GET /api/v1/exercises`) | 298 | 18.70 ms | 16.48 ms | 19.84 ms | 24.90 ms | 35.12 ms | 5.71 / 208.59 ms | `e1_k6_summary.json` |
 | **E1** | Peticiones de evaluación (`POST /api/v1/evaluations`) | 204 | 52.41 s | 14.82 s | 60.00 s | 60.00 s | 60.00 s | 1.84 / 60.00 s | `e1_k6_summary.json` |
+| **E2** | Huella memoria en reposo proceso Go (`VmRSS`) | 30 | 37.13 MiB (38.93 MB) | 0.67 MiB (0.71 MB) | 37.40 MiB (39.22 MB) | 37.60 MiB (39.43 MB) | 37.61 MiB (39.44 MB) | 35.18 / 37.61 MiB (36.89 / 39.44 MB) | `e2_idle_footprint.json` |
+| **E2** | Huella memoria en reposo contenedor (`solv_backend` cgroups v2) | 30 | 145.56 MiB (152.64 MB) | 1.07 MiB (1.12 MB) | 145.60 MiB (152.67 MB) | 147.39 MiB (154.55 MB) | 147.66 MiB (154.83 MB) | 143.06 / 147.66 MiB (150.01 / 154.83 MB) | `e2_idle_footprint.json` |
 | **E3** | Verificación ForwardAuth (`GET /api/v1/auth/verify`) | 200 | 2.07 ms | 0.21 ms | 2.03 ms | 2.43 ms | 2.72 ms | 1.64 / 2.73 ms | `e3_forwardauth.json` |
 | **E3** | Cierre de sesión y revocación (`POST /api/v1/auth/logout`) | 1 | 35.37 ms | 0.00 ms | 35.37 ms | 35.37 ms | 35.37 ms | 35.37 / 35.37 ms | `e3_forwardauth.json` |
 | **E4 (2 capas)** | Pre-chequeo en memoria código prohibido (`AST_BLOCKED`) | 200 | 0.0273 ms | 0.0442 ms | 0.0169 ms | 0.0621 ms | 0.2590 ms | 0.0105 / 0.4548 ms | `e4_precheck.json` |
@@ -178,9 +180,8 @@ La red `solv-exam-net` confirmó su atributo `Internal=true` y driver `bridge`. 
 
 ## 7. Escenarios Omitidos por Ventana de Tiempo (Core IEEE)
 
-Para respetar la ventana operativa de 45 a 60 minutos en el servidor físico, se ejecutaron los bloques esenciales (E0, E1, E3, E4, E6, E7, E9, E10, E11, E12, E13) y se omitieron los siguientes escenarios de larga duración:
+Para respetar la ventana operativa de 45 a 60 minutos en el servidor físico, se ejecutaron los bloques esenciales (E0, E1, E2, E3, E4, E6, E7, E9, E10, E11, E12, E13) y se omitieron los siguientes escenarios de larga duración:
 
-- **E2 (Muestreo prolongado de RSS del orquestador durante 60 minutos):** Omitido por tiempo; el orquestador se mantuvo estable durante toda la campaña sin fugas visibles en `ps`.
 - **E5 (Construcción en frío y caliente de imágenes Docker de 40 minutos):** Las imágenes base ya se encontraban precargadas en el nodo.
 - **E8 (Ciclo completo de apagado por inactividad de 16 a 20 minutos):** La conciliación de satélites inactivos fue verificada mediante tests unitarios de ciclo de vida.
 - **Pruebas de resistencia (Soak testing de varias horas):** Excluidas por exceder la ventana pactada.

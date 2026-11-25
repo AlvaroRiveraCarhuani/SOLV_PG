@@ -1,0 +1,42 @@
+=== E2: HUELLA DE MEMORIA EN REPOSO DEL ORQUESTADOR GO (SOLV_BACKEND) Y NUCLEO DE 5 SERVICIOS ===
+Fecha Inicio UTC: 2026-11-25T18:44:05.757118+00:00
+Fecha Fin UTC:    2026-11-25T18:45:34.731521+00:00
+Commit HEAD:      4c71f1f
+PID Evaluado:     15646 (/tmp/solv-api-dev)
+Contenedor:       solv_backend (75254a0ed74b)
+Muestras:         N = 30 (1 cada 2 s = 60 s)
+
+--- METRICAS DE MEMORIA: PROCESO GO (SOLV-API-DEV) Y CONTENEDOR SOLV_BACKEND ---
+Metrica                             | N   | Min        | Media (u)  | Desv (s)   | p50        | p95        | Max       
+-------------------------------------------------------------------------------------------------------------------
+Proceso Go VmRSS (MiB)              | 30  | 35.18      | 37.13      | 0.67       | 37.40      | 37.60      | 37.61     
+Proceso Go VmRSS (MB)                | 30  | 36.89      | 38.93      | 0.71       | 39.22      | 39.43      | 39.44     
+Proceso Go RssAnon (MiB)            | 30  | 11.30      | 12.91      | 0.56       | 13.14      | 13.34      | 13.36     
+Proceso Go RssAnon (MB)              | 30  | 11.85      | 13.54      | 0.59       | 13.78      | 13.99      | 14.00     
+Proceso Go RssFile (MiB)            | 30  | 23.89      | 24.22      | 0.11       | 24.26      | 24.26      | 24.26     
+Proceso Go RssFile (MB)              | 30  | 25.05      | 25.39      | 0.12       | 25.44      | 25.44      | 25.44     
+Proceso Go VmSize (MiB)             | 30  | 1229.41    | 1229.64    | 0.08       | 1229.66    | 1229.66    | 1229.66   
+Proceso Go VmSize (MB)               | 30  | 1289.13    | 1289.37    | 0.08       | 1289.39    | 1289.39    | 1289.39   
+Contenedor solv_backend (cgroup v2 memory.current) (MiB) | 30  | 143.06     | 145.56     | 1.07       | 145.60     | 147.39     | 147.66    
+Contenedor solv_backend (cgroup v2 memory.current) (MB)  | 30  | 150.01     | 152.64     | 1.12       | 152.67     | 154.55     | 154.83    
+Contenedor solv_backend (cgroup v2 memory.anon) (MiB) | 30  | 17.80      | 18.24      | 0.64       | 18.05      | 19.83      | 19.86     
+Contenedor solv_backend (cgroup v2 memory.anon) (MB)  | 30  | 18.67      | 19.13      | 0.67       | 18.93      | 20.80      | 20.83     
+
+--- INSTANTANEA DOCKER STATS: NUCLEO DE 5 SERVICIOS ---
+Servicio             | Mem Usage / Limit         | Mem %    | CPU %    | PIDs 
+---------------------------------------------------------------------------
+solv_traefik         | 132.2MiB / 11.57GiB       | 1.12%    | 0.00%    | 15   
+solv_db              | 49.91MiB / 11.57GiB       | 0.42%    | 0.03%    | 11   
+solv_backend         | 128.6MiB / 11.57GiB       | 1.08%    | 0.00%    | 29   
+solv_frontend        | 14.82MiB / 11.57GiB       | 0.13%    | 0.00%    | 9    
+solv_seaweedfs       | 205MiB / 11.57GiB         | 1.73%    | 0.92%    | 16   
+
+--- MEMORIA DEL HOST (free -m) ---
+               total        used        free      shared  buff/cache   available
+Mem:           11852        1730        6964         115        3572       10121
+Swap:           4095           0        4095
+
+--- ESTADO DE REDES (Internal / Driver) ---
+solv_net: Driver=bridge, Internal=False
+solv-satellites-net: Driver=bridge, Internal=False
+solv-exam-net: Driver=bridge, Internal=True

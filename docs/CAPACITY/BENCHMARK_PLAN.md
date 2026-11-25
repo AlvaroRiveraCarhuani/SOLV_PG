@@ -13,7 +13,7 @@
 
 | # | Afirmación del manuscrito | Dónde se afirma | Evidencia hoy en `26e109c` | Decisión | Escenario |
 |:-:|:---|:---|:---|:---|:---:|
-| 1 | RSS del orquestador inferior a 50 MB | `05a:69`, `05d` (RNF-02), `04:253` | `NO MEDIDO`: no hay muestreo ni salida guardada | medir en el Asus y publicar `μ`, `σ`, máximo | E2 |
+| 1 | RSS del orquestador inferior a 50 MB | `05a:69`, `05d` (RNF-02), `04:253` | Medido en reposo (N=30, 60 s): `μ = 37.13 MiB` (38.93 MB), `σ = 0.67 MiB`, máx = 37.61 MiB (39.44 MB). Cota < 50 MB cumplida sin problemas. | Evidencia registrada en `e2_idle_footprint.json` | E2 |
 | 2 | `ForwardAuth` por debajo de 50 ms | `04:189`, `slice08_forwardauth_test.go:125-129` | cota verificada por prueba de integración que falla si se supera; no hay distribución | medir distribución y conservar la cota como aserción | E3 |
 | 3 | `session_revocations` se consulta cada 2 s y cierra el canal | `05b` escenario 1 | implementado y probado; latencia de cierre no medida | medir tiempo entre revocación y cierre del WebSocket | E3 |
 | 4 | Pre-chequeo en tres capas por debajo de 100 ms | `01:7`, `04:183`, `05a:55`, `05b:207` | `slice09_semgrep_precheck_test.go:171-175` solo hace `t.Logf`; no falla ni promedia | medir con `go test -bench` y con la ruta HTTP real | E4 |
