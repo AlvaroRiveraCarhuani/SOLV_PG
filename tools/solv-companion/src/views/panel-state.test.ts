@@ -2,6 +2,10 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { AdvancePreview } from '../domain/advance';
 import {
+  SOLV_READONLY_PATTERNS,
+  computeReadonlyIncludeDecision
+} from '../workspace/readonly-lock';
+import {
   advanceFileActionText,
   applySelection,
   buildChecklist,
@@ -151,4 +155,43 @@ test('los textos y badges se adaptan al propósito pedagógico (examen vs práct
   assert.equal(submissionActionText('exam'), '$(cloud-upload) Entregar Examen');
   assert.equal(submissionActionText('class'), '$(cloud-upload) Entregar Práctica');
   assert.equal(submissionActionText(undefined), '$(cloud-upload) Entregar Práctica');
+});
+
+test('readonly-lock activa y limpia files.readonlyInclude de forma idempotente sin pisar reglas ajenas', () => {
+  const lockFresh = computeReadonlyIncludeDecision(true, undefined, false);
+  assert.equal(lockFresh.changed, true);
+  assert.equal(lockFresh.nextOwned, true);
+  assert.deepEqual(lockFresh.nextValue, SOLV_READONLY_PATTERNS);
+
+  const lockAgain = computeReadonlyIncludeDecision(true, lockFresh.nextValue, lockFresh.nextOwned);
+  assert.equal(lockAgain.changed, false);
+  assert.equal(lockAgain.nextOwned, true);
+
+  const unlockFresh = computeReadonlyIncludeDecision(false, lockFresh.nextValue, true);
+  assert.equal(unlockFresh.changed, true);
+  assert.equal(unlockFresh.nextOwned, false);
+  assert.equal(unlockFresh.nextValue, undefined);
+
+  const unlockAgain = computeReadonlyIncludeDecision(false, undefined, false);
+  assert.equal(unlockAgain.changed, false);
+
+  const withUserPattern = computeReadonlyIncludeDecision(true, { 'vendor/**': true }, false);
+  assert.equal(withUserPattern.changed, true);
+  assert.deepEqual(withUserPattern.nextValue, {
+    'vendor/**': true,
+    ...SOLV_READONLY_PATTERNS
+  });
+
+  const unlockPreservesUserPattern = computeReadonlyIncludeDecision(
+    false,
+    withUserPattern.nextValue,
+    withUserPattern.nextOwned
+  );
+  assert.equal(unlockPreservesUserPattern.changed, true);
+  assert.equal(unlockPreservesUserPattern.nextOwned, false);
+  assert.deepEqual(unlockPreservesUserPattern.nextValue, { 'vendor/**': true });
+
+  const foreignOnly = computeReadonlyIncludeDecision(false, { 'vendor/**': true }, false);
+  assert.equal(foreignOnly.changed, false);
+  assert.deepEqual(foreignOnly.nextValue, { 'vendor/**': true });
 });

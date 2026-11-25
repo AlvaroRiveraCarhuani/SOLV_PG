@@ -18,6 +18,7 @@ import { AssignmentTab } from './views/assignment-tab';
 import { PanelMessage, SolvPanelView } from './views/solv-panel-view';
 import { StatusBarController } from './status/status-bar-controller';
 import { KeystrokeCapturer } from './telemetry/keystroke-capturer';
+import { computeReadonlyIncludeDecision, isDirectoryWritable } from './workspace/readonly-lock';
 
 /** Sin respuesta durante este lapso, la barra de estado deja de decir "conectando". */
 const OFFLINE_AFTER_MS = 120000;
@@ -30,6 +31,9 @@ const ADVANCE_NOTICE_KEY = 'solv.notifiedAdvance';
 
 /** Última pausa de aula avisada, para no repetir el aviso en cada ciclo. */
 const PAUSED_EXAM_KEY = 'solv.pausedExam';
+
+/** Indica si el bloqueo visual `files.readonlyInclude` actual pertenece a SOLV. */
+const READONLY_LOCK_OWNED_KEY = 'solv.readonlyLockOwned';
 
 export async function activate(context: vscode.ExtensionContext): Promise<void> {
   const settings = new SolvSettings(context);
@@ -70,6 +74,8 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     | undefined;
 
   let rubricCriteria: RubricCriterionView[] = [];
+
+  await syncReadonlyLock(false);
 
   const panel = new SolvPanelView(buildState, handleMessage);
   const tab = new AssignmentTab(buildState, handleMessage);
@@ -767,6 +773,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     if (!session) {
       // Sin aula abierta no hay reanudación que anunciar: el examen pudo cerrarse.
       applyStudentPause(null);
+      await syncReadonlyLock(false);
       return;
     }
     try {
@@ -778,6 +785,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
       session.frozen_at ? { sessionId: session.id, since: session.frozen_at } : null,
       session.id
     );
+    await syncReadonlyLock(Boolean(session.frozen_at));
   }
 
   /**
@@ -806,6 +814,33 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     void context.workspaceState.update(PAUSED_EXAM_KEY, undefined);
     if (resumedSessionId && previousKey.startsWith(`${resumedSessionId}:`)) {
       info('Examen reanudado: ya podés volver a editar.');
+    }
+  }
+
+  async function syncReadonlyLock(sessionPaused: boolean): Promise<void> {
+    if (settings.isTeacher) {
+      return;
+    }
+    const workspacePath =
+      vscode.workspace.workspaceFolders?.[0]?.uri.fsPath || '/home/workspace';
+    const writable = await isDirectoryWritable(workspacePath);
+    const shouldLock = sessionPaused || !writable;
+
+    const filesConfig = vscode.workspace.getConfiguration('files');
+    const currentGlobal = filesConfig.inspect<Record<string, boolean>>('readonlyInclude')?.globalValue;
+    const ownedBySolv = context.workspaceState.get<boolean>(READONLY_LOCK_OWNED_KEY, false);
+    const decision = computeReadonlyIncludeDecision(shouldLock, currentGlobal, ownedBySolv);
+
+    if (decision.nextOwned !== ownedBySolv) {
+      await context.workspaceState.update(READONLY_LOCK_OWNED_KEY, decision.nextOwned);
+    }
+    if (!decision.changed) {
+      return;
+    }
+    try {
+      await filesConfig.update('readonlyInclude', decision.nextValue, vscode.ConfigurationTarget.Global);
+    } catch {
+      // Sin permiso sobre User settings, Docker :ro sigue protegiendo el disco.
     }
   }
 
