@@ -16,12 +16,20 @@
   <header class="solver-topbar">
     <div class="topbar-left">
       <div class="title-meta">
-        <h1 class="page-title">{{ exercise()?.title || 'Cargando ejercicio...' }}</h1>
+        <h1 class="page-title" [title]="exercise()?.title || ''">{{ exercise()?.title || 'Cargando ejercicio...' }}</h1>
         @if (isExamProject()) {
           <span class="exam-badge-header">Examen</span>
         }
         @if (!isIdeExercise()) {
-          <span class="meta-limit font-mono" machineData>Límite {{ timeLimitLabel() }}</span>
+          <span
+            class="meta-limit"
+            [class.is-exam]="isExamProject()"
+            title="Límite de ejecución: tiempo máximo que puede tardar cada prueba. No es el tiempo restante del examen."
+          >
+            <svg lucideClock class="limit-icon" aria-hidden="true"></svg>
+            <span class="limit-text">Límite</span>
+            <span class="limit-value font-mono" machineData>{{ timeLimitLabel() }}</span>
+          </span>
         }
       </div>
     </div>
@@ -62,7 +70,7 @@
         </div>
 
         <div class="lang-selector-group">
-          <span class="lang-label">Lenguaje:</span>
+          <span class="lang-label" aria-hidden="true">Lenguaje</span>
           <combobox
             [options]="languageOptions()"
             [value]="selectedLanguage()"
@@ -298,7 +306,7 @@
             <div class="operative-body">
               <div class="state-indicator-row">
                 <span class="state-label">Estado:</span>
-                @if (examClosed() || (isExamProject() && isExamExpired())) {
+                @if (examClosed() || (isExamProject() && isExamExpired()) || showsClassPausedNotice()) {
                   <span class="status-pill is-closed">Solo lectura</span>
                 } @else if (environmentIsRunning()) {
                   <span class="status-pill is-running">En ejecución</span>
@@ -309,10 +317,11 @@
 
               <!-- Botón principal: Abrir entorno -->
               <div class="operative-action-primary">
-                @if (examClosed() || (isExamProject() && isExamExpired())) {
+                @if (examClosed() || (isExamProject() && isExamExpired()) || showsClassPausedNotice()) {
                   <button
                     type="button"
                     class="btn-secondary btn-block"
+                    [disabled]="isStartingEnvironment()"
                     (click)="openEnvironment()"
                   >
                     <svg lucideExternalLink class="btn-icon"></svg>
@@ -354,7 +363,7 @@
                     <span>Entregar proyecto</span>
                   }
                 </button>
-                @if (!environmentIsRunning()) {
+                @if (!environmentIsRunning() && !showsClassPausedNotice()) {
                   <p class="field-hint">Inicie primero el entorno para registrar la entrega de su proyecto.</p>
                 }
               </div>
@@ -554,10 +563,12 @@
           <div class="editor-viewport">
             @defer {
               <code-editor
+                class="solver-code-editor"
                 [value]="sourceCode()"
                 [language]="selectedLanguage()"
                 [readonly]="isExamSubmitted()"
-                minHeight="240px"
+                minHeight="0"
+                maxHeight="none"
                 (valueChange)="onCodeChange($event)"
               />
             } @placeholder {

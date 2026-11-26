@@ -1,7 +1,10 @@
 .solver-page-container {
   display: flex;
   flex-direction: column;
-  min-height: calc(100vh - 48px);
+
+  // El scroll vive en `.shell-content`: pedir el alto de la ventana acá sumaba
+  // una barra de scroll vacía al final de la página.
+  min-height: 100%;
   background: var(--bg-canvas);
 }
 
@@ -17,20 +20,20 @@
   min-height: 32px;
   padding: 0 0 var(--space-3);
   flex-shrink: 0;
-  gap: var(--space-4);
+  gap: var(--space-3);
 
   .topbar-left,
   .topbar-right {
     display: flex;
     align-items: center;
-    gap: var(--space-3);
+    gap: var(--space-2);
     white-space: nowrap;
     flex-shrink: 0;
   }
 
   .topbar-left {
     min-width: 0;
-    flex: 1;
+    flex: 1 1 auto;
   }
 
   .title-meta {
@@ -38,11 +41,15 @@
     align-items: center;
     gap: var(--space-2);
     min-width: 0;
-    overflow: hidden;
+    flex: 1;
   }
 
+  // El título es el único elemento que cede espacio: los badges y el límite
+  // nunca se recortan (antes `Límite 15 s` se cortaba a `Límite 1`).
   .page-title {
     margin: 0;
+    flex: 0 1 auto;
+    min-width: 0;
     font-size: var(--text-sm);
     font-weight: 600;
     color: var(--text-primary);
@@ -61,10 +68,65 @@
     flex-shrink: 0;
   }
 
+  // Pill del límite de ejecución por prueba (no es el cronómetro del examen).
   .meta-limit {
-    font-size: var(--text-xs);
-    color: var(--text-muted);
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-1);
     flex-shrink: 0;
+    white-space: nowrap;
+    padding: 2px var(--space-2);
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-full);
+    background: var(--bg-surface-subtle);
+    color: var(--text-secondary);
+    font-size: var(--text-2xs);
+    font-weight: 500;
+    line-height: 1.4;
+
+    .limit-icon {
+      width: 12px;
+      height: 12px;
+      flex-shrink: 0;
+    }
+
+    .limit-value {
+      font-size: var(--text-2xs);
+      font-weight: 600;
+      color: var(--text-primary);
+    }
+
+    // En un examen el indicador sube de énfasis sin repetir el ámbar del
+    // badge `Examen`, que ya ocupa ese tono en la misma fila.
+    &.is-exam {
+      background: var(--tenant-primary-subtle);
+      border-color: var(--tenant-primary-border);
+      color: var(--tenant-primary);
+
+      .limit-value {
+        color: var(--tenant-primary);
+      }
+    }
+  }
+
+  // Etiqueta y selector de lenguaje en una sola fila.
+  .lang-selector-group {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    flex-shrink: 0;
+
+    .lang-label {
+      font-size: var(--text-xs);
+      color: var(--text-muted);
+      white-space: nowrap;
+    }
+
+    combobox {
+      display: block;
+      width: 150px;
+      flex-shrink: 0;
+    }
   }
 
   .view-mode-group {
@@ -126,6 +188,45 @@
     font-size: var(--text-xs);
     color: var(--text-muted);
     font-weight: 500;
+  }
+
+  // A 1366×768 la barra completa cabe en una línea: se compactan espacios y
+  // rellenos antes que ocultar controles.
+  @media (max-width: 1440px) {
+    gap: var(--space-2);
+
+    .topbar-right {
+      gap: 6px;
+    }
+
+    .btn-action-top {
+      padding: 0 var(--space-2);
+    }
+
+    .view-mode-group .btn-mode-toggle {
+      gap: var(--space-1);
+      padding: 0 6px;
+    }
+
+    .lang-selector-group combobox {
+      width: 132px;
+    }
+  }
+
+  @media (max-width: 1280px) {
+    .lang-selector-group .lang-label {
+      display: none;
+    }
+  }
+
+  @media (max-width: 960px) {
+    flex-wrap: wrap;
+
+    .topbar-left,
+    .topbar-right {
+      flex: 1 1 100%;
+      flex-wrap: wrap;
+    }
   }
 }
 
@@ -900,12 +1001,68 @@
   }
 }
 
+// El editor llena todo el alto del panel: llega hasta el borde superior de la
+// consola sin dejar hueco muerto ni bordes flotando en él.
 .editor-viewport {
   flex: 1;
-  min-height: 200px;
+  min-height: 0;
   overflow: hidden;
   display: flex;
   flex-direction: column;
+
+  .solver-code-editor {
+    display: flex;
+    flex: 1;
+    min-height: 0;
+    flex-direction: column;
+  }
+
+  .form-textarea {
+    flex: 1;
+    min-height: 0;
+    resize: none;
+  }
+
+  ::ng-deep {
+    .code-editor-root {
+      display: flex;
+      flex: 1;
+      min-height: 0;
+      flex-direction: column;
+      border: 0;
+      border-radius: 0;
+
+      &:focus-within {
+        box-shadow: inset 0 0 0 1px var(--tenant-primary);
+      }
+    }
+
+    .editor-surface {
+      display: flex;
+      flex: 1;
+      min-height: 0;
+      height: 100%;
+      overflow: hidden;
+    }
+
+    .cm-editor {
+      flex: 1;
+      height: 100%;
+    }
+
+    .cm-scroller {
+      flex: 1;
+      min-height: 0;
+      height: 100%;
+      overflow: auto;
+    }
+  }
+}
+
+@media (max-width: 960px) {
+  .editor-viewport {
+    min-height: 320px;
+  }
 }
 
 /* Consola inferior plegable */
