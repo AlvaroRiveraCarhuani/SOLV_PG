@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log"
 	"strings"
+	"time"
 
 	"solv-backend/internal/core/domain"
 )
@@ -24,6 +25,7 @@ func (s *PracticeEnvironmentService) reactivatePracticeEnvironment(ctx context.C
 	// pausado ni por el reconciliador (ADR-005 §5). La práctica con el aula
 	// pausada tampoco recupera la escritura, pero sí vuelve a entregar su URL
 	// para que el alumno pueda leer el trabajo.
+	thawedClassPause := false
 	if instance.FrozenAt != nil || instance.Status == domain.PracticeEnvironmentStatusFrozen {
 		if instance.EnvironmentProfile.IsExam() {
 			if aulaPaused {
@@ -32,7 +34,14 @@ func (s *PracticeEnvironmentService) reactivatePracticeEnvironment(ctx context.C
 			return nil, domain.ErrPracticeEnvironmentFrozen
 		}
 		if !aulaPaused {
-			return nil, domain.ErrPracticeEnvironmentFrozenByClass
+			// La pausa del aula ya terminó: la marca vieja no puede mantener el
+			// laboratorio en solo lectura. El contenedor se reconstruye más abajo
+			// con el volumen en escritura, así que solo se limpia la marca.
+			if marker, ok := s.repo.(practiceEnvironmentFrozenMarker); ok {
+				_ = marker.SetPracticeEnvironmentFrozen(ctx, instance.TenantID, instance.ID, false, time.Now())
+			}
+			instance.FrozenAt = nil
+			thawedClassPause = true
 		}
 	}
 
@@ -42,7 +51,7 @@ func (s *PracticeEnvironmentService) reactivatePracticeEnvironment(ctx context.C
 	// comprobación de existencia va antes: sin contenedor en el daemon no hay
 	// nada que despausar y el entorno se reconstruye con una URL viva. Con el
 	// aula pausada se salta el atajo: despausar devolvería la escritura.
-	if !aulaPaused && instance.ContainerID != nil && *instance.ContainerID != "" && s.containerAlive(ctx, instance.ContainerID) {
+	if !thawedClassPause && !aulaPaused && instance.ContainerID != nil && *instance.ContainerID != "" && s.containerAlive(ctx, instance.ContainerID) {
 		if err := s.docker.UnpauseContainer(ctx, *instance.ContainerID); err == nil {
 			// El contenedor ya estaba en marcha y conserva sus puertos: la URL de la
 			// aplicación se recupera del propio contenedor.

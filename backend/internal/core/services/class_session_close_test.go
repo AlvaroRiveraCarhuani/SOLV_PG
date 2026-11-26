@@ -33,8 +33,10 @@ type fakeExamFreezer struct {
 	report     FreezeReport
 	err        error
 	freezeCall int
+	resumeCall int
 	gotRole    string
 	gotSession string
+	gotResumed string
 }
 
 func (f *fakeExamFreezer) FreezeSession(_ context.Context, _, _, role, sessionID string) (FreezeReport, error) {
@@ -45,6 +47,12 @@ func (f *fakeExamFreezer) FreezeSession(_ context.Context, _, _, role, sessionID
 }
 
 func (f *fakeExamFreezer) UnfreezeStudent(context.Context, string, string, string, string, string, string) (FreezeReport, error) {
+	return FreezeReport{}, nil
+}
+
+func (f *fakeExamFreezer) ResumeEndedClassSession(_ context.Context, _, sessionID, _ string) (FreezeReport, error) {
+	f.resumeCall++
+	f.gotResumed = sessionID
 	return FreezeReport{}, nil
 }
 
@@ -67,6 +75,9 @@ func TestClassSessionService_CloseAulaReportsFreeze(t *testing.T) {
 	}
 	if freezer.freezeCall != 1 || freezer.gotSession != closeTestSessionID {
 		t.Fatalf("el cierre debía congelar el aula una vez: calls=%d session=%q", freezer.freezeCall, freezer.gotSession)
+	}
+	if freezer.resumeCall != 1 || freezer.gotResumed != closeTestSessionID {
+		t.Fatalf("el cierre debía terminar la pausa: calls=%d session=%q", freezer.resumeCall, freezer.gotResumed)
 	}
 	if store.gotOwner != "docente-1" || store.gotTenant != domain.DefaultTenantID {
 		t.Fatalf("el cierre debía acotar por docente e institución: %+v", store)

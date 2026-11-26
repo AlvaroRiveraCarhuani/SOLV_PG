@@ -32,6 +32,14 @@ type ExamFreezer interface {
 	UnfreezeStudent(ctx context.Context, tenantID, teacherID, role, sessionID, studentID, reason string) (FreezeReport, error)
 }
 
+// endedClassResumer devuelve la escritura a los entornos de un aula de clase
+// que se cierra estando pausada. Es opcional para no ensanchar ExamFreezer: un
+// congelador que no la implemente conserva el comportamiento anterior y el
+// siguiente arranque del alumno limpia la marca.
+type endedClassResumer interface {
+	ResumeEndedClassSession(ctx context.Context, tenantID, sessionID, actor string) (FreezeReport, error)
+}
+
 func NewClassSessionService(store domain.ClassSessionStore) *ClassSessionService {
 	return &ClassSessionService{store: store}
 }
@@ -104,6 +112,13 @@ func (s *ClassSessionService) CloseAula(ctx context.Context, tenantID, teacherID
 		report = frozen
 		if freezeErr != nil && !errFreezeIgnored(freezeErr) {
 			log.Printf("[Exam Freeze] el aula %s se cerró pero no se pudo congelar: %v", sessionID, freezeErr)
+		}
+		// Una clase pausada que se cierra no puede dejar los entornos en solo
+		// lectura: la pausa termina con el aula. Un examen no entra acá.
+		if resumer, ok := s.examFreezer.(endedClassResumer); ok {
+			if _, resumeErr := resumer.ResumeEndedClassSession(ctx, tenantID, sessionID, teacherID); resumeErr != nil {
+				log.Printf("[Exam Freeze] el aula %s se cerró pausada pero no se pudo reanudar: %v", sessionID, resumeErr)
+			}
 		}
 	}
 	return session, report, nil

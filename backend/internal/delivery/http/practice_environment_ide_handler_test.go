@@ -292,6 +292,9 @@ func TestOpenPracticeIDE_ReturnsNotFoundForMissingPractice(t *testing.T) {
 // 409: un volumen congelado por examen cerrado no se reabre desde la ficha.
 func TestOpenPracticeIDE_RejectsFrozenEnvironment(t *testing.T) {
 	f := newIDEFixture(t, ideOwnerID, string(domain.EnvironmentTypeIDEPersistente))
+	// El cierre que congela de forma definitiva es el del examen; la pausa de
+	// una clase se devuelve con el arranque cuando el aula ya terminó.
+	f.exercise.Purpose = string(domain.ExercisePurposeExam)
 	frozenAt := time.Date(2026, 10, 31, 16, 0, 0, 0, time.UTC)
 	exerciseID := idePractice
 	f.repo.existing = &domain.PracticeEnvironment{

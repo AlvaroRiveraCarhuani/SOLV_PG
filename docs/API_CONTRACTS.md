@@ -2261,10 +2261,11 @@ El mensaje es `Examen pausado` cuando la sesión es de examen y `Clase pausada` 
 - `409` si el aula ya está cerrada: el cierre deja los volúmenes en solo lectura y no hay pausa que hacer.
 - `503` si no se pudo dejar en solo lectura ningún entorno; en ese caso la sesión no queda marcada como pausada.
 - Alcanza a los entornos que se abran o reactiven durante la pausa: nacen con el volumen en `:ro` y quedan en estado `frozen` hasta el `unfreeze`.
+- Mientras la pausa sigue vigente, el alumno puede abrir su IDE en solo lectura: la práctica devuelve la URL con el volumen en `:ro` y la entrega sigue rechazada.
 
 ### `PATCH /api/v1/teacher/sessions/{id}/unfreeze`
 
-Sin cuerpo. Reanuda el aula pausada: los volúmenes vuelven a `:rw` y `frozen_at` queda en `null`. Los alumnos siguen donde estaban y el aula nunca se cerró.
+Sin cuerpo. Reanuda el aula pausada: los volúmenes vuelven a `:rw` y `frozen_at` queda en `null`. Los alumnos siguen donde estaban y el aula nunca se cerró. La marca de la pausa también vive en cada entorno (`environments.frozen_at`); al reanudar se limpia junto con el montaje. Si el aula se cierra o vence estando pausada, el siguiente arranque de la práctica devuelve la escritura antes de entregar la URL, así que un entorno no queda bloqueado por una pausa que ya terminó.
 
 ### `PATCH /api/v1/teacher/sessions/{id}/grace`
 

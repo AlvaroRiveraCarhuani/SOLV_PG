@@ -126,7 +126,9 @@ func TestStartPracticeEnvironment_RecargaNoAbreRecuperatorio(t *testing.T) {
 	}
 }
 
-// La práctica no tiene intentos: una convocatoria nueva no la reabre.
+// La práctica no tiene intentos: una convocatoria nueva no la reabre. Una pausa
+// de aula que ya terminó tampoco puede dejarla en solo lectura: vuelve a
+// escritura en el mismo intento y sin estrenar volumen.
 func TestStartPracticeEnvironment_PracticaCerradaNoEstrenaIntento(t *testing.T) {
 	frozenAt := time.Now().Add(-24 * time.Hour)
 	linker := &fakeExamSessionLinker{openedAt: time.Now().Add(-time.Hour), found: true}
@@ -134,9 +136,19 @@ func TestStartPracticeEnvironment_PracticaCerradaNoEstrenaIntento(t *testing.T) 
 	closed.EnvironmentProfile = domain.EnvironmentProfilePractice
 	closed.ExamAttempt = 0
 
-	svc, _, _ := newRetakeService(t, domain.ExercisePurposeClass, closed, linker)
+	svc, _, orch := newRetakeService(t, domain.ExercisePurposeClass, closed, linker)
 
-	if _, err := svc.StartPracticeEnvironmentForExercise(context.Background(), "student-1", "subj-101", testPracticeID); !errors.Is(err, domain.ErrPracticeEnvironmentFrozen) {
-		t.Fatalf("la práctica cerrada debía seguir cerrada, error: %v", err)
+	ws, err := svc.StartPracticeEnvironmentForExercise(context.Background(), "student-1", "subj-101", testPracticeID)
+	if err != nil {
+		t.Fatalf("la pausa terminada no debía bloquear la práctica: %v", err)
+	}
+	if ws.ExamAttempt != 0 {
+		t.Fatalf("la práctica no estrena intento: %d", ws.ExamAttempt)
+	}
+	if ws.FrozenAt != nil {
+		t.Fatalf("la práctica debía quedar escribible: frozen_at=%v", ws.FrozenAt)
+	}
+	if orch.lastConfig == nil || orch.lastConfig.ReadOnly {
+		t.Fatal("el contenedor debía reconstruirse con el volumen en escritura")
 	}
 }

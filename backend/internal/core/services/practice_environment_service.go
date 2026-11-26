@@ -258,6 +258,34 @@ func (s *PracticeEnvironmentService) freezeEnvironmentForPausedAula(ctx context.
 	instance.Status = domain.PracticeEnvironmentStatusFrozen
 }
 
+// thawPracticeEnvironmentAfterPause devuelve la escritura a un laboratorio de
+// práctica que quedó marcado por una pausa del aula que ya terminó. La marca
+// vive en la fila del entorno y sobrevive al cierre o al vencimiento de la
+// sesión, así que sin esta limpieza el alumno recibiría «el docente pausó la
+// clase» cada vez que intente abrir su entorno. El montaje en :ro solo se
+// cambia reconstruyendo el contenedor; sin contenedor alcanza con limpiar la
+// marca y el arranque normal lo reconstruye en escritura.
+func (s *PracticeEnvironmentService) thawPracticeEnvironmentAfterPause(ctx context.Context, instance *domain.PracticeEnvironment) error {
+	if instance == nil {
+		return nil
+	}
+	if instance.ContainerID != nil && strings.TrimSpace(*instance.ContainerID) != "" {
+		if err := s.SetPracticeEnvironmentMount(ctx, instance, false); err != nil {
+			return err
+		}
+	}
+	marker, ok := s.repo.(practiceEnvironmentFrozenMarker)
+	if !ok {
+		return errors.New("el repositorio de entornos no puede reanudar un laboratorio pausado")
+	}
+	if err := marker.SetPracticeEnvironmentFrozen(ctx, instance.TenantID, instance.ID, false, time.Now()); err != nil {
+		return err
+	}
+	instance.FrozenAt = nil
+	instance.Status = domain.PracticeEnvironmentStatusRunning
+	return nil
+}
+
 // frozenErrorFor explica un volumen ya congelado: un examen cerrado, un examen
 // pausado y una práctica con el aula pausada no dicen lo mismo.
 func (s *PracticeEnvironmentService) frozenErrorFor(ctx context.Context, instance *domain.PracticeEnvironment) error {
@@ -956,57 +984,62 @@ func (s *PracticeEnvironmentService) startPracticeEnvironment(ctx context.Contex
 				}
 				return s.startExamRetake(ctx, existing, template, exercise, tenantID, subjectID, profile, linkSession)
 			}
-			// Una práctica con el aula pausada no se cierra: el alumno entra a
-			// leer su trabajo y la entrega sigue bloqueada.
-			if !aulaPaused {
-				return nil, domain.ErrPracticeEnvironmentFrozenByClass
-			}
-			provision, dbErr := s.ensureExerciseSatelliteDB(ctx, userID, subjectID, template, exercise)
-			if dbErr != nil {
-				return nil, dbErr
-			}
-			return s.reopenPausedPracticeEnvironment(ctx, existing, provision, linkSession)
-		} else {
-
-			// El entorno es único por (student_id, subject_id, exercise_id). Si ya
-			// existía, la base satélite y el db_init_script del ejercicio también
-			// deben quedar asegurados antes de devolverlo o reactivarlo. El registro
-			// de _solv_exercise_migrations hace la operación idempotente.
-			provision, dbErr := s.ensureExerciseSatelliteDB(ctx, userID, subjectID, template, exercise)
-			if dbErr != nil {
-				return nil, dbErr
-			}
-			if seedErr := s.ensureExistingWorkspaceSeed(ctx, existing); seedErr != nil {
-				_ = s.repo.UpdateStatus(ctx, existing.ID, domain.PracticeEnvironmentStatusFailed)
-				return nil, seedErr
-			}
-
-			if existing.Status == domain.PracticeEnvironmentStatusRunning {
-				// El registro puede sobrevivir al contenedor (limpieza de Docker,
-				// reinicio del nodo). Antes de devolver la URL se comprueba que el
-				// contenedor siga en el daemon; si ya no está, se reconstruye en vez
-				// de entregar un enlace que no carga. Con el aula pausada no se
-				// devuelve el contenedor vivo: se reconstruye en solo lectura.
-				if s.containerAlive(ctx, existing.ContainerID) && !aulaPaused {
-					// El contenedor sigue en marcha: se devuelve tal cual, con la URL
-					// de la aplicación recuperada de sus puertos publicados.
-					s.attachPracticeAppURL(ctx, existing)
-					return existing, nil
+			if aulaPaused {
+				// Una práctica con el aula pausada no se cierra: el alumno entra a
+				// leer su trabajo y la entrega sigue bloqueada.
+				provision, dbErr := s.ensureExerciseSatelliteDB(ctx, userID, subjectID, template, exercise)
+				if dbErr != nil {
+					return nil, dbErr
 				}
-				return s.reactivatePracticeEnvironment(ctx, existing, provision, linkSession)
+				return s.reopenPausedPracticeEnvironment(ctx, existing, provision, linkSession)
 			}
-
-			// Verificación de Castigo por OOMKilled (Sistema de 3 Strikes = 5 minutos de bloqueo)
-			if existing.OOMStrikeCount >= domain.MaxOOMStrikes && existing.LastOOMKilledAt != nil {
-				if time.Since(*existing.LastOOMKilledAt) < domain.OOMCooldownDuration {
-					remaining := domain.OOMCooldownDuration - time.Since(*existing.LastOOMKilledAt)
-					return nil, fmt.Errorf("%w (%d s remaining)", ErrOOMKilledCooldownPenalty, int(remaining.Seconds()))
-				}
-				_ = s.repo.ResetOOMStrikes(ctx, existing.ID)
+			// La pausa que marcó el laboratorio ya no está viva: el docente
+			// reanudó, cerró el aula o la clase venció. Sin esto el alumno queda
+			// fuera de su propio trabajo para siempre, con un 409 que habla de una
+			// pausa que ya terminó.
+			if thawErr := s.thawPracticeEnvironmentAfterPause(ctx, existing); thawErr != nil {
+				return nil, thawErr
 			}
+		}
 
+		// El entorno es único por (student_id, subject_id, exercise_id). Si ya
+		// existía, la base satélite y el db_init_script del ejercicio también
+		// deben quedar asegurados antes de devolverlo o reactivarlo. El registro
+		// de _solv_exercise_migrations hace la operación idempotente.
+		provision, dbErr := s.ensureExerciseSatelliteDB(ctx, userID, subjectID, template, exercise)
+		if dbErr != nil {
+			return nil, dbErr
+		}
+		if seedErr := s.ensureExistingWorkspaceSeed(ctx, existing); seedErr != nil {
+			_ = s.repo.UpdateStatus(ctx, existing.ID, domain.PracticeEnvironmentStatusFailed)
+			return nil, seedErr
+		}
+
+		if existing.Status == domain.PracticeEnvironmentStatusRunning {
+			// El registro puede sobrevivir al contenedor (limpieza de Docker,
+			// reinicio del nodo). Antes de devolver la URL se comprueba que el
+			// contenedor siga en el daemon; si ya no está, se reconstruye en vez
+			// de entregar un enlace que no carga. Con el aula pausada no se
+			// devuelve el contenedor vivo: se reconstruye en solo lectura.
+			if s.containerAlive(ctx, existing.ContainerID) && !aulaPaused {
+				// El contenedor sigue en marcha: se devuelve tal cual, con la URL
+				// de la aplicación recuperada de sus puertos publicados.
+				s.attachPracticeAppURL(ctx, existing)
+				return existing, nil
+			}
 			return s.reactivatePracticeEnvironment(ctx, existing, provision, linkSession)
 		}
+
+		// Verificación de Castigo por OOMKilled (Sistema de 3 Strikes = 5 minutos de bloqueo)
+		if existing.OOMStrikeCount >= domain.MaxOOMStrikes && existing.LastOOMKilledAt != nil {
+			if time.Since(*existing.LastOOMKilledAt) < domain.OOMCooldownDuration {
+				remaining := domain.OOMCooldownDuration - time.Since(*existing.LastOOMKilledAt)
+				return nil, fmt.Errorf("%w (%d s remaining)", ErrOOMKilledCooldownPenalty, int(remaining.Seconds()))
+			}
+			_ = s.repo.ResetOOMStrikes(ctx, existing.ID)
+		}
+
+		return s.reactivatePracticeEnvironment(ctx, existing, provision, linkSession)
 	}
 
 	// 0.1 Techo de concurrencia del tenant (max_containers): hard gate.

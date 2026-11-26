@@ -159,6 +159,28 @@ func (s *ExamFreezeService) ResumeSession(ctx context.Context, tenantID, teacher
 	return s.resumeParticipants(ctx, tenantID, sessionID, actor)
 }
 
+// ResumeEndedClassSession devuelve la escritura a los laboratorios de un aula
+// de clase que se cierra pausada. La pausa solo vive mientras el aula está
+// abierta; el cierre no puede heredarla. Un aula de examen no se toca: el
+// cierre de un examen congela a propósito.
+func (s *ExamFreezeService) ResumeEndedClassSession(ctx context.Context, tenantID, sessionID, actor string) (FreezeReport, error) {
+	var report FreezeReport
+	if strings.TrimSpace(tenantID) == "" {
+		return report, domain.ErrInvalidTenant
+	}
+	if _, err := uuid.Parse(strings.TrimSpace(sessionID)); err != nil {
+		return report, domain.ErrSessionNotFound
+	}
+	isExam, err := s.store.SessionIsExam(ctx, tenantID, sessionID)
+	if err != nil {
+		return report, err
+	}
+	if isExam {
+		return report, nil
+	}
+	return s.resumeParticipants(ctx, tenantID, sessionID, actor)
+}
+
 // openSessionForPause valida lo que comparten pausar y reanudar: la sesión es
 // del docente y el aula sigue abierta. La pausa vale tanto para una clase como
 // para un examen: en los dos casos deja los volúmenes de los alumnos en :ro.
