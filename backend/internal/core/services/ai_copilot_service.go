@@ -106,17 +106,19 @@ func (s *AICopilotService) SuggestTemplate(ctx context.Context, tenantID, userID
 		}
 	}
 
-	runtimeSlug := strings.ToLower(strings.TrimSpace(payload.RuntimeSlug))
-	if runtimeSlug == "" {
-		return nil, &AISettingsValidationError{
-			Code:    "runtime_slug_missing",
-			Message: "el motor de IA no devolvió el runtime principal (runtime_slug)",
-		}
-	}
-
 	// Saneo de slugs: minúsculas, sin vacíos ni duplicados, de rango 3..64.
+	runtimeSlug := strings.ToLower(strings.TrimSpace(payload.RuntimeSlug))
+	if runtimeSlug == "none" || runtimeSlug == "null" {
+		runtimeSlug = ""
+	}
 	webSlug := strings.ToLower(strings.TrimSpace(payload.WebPlatformSlug))
+	if webSlug == "none" || webSlug == "null" {
+		webSlug = ""
+	}
 	dbSlug := strings.ToLower(strings.TrimSpace(payload.DatabaseSlug))
+	if dbSlug == "none" || dbSlug == "null" {
+		dbSlug = ""
+	}
 	addons := make([]string, 0, len(payload.AddonSlugs))
 	seen := make(map[string]struct{}, len(payload.AddonSlugs))
 	for _, a := range payload.AddonSlugs {
@@ -129,9 +131,6 @@ func (s *AICopilotService) SuggestTemplate(ctx context.Context, tenantID, userID
 		}
 		seen[slug] = struct{}{}
 		addons = append(addons, slug)
-	}
-	if dbSlug == "none" || dbSlug == "null" {
-		dbSlug = ""
 	}
 
 	// Memoria dentro de la horquilla homologada de los perfiles del Studio.
@@ -171,6 +170,13 @@ func (s *AICopilotService) SuggestTemplate(ctx context.Context, tenantID, userID
 			Category: strings.ToLower(strings.TrimSpace(m.Category)),
 			Reason:   reason,
 		})
+	}
+
+	if runtimeSlug == "" && webSlug == "" && len(addons) == 0 && dbSlug == "" && len(missingComponents) == 0 {
+		return nil, &AISettingsValidationError{
+			Code:    "runtime_slug_missing",
+			Message: "el motor de IA no devolvió el runtime principal (runtime_slug)",
+		}
 	}
 
 	return &domain.AISuggestTemplateResponseDTO{
@@ -297,7 +303,7 @@ Respondé EXCLUSIVAMENTE con un objeto JSON válido (sin Markdown, sin fences, s
 {
   "name": "Nombre corto y descriptivo del entorno",
   "description": "Una frase breve de qué cubre el entorno",
-  "runtime_slug": "slug del lenguaje de programación principal",
+  "runtime_slug": "slug del lenguaje de programación principal o vacío si no existe en el catálogo",
   "web_platform_slug": "slug de la plataforma web o vacío",
   "addon_slugs": ["slugs de frameworks o librerías"],
   "database_slug": "slug del motor de base de datos o vacío",
@@ -316,7 +322,8 @@ Respondé EXCLUSIVAMENTE con un objeto JSON válido (sin Markdown, sin fences, s
 Reglas innegociables:
 - Si se suministra un CATÁLOGO REAL INSTALADO, debes elegir ÚNICAMENTE entre los slugs listados en dicho catálogo para runtime_slug, web_platform_slug y addon_slugs.
 - Si una herramienta solicitada no está en el catálogo pero existe una alternativa directa instalada en la misma categoría (ej. un ORM o cliente alternativo), usa la del catálogo y explícalo en el rationale.
-- Solo si el usuario solicita explícitamente una tecnología o librería que NO existe ni tiene alternativa en el catálogo provisto, repórtala en "missing_components" y NO inventes slugs dentro de addon_slugs.
+- Si el usuario solicita explícitamente un lenguaje principal que NO existe en el catálogo (ej. Brainfuck, Haskell, Fortran), deja "runtime_slug" vacío ("") y repórtalo en "missing_components" con layer="runtime": NUNCA inventes ni pongas otro lenguaje de relleno del catálogo (como Python o Node) para completar runtime_slug.
+- Si el usuario solicita explícitamente una librería o herramienta secundaria que NO existe ni tiene alternativa en el catálogo provisto, repórtala en "missing_components" y NO inventes slugs dentro de addon_slugs.
 - database_slug SOLO puede ser uno de los slugs exactos de "Motores de Base de Datos" del CATÁLOGO REAL, nunca un nombre genérico. Si se nombra un motor que está en el catálogo, elegilo aunque el entorno sea de juez. Dejalo vacío solo si nadie pidió base de datos ni la práctica la necesita.
 - base_ram_mb entre 256 y 4096: 512 para entornos ligeros de juez, 1024 o más para laboratorios IDE con compilación pesada o servicios acoplados.
 - web_platform_slug SOLO puede ser uno de los slugs exactos de "Plataformas Web" del CATÁLOGO REAL. Elegilo cuando se pide explícitamente una interfaz (React, Angular, Vue) aunque el entorno sea de juez; si no se pide, dejalo vacío.

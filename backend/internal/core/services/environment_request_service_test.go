@@ -51,6 +51,110 @@ func TestCreateRejectsShortDescription(t *testing.T) {
 	}
 }
 
+func TestCreateAllowsEmptyDescriptionWithCatalogToolsAndNoMissing(t *testing.T) {
+	compRepo := &fakeComponentRepo{comps: map[string]*domain.TemplateComponent{
+		"python-312": {
+			ID: "python-312", Slug: "python-312", Name: "Python 3.12", Layer: domain.ComponentLayerRuntime,
+			BaseImage: "python:3.12-slim-bookworm", IconKey: "python",
+		},
+	}}
+	repo := &fakeEnvironmentRequestRepo{}
+	svc := NewEnvironmentRequestService(repo, compRepo)
+
+	created, err := svc.Create(context.Background(), "tenant", "teacher-a", domain.CreateEnvironmentRequestDTO{
+		Description: "",
+		Uses:        []string{"practice"},
+		StackConfig: domain.StackConfig{RuntimeID: "python-312"},
+	})
+	if err != nil {
+		t.Fatalf("con herramientas del catálogo y sin faltantes no debería exigir descripción: %v", err)
+	}
+	if created.Request.Description != "" {
+		t.Fatalf("esperaba descripción vacía, obtuve %q", created.Request.Description)
+	}
+
+	// Con piezas fuera de catálogo sí exige descripción >= 10 caracteres.
+	_, err = svc.Create(context.Background(), "tenant", "teacher-a", domain.CreateEnvironmentRequestDTO{
+		Description: "corto",
+		Uses:        []string{"practice"},
+		StackConfig: domain.StackConfig{RuntimeID: "python-312"},
+		MissingComponents: []domain.EnvironmentRequestMissingComponent{
+			{Name: "Brainfuck", Layer: "runtime"},
+		},
+	})
+	if !errors.Is(err, domain.ErrEnvironmentRequestInvalid) {
+		t.Fatalf("con faltantes debe exigir descripción >= 10 caracteres, obtuve %v", err)
+	}
+}
+
+func TestPreviewAndCreateSuppressExistingTemplateWhenMissingComponents(t *testing.T) {
+	compRepo := &fakeComponentRepo{comps: map[string]*domain.TemplateComponent{
+		"python-312": {
+			ID: "python-312", Slug: "python-312", Name: "Python 3.12", Layer: domain.ComponentLayerRuntime,
+			BaseImage: "python:3.12-slim-bookworm", IconKey: "python",
+		},
+	}}
+	repo := &fakeEnvironmentRequestRepo{
+		approvedByImage: &domain.EnvironmentRequestTemplateRef{ID: "tpl-py", Name: "Laboratorio: Python 3.12"},
+	}
+	svc := NewEnvironmentRequestService(repo, compRepo)
+
+	// Sin faltantes sí ofrece la plantilla existente.
+	plain, err := svc.Preview(context.Background(), "tenant", "teacher-a", domain.EnvironmentRequestPreviewDTO{
+		Uses:        []string{"practice"},
+		StackConfig: domain.StackConfig{RuntimeID: "python-312"},
+	})
+	if err != nil {
+		t.Fatalf("preview sin faltantes: %v", err)
+	}
+	if plain.ExistingTemplate == nil || plain.ExistingTemplate.ID != "tpl-py" {
+		t.Fatalf("esperaba existing_template tpl-py sin faltantes, obtuve %#v", plain.ExistingTemplate)
+	}
+
+	// Con missing_components nunca devuelve existing_template.
+	withMissing, err := svc.Preview(context.Background(), "tenant", "teacher-a", domain.EnvironmentRequestPreviewDTO{
+		Uses:              []string{"practice"},
+		StackConfig:       domain.StackConfig{RuntimeID: "python-312"},
+		MissingComponents: []string{"Brainfuck"},
+	})
+	if err != nil {
+		t.Fatalf("preview con faltantes: %v", err)
+	}
+	if withMissing.ExistingTemplate != nil {
+		t.Fatalf("con missing_components no debe ofrecer existing_template: %#v", withMissing.ExistingTemplate)
+	}
+
+	// Dos solicitudes con distinto lenguaje faltante no deben colisionar en huella ni sumarse.
+	first, err := svc.Create(context.Background(), "tenant", "teacher-a", domain.CreateEnvironmentRequestDTO{
+		Description:       "Práctica de máquinas de Turing en Brainfuck.",
+		Uses:              []string{"practice"},
+		StackConfig:       domain.StackConfig{},
+		MissingComponents: []domain.EnvironmentRequestMissingComponent{{Name: "Brainfuck", Layer: "runtime"}},
+	})
+	if err != nil {
+		t.Fatalf("primera solicitud con Brainfuck: %v", err)
+	}
+	if strings.Contains(first.Message, "Ya existe el entorno") {
+		t.Fatalf("no debe anunciar entorno existente cuando hay faltantes: %q", first.Message)
+	}
+
+	second, err := svc.Create(context.Background(), "tenant", "teacher-b", domain.CreateEnvironmentRequestDTO{
+		Description:       "Práctica funcional pura con compilador Haskell.",
+		Uses:              []string{"practice"},
+		StackConfig:       domain.StackConfig{},
+		MissingComponents: []domain.EnvironmentRequestMissingComponent{{Name: "Haskell", Layer: "runtime"}},
+	})
+	if err != nil {
+		t.Fatalf("segunda solicitud con Haskell: %v", err)
+	}
+	if second.Joined {
+		t.Fatal("solicitudes con distintos lenguajes faltantes no deben sumarse como duplicadas")
+	}
+	if first.Request.StackSignature == "" || first.Request.StackSignature == second.Request.StackSignature {
+		t.Fatalf("huellas distintas esperadas y no vacías: %q vs %q", first.Request.StackSignature, second.Request.StackSignature)
+	}
+}
+
 func TestReviewRequiresTemplateToApprove(t *testing.T) {
 	svc := NewEnvironmentRequestService(&fakeEnvironmentRequestRepo{}, nil)
 	_, err := svc.Review(context.Background(), "tenant", "req-1", "admin", domain.ReviewEnvironmentRequestDTO{
@@ -374,7 +478,8 @@ func (f *fakeComponentRepo) GetTemplateComponentByIDOrSlug(_ context.Context, _,
 
 type fakeEnvironmentRequestRepo struct {
 	domain.EnvironmentRequestRepository
-	requests []*domain.EnvironmentRequest
+	requests        []*domain.EnvironmentRequest
+	approvedByImage *domain.EnvironmentRequestTemplateRef
 }
 
 func (f *fakeEnvironmentRequestRepo) Create(_ context.Context, req *domain.EnvironmentRequest) (*domain.EnvironmentRequest, error) {
@@ -442,5 +547,5 @@ func (f *fakeEnvironmentRequestRepo) Review(_ context.Context, _, id, reviewerID
 }
 
 func (f *fakeEnvironmentRequestRepo) FindApprovedTemplateByImage(context.Context, string, string) (*domain.EnvironmentRequestTemplateRef, error) {
-	return nil, nil
+	return f.approvedByImage, nil
 }

@@ -7,7 +7,7 @@ import { TourDefinition, TutorialDefinition } from '@shared/help/help.types';
 export interface TeacherTemplatesTutorialContext {
   /** Indica si el modal de solicitud de entorno está abierto en pantalla */
   isRequestModalOpen: () => boolean;
-  /** Valida que la descripción de la práctica tenga al menos 10 caracteres */
+  /** Valida que la nota sea opcional con piezas del catálogo o tenga >= 10 caracteres cuando aplica */
   descriptionValid: () => boolean;
   /** Indica si se seleccionó o extrajo al menos una herramienta en el entorno */
   hasChips: () => boolean;
@@ -95,34 +95,22 @@ export function buildTeacherTemplateRequestTutorial(
         }
       },
       {
-        id: 'describe-practice',
-        title: 'Contar qué van a hacer los estudiantes',
+        id: 'tools-and-ai',
+        title: 'Herramientas o asistencia con IA',
         body:
-          'No hace falta saber de Docker ni infraestructura: cuente en dos o tres frases qué construyen o qué deben lograr los alumnos.',
-        selector: '[data-tour="template-request-practice"]',
+          'Pulsa «Agregar herramienta» para elegir lenguajes, frameworks o bases de datos del catálogo. Si no sabes qué elegir, describe tu clase y usa «Armar la lista con IA»; las piezas faltantes se marcan como «la pedimos».',
+        selector: '[data-tour="template-request-tools"]',
         side: 'bottom',
         check: {
-          isComplete: () => context.descriptionValid(),
-          pendingHint: 'Escriba al menos una frase breve describiendo la práctica.'
-        }
-      },
-      {
-        id: 'tools-and-ai',
-        title: 'Herramientas y extracción con IA',
-        body:
-          'Puede usar «Armar la lista con IA» para que el sistema reconozca las tecnologías de su texto, o pulsar «Agregar herramienta» para sumarlas a mano. Las que no existen en el catálogo se marcan solas como «la pedimos».',
-        selector: '[data-tour="template-request-ai-btn"]',
-        side: 'top',
-        check: {
           isComplete: () => context.hasChips(),
-          pendingHint: 'Use la IA o agregue al menos una herramienta al entorno.'
+          pendingHint: 'Agrega al menos una herramienta del catálogo o usa la asistencia con IA.'
         }
       },
       {
         id: 'select-uses',
         title: '¿Cómo lo van a usar?',
         body:
-          'Elija si el entorno es para que los alumnos programen en clase (Entorno de Desarrollo), para entregas y pruebas automáticas (Entorno de Evaluación) o ambos.',
+          'Elige si el entorno es para que los alumnos programen en clase (Entorno de Desarrollo), para entregas y pruebas automáticas (Entorno de Evaluación) o ambos.',
         selector: '[data-tour="template-request-uses"]',
         side: 'top',
         check: {
@@ -131,12 +119,24 @@ export function buildTeacherTemplateRequestTutorial(
         }
       },
       {
-        id: 'review-summary',
-        title: 'Revisión y detección inteligente',
+        id: 'describe-practice',
+        title: 'Nombre, materia y nota',
         body:
-          'El panel lateral le avisa si ya existe un entorno igual o si otra materia pidió lo mismo (sumándolo a esa solicitud sin duplicarla). Si desea enviar el pedido elija la materia y pulse «Enviar solicitud»; si solo estaba probando, pulse «Cancelar».',
-        selector: '[data-tour="template-request-summary"]',
-        side: 'left'
+          'Si ya elegiste herramientas del catálogo, la nota para administración es opcional. Si faltan piezas fuera del catálogo, explica en pocas palabras qué necesitan los estudiantes.',
+        selector: '[data-tour="template-request-practice"]',
+        side: 'top',
+        check: {
+          isComplete: () => context.descriptionValid(),
+          pendingHint: 'Agrega herramientas del catálogo o escribe una nota de al menos 10 caracteres.'
+        }
+      },
+      {
+        id: 'review-summary',
+        title: 'Revisión y envío',
+        body:
+          'Encima de los botones verás si ya existe un entorno igual o si otra materia pidió lo mismo. Pulsa «Enviar solicitud» cuando quieras registrarla, o «Cancelar» para salir.',
+        selector: '[data-tour="template-request-actions"]',
+        side: 'top'
       }
     ]
   };

@@ -224,6 +224,56 @@ func TestAISettingsMySettingsRejectsStudent(t *testing.T) {
 	}
 }
 
+func TestAICopilotHandlerSuggestEnvironmentForTeacherDefaultsToIDEPersistente(t *testing.T) {
+	var capturedUserPrompt string
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var payload struct {
+			Messages []struct {
+				Role    string `json:"role"`
+				Content string `json:"content"`
+			} `json:"messages"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&payload); err == nil {
+			for _, msg := range payload.Messages {
+				if msg.Role == "user" {
+					capturedUserPrompt = msg.Content
+				}
+			}
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"choices":[{"message":{"content":"{\"name\":\"Entorno Brainfuck\",\"description\":\"Intérprete\",\"runtime_slug\":\"\",\"rationale\":\"Falta Brainfuck\",\"missing_components\":[{\"name\":\"Brainfuck\",\"layer\":\"runtime\",\"reason\":\"No existe\"}]}"}}]}`))
+	}))
+	defer server.Close()
+
+	repo := &mockAISettingsTenantRepo{configs: map[string][]byte{"t-test": []byte(`{}`)}}
+	settingsSvc := services.NewAISettingsService(repo).WithTransport(&aiTestRewriteTransport{base: mustParseAITestURL(t, server.URL)})
+	if _, err := settingsSvc.Update(context.Background(), "t-test", domain.UpdateAISettingsDTO{
+		Enabled:            true,
+		Provider:           domain.AIProviderOpenAI,
+		Model:              "gpt-4o-mini",
+		APIKey:             "sk-test-123",
+		HourlyQuotaPerUser: 15,
+		TimeoutSeconds:     60,
+	}); err != nil {
+		t.Fatalf("no se pudo habilitar la IA de prueba: %v", err)
+	}
+
+	handler := NewAICopilotHandler(services.NewAICopilotService(settingsSvc, nil))
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/teacher/ai/suggest-environment", strings.NewReader(`{"prompt":"un entorno con Brainfuck"}`))
+	req = withTestIdentity(req, "u-teacher", "", "teacher")
+	req = req.WithContext(context.WithValue(req.Context(), domain.TenantIDKey, "t-test"))
+	rec := httptest.NewRecorder()
+
+	handler.SuggestEnvironmentForTeacher(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("esperaba HTTP 200, got %d: %s", rec.Code, rec.Body.String())
+	}
+	if !strings.Contains(capturedUserPrompt, "Entorno objetivo: IDE_PERSISTENTE") {
+		t.Errorf("esperaba default IDE_PERSISTENTE para docente, userPrompt=%q", capturedUserPrompt)
+	}
+}
+
 func mustParseAITestURL(t *testing.T, raw string) *url.URL {
 	t.Helper()
 	u, err := url.Parse(raw)

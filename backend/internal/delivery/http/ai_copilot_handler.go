@@ -70,6 +70,11 @@ func (h *AICopilotHandler) SuggestEnvironmentForTeacher(w http.ResponseWriter, r
 		SendError(w, http.StatusBadRequest, "invalid_payload", "payload JSON inválido")
 		return
 	}
+	if strings.TrimSpace(dto.TargetEnvironment) == "" {
+		// El docente pide un entorno para su clase; sin esto caería en JUEZ_EFIMERO
+		// y el copiloto recortaría bases de datos o interfaz web.
+		dto.TargetEnvironment = string(domain.TargetEnvironmentIDEPersistente)
+	}
 
 	resp, err := h.copilotService.SuggestTemplate(r.Context(), tenantID, userID, dto)
 	if err != nil {

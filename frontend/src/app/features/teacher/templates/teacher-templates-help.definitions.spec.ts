@@ -41,32 +41,35 @@ describe('Guías del Catálogo de Entornos y Solicitud (Docente)', () => {
     isModalOpen.set(true);
     expect(stepOpen?.check?.isComplete()).toBe(true);
 
-    // Paso 2: Redactar práctica
-    const stepPractice = step('describe-practice');
-    expect(stepPractice).toBeDefined();
-    expect(stepPractice?.check?.isComplete()).toBe(false);
-    description.set('Corta');
-    expect(stepPractice?.check?.isComplete()).toBe(false);
-    description.set('Construcción de una API con FastAPI y Postgres para testing.');
-    expect(stepPractice?.check?.isComplete()).toBe(true);
-
-    // Paso 3: Agregar herramientas
+    // Paso 2: Agregar herramientas o usar IA (herramientas primero)
     const stepTools = step('tools-and-ai');
     expect(stepTools).toBeDefined();
+    expect(stepTools?.selector).toBe('[data-tour="template-request-tools"]');
     expect(stepTools?.check?.isComplete()).toBe(false);
     chipsCount.set(2);
     expect(stepTools?.check?.isComplete()).toBe(true);
 
-    // Paso 4: Modalidad de uso
+    // Paso 3: Modalidad de uso
     const stepUses = step('select-uses');
     expect(stepUses).toBeDefined();
     expect(stepUses?.check?.isComplete()).toBe(false);
     usesCount.set(1);
     expect(stepUses?.check?.isComplete()).toBe(true);
 
-    // Paso 5: Resumen final
+    // Paso 4: Nombre, materia y nota
+    const stepPractice = step('describe-practice');
+    expect(stepPractice).toBeDefined();
+    expect(stepPractice?.selector).toBe('[data-tour="template-request-practice"]');
+    expect(stepPractice?.check?.isComplete()).toBe(false);
+    description.set('Corta');
+    expect(stepPractice?.check?.isComplete()).toBe(false);
+    description.set('Construcción de una API con FastAPI y Postgres para testing.');
+    expect(stepPractice?.check?.isComplete()).toBe(true);
+
+    // Paso 5: Revisión y envío (sin dependencia de panel lateral)
     const stepSummary = step('review-summary');
     expect(stepSummary).toBeDefined();
-    expect(stepSummary?.check).toBeUndefined(); // Cierre didáctico sin forzar el envío
+    expect(stepSummary?.selector).toBe('[data-tour="template-request-actions"]');
+    expect(stepSummary?.check).toBeUndefined();
   });
 });

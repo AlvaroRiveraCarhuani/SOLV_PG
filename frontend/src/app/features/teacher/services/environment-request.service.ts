@@ -39,11 +39,16 @@ export class EnvironmentRequestService {
   private readonly baseUrl = '/api/v1/teacher/environment-requests';
   private readonly adminUrl = '/api/v1/admin/environment-requests';
 
-  preview(uses: EnvironmentRequestUse[], stackConfig: EnvironmentRequestStackConfig): Observable<EnvironmentRequestPreview> {
+  preview(
+    uses: EnvironmentRequestUse[],
+    stackConfig: EnvironmentRequestStackConfig,
+    missingComponents: string[] = []
+  ): Observable<EnvironmentRequestPreview> {
     return this.http
       .post<ApiResponse<EnvironmentRequestPreview>>(`${this.baseUrl}/preview`, {
         uses,
-        stack_config: stackConfig
+        stack_config: stackConfig,
+        ...(missingComponents.length ? { missing_components: missingComponents } : {})
       })
       .pipe(map(res => res.data));
   }

@@ -100,8 +100,9 @@ type CreateEnvironmentRequestDTO struct {
 
 // EnvironmentRequestPreviewDTO pide el armado de una receta sin guardarla.
 type EnvironmentRequestPreviewDTO struct {
-	Uses        []string    `json:"uses"`
-	StackConfig StackConfig `json:"stack_config"`
+	Uses              []string    `json:"uses"`
+	StackConfig       StackConfig `json:"stack_config"`
+	MissingComponents []string    `json:"missing_components,omitempty"`
 }
 
 // EnvironmentRequestPreviewComponent describe una pieza resuelta para el panel

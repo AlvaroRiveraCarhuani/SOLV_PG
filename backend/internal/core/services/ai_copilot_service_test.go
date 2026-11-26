@@ -177,6 +177,37 @@ func TestAICopilot_SuggestTemplate_ReturnsProposalWithSanitizedSlugs(t *testing.
 	}
 }
 
+func TestAICopilot_SuggestTemplate_AllowsEmptyRuntimeWhenMissingComponentsPresent(t *testing.T) {
+	missingOnlyJSON := `{"name":"Entorno con Brainfuck","description":"Práctica con intérprete de Brainfuck","runtime_slug":"","web_platform_slug":"","addon_slugs":[],"database_slug":"","setup_script":"","base_ram_mb":512,"rationale":"Brainfuck no existe en el catálogo actual; se reporta como faltante.","missing_components":[{"name":"Brainfuck","layer":"runtime","category":"backend","reason":"Intérprete no disponible en el catálogo"}]}`
+	server := newCopilotLLMServer(t, missingOnlyJSON)
+	copilot := NewAICopilotService(newEnabledCopilotSettings(t, server), nil)
+
+	resp, err := copilot.SuggestTemplate(context.Background(), "t-1", "u-1", domain.AISuggestTemplateRequestDTO{
+		Prompt:            "un entorno con Brainfuck",
+		TargetEnvironment: "IDE_PERSISTENTE",
+	})
+	if err != nil {
+		t.Fatalf("con missing_components no debe exigir runtime_slug: %v", err)
+	}
+	if resp.RuntimeSlug != "" {
+		t.Errorf("esperaba runtime_slug vacío, obtuve %q", resp.RuntimeSlug)
+	}
+	if len(resp.MissingComponents) != 1 || resp.MissingComponents[0].Name != "Brainfuck" {
+		t.Errorf("missing_components inesperado: %#v", resp.MissingComponents)
+	}
+
+	// Sin herramientas ni faltantes sí debe rechazar con runtime_slug_missing.
+	emptyServer := newCopilotLLMServer(t, `{"name":"Nada","description":"Nada","runtime_slug":"","addon_slugs":[],"rationale":"No hay piezas","missing_components":[]}`)
+	emptyCopilot := NewAICopilotService(newEnabledCopilotSettings(t, emptyServer), nil)
+	_, err = emptyCopilot.SuggestTemplate(context.Background(), "t-1", "u-1", domain.AISuggestTemplateRequestDTO{
+		Prompt: "entorno completamente vacío",
+	})
+	var vErr *AISettingsValidationError
+	if !errors.As(err, &vErr) || vErr.Code != "runtime_slug_missing" {
+		t.Fatalf("esperaba runtime_slug_missing cuando no hay piezas ni faltantes, obtuve %v", err)
+	}
+}
+
 func TestAICopilot_SuggestComponent_SynthesizesAndSanitizes(t *testing.T) {
 	componentJSON := `{"component":{"name":"PyTorch CPU + scikit-learn","slug":"python-ml-stack","layer":"addon","sub_category":"toolkit","description":"Framework de machine learning para Python","icon_key":"python","base_image":"python:3.12-slim-bookworm","compatible_runtimes":["python"],"install_mode":"pip","package_names":["torch","scikit-learn"],"build_layer_snippet":"","ram_delta_mb":0},"rationale":"torch cubre el entrenamiento y scikit-learn los modelos clásicos."}`
 

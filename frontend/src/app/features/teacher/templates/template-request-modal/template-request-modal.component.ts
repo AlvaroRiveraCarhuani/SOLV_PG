@@ -1,15 +1,12 @@
 import {
   Component,
-  ElementRef,
   OnInit,
-  afterNextRender,
   computed,
   effect,
   inject,
   input,
   output,
-  signal,
-  viewChild
+  signal
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { EnvironmentLabelPipe } from '@shared/pipes/environment-label.pipe';
@@ -27,6 +24,7 @@ import {
   LucideGraduationCap,
   LucideInfo,
   LucidePlus,
+  LucideRotateCcw,
   LucideSearch,
   LucideSend,
   LucideWand,
@@ -104,6 +102,7 @@ interface PickerGroup {
     LucideGraduationCap,
     LucideInfo,
     LucidePlus,
+    LucideRotateCcw,
     LucideSearch,
     LucideSend,
     LucideWand,
@@ -153,7 +152,9 @@ export class TemplateRequestModalComponent implements OnInit {
   uses = signal<EnvironmentRequestUse[]>(['practice']);
 
   // Práctica y contexto
+  aiPrompt = signal<string>('');
   description = signal<string>('');
+  descriptionTouched = signal<boolean>(false);
   title = signal<string>('');
   titleTouched = signal<boolean>(false);
   subjectIdSelected = signal<string>('');
@@ -187,12 +188,13 @@ export class TemplateRequestModalComponent implements OnInit {
   formError = signal<string | null>(null);
   result = signal<{ message: string; joined: boolean } | null>(null);
   private presetApplied = false;
-  private practiceText = viewChild<ElementRef<HTMLTextAreaElement>>('practiceText');
 
   constructor() {
     // El borrador vive en la raíz: cerrar el modal no pierde lo escrito.
     const draft = this.draftService.draft();
+    this.aiPrompt.set(draft.aiPrompt);
     this.description.set(draft.description);
+    this.descriptionTouched.set(draft.descriptionTouched);
     this.title.set(draft.title);
     this.titleTouched.set(draft.titleTouched);
     this.subjectIdSelected.set(draft.subjectId);
@@ -205,12 +207,11 @@ export class TemplateRequestModalComponent implements OnInit {
     this.missingFromAI.set(draft.missingFromAI);
     this.aiNotice.set(draft.aiNotice);
 
-    // El foco entra al campo de la práctica: el docente llega escribiendo.
-    afterNextRender(() => this.practiceText()?.nativeElement.focus());
-
     effect(() => {
       this.draftService.patch({
+        aiPrompt: this.aiPrompt(),
         description: this.description(),
+        descriptionTouched: this.descriptionTouched(),
         title: this.title(),
         titleTouched: this.titleTouched(),
         subjectId: this.subjectIdSelected(),
@@ -304,15 +305,31 @@ export class TemplateRequestModalComponent implements OnInit {
   });
 
   readonly hasAnyPiece = computed(() => this.chips().length > 0);
-
-  /** Nombre que verá la administración: el escrito o el que propone el sistema. */
-  readonly displayName = computed(() => {
-    const written = this.title().trim();
-    return written || this.preview()?.suggested_name || '';
-  });
+  readonly hasMissingPieces = computed(() => this.missingFromAI().length > 0);
+  readonly hasCatalogPieces = computed(() =>
+    Boolean(
+      this.runtimeId() ||
+        this.webPlatformId() ||
+        this.addonIds().length > 0 ||
+        (this.databaseId() && !this.isNoneDatabase(this.databaseId()))
+    )
+  );
+  readonly requiresDescription = computed(() => !this.hasCatalogPieces() || this.hasMissingPieces());
+  readonly isDescriptionValid = computed(() => this.description().trim().length >= 10);
+  readonly isNoteSatisfied = computed(() => !this.requiresDescription() || this.isDescriptionValid());
+  readonly canSubmit = computed(() => this.uses().length > 0 && this.isNoteSatisfied());
+  readonly hasDraftContent = computed(() => this.draftService.hasContent());
 
   /** Nombres que la IA nombró y que el catálogo todavía no tiene. */
   readonly missingNames = computed(() => this.missingFromAI().map(item => item.name));
+
+  private isNoneDatabase(id: string): boolean {
+    if (!id || id === 'none' || id === 'db-none') {
+      return true;
+    }
+    const found = this.catalog().find(item => item.id === id);
+    return (found?.service_engine || '').toLowerCase() === 'none';
+  }
 
   /**
    * Lista del selector, agrupada como el catálogo del estudio.
@@ -615,6 +632,7 @@ export class TemplateRequestModalComponent implements OnInit {
   removeChip(chip: SelectedChip): void {
     if (chip.missing) {
       this.missingFromAI.set(this.missingFromAI().filter(item => item.name !== chip.name));
+      this.refreshPreview();
       return;
     }
     this.removePieceById(chip.id);
@@ -661,12 +679,16 @@ export class TemplateRequestModalComponent implements OnInit {
 
   refreshPreview(): void {
     this.previewLoading.set(true);
-    this.requestService.preview(this.uses(), this.stackConfig()).subscribe({
+    this.requestService.preview(this.uses(), this.stackConfig(), this.missingNames()).subscribe({
       next: preview => {
         this.preview.set(preview);
         this.previewLoading.set(false);
-        if (!this.titleTouched() && preview.suggested_name) {
-          this.title.set(preview.suggested_name);
+        if (!this.titleTouched()) {
+          if (preview.suggested_name) {
+            this.title.set(preview.suggested_name);
+          } else if (!this.hasCatalogPieces() && !this.hasMissingPieces()) {
+            this.title.set('');
+          }
         }
       },
       error: () => {
@@ -680,6 +702,11 @@ export class TemplateRequestModalComponent implements OnInit {
     this.title.set(value);
   }
 
+  onDescriptionChange(value: string): void {
+    this.descriptionTouched.set(true);
+    this.description.set(value);
+  }
+
   // --- IA --------------------------------------------------------------------
 
   /** Corta la espera: el docente no queda atado a un modelo saturado. */
@@ -689,9 +716,9 @@ export class TemplateRequestModalComponent implements OnInit {
   }
 
   interpret(): void {
-    const prompt = this.description().trim();
+    const prompt = this.aiPrompt().trim();
     if (prompt.length < 10) {
-      this.formError.set('Cuéntanos un poco más: qué deben construir o resolver los estudiantes.');
+      this.formError.set('Cuéntanos un poco más en la asistencia con IA: al menos 10 caracteres.');
       return;
     }
     this.formError.set(null);
@@ -728,9 +755,7 @@ export class TemplateRequestModalComponent implements OnInit {
   /** Aplica la interpretación de la IA, venga del modal o de una consulta previa. */
   private applySuggestion(suggestion: SuggestEnvironmentResponse): void {
     const runtime = this.findCatalogPiece(suggestion.runtime_slug);
-    if (runtime) {
-      this.runtimeId.set(runtime.id);
-    }
+    this.runtimeId.set(runtime ? runtime.id : '');
 
     const web = this.findCatalogPiece(suggestion.web_platform_slug);
     this.webPlatformId.set(web ? web.id : '');
@@ -744,15 +769,18 @@ export class TemplateRequestModalComponent implements OnInit {
       .map(item => item.id);
     this.addonIds.set(addons);
 
-    this.missingFromAI.set(suggestion.missing_components || []);
+    const missing = suggestion.missing_components || [];
+    this.missingFromAI.set(missing);
 
-    if (!this.titleTouched() && suggestion.name) {
-      this.title.set(suggestion.name);
-      this.titleTouched.set(true);
+    if (!this.titleTouched()) {
+      this.title.set((suggestion.name || '').trim());
+    }
+    if (!this.descriptionTouched() && missing.length > 0 && this.aiPrompt().trim().length >= 10) {
+      this.description.set(this.aiPrompt().trim());
     }
 
     this.aiNotice.set(
-      suggestion.missing_components?.length
+      missing.length
         ? 'Esto es lo que entendí. De lo que nombraste, unas piezas no están en el catálogo: las pedimos junto con tu solicitud.'
         : 'Esto es lo que entendí. Puedes quitar o agregar herramientas antes de enviar.'
     );
@@ -764,12 +792,16 @@ export class TemplateRequestModalComponent implements OnInit {
   submitRequest(): void {
     this.formError.set(null);
 
-    if (this.description().trim().length < 10) {
-      this.formError.set('Cuéntanos qué van a hacer tus estudiantes: la administración decide con ese texto.');
-      return;
-    }
     if (this.uses().length === 0) {
       this.formError.set('Marca al menos un uso: practicar en clase o entregar y calificar.');
+      return;
+    }
+    if (this.requiresDescription() && !this.isDescriptionValid()) {
+      this.formError.set(
+        this.hasMissingPieces()
+          ? 'Describe brevemente qué necesitan hacer los estudiantes (mínimo 10 caracteres) para evaluar las piezas faltantes.'
+          : 'Elige al menos una herramienta del catálogo o cuéntanos qué van a hacer tus estudiantes (mínimo 10 caracteres).'
+      );
       return;
     }
 
@@ -801,12 +833,14 @@ export class TemplateRequestModalComponent implements OnInit {
       });
   }
 
-  /** La solicitud ya salió: el borrador cumplió su función. */
-  private clearDraft(): void {
+  /** Descarta el borrador en memoria y deja el formulario limpio. */
+  clearDraft(): void {
     this.draftService.clear();
     this.aiOperation.cancel();
     this.aiOperation.reset();
+    this.aiPrompt.set('');
     this.description.set('');
+    this.descriptionTouched.set(false);
     this.title.set('');
     this.titleTouched.set(false);
     this.runtimeId.set('');
@@ -815,7 +849,14 @@ export class TemplateRequestModalComponent implements OnInit {
     this.addonIds.set([]);
     this.missingFromAI.set([]);
     this.aiNotice.set(null);
+    this.showMissingNames.set(false);
     this.uses.set(['practice']);
+    this.preview.set(null);
+    this.formError.set(null);
+    if (!this.subjectId()) {
+      this.subjectIdSelected.set('');
+      this.subjectNameSelected.set('');
+    }
   }
 
   close(): void {

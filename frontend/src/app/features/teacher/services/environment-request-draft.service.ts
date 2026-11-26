@@ -9,7 +9,9 @@ import { EnvironmentMissingComponent, EnvironmentRequestUse } from '../templates
  * guardan los datos del formulario; el catálogo se relee del backend.
  */
 export interface EnvironmentRequestDraft {
+  aiPrompt: string;
   description: string;
+  descriptionTouched: boolean;
   title: string;
   titleTouched: boolean;
   subjectId: string;
@@ -24,7 +26,9 @@ export interface EnvironmentRequestDraft {
 }
 
 const EMPTY_DRAFT: EnvironmentRequestDraft = {
+  aiPrompt: '',
   description: '',
+  descriptionTouched: false,
   title: '',
   titleTouched: false,
   subjectId: '',
@@ -57,9 +61,12 @@ export class EnvironmentRequestDraftService {
   hasContent(): boolean {
     const draft = this._draft();
     return (
+      draft.aiPrompt.trim().length > 0 ||
       draft.description.trim().length > 0 ||
+      draft.title.trim().length > 0 ||
       draft.addonIds.length > 0 ||
-      Boolean(draft.runtimeId || draft.webPlatformId || draft.databaseId)
+      draft.missingFromAI.length > 0 ||
+      Boolean(draft.runtimeId || draft.webPlatformId || draft.databaseId || draft.subjectId)
     );
   }
 }

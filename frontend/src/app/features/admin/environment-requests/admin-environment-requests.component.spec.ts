@@ -312,6 +312,14 @@ describe('AdminEnvironmentRequestsComponent', () => {
     expect(text).not.toContain('Nota adicional del docente');
   });
 
+  it('omite el bloque Qué deben lograr los estudiantes cuando description viene vacía', () => {
+    component.openDrawer({ ...mockRequests[2], description: '' });
+    fixture.detectChanges();
+
+    const text = (fixture.nativeElement as HTMLElement).textContent || '';
+    expect(text).not.toContain('Qué deben lograr los estudiantes');
+  });
+
   it('exige al menos 5 caracteres al pedir ajustes (requestChanges) y al rechazar (reject)', () => {
     const req = mockRequests[0];
     component.openDrawer(req);

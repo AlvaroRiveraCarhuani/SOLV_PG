@@ -205,10 +205,12 @@
     <!-- Contexto pedagógico -->
     <section class="drawer-section">
       <h3 class="section-title">Contexto pedagógico</h3>
-      <div class="field-block">
-        <span class="field-label">Qué deben lograr los estudiantes</span>
-        <p class="field-text">{{ req.description }}</p>
-      </div>
+      @if (req.description?.trim()) {
+        <div class="field-block">
+          <span class="field-label">Qué deben lograr los estudiantes</span>
+          <p class="field-text">{{ req.description }}</p>
+        </div>
+      }
       @if (req.teacher_text?.trim()) {
         <div class="field-block">
           <span class="field-label">Nota adicional del docente</span>

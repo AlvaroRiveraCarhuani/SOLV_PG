@@ -7,6 +7,8 @@ import { Router } from '@angular/router';
 import { signal } from '@angular/core';
 import { TeacherCourseSummary } from '../models/teacher.models';
 import { TemplateComponent } from '@features/admin/models/admin-templates.models';
+import { TemplateRequestModalComponent } from './template-request-modal/template-request-modal.component';
+import { EnvironmentRequestDraftService } from '../services/environment-request-draft.service';
 
 describe('TeacherTemplatesComponent', () => {
   let component: TeacherTemplatesComponent;
@@ -342,5 +344,176 @@ describe('TeacherTemplatesComponent', () => {
       ['/teacher/cursos', 'course-1', 'ejercicios', 'nuevo'],
       { queryParams: { template_id: 'tpl-1', environment_type: 'IDE_PERSISTENTE' } }
     );
+  });
+});
+
+describe('TemplateRequestModalComponent', () => {
+  let modal: TemplateRequestModalComponent;
+  let fixture: ComponentFixture<TemplateRequestModalComponent>;
+  let httpMock: HttpTestingController;
+  let draftService: EnvironmentRequestDraftService;
+
+  const catalogItems: TemplateComponent[] = [
+    {
+      id: 'comp-python',
+      slug: 'python-312',
+      layer: 'runtime',
+      sub_category: 'backend',
+      name: 'Python 3.12',
+      description: 'Runtime Python',
+      icon_key: 'python',
+      base_image: 'python:3.12-slim-bookworm',
+      compatible_runtimes: ['python'],
+      install_mode: 'none',
+      package_names: [],
+      build_layer_snippet: '',
+      setup_snippet: '',
+      judge_entrypoint: 'python3 solution.py',
+      tools_provided: ['python3'],
+      service_engine: '',
+      ram_delta_mb: 512,
+      is_system: true,
+      is_active: true,
+      sort_order: 10
+    }
+  ];
+
+  beforeEach(async () => {
+    await TestBed.configureTestingModule({
+      imports: [TemplateRequestModalComponent, HttpClientTestingModule],
+      providers: [
+        {
+          provide: TeacherDashboardService,
+          useValue: {
+            courses: signal<TeacherCourseSummary[]>([
+              {
+                id: 'course-1',
+                code: 'CS101',
+                name: 'Autómatas',
+                students_count: 15,
+                active_now: 0,
+                pending_review: 0,
+                at_risk: 0
+              }
+            ])
+          }
+        }
+      ]
+    }).compileComponents();
+
+    draftService = TestBed.inject(EnvironmentRequestDraftService);
+    draftService.clear();
+    httpMock = TestBed.inject(HttpTestingController);
+    fixture = TestBed.createComponent(TemplateRequestModalComponent);
+    modal = fixture.componentInstance;
+    fixture.detectChanges();
+
+    httpMock.expectOne('/api/v1/admin/template-components').flush({ data: catalogItems });
+    fixture.detectChanges();
+  });
+
+  afterEach(() => {
+    draftService.clear();
+    httpMock.verify();
+  });
+
+  it('renderiza una sola columna sin el panel lateral redundante', () => {
+    const el = fixture.nativeElement as HTMLElement;
+    expect(el.querySelector('.request-summary')).toBeNull();
+    expect(el.querySelector('[data-tour="template-request-tools"]')).not.toBeNull();
+    expect(el.querySelector('[data-tour="template-request-actions"]')).not.toBeNull();
+  });
+
+  it('permite enviar con herramientas del catálogo sin exigir nota manual y la exige si falta una pieza', () => {
+    expect(modal.canSubmit()).toBe(false);
+
+    modal.addPiece(catalogItems[0]);
+    httpMock.expectOne('/api/v1/teacher/environment-requests/preview').flush({
+      data: {
+        suggested_name: 'Laboratorio: Python 3.12',
+        target_environment: 'IDE_PERSISTENTE',
+        recommended_ram_mb: 512,
+        signature: 'sig-py',
+        components: [],
+        missing_components: []
+      }
+    });
+
+    expect(modal.requiresDescription()).toBe(false);
+    expect(modal.canSubmit()).toBe(true);
+
+    // Si la IA reporta una pieza faltante, limpia runtime anterior, actualiza el título y exige nota >= 10 caracteres.
+    modal.aiPrompt.set('un entorno con Brainfuck');
+    modal.interpret();
+    httpMock.expectOne('/api/v1/teacher/ai/suggest-environment').flush({
+      data: {
+        name: 'Entorno con Brainfuck',
+        description: 'Práctica con Brainfuck',
+        runtime_slug: '',
+        base_ram_mb: 512,
+        rationale: 'Brainfuck no está en el catálogo.',
+        missing_components: [{ name: 'Brainfuck', layer: 'runtime', reason: 'Falta intérprete' }]
+      }
+    });
+    fixture.detectChanges();
+
+    const previewReq = httpMock.expectOne('/api/v1/teacher/environment-requests/preview');
+    expect(previewReq.request.body.missing_components).toEqual(['Brainfuck']);
+    previewReq.flush({
+      data: {
+        suggested_name: '',
+        target_environment: 'IDE_PERSISTENTE',
+        recommended_ram_mb: 0,
+        signature: 'sig-bf',
+        components: [],
+        missing_components: [],
+        existing_template: { id: 'tpl-1', name: 'Falso positivo' }
+      }
+    });
+    fixture.detectChanges();
+
+    expect(modal.runtimeId()).toBe('');
+    expect(modal.title()).toBe('Entorno con Brainfuck');
+    expect(modal.titleTouched()).toBe(false);
+    expect(modal.requiresDescription()).toBe(true);
+    expect((fixture.nativeElement as HTMLElement).textContent).not.toContain('Ya existe este entorno');
+
+    // Al volver a consultar con otro prompt, el título sugerido se actualiza porque titleTouched sigue en false.
+    modal.aiPrompt.set('un entorno con Haskell');
+    modal.interpret();
+    httpMock.expectOne('/api/v1/teacher/ai/suggest-environment').flush({
+      data: {
+        name: 'Entorno con Haskell',
+        description: 'Programación funcional',
+        runtime_slug: '',
+        base_ram_mb: 512,
+        rationale: 'Haskell no está en el catálogo.',
+        missing_components: [{ name: 'Haskell', layer: 'runtime', reason: 'Falta GHC' }]
+      }
+    });
+    fixture.detectChanges();
+    httpMock.expectOne('/api/v1/teacher/environment-requests/preview').flush({
+      data: {
+        suggested_name: '',
+        target_environment: 'IDE_PERSISTENTE',
+        recommended_ram_mb: 0,
+        signature: 'sig-hs',
+        components: [],
+        missing_components: []
+      }
+    });
+
+    expect(modal.title()).toBe('Entorno con Haskell');
+  });
+
+  it('limpia el borrador completo al pulsar clearDraft', () => {
+    modal.aiPrompt.set('entorno con Python');
+    modal.onTitleChange('Mi entorno');
+    modal.clearDraft();
+
+    expect(modal.aiPrompt()).toBe('');
+    expect(modal.title()).toBe('');
+    expect(modal.titleTouched()).toBe(false);
+    expect(draftService.hasContent()).toBe(false);
   });
 });

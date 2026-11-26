@@ -227,7 +227,9 @@
               </span>
             </div>
 
-            <p class="request-description">{{ req.description }}</p>
+            @if (req.description?.trim()) {
+              <p class="request-description">{{ req.description }}</p>
+            }
 
             <div class="request-chips">
               @for (piece of req.components; track piece.id) {

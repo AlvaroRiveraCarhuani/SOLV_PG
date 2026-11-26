@@ -396,7 +396,7 @@ export class TeacherTemplatesComponent implements OnInit, OnDestroy {
               isRequestModalOpen: () => this.isRequestModalOpen(),
               descriptionValid: () => {
                 const modal = this.requestModal();
-                return modal ? modal.description().trim().length >= 10 : false;
+                return modal ? modal.isNoteSatisfied() : false;
               },
               hasChips: () => {
                 const modal = this.requestModal();

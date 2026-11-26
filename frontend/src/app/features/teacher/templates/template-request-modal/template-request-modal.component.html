@@ -7,7 +7,7 @@
       <div class="header-text">
         <h2 id="request-title" class="request-title">Solicitar un entorno</h2>
         <p class="request-subtitle">
-          Cuéntanos qué van a hacer tus estudiantes. De la parte técnica nos ocupamos nosotros.
+          Elige las herramientas que necesitas o descríbelas para que las armemos por ti.
         </p>
       </div>
       <button type="button" class="icon-button" aria-label="Cerrar" (click)="close()">
@@ -38,108 +38,39 @@
             </div>
           }
 
-          <!-- 1. Práctica -->
-          <section class="block">
+          @if (variantBase()) {
+            <div class="variant-context">
+              <svg lucideWand2 class="banner-icon"></svg>
+              <div class="banner-body">
+                <strong>Partes de «{{ variantBase() }}»</strong>
+                <span>
+                  Dejamos sus herramientas cargadas abajo. Quita o agrega las que necesites para tu curso.
+                </span>
+              </div>
+            </div>
+          }
+
+          <!-- 1. Herramientas del entorno (primero) -->
+          <section class="block" data-tour="template-request-tools">
             <div class="block-heading">
               <span class="block-step">1</span>
               <div class="block-copy">
-                <h3>Cuéntanos tu práctica</h3>
-                <p>
-                  En dos o tres frases: qué construyen, qué consultan y qué deben lograr.
-                  Con eso armamos las herramientas.
-                </p>
+                <h3>Herramientas del entorno</h3>
+                <p>Elige lenguajes, frameworks y bases de datos del catálogo.</p>
               </div>
             </div>
-
-            @if (variantBase()) {
-              <div class="variant-context">
-                <svg lucideWand2 class="banner-icon"></svg>
-                <div class="banner-body">
-                  <strong>Partís de «{{ variantBase() }}»</strong>
-                  <span>
-                    Dejamos sus herramientas cargadas más abajo. Cambiá la que necesites y contanos
-                    qué van a hacer tus estudiantes con ese entorno.
-                  </span>
-                </div>
-              </div>
-            }
-
-            <div class="field" data-tour="template-request-practice">
-              <label class="form-label" for="practice-text">
-                ¿Qué van a hacer tus estudiantes?
-                <span class="required-mark">Obligatorio</span>
-              </label>
-              <textarea
-                #practiceText
-                id="practice-text"
-                class="form-textarea practice-text"
-                rows="4"
-                maxlength="600"
-                [placeholder]="
-                  variantBase()
-                    ? 'Ej: Lo mismo que en ' + variantBase() + ', pero comparando dos motores de bases de datos.'
-                    : 'Ej: Construyen una API con Django sobre PostgreSQL, la prueban desde Postman y comparan resultados entre dos motores.'
-                "
-                [ngModel]="description()"
-                (ngModelChange)="description.set($event)"
-              ></textarea>
-              @if (aiLoading()) {
-                <ai-progress-indicator
-                  variant="plain"
-                  label="Armando la lista con IA..."
-                  ariaLabel="Consultando a la IA"
-                  [elapsedSeconds]="aiElapsedSeconds()"
-                  (cancelled)="cancelAI()"
-                />
-              }
-              <div class="field-foot">
-                <div class="ai-actions">
-                  <button type="button" class="ai-button" data-tour="template-request-ai-btn" [disabled]="aiLoading()" (click)="interpret()">
-                    <svg lucideWand class="btn-icon"></svg>
-                    <span>Armar la lista con IA</span>
-                  </button>
-                </div>
-                <span class="counter">{{ description().length }}/600</span>
-              </div>
-            </div>
-
-            @if (aiNotice()) {
-              <div class="note-banner">
-                <svg lucideInfo class="banner-icon"></svg>
-                <div class="banner-body">
-                  <span>{{ aiNotice() }}</span>
-                  @if (missingNames().length) {
-                    <button
-                      type="button"
-                      class="banner-toggle"
-                      [attr.aria-expanded]="showMissingNames()"
-                      (click)="showMissingNames.set(!showMissingNames())"
-                    >
-                      {{ showMissingNames() ? 'Ocultar' : 'Ver cuáles' }}
-                    </button>
-                    @if (showMissingNames()) {
-                      <ul class="banner-list">
-                        @for (name of missingNames(); track name) {
-                          <li>{{ name }}</li>
-                        }
-                      </ul>
-                    }
-                  }
-                </div>
-              </div>
-            }
 
             <div class="pieces">
               <div class="pieces-head">
-                <span class="pieces-label">Herramientas del entorno</span>
+                <span class="pieces-label">Seleccionadas</span>
                 @if (chips().length) {
-                  <span class="pieces-count">{{ chips().length }}</span>
+                  <span class="pieces-count font-mono" machineData>{{ chips().length }}</span>
                 }
               </div>
 
               @if (chips().length === 0) {
                 <p class="pieces-empty">
-                  Aún no agregaste ninguna. Puedes nombrarlas arriba y usar la IA, o elegirlas a mano.
+                  Aún no agregaste ninguna herramienta. Puedes elegirlas del catálogo o usar la asistencia con IA.
                 </p>
               } @else {
                 <div class="chip-row">
@@ -168,9 +99,72 @@
                 <svg lucidePlus class="btn-icon"></svg>
                 {{ isPickerOpen() ? 'Cerrar la lista' : 'Agregar herramienta' }}
               </button>
-
-
             </div>
+
+            <!-- Bloque compacto opcional de asistencia IA -->
+            <div class="ai-helper">
+              <label class="form-label" for="ai-prompt-text">
+                ¿No sabes qué elegir? Descríbelo y la IA arma la lista
+                <span class="label-hint">opcional</span>
+              </label>
+              <textarea
+                id="ai-prompt-text"
+                class="form-textarea ai-prompt-text"
+                rows="2"
+                maxlength="600"
+                [placeholder]="
+                  variantBase()
+                    ? 'Ej: Lo mismo que en ' + variantBase() + ', pero comparando dos motores de bases de datos.'
+                    : 'Ej: API REST con Django y PostgreSQL, o un entorno con Brainfuck para autómatas.'
+                "
+                [ngModel]="aiPrompt()"
+                (ngModelChange)="aiPrompt.set($event)"
+              ></textarea>
+              @if (aiLoading()) {
+                <ai-progress-indicator
+                  variant="plain"
+                  label="Armando la lista con IA..."
+                  ariaLabel="Consultando a la IA"
+                  [elapsedSeconds]="aiElapsedSeconds()"
+                  (cancelled)="cancelAI()"
+                />
+              }
+              <div class="field-foot">
+                <div class="ai-actions">
+                  <button type="button" class="ai-button" data-tour="template-request-ai-btn" [disabled]="aiLoading()" (click)="interpret()">
+                    <svg lucideWand class="btn-icon"></svg>
+                    <span>Armar la lista con IA</span>
+                  </button>
+                </div>
+                <span class="counter">{{ aiPrompt().length }}/600</span>
+              </div>
+            </div>
+
+            @if (aiNotice()) {
+              <div class="note-banner">
+                <svg lucideInfo class="banner-icon"></svg>
+                <div class="banner-body">
+                  <span>{{ aiNotice() }}</span>
+                  @if (missingNames().length) {
+                    <button
+                      type="button"
+                      class="banner-toggle"
+                      [attr.aria-expanded]="showMissingNames()"
+                      (click)="showMissingNames.set(!showMissingNames())"
+                    >
+                      {{ showMissingNames() ? 'Ocultar' : 'Ver cuáles' }}
+                    </button>
+                    @if (showMissingNames()) {
+                      <ul class="banner-list">
+                        @for (name of missingNames(); track name) {
+                          <li>{{ name }}</li>
+                        }
+                      </ul>
+                    }
+                  }
+                </div>
+              </div>
+            }
           </section>
 
           <!-- 2. Uso -->
@@ -234,23 +228,37 @@
             </div>
           </section>
 
-          <!-- 3. Contexto -->
+          <!-- 3. Nombre, nota y materia -->
           <section class="block">
             <div class="block-heading">
               <span class="block-step">3</span>
               <div class="block-copy">
-                <h3>Dónde se va a usar</h3>
+                <h3>Nombre, nota y materia</h3>
                 <p>
-                  Para que la administración sepa a quién le sirve. Después podrás usar el entorno
-                  en otras materias y cursos.
+                  El nombre sugerido se ajusta con tus herramientas. Agrega una nota si solicitas piezas fuera de catálogo.
                 </p>
               </div>
             </div>
 
             <div class="field-grid">
-              <div class="field">
+              <label class="field">
                 <span class="form-label">
-                  Materia
+                  Nombre del entorno
+                  <span class="label-hint">opcional</span>
+                </span>
+                <input
+                  type="text"
+                  class="form-input"
+                  maxlength="160"
+                  [placeholder]="preview()?.suggested_name || 'Ej: Laboratorio de Python + PostgreSQL'"
+                  [ngModel]="title()"
+                  (ngModelChange)="onTitleChange($event)"
+                />
+              </label>
+
+              <div class="field subject-field">
+                <span class="form-label">
+                  Materia de referencia
                   <span class="label-hint">opcional</span>
                 </span>
                 <combobox
@@ -261,28 +269,47 @@
                   [showSearchIcon]="false"
                   [allowClear]="true"
                   placeholder="Sin materia asignada"
-                  inputAriaLabel="Materia para la que se pide el entorno"
+                  inputAriaLabel="Materia de referencia para el entorno"
                 />
               </div>
+            </div>
 
-              <label class="field">
-                <span class="form-label">
-                  Nombre del entorno
+            <div class="field" data-tour="template-request-practice">
+              <label class="form-label" for="practice-text">
+                Nota para administración
+                @if (requiresDescription()) {
+                  <span class="required-mark">Obligatorio</span>
+                } @else {
                   <span class="label-hint">opcional</span>
-                </span>
-                <input
-                  type="text"
-                  class="form-input"
-                  maxlength="160"
-                  placeholder="Laboratorio: Python + PostgreSQL"
-                  [ngModel]="title()"
-                  (ngModelChange)="onTitleChange($event)"
-                />
+                }
               </label>
+              <textarea
+                id="practice-text"
+                class="form-textarea practice-text"
+                rows="3"
+                maxlength="600"
+                [placeholder]="
+                  hasMissingPieces()
+                    ? 'Explica qué necesitan los estudiantes con las piezas que faltan en el catálogo (mínimo 10 caracteres).'
+                    : 'Opcional: aclara requisitos específicos de versiones, puertos o flujo de clase.'
+                "
+                [ngModel]="description()"
+                (ngModelChange)="onDescriptionChange($event)"
+              ></textarea>
+              <div class="field-foot">
+                <span class="field-hint">
+                  @if (requiresDescription()) {
+                    Necesitamos al menos 10 caracteres porque no hay herramientas seleccionadas o faltan piezas en el catálogo.
+                  } @else {
+                    Ya tienes herramientas del catálogo seleccionadas; esta nota es opcional.
+                  }
+                </span>
+                <span class="counter">{{ description().length }}/600</span>
+              </div>
             </div>
           </section>
 
-          <!-- 4. Detalles técnicos, al final: es información de apoyo, no una decisión -->
+          <!-- 4. Detalles técnicos -->
           <div class="technical">
             <button type="button" class="technical-toggle" (click)="showTechnical.set(!showTechnical())">
               <svg lucideChevronDown class="chevron" [class.open]="showTechnical()"></svg>
@@ -310,111 +337,61 @@
                 }
                 <p class="technical-hint">
                   <svg lucideWrench class="banner-icon"></svg>
-                  Estas piezas las arma el sistema. Si necesitas algo distinto, explícalo arriba y la
-                  administración lo ajusta.
+                  Estas piezas las arma el sistema. Si necesitas algo distinto, indícalo en la nota y administración lo ajusta.
                 </p>
               </div>
             }
           </div>
+
+          <!-- Avisos compactos antes de enviar -->
+          @if (missingFromAI().length > 0 || (preview()?.existing_template && missingFromAI().length === 0) || preview()?.duplicate_request) {
+            <div class="pre-submit-alerts">
+              @if (missingFromAI().length > 0) {
+                <div class="summary-alert warning">
+                  <strong>Piezas fuera de catálogo ({{ missingFromAI().length }})</strong>
+                  <span>
+                    Pediremos {{ missingNames().join(', ') }} junto con tu solicitud para que administración las evalúe.
+                  </span>
+                </div>
+              }
+
+              @if (preview()?.existing_template && missingFromAI().length === 0) {
+                <div class="summary-alert success">
+                  <strong>Ya existe este entorno</strong>
+                  <span>
+                    «{{ preview()!.existing_template!.name }}» usa las mismas herramientas. Puedes usarlo sin esperar revisión.
+                  </span>
+                </div>
+              }
+
+              @if (preview()?.duplicate_request; as duplicate) {
+                <div class="summary-alert info">
+                  <strong>Otra solicitud igual está en revisión</strong>
+                  @if (duplicate.subjects.length) {
+                    <span>Ya la pidieron para {{ duplicate.subjects.join(', ') }}.</span>
+                  }
+                  <span>Al enviar, sumamos tu materia a esa solicitud en lugar de abrir otra.</span>
+                </div>
+              }
+            </div>
+          }
         </div>
 
-        <!-- Panel de resumen -->
-        <aside class="request-summary" data-tour="template-request-summary">
-          <div class="summary-head">
-            <h3>Lo que pedirás</h3>
-            <p>Así lo verá la administración.</p>
-          </div>
-
-          <div class="summary-card">
-            <span class="summary-label">Nombre</span>
-            @if (displayName()) {
-              <p class="summary-value">{{ displayName() }}</p>
-            } @else {
-              <p class="summary-empty">Sin nombre: te proponemos uno al enviar.</p>
-            }
-          </div>
-
-          <div class="summary-card">
-            <span class="summary-label">
-              Herramientas
-              @if (chips().length) {
-                <span class="summary-count">{{ chips().length }}</span>
-              }
-            </span>
-            @if (chips().length === 0) {
-              <p class="summary-empty">Aún no elegiste ninguna.</p>
-            } @else {
-              <ul class="summary-pieces">
-                @for (chip of chips(); track chip.id) {
-                  <li [class.missing]="chip.missing">
-                    @if (!chip.missing) {
-                      <tech-logo [iconType]="chip.iconKey || 'docker'" [size]="20" />
-                    }
-                    {{ chip.name }}
-                    @if (chip.missing) {
-                      <span class="summary-missing">(la pedimos)</span>
-                    }
-                  </li>
-                }
-              </ul>
-            }
-          </div>
-
-          <div class="summary-card">
-            <span class="summary-label">Uso</span>
-            @if (uses().length === 0) {
-              <p class="summary-empty">Sin uso marcado.</p>
-            } @else {
-              <ul class="summary-list">
-                @if (isUseSelected('practice')) {
-                  <li>{{ 'IDE_PERSISTENTE' | environmentLabel }}</li>
-                }
-                @if (isUseSelected('grade')) {
-                  <li>{{ 'JUEZ_EFIMERO' | environmentLabel }}</li>
-                }
-              </ul>
-            }
-          </div>
-
-          <div class="summary-card">
-            <span class="summary-label">Materia</span>
-            <p class="summary-value">{{ subjectNameSelected() || 'Sin materia asignada' }}</p>
-          </div>
-
-          <div class="summary-card">
-            <span class="summary-label">Qué deben lograr</span>
-            @if (description().trim().length >= 10) {
-              <p class="summary-value clamp">{{ description() }}</p>
-            } @else {
-              <p class="summary-empty">Todavía no lo escribiste.</p>
-            }
-          </div>
-
-          @if (preview()?.existing_template; as existing) {
-            <div class="summary-alert success">
-              <strong>Ya existe este entorno</strong>
-              <span>«{{ existing.name }}» usa las mismas herramientas. Puedes usarlo sin esperar revisión.</span>
-            </div>
+        <footer class="request-footer" data-tour="template-request-actions">
+          @if (hasDraftContent()) {
+            <button type="button" class="link-button clear-draft-btn" [disabled]="isSubmitting()" (click)="clearDraft()">
+              <svg lucideRotateCcw class="btn-icon"></svg>
+              <span>Limpiar borrador</span>
+            </button>
           }
-
-          @if (preview()?.duplicate_request; as duplicate) {
-            <div class="summary-alert info">
-              <strong>Otra solicitud igual está en revisión</strong>
-              @if (duplicate.subjects.length) {
-                <span>Ya la pidieron para {{ duplicate.subjects.join(', ') }}.</span>
-              }
-              <span>Al enviar, sumamos tu materia a esa solicitud en lugar de abrir otra.</span>
-            </div>
-          }
-
-          <div class="summary-actions">
-            <button type="button" class="btn-outline action-cancel" [disabled]="isSubmitting()" (click)="close()">
+          <div class="footer-buttons">
+            <button type="button" class="btn-outline" [disabled]="isSubmitting()" (click)="close()">
               Cancelar
             </button>
             <button
               type="button"
-              class="btn-primary action-submit"
-              [disabled]="isSubmitting() || description().trim().length < 10"
+              class="btn-primary"
+              [disabled]="isSubmitting() || !canSubmit()"
               (click)="submitRequest()"
             >
               <svg lucideSend class="btn-icon"></svg>
@@ -425,9 +402,10 @@
               }
             </button>
           </div>
-        </aside>
+        </footer>
       </div>
     }
+
     @if (isPickerOpen()) {
       <div class="picker-scrim" (click)="closePicker()"></div>
       <aside class="picker-drawer" (click)="$event.stopPropagation()">
@@ -487,7 +465,7 @@
               </div>
             </div>
           } @empty {
-            <p class="picker-empty">No encontramos esa herramienta. Escríbela arriba y la pedimos.</p>
+            <p class="picker-empty">No encontramos esa herramienta. Escríbela en la asistencia IA o en la nota y la pedimos.</p>
           }
         </div>
 

@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"sort"
 	"strings"
 	"time"
 
@@ -55,6 +56,7 @@ func (s *EnvironmentRequestService) Preview(
 ) (*domain.EnvironmentRequestPreview, error) {
 	uses := domain.NormalizeEnvironmentUses(dto.Uses)
 	env := domain.DeriveTargetEnvironment(uses)
+	missingNames := normalizeMissingComponentNames(dto.MissingComponents)
 
 	preview := &domain.EnvironmentRequestPreview{
 		TargetEnvironment: env,
@@ -62,23 +64,23 @@ func (s *EnvironmentRequestService) Preview(
 		MissingComponents: []domain.EnvironmentRequestMissingComponent{},
 	}
 
-	plan, err := s.compose(ctx, tenantID, env, dto.StackConfig)
-	if err != nil {
-		return nil, err
-	}
-	if plan == nil {
-		return preview, nil
-	}
-
-	preview.SuggestedName = plan.SuggestedName
-	preview.RecommendedRAMMB = plan.RecommendedRamMB
-	preview.Signature = environmentRequestSignature(plan, env)
-
 	resolved, err := s.resolveComponents(ctx, tenantID, dto.StackConfig)
 	if err != nil {
 		return nil, err
 	}
 	preview.Components = resolved
+
+	plan, err := s.compose(ctx, tenantID, env, dto.StackConfig)
+	if err != nil {
+		return nil, err
+	}
+
+	hasMissing := len(missingNames) > 0 || hasMissingPreviewComponent(resolved)
+	if plan != nil {
+		preview.SuggestedName = plan.SuggestedName
+		preview.RecommendedRAMMB = plan.RecommendedRamMB
+	}
+	preview.Signature = environmentRequestSignature(plan, env, missingNames)
 
 	if preview.Signature != "" {
 		if dup, err := s.repo.FindPendingBySignature(ctx, tenantID, preview.Signature); err == nil && dup != nil {
@@ -96,10 +98,10 @@ func (s *EnvironmentRequestService) Preview(
 		}
 	}
 
-	// Solo cuando hay capas propias (imagen construida) la referencia de imagen
-	// identifica la receta; con una imagen pública el tag lo comparten entornos
-	// distintos y no sirve para detectar duplicados.
-	if plan.NeedsLocalBuild {
+	// Solo cuando no faltan piezas fuera de catálogo y hay capas propias
+	// (imagen construida) la referencia de imagen identifica la receta; con una
+	// imagen pública el tag lo comparten entornos distintos.
+	if !hasMissing && plan != nil && plan.NeedsLocalBuild {
 		if ref, err := s.repo.FindApprovedTemplateByImage(ctx, tenantID, plan.ResolvedImage); err == nil && ref != nil {
 			preview.ExistingTemplate = ref
 		}
@@ -118,17 +120,35 @@ func (s *EnvironmentRequestService) Create(
 	}
 
 	reason := strings.TrimSpace(dto.Description)
-	if len([]rune(reason)) < 10 {
+	cleanedMissing := dedupeMissingComponents(dto.MissingComponents)
+	hasTools := hasStackTools(dto.StackConfig)
+	if (!hasTools || len(cleanedMissing) > 0) && len([]rune(reason)) < 10 {
 		return nil, fmt.Errorf("%w: cuéntanos qué deben lograr los estudiantes (al menos 10 caracteres)", domain.ErrEnvironmentRequestInvalid)
+	}
+
+	missingNames := make([]string, 0, len(cleanedMissing))
+	for _, item := range cleanedMissing {
+		missingNames = append(missingNames, item.Name)
 	}
 
 	uses := domain.NormalizeEnvironmentUses(dto.Uses)
 	preview, err := s.Preview(ctx, tenantID, userID, domain.EnvironmentRequestPreviewDTO{
-		Uses:        uses,
-		StackConfig: dto.StackConfig,
+		Uses:              uses,
+		StackConfig:       dto.StackConfig,
+		MissingComponents: missingNames,
 	})
 	if err != nil {
 		return nil, err
+	}
+
+	allMissing := append([]domain.EnvironmentRequestMissingComponent{}, cleanedMissing...)
+	for _, item := range preview.MissingComponents {
+		allMissing = append(allMissing, item)
+	}
+	dedupedMissing := dedupeMissingComponents(allMissing)
+	hasMissing := len(dedupedMissing) > 0 || hasMissingPreviewComponent(preview.Components)
+	if hasMissing && len([]rune(reason)) < 10 {
+		return nil, fmt.Errorf("%w: cuéntanos qué deben lograr los estudiantes (al menos 10 caracteres)", domain.ErrEnvironmentRequestInvalid)
 	}
 
 	title := strings.TrimSpace(dto.Title)
@@ -170,11 +190,6 @@ func (s *EnvironmentRequestService) Create(
 		}
 	}
 
-	missing := append([]domain.EnvironmentRequestMissingComponent{}, dto.MissingComponents...)
-	for _, item := range preview.MissingComponents {
-		missing = append(missing, item)
-	}
-
 	request := &domain.EnvironmentRequest{
 		TenantID:          tenantID,
 		RequestedBy:       userID,
@@ -185,7 +200,7 @@ func (s *EnvironmentRequestService) Create(
 		TargetEnvironment: preview.TargetEnvironment,
 		StackConfig:       dto.StackConfig,
 		Components:        previewComponentsToRequest(preview.Components),
-		MissingComponents: dedupeMissingComponents(missing),
+		MissingComponents: dedupedMissing,
 		Subjects:          []domain.EnvironmentRequestSubject{},
 		StackSignature:    preview.Signature,
 		Status:            domain.EnvironmentRequestEnRevision,
@@ -200,7 +215,7 @@ func (s *EnvironmentRequestService) Create(
 	}
 
 	message := "Recibimos tu solicitud. La administración la revisa y te avisamos en tus solicitudes."
-	if preview.ExistingTemplate != nil {
+	if !hasMissing && preview.ExistingTemplate != nil {
 		message = fmt.Sprintf("Ya existe el entorno «%s» con estas herramientas. Puedes usarlo ahora mismo mientras revisamos tu caso.", preview.ExistingTemplate.Name)
 	}
 
@@ -407,31 +422,86 @@ func (s *EnvironmentRequestService) resolveComponents(
 }
 
 // environmentRequestSignature identifica la receta completa: imagen base, capas
-// de build, servicios satélite y modalidad. No coincide necesariamente con el
-// tag de la imagen porque dos entornos con la misma imagen pueden diferir en la
-// base de datos.
-func environmentRequestSignature(plan *domain.ComposedTemplatePlan, env string) string {
-	if plan == nil {
+// de build, servicios satélite, modalidad y piezas faltantes declaradas. No
+// coincide necesariamente con el tag de la imagen porque dos entornos con la
+// misma imagen pueden diferir en la base de datos o en piezas fuera de catálogo.
+func environmentRequestSignature(plan *domain.ComposedTemplatePlan, env string, missingNames []string) string {
+	if plan == nil && len(missingNames) == 0 {
 		return ""
+	}
+	if plan == nil {
+		layers := []string{
+			"env:" + env,
+			"missing:" + strings.Join(missingNames, ","),
+		}
+		return domain.ComputeStackSignature("", layers)
 	}
 	services := make([]string, 0, len(plan.ServicesConfig.Services))
 	for _, svc := range plan.ServicesConfig.Services {
 		services = append(services, strings.ToLower(svc.Category+":"+svc.Engine))
 	}
-	// Se ordenan para que la huella no dependa del orden de selección.
-	for i := 0; i < len(services); i++ {
-		for j := i + 1; j < len(services); j++ {
-			if services[j] < services[i] {
-				services[i], services[j] = services[j], services[i]
-			}
-		}
-	}
+	sort.Strings(services)
 	layers := []string{
 		"sig:" + plan.SignatureHash,
 		"env:" + env,
 		"svc:" + strings.Join(services, ","),
 	}
+	if len(missingNames) > 0 {
+		layers = append(layers, "missing:"+strings.Join(missingNames, ","))
+	}
 	return domain.ComputeStackSignature(plan.BaseImage, layers)
+}
+
+func hasStackTools(cfg domain.StackConfig) bool {
+	if strings.TrimSpace(cfg.RuntimeID) != "" || strings.TrimSpace(cfg.WebPlatformID) != "" {
+		return true
+	}
+	for _, id := range cfg.AddonIDs {
+		if strings.TrimSpace(id) != "" {
+			return true
+		}
+	}
+	db := strings.TrimSpace(cfg.DatabaseID)
+	if db != "" && db != "none" && db != "db-none" {
+		return true
+	}
+	for _, svc := range cfg.Services {
+		id := strings.TrimSpace(svc.ComponentID)
+		if id != "" && id != "none" && id != "db-none" {
+			return true
+		}
+	}
+	return false
+}
+
+func hasMissingPreviewComponent(items []domain.EnvironmentRequestPreviewComponent) bool {
+	for _, item := range items {
+		if item.Missing {
+			return true
+		}
+	}
+	return false
+}
+
+func normalizeMissingComponentNames(items []string) []string {
+	if len(items) == 0 {
+		return nil
+	}
+	seen := make(map[string]struct{}, len(items))
+	result := make([]string, 0, len(items))
+	for _, raw := range items {
+		clean := strings.ToLower(strings.TrimSpace(raw))
+		if clean == "" {
+			continue
+		}
+		if _, dup := seen[clean]; dup {
+			continue
+		}
+		seen[clean] = struct{}{}
+		result = append(result, clean)
+	}
+	sort.Strings(result)
+	return result
 }
 
 func previewComponentsToRequest(items []domain.EnvironmentRequestPreviewComponent) []domain.EnvironmentRequestComponent {
