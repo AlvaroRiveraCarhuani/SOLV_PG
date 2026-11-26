@@ -98,6 +98,8 @@ export interface ComboboxGroup {
           [id]="listboxId" 
           role="listbox"
           tabindex="-1"
+          [class.open-upward]="openUpward()"
+          [style.max-height.px]="panelMaxHeight()"
         >
           @if (showHeader()) {
             <div class="combobox-header">
@@ -221,6 +223,8 @@ export class ComboboxComponent {
   closed = output<void>();
 
   isOpen = signal<boolean>(false);
+  openUpward = signal<boolean>(false);
+  panelMaxHeight = signal<number>(320);
   searchQuery = signal<string | null>(null);
   activeFlatIndex = signal<number>(-1);
   selectedGroupFilter = signal<string | null>(null);
@@ -384,6 +388,7 @@ export class ComboboxComponent {
       this.cleared.emit();
     }
     if (!this.isOpen()) {
+      this.updatePlacement();
       this.isOpen.set(true);
     }
     this.visibleLimit.set(this.maxSuggestions() || 8);
@@ -393,6 +398,7 @@ export class ComboboxComponent {
   onInputFocus(): void {
     if (!this.disabled() && !this.suppressListbox()) {
       this.visibleLimit.set(this.maxSuggestions() || 8);
+      this.updatePlacement();
       this.isOpen.set(true);
       this.inputEl()?.nativeElement.select();
     }
@@ -404,11 +410,29 @@ export class ComboboxComponent {
       this.close();
     } else {
       this.visibleLimit.set(this.maxSuggestions() || 8);
+      this.updatePlacement();
       this.isOpen.set(true);
       const el = this.inputEl()?.nativeElement;
       el?.focus();
       el?.select();
     }
+  }
+
+  // El panel se abre hacia arriba cuando abajo no hay lugar suficiente. Sin
+  // esto queda cortado por el borde del contenedor que scrollea (o por la
+  // ventana) y las últimas opciones no se pueden alcanzar: el overflow
+  // absoluto no agranda el área desplazable.
+  private updatePlacement(): void {
+    if (typeof window === 'undefined') return;
+    const rect = this.elementRef.nativeElement.getBoundingClientRect();
+    const margin = 8;
+    const viewportHeight = window.innerHeight;
+    const below = viewportHeight - rect.bottom - margin;
+    const above = rect.top - margin;
+    const preferred = 320;
+    const upward = below < Math.min(preferred, 200) && above > below;
+    this.openUpward.set(upward);
+    this.panelMaxHeight.set(Math.max(160, Math.min(preferred, upward ? above : below)));
   }
 
   close(): void {

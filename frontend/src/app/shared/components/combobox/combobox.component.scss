@@ -159,7 +159,16 @@
     flex-direction: column;
     overflow: hidden;
 
+    // Cerca del borde inferior el panel se abre hacia arriba para que el
+    // contenedor que scrollea no corte las últimas opciones.
+    &.open-upward {
+      top: auto;
+      bottom: calc(100% + 4px);
+      transform-origin: bottom center;
+    }
+
     .combobox-header {
+      flex-shrink: 0;
       padding: 0.5rem 0.75rem;
       background-color: var(--bg-surface-subtle);
       border-bottom: 1px solid var(--border-subtle);
@@ -204,6 +213,8 @@
     }
 
     .options-scroll-container {
+      flex: 1;
+      min-height: 0;
       overflow-y: auto;
       max-height: 280px;
 
