@@ -91,20 +91,33 @@
                 </div>
               }
 
-              <button
-                type="button"
-                class="link-button picker-toggle"
-                (click)="isPickerOpen.set(!isPickerOpen()); $event.stopPropagation()"
-              >
-                <svg lucidePlus class="btn-icon"></svg>
-                {{ isPickerOpen() ? 'Cerrar la lista' : 'Agregar herramienta' }}
-              </button>
+              <div class="tools-actions">
+                <button type="button" class="tools-cta" (click)="togglePicker($event)">
+                  <svg lucidePlus class="btn-icon"></svg>
+                  <span>Agregar herramientas</span>
+                  @if (chips().length) {
+                    <span class="tools-cta-count font-mono" machineData>{{ chips().length }}</span>
+                  }
+                </button>
+                <button
+                  type="button"
+                  class="ai-toggle"
+                  [class.open]="aiPanelOpen()"
+                  [attr.aria-expanded]="aiPanelOpen()"
+                  [attr.aria-controls]="aiPanelOpen() ? 'ai-helper-panel' : null"
+                  (click)="toggleAiPanel()"
+                >
+                  <svg lucideWand class="btn-icon"></svg>
+                  <span>{{ aiPanelOpen() ? 'Ocultar la ayuda con IA' : 'Armar con IA' }}</span>
+                </button>
+              </div>
             </div>
 
-            <!-- Bloque compacto opcional de asistencia IA -->
-            <div class="ai-helper">
+            <!-- Asistencia con IA: secundaria y plegada hasta que se pide. -->
+            @if (aiPanelOpen()) {
+            <div class="ai-helper" id="ai-helper-panel">
               <label class="form-label" for="ai-prompt-text">
-                ¿No sabes qué elegir? Descríbelo y la IA arma la lista
+                Describe lo que necesitas y la IA arma la lista
                 <span class="label-hint">opcional</span>
               </label>
               <textarea
@@ -118,7 +131,7 @@
                     : 'Ej: API REST con Django y PostgreSQL, o un entorno con Brainfuck para autómatas.'
                 "
                 [ngModel]="aiPrompt()"
-                (ngModelChange)="aiPrompt.set($event)"
+                (ngModelChange)="onAiPromptChange($event)"
               ></textarea>
               @if (aiLoading()) {
                 <ai-progress-indicator
@@ -139,6 +152,7 @@
                 <span class="counter">{{ aiPrompt().length }}/600</span>
               </div>
             </div>
+            }
 
             @if (aiNotice()) {
               <div class="note-banner">
@@ -288,11 +302,7 @@
                 class="form-textarea practice-text"
                 rows="3"
                 maxlength="600"
-                [placeholder]="
-                  hasMissingPieces()
-                    ? 'Explica qué necesitan los estudiantes con las piezas que faltan en el catálogo (mínimo 10 caracteres).'
-                    : 'Opcional: aclara requisitos específicos de versiones, puertos o flujo de clase.'
-                "
+                [placeholder]="descriptionPlaceholder()"
                 [ngModel]="description()"
                 (ngModelChange)="onDescriptionChange($event)"
               ></textarea>
@@ -407,33 +417,58 @@
     }
 
     @if (isPickerOpen()) {
-      <div class="picker-scrim" (click)="closePicker()"></div>
-      <aside class="picker-drawer" (click)="$event.stopPropagation()">
+      <aside
+        class="picker-drawer"
+        aria-labelledby="picker-title"
+        (click)="$event.stopPropagation()"
+      >
         <header class="drawer-head">
-          <div>
-            <h3>Agregar herramienta</h3>
-            <p>
-              @if (selectedRuntime(); as runtime) {
-                Atenuamos lo que no aplica a {{ runtime.name }}.
-              } @else {
-                Elige las piezas del entorno; puedes marcar varias.
-              }
-            </p>
-          </div>
-          <button type="button" class="icon-button" aria-label="Cerrar la lista" (click)="closePicker()">
-            <svg lucideX></svg>
+          <button type="button" class="drawer-back" (click)="closePicker()">
+            <svg lucideArrowLeft class="btn-icon"></svg>
+            <span>Volver</span>
           </button>
+          <h3 id="picker-title">Agregar herramientas</h3>
         </header>
 
-        <div class="picker-search">
-          <svg lucideSearch class="search-icon"></svg>
-          <input
-            type="text"
-            class="form-input"
-            placeholder="Buscar herramienta..."
-            [ngModel]="pickerQuery()"
-            (ngModelChange)="pickerQuery.set($event)"
-          />
+        <div class="picker-toolbar">
+          <div class="picker-search">
+            <svg lucideSearch class="search-icon"></svg>
+            <input
+              type="text"
+              id="picker-search-input"
+              class="form-input"
+              placeholder="Buscar por nombre, descripción o tecnología..."
+              aria-label="Buscar herramienta"
+              autocomplete="off"
+              [ngModel]="pickerQuery()"
+              (ngModelChange)="onPickerQueryChange($event)"
+            />
+          </div>
+          <button type="button" class="icon-button picker-close" aria-label="Cerrar la lista de herramientas" (click)="closePicker()">
+            <svg lucideX></svg>
+          </button>
+        </div>
+
+        <div class="picker-filters" role="group" aria-label="Filtrar el catálogo por categoría">
+          @for (category of pickerCategories(); track category.id) {
+            <button
+              type="button"
+              class="filter-chip"
+              [class.active]="pickerCategory() === category.id"
+              [attr.aria-pressed]="pickerCategory() === category.id"
+              (click)="setPickerCategory(category.id)"
+            >
+              <span>{{ category.label }}</span>
+              <span class="filter-total font-mono" machineData>{{ category.total }}</span>
+              @if (category.selected > 0) {
+                <span
+                  class="filter-selected font-mono"
+                  machineData
+                  [attr.aria-label]="category.selected + ' elegidas'"
+                >{{ category.selected }}</span>
+              }
+            </button>
+          }
         </div>
 
         <div class="picker-list">
@@ -455,17 +490,61 @@
                     [attr.title]="isPieceCompatible(item) ? null : incompatibleHint(item)"
                     (click)="addPiece(item)"
                   >
-                    <tech-logo [iconType]="item.icon_key || 'docker'" [size]="24" />
-                    <span class="picker-name">{{ item.name }}</span>
+                    @if (group.category === 'addons') {
+                      <span class="picker-icon" aria-hidden="true">
+                        @switch (addonIconKey(item)) {
+                          @case ('framework') {
+                            <svg lucideGlobe></svg>
+                          }
+                          @case ('orm') {
+                            <svg lucideDatabase></svg>
+                          }
+                          @case ('testing') {
+                            <svg lucideFlaskConical></svg>
+                          }
+                          @case ('debug') {
+                            <svg lucideBug></svg>
+                          }
+                          @case ('quality') {
+                            <svg lucideShieldCheck></svg>
+                          }
+                          @case ('database') {
+                            <svg lucideDatabase></svg>
+                          }
+                          @case ('concurrency') {
+                            <svg lucideCpu></svg>
+                          }
+                          @case ('analytics') {
+                            <svg lucideBarChart3></svg>
+                          }
+                          @default {
+                            <svg lucideWrench></svg>
+                          }
+                        }
+                      </span>
+                    } @else {
+                      <tech-logo [iconType]="item.icon_key || 'docker'" [size]="24" />
+                    }
+                    <span class="picker-text">
+                      <span class="picker-name">{{ item.name }}</span>
+                      @if (group.category === 'addons') {
+                        <span class="picker-desc" [title]="addonSubtitle(item)">{{ addonSubtitle(item) }}</span>
+                      }
+                    </span>
                     @if (isPieceSelected(item)) {
                       <svg lucideCheck class="picker-check"></svg>
                     }
                   </button>
                 }
               </div>
+              @if (group.category === 'addons' && selectedRuntime()) {
+                <button type="button" class="picker-more" (click)="showAllAddons.set(!showAllAddons())">
+                  {{ addonToggleLabel() }}
+                </button>
+              }
             </div>
           } @empty {
-            <p class="picker-empty">No encontramos esa herramienta. Escríbela en la asistencia IA o en la nota y la pedimos.</p>
+            <p class="picker-empty">{{ pickerEmptyMessage() }}</p>
           }
         </div>
 

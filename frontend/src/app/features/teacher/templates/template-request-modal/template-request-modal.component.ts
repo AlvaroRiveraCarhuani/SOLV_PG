@@ -17,16 +17,23 @@ import { EnvironmentRequestDraftService } from '../../services/environment-reque
 import { SuggestEnvironmentResponse } from '../../services/environment-request.service';
 import {
   LucideAlertCircle,
+  LucideArrowLeft,
+  LucideBarChart3,
   LucideBoxes,
+  LucideBug,
   LucideCheck,
   LucideChevronDown,
+  LucideCpu,
+  LucideDatabase,
   LucideFlaskConical,
+  LucideGlobe,
   LucideGraduationCap,
   LucideInfo,
   LucidePlus,
   LucideRotateCcw,
   LucideSearch,
   LucideSend,
+  LucideShieldCheck,
   LucideWand,
   LucideWand2,
   LucideWrench,
@@ -71,8 +78,72 @@ interface TechnicalPiece {
  */
 const AI_CLIENT_TIMEOUT_MS = 100_000;
 
+/**
+ * Nombre legible de cada familia de ejecución.
+ *
+ * La clave es el `icon_key` del runtime que resuelve el token (o el token mismo
+ * si el catálogo todavía no tiene ese lenguaje), nunca un slug de complemento:
+ * un complemento nuevo hereda su grupo por `compatible_runtimes`.
+ */
+const ADDON_FAMILY_LABELS: Record<string, string> = {
+  python: 'Python',
+  node: 'Node.js',
+  web: 'Interfaz web',
+  java: 'Java',
+  c: 'C / C++',
+  cpp: 'C / C++',
+  go: 'Go',
+  rust: 'Rust',
+  php: 'PHP',
+  dotnet: '.NET',
+  universal: 'Generales'
+};
+
+const ADDON_FAMILY_ORDER = [
+  'python',
+  'node',
+  'web',
+  'java',
+  'c',
+  'cpp',
+  'go',
+  'rust',
+  'php',
+  'dotnet',
+  'universal'
+];
+
+/**
+ * Clasificador de íconos para complementos de tipo `toolkit`.
+ *
+ * Se evalúa sobre `name`, `description`, `tools_provided` y `slug`; el orden
+ * decide los empates («Pruebas y Calidad» es de pruebas antes que de linter).
+ * Un complemento futuro cae en `tool` sin tocar código ni subir un SVG.
+ */
+const ADDON_ICON_RULES: { key: string; terms: string[] }[] = [
+  { key: 'testing', terms: ['prueba', 'test', 'junit', 'pytest', 'xunit', 'vitest', 'jest', 'phpunit', 'googletest'] },
+  { key: 'debug', terms: ['depura', 'debug', 'gdb', 'valgrind'] },
+  { key: 'quality', terms: ['linter', 'linte', 'calidad', 'clippy', 'ruff', 'golangci', 'fmt'] },
+  {
+    key: 'database',
+    terms: ['sql', 'jdbc', 'pdo', 'mongo', 'redis', 'conect', 'driver', 'prisma', 'typeorm', 'gorm', 'hibernate', 'ef core']
+  },
+  { key: 'concurrency', terms: ['concurren', 'openmp', 'pthread', 'paralel'] },
+  { key: 'analytics', terms: ['numpy', 'pandas', 'scikit', 'machine learning', 'datos', 'dataframe'] }
+];
+
+type PickerCategoryId = 'all' | 'languages' | 'web' | 'addons' | 'databases';
+
+interface PickerCategory {
+  id: PickerCategoryId;
+  label: string;
+  total: number;
+  selected: number;
+}
+
 interface PickerGroup {
   id: string;
+  category: Exclude<PickerCategoryId, 'all'>;
   label: string;
   hint: string;
   items: TemplateComponent[];
@@ -95,16 +166,23 @@ interface PickerGroup {
     ComboboxComponent,
     AiProgressIndicatorComponent,
     LucideAlertCircle,
+    LucideArrowLeft,
+    LucideBarChart3,
     LucideBoxes,
+    LucideBug,
     LucideCheck,
     LucideChevronDown,
+    LucideCpu,
+    LucideDatabase,
     LucideFlaskConical,
+    LucideGlobe,
     LucideGraduationCap,
     LucideInfo,
     LucidePlus,
     LucideRotateCcw,
     LucideSearch,
     LucideSend,
+    LucideShieldCheck,
     LucideWand,
     LucideWand2,
     LucideWrench,
@@ -181,7 +259,12 @@ export class TemplateRequestModalComponent implements OnInit {
 
   // UI
   isPickerOpen = signal<boolean>(false);
+  /** La asistencia con IA es secundaria: arranca plegada y se abre a pedido. */
+  aiPanelOpen = signal<boolean>(false);
   pickerQuery = signal<string>('');
+  pickerCategory = signal<PickerCategoryId>('all');
+  /** Con lenguaje elegido, la lista arranca acotada a los complementos que aplican. */
+  showAllAddons = signal<boolean>(false);
   showMissingNames = signal<boolean>(false);
   showTechnical = signal<boolean>(false);
   isSubmitting = signal<boolean>(false);
@@ -316,6 +399,13 @@ export class TemplateRequestModalComponent implements OnInit {
   );
   readonly requiresDescription = computed(() => !this.hasCatalogPieces() || this.hasMissingPieces());
   readonly isDescriptionValid = computed(() => this.description().trim().length >= 10);
+
+  /** El placeholder acompaña al badge: nunca dice «Opcional» cuando es obligatorio. */
+  readonly descriptionPlaceholder = computed(() =>
+    this.requiresDescription()
+      ? 'Describe qué necesitas instalar o qué harán tus estudiantes con esas piezas (mínimo 10 caracteres).'
+      : 'Opcional: aclara requisitos específicos de versiones, puertos o flujo de clase.'
+  );
   readonly isNoteSatisfied = computed(() => !this.requiresDescription() || this.isDescriptionValid());
   readonly canSubmit = computed(() => this.uses().length > 0 && this.isNoteSatisfied());
   readonly hasDraftContent = computed(() => this.draftService.hasContent());
@@ -331,50 +421,240 @@ export class TemplateRequestModalComponent implements OnInit {
     return (found?.service_engine || '').toLowerCase() === 'none';
   }
 
+  /** La base de datos centinela «Sin Base de Datos» no se ofrece como herramienta. */
+  isSentinelDatabase(item: TemplateComponent): boolean {
+    if (item.slug === 'db-none') {
+      return true;
+    }
+    if (item.layer !== 'database') {
+      return false;
+    }
+    const engine = (item.service_engine || '').trim().toLowerCase();
+    const subCategory = (item.sub_category || '').trim().toLowerCase();
+    return engine === 'none' || subCategory === 'none';
+  }
+
+  /** Conteo por categoría para los filtros rápidos debajo del buscador. */
+  readonly pickerCategories = computed<PickerCategory[]>(() => {
+    const items = this.catalog();
+    const runtimes = items.filter(item => item.layer === 'runtime' && item.sub_category !== 'web');
+    const web = items.filter(item => item.layer === 'runtime' && item.sub_category === 'web');
+    const addons = items.filter(item => item.layer === 'addon');
+    const databases = items.filter(item => item.layer === 'database' && !this.isSentinelDatabase(item));
+    const selectedAddons = this.addonIds().length;
+
+    return [
+      {
+        id: 'all',
+        label: 'Todas',
+        total: runtimes.length + web.length + addons.length + databases.length,
+        selected: this.chips().filter(chip => !chip.missing).length
+      },
+      { id: 'languages', label: 'Lenguajes', total: runtimes.length, selected: this.runtimeId() ? 1 : 0 },
+      { id: 'web', label: 'Interfaz web', total: web.length, selected: this.webPlatformId() ? 1 : 0 },
+      { id: 'addons', label: 'Complementos', total: addons.length, selected: selectedAddons },
+      {
+        id: 'databases',
+        label: 'Bases de datos',
+        total: databases.length,
+        selected: this.isNoneDatabase(this.databaseId()) ? 0 : 1
+      }
+    ];
+  });
+
+  readonly addonsFiltered = computed(() => Boolean(this.selectedRuntime()) && !this.showAllAddons());
+
+  /** Tamaño real de la sección de complementos, para el atajo «Ver todos». */
+  readonly addonTotal = computed(() => this.catalog().filter(item => item.layer === 'addon').length);
+
+  readonly addonToggleLabel = computed(() => {
+    if (this.showAllAddons()) {
+      const runtime = this.selectedRuntime();
+      return runtime ? `Ver solo los de ${runtime.name}` : 'Ver solo los compatibles';
+    }
+    return `Ver todos (${this.addonTotal()})`;
+  });
+
+  readonly pickerEmptyMessage = computed(() => {
+    const query = this.pickerQuery().trim();
+    if (query) {
+      return `No encontramos «${query}» en el catálogo. Escríbela en la asistencia IA o en la nota y la pedimos.`;
+    }
+    const category = this.pickerCategories().find(item => item.id === this.pickerCategory());
+    return category
+      ? `Todavía no hay herramientas en ${category.label.toLowerCase()}.`
+      : 'No encontramos herramientas en el catálogo.';
+  });
+
   /**
    * Lista del selector, agrupada como el catálogo del estudio.
    *
    * Una grilla plana mezcla Rust, Angular y Prisma como si fueran lo mismo. Acá
    * el docente ve lenguajes, interfaz web, complementos y bases de datos, en ese
-   * orden. Se muestra el catálogo completo: lo que no entra se desplaza, no se
-   * recorta, para que una pieza no dependa de saber su nombre de memoria.
+   * orden. Con un lenguaje elegido, los complementos se acotan a los que
+   * declaran ese ecosistema en `compatible_runtimes`; el resto queda detrás de
+   * «Ver complementos de otros lenguajes», no a media lista.
    */
   readonly pickerGroups = computed<PickerGroup[]>(() => {
     const query = this.pickerQuery().trim().toLowerCase();
     const matches = (item: TemplateComponent) =>
-      !query || item.name.toLowerCase().includes(query) || item.slug.toLowerCase().includes(query);
+      !query ||
+      item.name.toLowerCase().includes(query) ||
+      item.slug.toLowerCase().includes(query) ||
+      (item.description || '').toLowerCase().includes(query);
     const byOrder = (a: TemplateComponent, b: TemplateComponent) =>
       (a.sort_order ?? 0) - (b.sort_order ?? 0) || a.name.localeCompare(b.name);
 
     const items = this.catalog().filter(matches);
+    const addons = items.filter(item => item.layer === 'addon');
+    const visibleAddons = this.addonsFiltered()
+      ? addons.filter(item => this.isPieceCompatible(item) || this.isPieceSelected(item))
+      : addons;
+    const runtime = this.selectedRuntime();
+
+    // Con lenguaje elegido la sección es una sola lista acotada; sin lenguaje,
+    // los complementos se agrupan por ecosistema para que 41 tarjetas no queden
+    // en un bloque indistinguible.
+    const addonGroups: PickerGroup[] = runtime
+      ? [
+          {
+            id: 'addons',
+            category: 'addons',
+            label: 'Complementos',
+            hint: `Solo los de ${runtime.name}`,
+            items: [...visibleAddons].sort(byOrder)
+          }
+        ]
+      : this.buildAddonGroups([...visibleAddons].sort(byOrder));
+
     const groups: PickerGroup[] = [
       {
         id: 'languages',
+        category: 'languages',
         label: 'Lenguajes y frameworks',
         hint: 'La base del entorno',
         items: items.filter(item => item.layer === 'runtime' && item.sub_category !== 'web').sort(byOrder)
       },
       {
         id: 'web',
+        category: 'web',
         label: 'Interfaz web',
         hint: 'Opcional',
         items: items.filter(item => item.layer === 'runtime' && item.sub_category === 'web').sort(byOrder)
       },
-      {
-        id: 'addons',
-        label: 'Complementos',
-        hint: 'Frameworks, ORM y librerías',
-        items: items.filter(item => item.layer === 'addon').sort(byOrder)
-      },
+      ...addonGroups,
       {
         id: 'databases',
+        category: 'databases',
         label: 'Bases de datos',
         hint: 'Una por entorno',
-        items: items.filter(item => item.layer === 'database').sort(byOrder)
+        items: items
+          .filter(item => item.layer === 'database' && !this.isSentinelDatabase(item))
+          .sort(byOrder)
       }
     ];
-    return groups.filter(group => group.items.length > 0);
+
+    const category = this.pickerCategory();
+    return groups.filter(
+      group => (category === 'all' || group.category === category) && group.items.length > 0
+    );
   });
+
+  /**
+   * Agrupa los complementos por ecosistema declarado en `compatible_runtimes`.
+   *
+   * El nombre del grupo sale del runtime que resuelve el token, no de una lista
+   * de complementos: dar de alta uno nuevo en el catálogo lo coloca solo.
+   */
+  private buildAddonGroups(items: TemplateComponent[]): PickerGroup[] {
+    const buckets = new Map<string, { label: string; items: TemplateComponent[] }>();
+    for (const item of items) {
+      const key = this.addonFamilyKey(item);
+      const bucket = buckets.get(key);
+      if (bucket) {
+        bucket.items.push(item);
+        continue;
+      }
+      buckets.set(key, { label: this.addonFamilyLabel(key), items: [item] });
+    }
+
+    return [...buckets.entries()]
+      .sort(([a], [b]) => this.familyRank(a) - this.familyRank(b) || a.localeCompare(b))
+      .map(([key, bucket]) => ({
+        id: `addons-${key}`,
+        category: 'addons' as const,
+        label: bucket.label,
+        hint: 'Complementos',
+        items: bucket.items
+      }));
+  }
+
+  /** Familia principal de un complemento seg\u00fan su primer token compatible. */
+  private addonFamilyKey(item: TemplateComponent): string {
+    const tokens = (item.compatible_runtimes || [])
+      .map(token => token.trim().toLowerCase())
+      .filter(token => token && token !== 'universal' && token !== 'any');
+    if (!tokens.length) {
+      return 'universal';
+    }
+    const token = tokens[0];
+    const runtime = this.catalog().find(
+      entry => entry.layer === 'runtime' && matchesRuntimeEcosystem(entry, token)
+    );
+    const icon = (runtime?.icon_key || '').toLowerCase();
+    return icon && icon !== 'docker' ? icon : token;
+  }
+
+  private addonFamilyLabel(key: string): string {
+    const label = ADDON_FAMILY_LABELS[key];
+    if (label) {
+      return label;
+    }
+    const runtime = this.catalog().find(
+      entry => entry.layer === 'runtime' && (entry.icon_key || '').toLowerCase() === key
+    );
+    return runtime ? runtime.name : key.toUpperCase();
+  }
+
+  private familyRank(key: string): number {
+    const index = ADDON_FAMILY_ORDER.indexOf(key);
+    return index === -1 ? ADDON_FAMILY_ORDER.length : index;
+  }
+
+  /** Clave de ícono para un complemento; cualquier valor nuevo cae en `tool`. */
+  addonIconKey(item: TemplateComponent): string {
+    if (item.sub_category === 'framework') {
+      return 'framework';
+    }
+    if (item.sub_category === 'orm') {
+      return 'orm';
+    }
+    const haystack = [
+      item.name,
+      item.description,
+      (item.tools_provided || []).join(' '),
+      item.slug
+    ]
+      .join(' ')
+      .toLowerCase();
+    const rule = ADDON_ICON_RULES.find(entry => entry.terms.some(term => haystack.includes(term)));
+    return rule ? rule.key : 'tool';
+  }
+
+  /** Línea secundaria de la tarjeta: la descripción real del catálogo. */
+  addonSubtitle(item: TemplateComponent): string {
+    const description = (item.description || '').trim();
+    if (description) {
+      return description;
+    }
+    if (item.sub_category === 'framework') {
+      return 'Framework';
+    }
+    if (item.sub_category === 'orm') {
+      return 'ORM / Datos';
+    }
+    return 'Herramienta';
+  }
 
   /**
    * Piezas que el sistema va a usar por dentro.
@@ -590,6 +870,53 @@ export class TemplateRequestModalComponent implements OnInit {
     return runtime ? `No aplica a ${runtime.name}` : 'No aplica al lenguaje elegido';
   }
 
+  /** A qué ecosistema apunta un complemento, para escanearlo sin lenguaje elegido. */
+  setPickerCategory(category: PickerCategoryId): void {
+    this.pickerCategory.set(category);
+  }
+
+  /** Buscar siempre recorre el catálogo completo: el chip vuelve a «Todas». */
+  onPickerQueryChange(value: string): void {
+    this.pickerQuery.set(value);
+    if (value.trim()) {
+      this.pickerCategory.set('all');
+    }
+  }
+
+  togglePicker(event: Event): void {
+    event.stopPropagation();
+    if (this.isPickerOpen()) {
+      this.closePicker();
+      return;
+    }
+    this.pickerQuery.set('');
+    this.pickerCategory.set('all');
+    this.showAllAddons.set(false);
+    this.isPickerOpen.set(true);
+  }
+
+  /**
+   * Un complemento o una base de datos que no declara el ecosistema del nuevo
+   * lenguaje deja de aplicar: se quita en vez de viajar incompatible al backend.
+   */
+  private pruneIncompatiblePieces(): void {
+    if (!this.selectedRuntime()) {
+      return;
+    }
+    const catalog = this.catalog();
+    const addons = this.addonIds().filter(id => {
+      const item = catalog.find(entry => entry.id === id);
+      return !item || item.layer !== 'addon' || this.isPieceCompatible(item);
+    });
+    if (addons.length !== this.addonIds().length) {
+      this.addonIds.set(addons);
+    }
+    const database = catalog.find(entry => entry.id === this.databaseId());
+    if (database && !this.isPieceCompatible(database)) {
+      this.databaseId.set('');
+    }
+  }
+
   /**
    * Agrega o quita una pieza sin cerrar la lista: el docente suele necesitar
    * un lenguaje y su complemento (Python y Django) en la misma pasada.
@@ -605,11 +932,15 @@ export class TemplateRequestModalComponent implements OnInit {
     }
 
     if (item.layer === 'database') {
+      if (this.isSentinelDatabase(item)) {
+        return;
+      }
       this.databaseId.set(item.id);
     } else if (item.layer === 'runtime' && item.sub_category === 'web') {
       this.webPlatformId.set(item.id);
     } else if (item.layer === 'runtime') {
       this.runtimeId.set(item.id);
+      this.pruneIncompatiblePieces();
     } else {
       this.addonIds.set([...this.addonIds(), item.id]);
     }
@@ -646,6 +977,8 @@ export class TemplateRequestModalComponent implements OnInit {
   closePicker(): void {
     this.isPickerOpen.set(false);
     this.pickerQuery.set('');
+    this.pickerCategory.set('all');
+    this.showAllAddons.set(false);
   }
 
   /** Escape cierra primero la lista y, si ya está cerrada, el diálogo. */
@@ -715,9 +1048,26 @@ export class TemplateRequestModalComponent implements OnInit {
     this.aiNotice.set('Detuviste la consulta. Puedes volver a intentar o elegir las herramientas a mano.');
   }
 
+  /** Abre o cierra la asistencia con IA. Al plegarla se descarta el error de largo. */
+  toggleAiPanel(): void {
+    const next = !this.aiPanelOpen();
+    this.aiPanelOpen.set(next);
+    if (!next && this.formError()) {
+      this.formError.set(null);
+    }
+  }
+
+  onAiPromptChange(value: string): void {
+    this.aiPrompt.set(value);
+    if (this.formError()) {
+      this.formError.set(null);
+    }
+  }
+
   interpret(): void {
     const prompt = this.aiPrompt().trim();
     if (prompt.length < 10) {
+      this.aiPanelOpen.set(true);
       this.formError.set('Cuéntanos un poco más en la asistencia con IA: al menos 10 caracteres.');
       return;
     }
@@ -768,6 +1118,7 @@ export class TemplateRequestModalComponent implements OnInit {
       .filter((item): item is TemplateComponent => Boolean(item))
       .map(item => item.id);
     this.addonIds.set(addons);
+    this.pruneIncompatiblePieces();
 
     const missing = suggestion.missing_components || [];
     this.missingFromAI.set(missing);
