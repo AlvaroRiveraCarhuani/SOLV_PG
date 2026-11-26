@@ -45,11 +45,11 @@ Queda fuera de esta vista cualquier métrica de contenedores, CPU, RAM, IDs o no
 - `[ Mis entregas ]` lleva al historial.
 
 ### 2.2. Aula ahora
-- Materia con su código y estado de la sesión (`open` → Abierta, `frozen` → Congelada, `closed` → Cerrada).
-- Práctica de la sesión (`exercise_title`) o `Sin práctica asociada`.
-- Horario como dos `<time>` con el pipe `dateText` en formato `time`.
-- Presencia: `present` de `enrolled`, calculada por el latido de los últimos 120 segundos.
-- Con práctica en la sesión, la acción principal es `[ Abrir práctica ]` y navega a `/student/exercises/:exerciseId`; `Ver el aula` queda como enlace secundario y, si hay más de una clase, indica cuántas hay. Sin práctica asociada, la acción es `[ Entrar al aula ]` hacia `/student/aula`.
+- Bloque *border-first*: la tarjeta no anida paneles rellenos ni acentos laterales; el estado vive solo en el badge de la cabecera, así que la tarjeta conserva el mismo borde neutro que el resto del panel.
+- Estado de la sesión y su tono: `open` → `• Clase en vivo`, verde (`--status-running-*`, con pulso); `frozen` → `Congelada`, ámbar (`--status-pending-*`); `closed` → `Cerrada`, neutro (`--bg-surface-subtle` / `--text-muted`). Cualquier otro valor cae en el tono neutro, nunca se asume abierta.
+- Identidad en una línea: código de materia en mono (`--text-muted`) y nombre en `--text-base` con peso `600`.
+- Metadatos en una sola línea muda (`--text-xs`), con el mismo patrón que la cabecera operativa del aula del docente: práctica con ícono de modalidad (`Laptop` / `Terminal`) y elipsis si no cabe, `·`, horario como dos `<time>` con el pipe `dateText` en formato `time`, `·` y presencia `present` de `enrolled` (latido de los últimos 120 segundos). Sin etiquetas en mayúsculas ni filete: identidad y metadatos forman un bloque de dos líneas.
+- Con práctica en la sesión, la acción principal es una `.btn-primary .btn-sm` `[ Entrar al aula en vivo → ]` (texto más `lucideArrowRight` en `.btn-icon-sm`) que navega a `/student/exercises/:exerciseId`; `Ver las N clases` queda como `.btn-ghost .btn-sm` y solo aparece si hay más de una clase. Sin práctica asociada, la acción es `[ Entrar al aula en vivo → ]` hacia `/student/aula`.
 - El aula es contexto (presencia y avances), no un paso obligatorio antes de la práctica: la presencia la emite el layout y el aviso de avance aparece también en la práctica.
 - Sin clase abierta: texto explicativo y `[ Ver mis prácticas ]`. Un fallo de carga se muestra como error dentro de la tarjeta, no como ausencia de clase.
 

@@ -31,13 +31,33 @@
   } @else {
     @for (clase of aulas(); track clase.id) {
       <article class="aula-card">
-        <div class="aula-head">
-          <div class="aula-identity">
-            <code class="subject-code">{{ clase.subject_code }}</code>
-            <h2>{{ clase.subject_name }}</h2>
-          </div>
-          <span class="status-pill" [class]="'status-' + statusTone(clase.status)">{{ statusLabel(clase.status) }}</span>
-        </div>
+        <header class="aula-head">
+          <span class="aula-badge" [class]="'aula-badge tone-' + statusTone(clase.status)" [class.is-exam]="clase.purpose === 'exam'">
+            <span class="badge-dot" aria-hidden="true"></span>
+            {{ clase.status === 'open' ? (clase.purpose === 'exam' ? 'Examen en curso' : 'Clase en vivo') : statusLabel(clase.status) }}
+          </span>
+          <code class="aula-code font-mono" machineData>{{ clase.subject_code }}</code>
+          <h2 class="aula-title">{{ clase.subject_name }}</h2>
+        </header>
+
+        <p class="aula-meta">
+          <span class="meta-practice">
+            {{ clase.exercise_id ? (clase.exercise_title || 'Práctica del aula') : 'Sin práctica asociada' }}
+          </span>
+          <span class="meta-sep" aria-hidden="true">·</span>
+          <span class="meta-time">
+            <time [attr.datetime]="clase.opens_at">{{ clase.opens_at | dateText:'daymonth' }}</time>
+            <span aria-hidden="true">·</span>
+            <time [attr.datetime]="clase.opens_at">{{ clase.opens_at | dateText:'time' }}</time>
+            <span aria-hidden="true">–</span>
+            <time [attr.datetime]="clase.ends_at">{{ clase.ends_at | dateText:'time' }}</time>
+          </span>
+          <span class="meta-sep" aria-hidden="true">·</span>
+          <span class="meta-presence">
+            <span machineData>{{ clase.present }}</span> de
+            <span machineData>{{ clase.enrolled }}</span> en el aula
+          </span>
+        </p>
 
         @if (clase.frozen_at) {
           <div class="paused-note" role="status">
@@ -50,38 +70,10 @@
           </div>
         }
 
-        <dl class="aula-meta">
-          <div class="meta-item">
-            <dt><svg lucideBookOpen></svg> Práctica</dt>
-            <dd>
-              @if (clase.exercise_id) {
-                {{ clase.exercise_title || 'Práctica del aula' }}
-              } @else {
-                Sin práctica asociada
-              }
-            </dd>
-          </div>
-          <div class="meta-item">
-            <dt><svg lucideCalendarClock></svg> Horario</dt>
-            <dd>
-              <time [attr.datetime]="clase.opens_at">{{ clase.opens_at | dateText }}</time>
-              –
-              <time [attr.datetime]="clase.ends_at">{{ clase.ends_at | dateText }}</time>
-            </dd>
-          </div>
-          <div class="meta-item">
-            <dt><svg lucideUsers></svg> Presencia</dt>
-            <dd>
-              <span machineData>{{ clase.present }}</span> de
-              <span machineData>{{ clase.enrolled }}</span> en el aula
-            </dd>
-          </div>
-        </dl>
-
         @if (clase.exercise_id) {
-          <a class="btn btn-primary" [routerLink]="['/student/exercises', clase.exercise_id]">
-            <svg lucideBookOpen></svg>
+          <a class="btn btn-primary btn-sm" [routerLink]="['/student/exercises', clase.exercise_id]">
             <span>Abrir práctica</span>
+            <svg lucideArrowRight class="btn-icon-sm" aria-hidden="true"></svg>
           </a>
         } @else {
           <p class="aula-note">

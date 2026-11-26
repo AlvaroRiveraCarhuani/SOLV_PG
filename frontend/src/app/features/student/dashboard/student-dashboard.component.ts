@@ -9,6 +9,7 @@ import { MachineDataDirective } from '@shared/directives/machine-data.directive'
 import { DateTextPipe } from '@shared/pipes/date-text.pipe';
 import { relativeDayLabel } from '@shared/utils/relative-day.util';
 import {
+  LucideArrowRight,
   LucideBookOpen,
   LucideHistory,
   LucideInbox,
@@ -29,6 +30,7 @@ import { aulaStatusLabel, aulaStatusTone } from '../services/aula-status';
     FieldMessageComponent,
     MachineDataDirective,
     DateTextPipe,
+    LucideArrowRight,
     LucideBookOpen,
     LucideHistory,
     LucideInbox,
@@ -85,6 +87,25 @@ export class StudentDashboardComponent implements OnInit {
   readonly recent = computed(() => this.recentSubmissions().slice(0, 3));
 
   readonly primaryAula = computed(() => this.aulas()[0] ?? null);
+
+  /** Tono del badge de «Aula ahora»: el examen manda sobre el estado de la sesión. */
+  readonly primaryAulaTone = computed(() => {
+    const clase = this.primaryAula();
+    if (!clase) {
+      return 'state-neutral';
+    }
+    if (this.isExam(clase)) {
+      return 'state-exam';
+    }
+    switch (clase.status) {
+      case 'open':
+        return 'state-live';
+      case 'frozen':
+        return 'state-frozen';
+      default:
+        return 'state-neutral';
+    }
+  });
 
   readonly otherAulaCount = computed(() => Math.max(this.aulas().length - 1, 0));
 

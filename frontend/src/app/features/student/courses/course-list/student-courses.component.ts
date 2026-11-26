@@ -214,7 +214,7 @@ export class StudentCoursesComponent implements OnInit {
   }
 
   hasLiveAula(subjectId: string): boolean {
-    return this.activeAulas().some(aula => aula.subject_id === subjectId && aula.status === 'in_progress');
+    return this.activeAulas().some(aula => aula.subject_id === subjectId && aula.status === 'open');
   }
 
   async ngOnInit(): Promise<void> {

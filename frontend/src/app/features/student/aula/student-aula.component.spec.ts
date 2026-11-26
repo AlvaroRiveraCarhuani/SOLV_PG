@@ -86,7 +86,7 @@ describe('StudentAulaComponent', () => {
     const text = fixture.nativeElement.textContent as string;
     expect(text).toContain('Estructuras de Datos');
     expect(text).toContain('Recursión básica');
-    expect(text).toContain('Abierta');
+    expect(text).toContain('Clase en vivo');
     expect(text).toContain('21');
     expect(text).toContain('28');
 

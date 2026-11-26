@@ -16,47 +16,37 @@
   <div class="home-grid">
     <!-- Columna Izquierda: Aula ahora + Próximas entregas -->
     <div class="home-main">
-      <article
-        class="home-card aula-now motion-rise"
-        [class.is-live]="primaryAula() && primaryAula()?.status === 'in_progress'"
-        [class.is-exam]="primaryAula() && isExam(primaryAula()!)"
-      >
+      <article class="home-card aula-now motion-rise">
         <header class="card-head">
           <h2 class="card-title">Aula ahora</h2>
-          @if (primaryAula(); as clase) {
-            <span
-              class="aula-badge"
-              [class.state-live]="clase.status === 'in_progress'"
-              [class.state-exam]="isExam(clase)"
-              [class.state-neutral]="clase.status !== 'in_progress' && !isExam(clase)"
-            >
+          <span class="aula-badge" [class]="'aula-badge ' + primaryAulaTone()">
+            @if (primaryAula(); as clase) {
               @if (isExam(clase)) {
                 <span class="status-dot dot-warn" aria-hidden="true"></span>
                 Examen en curso
-              } @else if (clase.status === 'in_progress') {
+              } @else if (clase.status === 'open') {
                 <span class="status-dot dot-pulse" aria-hidden="true"></span>
                 Clase en vivo
               } @else {
                 {{ statusLabel(clase.status) }}
               }
-            </span>
-          } @else {
-            <span class="aula-badge state-neutral">Sin clase abierta</span>
-          }
+            } @else {
+              Sin clase abierta
+            }
+          </span>
         </header>
 
         @if (aulaLoadError(); as message) {
           <field-message variant="error" [message]="message" />
         } @else if (primaryAula(); as clase) {
-          <div class="aula-identity">
-            <span class="subject-code font-mono" machineData>{{ clase.subject_code }}</span>
-            <h3 class="subject-title">{{ clase.subject_name }}</h3>
-          </div>
+          <div class="aula-session">
+            <p class="aula-identity">
+              <code class="aula-code font-mono" machineData>{{ clase.subject_code }}</code>
+              <span class="subject-title">{{ clase.subject_name }}</span>
+            </p>
 
-          <dl class="aula-meta">
-            <div class="meta-item">
-              <dt>Práctica</dt>
-              <dd class="practice-title">
+            <p class="aula-meta">
+              <span class="meta-practice">
                 @if (clase.exercise_id) {
                   @if (isIdeExercise(clase)) {
                     <svg lucideLaptop class="meta-icon" aria-hidden="true"></svg>
@@ -64,25 +54,21 @@
                     <svg lucideTerminal class="meta-icon" aria-hidden="true"></svg>
                   }
                 }
-                <span>{{ clase.exercise_title || 'Sin práctica asociada' }}</span>
-              </dd>
-            </div>
-            <div class="meta-item">
-              <dt>Horario</dt>
-              <dd class="font-mono">
+                <span class="practice-title">{{ clase.exercise_title || 'Sin práctica asociada' }}</span>
+              </span>
+              <span class="meta-sep" aria-hidden="true">·</span>
+              <span class="meta-time">
                 <time [attr.datetime]="clase.opens_at">{{ clase.opens_at | dateText:'time' }}</time>
-                –
+                <span aria-hidden="true">–</span>
                 <time [attr.datetime]="clase.ends_at">{{ clase.ends_at | dateText:'time' }}</time>
-              </dd>
-            </div>
-            <div class="meta-item">
-              <dt>En el aula</dt>
-              <dd>
-                <span class="font-mono" machineData>{{ clase.present }}</span> de
-                <span class="font-mono" machineData>{{ clase.enrolled }}</span>
-              </dd>
-            </div>
-          </dl>
+              </span>
+              <span class="meta-sep" aria-hidden="true">·</span>
+              <span class="meta-presence">
+                <span machineData>{{ clase.present }}</span> de
+                <span machineData>{{ clase.enrolled }}</span> en el aula
+              </span>
+            </p>
+          </div>
 
           @if (isExam(clase)) {
             <div class="exam-notice">
@@ -91,22 +77,20 @@
           }
 
           <div class="card-actions">
-            @if (isExam(clase)) {
-              <a class="btn-primary" [routerLink]="['/student/exercises', clase.exercise_id]">
-                <span>Entrar al examen →</span>
-              </a>
-            } @else if (clase.exercise_id) {
-              <a class="btn-primary" [routerLink]="['/student/exercises', clase.exercise_id]">
-                <span>Entrar al aula en vivo →</span>
+            @if (clase.exercise_id) {
+              <a class="btn-primary btn-sm" [routerLink]="['/student/exercises', clase.exercise_id]">
+                <span>{{ isExam(clase) ? 'Entrar al examen' : 'Entrar al aula en vivo' }}</span>
+                <svg lucideArrowRight class="btn-icon-sm" aria-hidden="true"></svg>
               </a>
             } @else {
-              <a class="btn-primary" routerLink="/student/aula">
-                <span>Entrar al aula en vivo →</span>
+              <a class="btn-primary btn-sm" routerLink="/student/aula">
+                <span>Entrar al aula en vivo</span>
+                <svg lucideArrowRight class="btn-icon-sm" aria-hidden="true"></svg>
               </a>
             }
 
             @if (otherAulaCount() > 0) {
-              <a class="btn-ghost" routerLink="/student/aula">
+              <a class="btn-ghost btn-sm" routerLink="/student/aula">
                 <span>Ver las <span class="font-mono" machineData>{{ aulas().length }}</span> clases</span>
               </a>
             }
@@ -116,9 +100,10 @@
             No tiene clase abierta en este momento. Las prácticas publicadas siguen disponibles sin aula abierta.
           </p>
           <div class="card-actions">
-            <a class="btn-secondary" routerLink="/student/courses">
-              <svg lucideBookOpen class="btn-icon" aria-hidden="true"></svg>
-              <span>Ver mis prácticas →</span>
+            <a class="btn-secondary btn-sm" routerLink="/student/courses">
+              <svg lucideBookOpen class="btn-icon-sm" aria-hidden="true"></svg>
+              <span>Ver mis prácticas</span>
+              <svg lucideArrowRight class="btn-icon-sm" aria-hidden="true"></svg>
             </a>
           </div>
         }

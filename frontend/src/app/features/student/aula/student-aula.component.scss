@@ -20,63 +20,122 @@
 .aula-card {
   display: flex;
   flex-direction: column;
-  gap: var(--space-4);
+  gap: var(--space-3);
   padding: var(--space-4);
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-lg);
   background: var(--bg-surface);
 }
 
+// Cabecera compacta: estado, código y materia en una fila, como el aula del docente.
 .aula-head {
   display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: var(--space-3);
+  align-items: center;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+  min-width: 0;
 }
 
-.aula-identity {
-  display: flex;
-  flex-direction: column;
+.aula-badge {
+  display: inline-flex;
+  align-items: center;
   gap: var(--space-1);
-
-  h2 {
-    margin: 0;
-    font-family: var(--font-sans);
-    font-size: var(--text-xl);
-    font-weight: 600;
-    color: var(--text-primary);
-  }
-}
-
-.subject-code {
-  align-self: flex-start;
-  padding: 2px var(--space-2);
+  padding: 1px var(--space-2);
+  border: 1px solid transparent;
   border-radius: var(--radius-sm);
-  background: var(--bg-surface-active);
-  color: var(--text-muted);
-  font-size: var(--text-xs);
+  font-family: var(--font-sans);
+  font-size: var(--text-2xs);
+  font-weight: 600;
+  white-space: nowrap;
+
+  &.tone-success {
+    background: var(--status-running-bg);
+    border-color: var(--status-running-border);
+    color: var(--status-running-color);
+  }
+
+  &.tone-warning {
+    background: var(--status-pending-bg);
+    border-color: var(--status-pending-border);
+    color: var(--status-pending-color);
+  }
+
+  &.tone-neutral {
+    background: var(--bg-surface-subtle);
+    border-color: var(--border-subtle);
+    color: var(--text-muted);
+  }
+
+  // El examen manda sobre el tono de la sesión, igual que en el inicio.
+  &.is-exam {
+    background: var(--status-pending-bg);
+    border-color: var(--status-pending-border);
+    color: var(--status-pending-color);
+  }
 }
 
-.status-pill {
-  padding: 2px var(--space-2);
+.badge-dot {
+  width: 6px;
+  height: 6px;
   border-radius: var(--radius-full);
-  font-family: var(--font-sans);
+  background: currentcolor;
+}
+
+.aula-code {
   font-size: var(--text-xs);
+  color: var(--text-muted);
+}
+
+.aula-title {
+  margin: 0;
+  font-family: var(--font-sans);
+  font-size: var(--text-lg);
   font-weight: 600;
+  letter-spacing: -0.01em;
+  color: var(--text-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
 
-  &.status-success {
-    background: color-mix(in srgb, var(--color-success) 12%, transparent);
-    color: var(--color-success-dark);
+// Una sola línea de metadatos: práctica · horario · presencia.
+.aula-meta {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-1);
+  flex-wrap: nowrap;
+  margin: 0;
+  min-width: 0;
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+
+  .meta-practice {
+    flex: 0 1 auto;
+    min-width: 0;
+    color: var(--text-secondary);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
 
-  &.status-warning {
-    background: color-mix(in srgb, var(--color-warning) 12%, transparent);
-    color: var(--color-warning);
+  .meta-time {
+    display: inline-flex;
+    align-items: baseline;
+    gap: 3px;
+    flex-shrink: 0;
+    white-space: nowrap;
+    font-variant-numeric: tabular-nums;
   }
 
-  &.status-neutral {
-    background: var(--bg-surface-active);
-    color: var(--text-muted);
+  .meta-presence {
+    flex-shrink: 0;
+    white-space: nowrap;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .meta-sep {
+    flex-shrink: 0;
+    color: var(--border-strong);
   }
 }
 
@@ -84,56 +143,27 @@
 .paused-note {
   display: flex;
   align-items: flex-start;
-  gap: var(--space-3);
-  padding: var(--space-3) var(--space-4);
-  border: 1px solid var(--border-subtle);
-  border-left: 3px solid var(--color-warning);
-  border-radius: var(--radius-lg);
-  background: var(--bg-surface-active);
-  color: var(--text-primary);
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--status-pending-border);
+  border-radius: var(--radius-sm);
+  background: var(--status-pending-bg);
+  color: var(--status-pending-color);
   font-family: var(--font-sans);
-  font-size: var(--text-sm);
+  font-size: var(--text-xs);
 
   > svg {
-    width: 18px;
-    height: 18px;
+    width: 14px;
+    height: 14px;
     flex-shrink: 0;
-    color: var(--color-warning);
   }
 }
 
-.aula-meta {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-  gap: var(--space-3);
-  margin: 0;
-}
+// La acción no ocupa el ancho completo de la tarjeta.
+.aula-card > .btn {
+  align-self: flex-start;
 
-.meta-item {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-1);
-
-  dt {
-    display: flex;
-    align-items: center;
-    gap: var(--space-1);
-    font-family: var(--font-sans);
-    font-size: var(--text-xs);
-    font-weight: 600;
-    color: var(--text-muted);
-    text-transform: uppercase;
-    letter-spacing: 0.04em;
-  }
-
-  dd {
-    margin: 0;
-    font-family: var(--font-sans);
-    font-size: var(--text-sm);
-    color: var(--text-primary);
-  }
-
-  svg {
+  .btn-icon-sm {
     width: 14px;
     height: 14px;
   }

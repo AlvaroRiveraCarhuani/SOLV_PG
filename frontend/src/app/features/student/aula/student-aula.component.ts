@@ -2,12 +2,11 @@ import { ChangeDetectionStrategy, Component, OnInit, inject, signal } from '@ang
 import { CommonModule } from '@angular/common';
 import { RouterLink } from '@angular/router';
 import {
+  LucideArrowRight,
   LucideBookOpen,
-  LucideCalendarClock,
   LucideInbox,
   LucidePause,
-  LucideRefreshCw,
-  LucideUsers
+  LucideRefreshCw
 } from '@lucide/angular';
 
 import { DateTextPipe } from '@shared/pipes/date-text.pipe';
@@ -44,12 +43,11 @@ import { AdvanceConfirmModalComponent } from '../exercises/solver/advance-confir
     SkeletonLoaderComponent,
     FieldMessageComponent,
     AdvanceConfirmModalComponent,
+    LucideArrowRight,
     LucideBookOpen,
-    LucideCalendarClock,
     LucideInbox,
     LucidePause,
-    LucideRefreshCw,
-    LucideUsers
+    LucideRefreshCw
   ],
   templateUrl: './student-aula.component.html',
   styleUrl: './student-aula.component.scss'

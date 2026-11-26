@@ -835,6 +835,7 @@ Superficie `var(--bg-surface)`, `border-left: 1px solid var(--border-subtle)`. C
 | **Sin práctica asignada** | Oculto | Oculto | `⋮ Extender +30 min` / `Cerrar aula` (rojo) |
 
 - Al pausar la clase, mostrar banner explícito indicando que los entornos de los estudiantes quedan en **solo lectura** hasta reanudar.
+- El aula del alumno (`/student/aula`) reutiliza este patrón en la tarjeta de la clase abierta: badge de estado como único indicador, código y materia en una fila y una sola línea de metadatos (práctica · fecha y horario · presencia).
 
 ### 9.4. Tablero Adaptativo y Panel Lateral
 - **Ancho adaptativo:**
@@ -888,10 +889,11 @@ Superficie `var(--bg-surface)`, `border-left: 1px solid var(--border-subtle)`. C
   - Derecha: `Mis entregas` (`.btn-secondary`, `height: 32px`, contador en mono solo si `> 0`).
 - **Layout equilibrado de 2 columnas (`minmax(0, 1fr) 340px`, `gap: 20px`, `align-items: start`):**
   - **Columna Izquierda (`1fr`) — `Aula ahora` + `Próximas entregas`:**
-    1. **`Aula ahora` (bloque protagonista *border-first*):**
+    1. **`Aula ahora` (bloque protagonista *border-first*, sin paneles rellenos anidados):**
        - *Sin clase abierta:* badge neutro `Sin clase abierta`, mensaje claro indicando que las prácticas publicadas siguen disponibles sin aula abierta, y **`Ver mis prácticas →`** como **único `.btn-primary`** de la vista (navega a `/student/materias`).
-       - *Clase en vivo:* acento interior izquierdo de `3px` en `--status-running-color`, badge `• Clase en vivo` con pulso discreto, horario + contador regresivo en mono (`MM:SS rest.`), código/nombre de materia, docente, título de la práctica con ícono de modalidad (`Laptop` Desarrollo / `Terminal` Evaluación), **`Entrar al aula en vivo →`** como **único `.btn-primary`**, y franja informativa discreta cuando exista un avance compartido en **SOLV Companion**.
-       - *Examen supervisado en vivo:* acento interior izquierdo de `3px` en `--status-pending-color`, badge `• Examen en curso` ámbar, **`Entrar al examen →`** (`.btn-primary`) y franja de advertencia clara sobre restricción de internet y congelamiento en solo lectura al cerrar.
+       - *Clase en vivo:* badge `• Clase en vivo` con pulso discreto y tamaño `--text-2xs` como único indicador de estado (sin acento lateral), código de materia en mono y nombre en `--text-base`, y una sola línea de metadatos `--text-xs` con el patrón de la cabecera del aula del docente: práctica con ícono de modalidad (`Laptop` Desarrollo / `Terminal` Evaluación) y elipsis, `·` horario y `·` presencia `N de M en el aula`. La acción es `Entrar al aula en vivo →` en `.btn-primary .btn-sm` (28px), sin botón gigante ni botón secundario redundante.
+       - *Clase en pausa (`frozen`):* el badge `Congelada` usa ámbar (`--status-pending-*`), igual que el examen; `closed` y los estados desconocidos usan el tono neutro.
+       - *Examen supervisado en vivo:* badge `• Examen en curso` ámbar, **`Entrar al examen →`** (`.btn-primary .btn-sm`) y franja de advertencia clara sobre restricción de internet y congelamiento en solo lectura al cerrar.
     2. **`Próximas entregas`:**
        - Encabezado con contador en mono (`0 pendientes` / `N prácticas`).
        - *Estado vacío:* ícono discreto en superficie `--bg-surface-subtle` + título (`No tiene entregas con fecha límite próxima`) y subtítulo breve (**prohibido** rellenar con listas de consejos genéricos).

@@ -46,7 +46,7 @@ export class StudentCourseDetailComponent implements OnInit {
 
   readonly hasLiveAula = computed(() => {
     const id = this.effectiveCourseId();
-    return this.aulasService.aulas().some(aula => aula.subject_id === id && aula.status === 'in_progress');
+    return this.aulasService.aulas().some(aula => aula.subject_id === id && aula.status === 'open');
   });
 
   /** Próximo paso en esta materia */

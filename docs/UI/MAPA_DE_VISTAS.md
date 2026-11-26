@@ -225,7 +225,7 @@ graph TD
   * **Tus materias:** código, nombre, prácticas completadas sobre el total y barra de avance, con el porcentaje global del semestre.
   * **Últimas entregas:** tres, con veredicto y fecha compacta.
 * **Acciones:**
-  * `[Abrir práctica]` — Va directo a `/student/exercises/:exerciseId` cuando la sesión tiene práctica; `Ver el aula` queda como enlace secundario y, si hay más clases, indica cuántas hay. Sin práctica asociada, `[Entrar al aula]` va a `/student/aula`.
+  * `[Entrar al aula en vivo →]` — Va directo a `/student/exercises/:exerciseId` cuando la sesión tiene práctica; `Ver las N clases` aparece como enlace secundario solo si hay más de una. Sin práctica asociada, la misma acción lleva a `/student/aula`.
   * `[Ver mis prácticas]` — `/student/courses` cuando no hay clase abierta.
   * `[Mis entregas]` y `Historial` — `/student/history`.
   * Cada entrega enlaza a `/student/exercises/:exerciseId`; cada materia, a su mapa curricular.
@@ -235,12 +235,12 @@ graph TD
 ### 5.2. Aula del Estudiante (`/student/aula`)
 * **Propósito:** Unir la clase en vivo con la práctica que el docente abrió: qué materia, qué práctica, en qué horario y qué código compartió.
 * **Información que muestra:**
-  * Materia con su código y estado del aula (abierta, congelada, cerrada).
-  * Práctica de la sesión (`exercise_title`) o el aviso de que el aula no tiene práctica asociada.
-  * Horario de la clase y presencia (`present` de `enrolled` en el aula).
+  * Cabecera compacta con el patrón del aula del docente: badge de estado como único indicador, código de materia en mono y nombre en una línea, con el mismo texto y tono que el inicio: `open` → `Clase en vivo` (o `Examen en curso`), verde; `frozen` → `Congelada`, ámbar; `closed` → `Cerrada`, neutro.
+  * Una sola línea de metadatos (`--text-xs`): práctica de la sesión (`exercise_title`) o `Sin práctica asociada` con elipsis si no cabe, `·`, fecha y rango de horas (`26 nov · 12:26 – 13:56`) y `·`, presencia (`present` de `enrolled` en el aula). Sin etiquetas en mayúsculas ni filete.
+  * Con el aula pausada, una nota ámbar de borde completo —sin acento lateral— con la hora de la pausa y el aviso de solo lectura.
   * Avances pendientes **de esa sesión**: cuántos archivos trae y cuándo se emitió.
 * **Acciones:**
-  * `[Abrir práctica]` — Va a `/student/exercises/:exerciseId`, el entorno de la práctica del aula.
+  * `[Abrir práctica →]` — `.btn-primary .btn-sm` con `lucideArrowRight`; va a `/student/exercises/:exerciseId`, el entorno de la práctica del aula.
   * `[Revisar y aplicar]` — Abre el mismo modal de confirmación de la práctica, con los archivos que se reemplazan y los que se agregan.
   * `[Actualizar]` — Relee el aula y los avisos sin esperar al ciclo de un minuto.
 * **Estados vacíos:** sin aula abierta, dice que no hay clase y ofrece `[Ver mis prácticas]`. Un aula sin práctica se muestra sin botón de avance, porque en ese estado el docente tampoco puede emitir.
@@ -278,7 +278,7 @@ graph TD
 
 ### 5.5. Mis materias y ficha de materia (`/student/courses`, `/student/courses/:subjectId`)
 * **Propósito:** el índice de materias inscritas y, dentro de cada una, el mapa curricular con sus prácticas.
-* **Mis materias:** encabezado con subtítulo, pestañas con conteo (Todas, En curso, Completadas) y búsqueda; una fila por materia con código, próxima entrega, avance y `[Ver prácticas]`. Sin banners ni tarjetas de KPI.
+* **Mis materias:** encabezado con subtítulo, pestañas con conteo (Todas, En curso, Completadas) y búsqueda; una fila por materia con código, próxima entrega, avance y `[Ver prácticas]`. Sin banners ni tarjetas de KPI. La materia con aula `open` muestra `En vivo` en lugar de `En curso` y es la que devuelve el filtro **Con clase en vivo**; la ficha de materia muestra `Clase en vivo` en su fila de estado.
 * **Ficha de materia:** enlace de vuelta, nombre, código y avance real; `[Actualizar]` relee el mapa y las prácticas. Panel **Mapa curricular** sólo si hay módulos; panel **Prácticas de la materia** (sin módulos) o **Ejercicios generales** (con módulos) con mejor puntaje y `[Resolver]`.
 * **Detalle completo:** [MATERIAS.md](ESTUDIANTE/MATERIAS.md).
 
