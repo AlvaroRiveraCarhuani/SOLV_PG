@@ -139,7 +139,10 @@
   background-color: var(--bg-surface);
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-md);
-  overflow: hidden;
+
+  // Sin recorte: el desplegable de «Práctica publicada» se dibuja fuera de la
+  // tarjeta y con overflow oculto quedaba cortado antes de mostrar opciones.
+  overflow: visible;
 }
 
 .aside-head {
@@ -233,6 +236,23 @@
   border-radius: var(--radius-sm);
   font-size: var(--text-2xs);
   color: var(--text-secondary);
+  text-decoration: none;
+  transition:
+    border-color var(--motion-fast) var(--motion-ease-standard),
+    background-color var(--motion-fast) var(--motion-ease-standard);
+
+  &:hover,
+  &:focus-visible {
+    background-color: var(--tenant-primary-border);
+    border-color: var(--tenant-primary);
+  }
+}
+
+.quick-session-arrow {
+  width: 12px;
+  height: 12px;
+  margin-left: auto;
+  color: var(--tenant-primary);
 }
 
 .quick-live-dot {

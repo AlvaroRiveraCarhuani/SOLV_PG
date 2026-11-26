@@ -137,6 +137,8 @@ describe('TeacherDashboardComponent', () => {
     expect(quickSession).not.toBeNull();
     expect(quickSession.textContent).toContain('20');
     expect(quickSession.textContent).toContain('28');
+    expect(quickSession.getAttribute('href')).toContain('/teacher/aula');
+    expect(quickSession.getAttribute('href')).toContain('subject_id=s1');
     expect(fixture.nativeElement.querySelector('pending-column')).toBeNull();
   });
 

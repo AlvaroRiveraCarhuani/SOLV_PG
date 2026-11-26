@@ -145,12 +145,18 @@
 
           <div class="quick-body">
             @if (session(); as aula) {
-              <p class="quick-session">
+              <a
+                class="quick-session"
+                [routerLink]="['/teacher/aula']"
+                [queryParams]="{ subject_id: aula.subject_id }"
+                [attr.aria-label]="'Ir al aula abierta de ' + aula.subject_code"
+              >
                 <span class="quick-live-dot" aria-hidden="true"></span>
                 Aula abierta:
                 <code class="font-mono">{{ aula.subject_code }}</code>
                 <span machineData>{{ aula.present }}</span> de <span machineData>{{ aula.enrolled }}</span> dentro
-              </p>
+                <svg lucideArrowRight class="quick-session-arrow" aria-hidden="true"></svg>
+              </a>
             }
 
             <label class="field">
