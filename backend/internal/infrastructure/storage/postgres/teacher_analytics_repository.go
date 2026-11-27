@@ -3,7 +3,6 @@ package postgres
 import (
 	"context"
 	"database/sql"
-	"encoding/json"
 	"fmt"
 	"strings"
 	"time"
@@ -280,12 +279,7 @@ func (r *PostgresTeacherRepository) GetPlagiarismPairSubmissions(ctx context.Con
 			ExpectedComplexity: row.ExpectedComplexity,
 			SubmittedAt:        row.SubmittedAt,
 		}
-		if len(row.ComplexityAnalysis) > 0 && string(row.ComplexityAnalysis) != "null" {
-			var analysis domain.ComplexityAnalysis
-			if err := json.Unmarshal(row.ComplexityAnalysis, &analysis); err == nil {
-				submission.ComplexityAnalysis = &analysis
-			}
-		}
+		submission.ComplexityAnalysis = parseComplexityAnalysis(row.ComplexityAnalysis)
 		list = append(list, submission)
 	}
 	return list, nil

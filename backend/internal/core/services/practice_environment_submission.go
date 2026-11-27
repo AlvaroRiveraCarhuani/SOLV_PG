@@ -243,7 +243,8 @@ func (s *PracticeEnvironmentService) SubmitPracticeEnvironmentProject(ctx contex
 		ReviewStatus:              string(domain.ReviewPending),
 		ASTResult:                 json.RawMessage("{}"),
 		GeneratedCases:            json.RawMessage("{}"),
-		ComplexityAnalysis:        json.RawMessage("{}"),
+		// Un entorno IDE no ejecuta análisis asintótico; se deja nil (NULL en DB) para no crear {} vacío.
+		ComplexityAnalysis:        nil,
 		BaseStatus:                baseStatus,
 		WorkspaceProjectVersionID: environment.WorkspaceProjectVersionID,
 	}

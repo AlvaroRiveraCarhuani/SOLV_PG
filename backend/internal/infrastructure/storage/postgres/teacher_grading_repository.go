@@ -1,6 +1,7 @@
 package postgres
 
 import (
+	"bytes"
 	"context"
 	"database/sql"
 	"encoding/json"
@@ -176,13 +177,7 @@ func (r *PostgresTeacherRepository) GetTeacherSubmissionReview(ctx context.Conte
 		return nil, fmt.Errorf("failed to get submission review: %w", err)
 	}
 
-	var ca *domain.ComplexityAnalysis
-	if len(row.ComplexityAnalysis) > 0 && string(row.ComplexityAnalysis) != "null" {
-		var parsed domain.ComplexityAnalysis
-		if err := json.Unmarshal(row.ComplexityAnalysis, &parsed); err == nil {
-			ca = &parsed
-		}
-	}
+	ca := parseComplexityAnalysis(row.ComplexityAnalysis)
 
 	expComp := ""
 	if row.ExpectedComplexity.Valid {
@@ -472,4 +467,23 @@ func (r *PostgresTeacherRepository) GetCommentsBySubmission(ctx context.Context,
 		result = append(result, comment)
 	}
 	return result, nil
+}
+
+// parseComplexityAnalysis convierte el JSONB de complexity_analysis a struct.
+// Devuelve nil para NULL, "{}" o payload sin complejidad ni mediciones, de modo que la UI oculte el bloque.
+func parseComplexityAnalysis(raw []byte) *domain.ComplexityAnalysis {
+	trimmed := bytes.TrimSpace(raw)
+	if len(trimmed) == 0 || bytes.Equal(trimmed, []byte("null")) {
+		return nil
+	}
+	var parsed domain.ComplexityAnalysis
+	if err := json.Unmarshal(trimmed, &parsed); err != nil {
+		return nil
+	}
+	if strings.TrimSpace(parsed.TimeComplexity) == "" &&
+		strings.TrimSpace(parsed.SpaceComplexity) == "" &&
+		len(parsed.Measurements) == 0 {
+		return nil
+	}
+	return &parsed
 }

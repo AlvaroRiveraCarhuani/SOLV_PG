@@ -142,6 +142,9 @@ func TestSubmitPracticeEnvironmentProject_CreatesPendingSubmissionWithSnapshot(t
 	if subRepo.created.Score != nil {
 		t.Errorf("una entrega sin corregir no debe llevar nota, obtenido: %v", *subRepo.created.Score)
 	}
+	if subRepo.created.ComplexityAnalysis != nil {
+		t.Errorf("una entrega de IDE sin análisis debe guardar ComplexityAnalysis nil (SQL NULL), obtenido: %q", string(subRepo.created.ComplexityAnalysis))
+	}
 	if subRepo.created.EnvironmentID == nil || *subRepo.created.EnvironmentID != environment.ID {
 		t.Errorf("esperado environment_id %s, obtenido: %v", environment.ID, subRepo.created.EnvironmentID)
 	}
