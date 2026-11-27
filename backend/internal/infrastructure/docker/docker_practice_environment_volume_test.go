@@ -43,6 +43,8 @@ func TestParsePracticeEnvironmentSnapshotTar_FiltersAndSorts(t *testing.T) {
 		{"./node_modules/lib/index.js", []byte("module.exports = 1\n")},
 		{"./.git/HEAD", []byte("ref: refs/heads/main\n")},
 		{"./__pycache__/main.cpython-312.pyc", []byte("binario")},
+		{"./.solv-cache/go-mod/cache/download/rsc.io/x.zip", []byte("modulo")},
+		{"./.solv-home/run/mutex", []byte("registro")},
 		{"./logo.png", []byte{0x89, 0x50, 0x4e, 0x47, 0x00, 0x01}},
 	})
 

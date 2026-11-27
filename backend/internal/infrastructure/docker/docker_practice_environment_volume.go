@@ -38,12 +38,20 @@ var environmentSnapshotExcludedDirs = map[string]struct{}{
 	"node_modules": {},
 	"__pycache__":  {},
 	".venv":        {},
+	// Almacenes que la preparación de dependencias crea dentro del árbol
+	// (Maven, Go, Rust y NuGet en .solv-cache; HOME de la CLI en .solv-home).
+	// Son cachés regenerables de cientos de MB: sin excluirlas, cualquier
+	// proyecto Go, Rust o Java superaba el tope de la lectura y no se podía
+	// entregar ni exportar.
+	".solv-cache": {},
+	".solv-home":  {},
 }
 
 // environmentSnapshotTarCmd excluye en origen los directorios pesados para no
 // transportarlos hasta el backend. Los patrones se comparan por nombre base.
 var environmentSnapshotTarCmd = "tar -cf - -C " + environmentVolumeMountPoint + " " +
-	"--exclude=.git --exclude=node_modules --exclude=__pycache__ --exclude=.venv ."
+	"--exclude=.git --exclude=node_modules --exclude=__pycache__ --exclude=.venv " +
+	"--exclude=.solv-cache --exclude=.solv-home ."
 
 func (c *Client) ensurePracticeEnvironmentHelperImage(ctx context.Context) error {
 	_, _, err := c.cli.ImageInspectWithRaw(ctx, environmentVolumeHelperImage)
