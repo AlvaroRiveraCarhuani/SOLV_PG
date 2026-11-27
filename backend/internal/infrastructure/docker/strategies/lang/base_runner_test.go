@@ -1,6 +1,8 @@
 package lang
 
 import (
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -61,5 +63,37 @@ func TestCheckerResultToRunResult(t *testing.T) {
 	wa := checkerResultToRunResult(checkerOutcome{verdict: domain.VerdictWA, message: "diff"}, time.Second)
 	if wa.Verdict != domain.VerdictWA {
 		t.Errorf("checker mismatch verdict = %s, want WA", wa.Verdict)
+	}
+}
+
+func TestCreateEvalTempDir_UsesEnvAndFallback(t *testing.T) {
+	customBase := filepath.Join(t.TempDir(), "nested-eval-tmp")
+	t.Setenv(evalTempDirEnv, customBase)
+
+	dir, err := createEvalTempDir("solv-eval-*")
+	if err != nil {
+		t.Fatalf("createEvalTempDir with env failed: %v", err)
+	}
+	if filepath.Dir(dir) != customBase {
+		_ = os.RemoveAll(dir)
+		t.Fatalf("expected parent dir %q, got %q", customBase, filepath.Dir(dir))
+	}
+	if err := os.WriteFile(filepath.Join(dir, "solution.py"), []byte("print(1)\n"), 0644); err != nil {
+		_ = os.RemoveAll(dir)
+		t.Fatalf("failed to write test file inside eval dir: %v", err)
+	}
+	if err := os.RemoveAll(dir); err != nil {
+		t.Fatalf("cleanup failed: %v", err)
+	}
+
+	t.Setenv(evalTempDirEnv, "")
+	fallbackDir, err := createEvalTempDir("solv-eval-*")
+	if err != nil {
+		t.Fatalf("createEvalTempDir fallback failed: %v", err)
+	}
+	defer func() { _ = os.RemoveAll(fallbackDir) }()
+
+	if filepath.Dir(fallbackDir) != filepath.Clean(os.TempDir()) {
+		t.Errorf("expected fallback parent %q, got %q", filepath.Clean(os.TempDir()), filepath.Dir(fallbackDir))
 	}
 }

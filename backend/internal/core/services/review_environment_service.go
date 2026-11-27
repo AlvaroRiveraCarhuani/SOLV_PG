@@ -247,6 +247,8 @@ func (s *ReviewEnvironmentService) Start(ctx context.Context, tenantID, teacherI
 		labels["traefik.enable"] = "true"
 		labels["traefik.docker.network"] = networkName
 		labels[fmt.Sprintf("traefik.http.routers.%s.rule", router)] = fmt.Sprintf("Host(`review-%s.%s`)", compactID, baseDomain)
+		labels[fmt.Sprintf("traefik.http.routers.%s.tls", router)] = "true"
+		labels[fmt.Sprintf("traefik.http.routers.%s.tls.certresolver", router)] = "letsencrypt"
 		labels[fmt.Sprintf("traefik.http.services.%s.loadbalancer.server.port", router)] = strconv.Itoa(appPort)
 	}
 
@@ -280,8 +282,14 @@ func (s *ReviewEnvironmentService) Start(ctx context.Context, tenantID, teacherI
 	env.Status = domain.ReviewEnvironmentStatusRunning
 	env.ExpiresAt = expiresAt
 
-	if hostPort != "" && s.startTimeout > 0 {
-		if waitErr := s.waitForPort(workCtx, hostPort, s.startTimeout); waitErr != nil {
+	if s.startTimeout > 0 {
+		var waitErr error
+		if baseDomain != "" && strings.HasPrefix(accessURL, "http") {
+			waitErr = waitForEditorWithin(workCtx, accessURL, s.startTimeout, editorProbeInterval)
+		} else if hostPort != "" {
+			waitErr = s.waitForPort(workCtx, hostPort, s.startTimeout)
+		}
+		if waitErr != nil {
 			logs, _ := s.orchestrator.GetContainerLogs(workCtx, containerID, 40)
 			log.Printf("[Review Environment] app %s no escuchó en %d s: %v\n%s", envID, int(s.startTimeout.Seconds()), waitErr, truncateLog(logs))
 			return nil, s.fail(workCtx, env, "app_not_ready", fmt.Errorf("%w: la app no escuchó en el puerto %d", domain.ErrReviewEnvironmentNotReady, appPort))

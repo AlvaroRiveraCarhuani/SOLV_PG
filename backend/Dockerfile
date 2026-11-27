@@ -37,13 +37,17 @@ RUN go build -trimpath -ldflags "-s -w" -o /out/solv-tenant ./cmd/tenant
 
 FROM debian:12-slim AS runtime
 
-# curl sostenta el HEALTHCHECK y tzdata mantiene las fechas del calendario
-# académico en la zona del servidor. ca-certificates es necesario para OAuth,
+# curl sostenta el HEALTHCHECK, tzdata mantiene las fechas del calendario
+# académico en la zona del servidor y python3-venv aloja semgrep==1.186.0 para
+# el pre-chequeo AST del juez. ca-certificates es necesario para OAuth,
 # proveedores de IA, backups remotos y desec.io.
 RUN apt-get update \
- && apt-get install -y --no-install-recommends ca-certificates curl tzdata \
+ && apt-get install -y --no-install-recommends ca-certificates curl tzdata python3 python3-venv \
+ && python3 -m venv /opt/solv-semgrep \
+ && /opt/solv-semgrep/bin/pip install --no-cache-dir semgrep==1.186.0 \
+ && ln -sf /opt/solv-semgrep/bin/semgrep /usr/local/bin/semgrep \
  && rm -rf /var/lib/apt/lists/* \
- && mkdir -p /var/lib/solv/backups
+ && mkdir -p /var/lib/solv/backups /tmp/solv-eval
 
 WORKDIR /app
 

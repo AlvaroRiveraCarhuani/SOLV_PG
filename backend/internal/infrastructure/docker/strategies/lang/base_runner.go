@@ -28,6 +28,36 @@ const maxBuildStderr = 4000
 // (el recorte de comparación vive solo en el comparador exact del registro).
 const asciiWhitespace = " \t\n\v\f\r"
 
+// evalTempDirEnv permite al backend containerizado crear los directorios de
+// evaluación en una ruta compartida con el daemon Docker del host.
+const evalTempDirEnv = "SOLV_EVAL_TMP_DIR"
+
+func evalTempBaseDir() string {
+	return strings.TrimSpace(os.Getenv(evalTempDirEnv))
+}
+
+func createEvalTempDir(prefix string) (string, error) {
+	base := evalTempBaseDir()
+	if base != "" {
+		// Permisos 0755 requeridos para que contenedores efímeros lean /runner:ro.
+		//nolint:gosec
+		if err := os.MkdirAll(base, 0755); err != nil {
+			return "", fmt.Errorf("failed to create eval temp base dir %q: %w", base, err)
+		}
+	}
+	tmpDir, err := os.MkdirTemp(base, prefix)
+	if err != nil {
+		return "", err
+	}
+	// Permisos 0755 para que usuarios no-root dentro del runner atraviesen /runner.
+	//nolint:gosec
+	if err := os.Chmod(tmpDir, 0755); err != nil {
+		_ = os.RemoveAll(tmpDir)
+		return "", err
+	}
+	return tmpDir, nil
+}
+
 // BuildResult es el resultado de la fase de compilación (D-EJ-03).
 type BuildResult struct {
 	Verdict       domain.Verdict
@@ -94,7 +124,7 @@ func RunBuildPhase(ctx context.Context, cli *client.Client, imageName, fileName,
 		return BuildResult{Verdict: domain.VerdictAC}, nil
 	}
 
-	tmpDir, err := os.MkdirTemp("", "solv-build-*")
+	tmpDir, err := createEvalTempDir("solv-build-*")
 	if err != nil {
 		return BuildResult{}, fmt.Errorf("failed to create temp dir for build: %w", err)
 	}
@@ -306,7 +336,7 @@ func runContainerExecution(ctx context.Context, cli *client.Client, imageName st
 	}
 
 	// 1. Crear directorio temporal en el host para montaje solo lectura (:ro)
-	tmpDir, err := os.MkdirTemp("", "solv-eval-*")
+	tmpDir, err := createEvalTempDir("solv-eval-*")
 	if err != nil {
 		return domain.TestCaseRunResult{}, fmt.Errorf("failed to create temp dir for evaluation: %w", err)
 	}

@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/docker/docker/api/types/container"
@@ -33,10 +34,19 @@ func (r *DockerScriptSandboxRunner) RunPythonScript(ctx context.Context, scriptC
 	ctx, cancel := context.WithTimeout(ctx, time.Duration(timeoutSec)*time.Second)
 	defer cancel()
 
-	tmpDir, err := os.MkdirTemp("", "solv-script-*")
+	evalBase := strings.TrimSpace(os.Getenv("SOLV_EVAL_TMP_DIR"))
+	if evalBase != "" {
+		//nolint:gosec
+		if err := os.MkdirAll(evalBase, 0755); err != nil {
+			return "", "", fmt.Errorf("failed to create eval temp base dir: %w", err)
+		}
+	}
+	tmpDir, err := os.MkdirTemp(evalBase, "solv-script-*")
 	if err != nil {
 		return "", "", fmt.Errorf("failed to create temp dir for script: %w", err)
 	}
+	//nolint:gosec
+	_ = os.Chmod(tmpDir, 0755)
 	defer func() { _ = os.RemoveAll(tmpDir) }()
 
 	scriptFile := filepath.Join(tmpDir, "generate.py")

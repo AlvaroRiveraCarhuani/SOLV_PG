@@ -35,17 +35,26 @@ services:
         fi
         # curl sostenta el healthcheck heredado y tzdata las fechas del
         # calendario: la imagen de Go no garantiza ninguno de los dos.
-        if [ ! -x /usr/bin/curl ] || [ ! -d /usr/share/zoneinfo ]; then
-          echo "[dev] instalando curl y tzdata"
+        # python3-venv sostiene la instalación persistente de semgrep==1.186.0.
+        if [ ! -x /usr/bin/curl ] || [ ! -d /usr/share/zoneinfo ] || ! dpkg -s python3-venv >/dev/null 2>&1; then
+          echo "[dev] instalando curl, tzdata y python3-venv"
           apt-get update \
-            && apt-get install -y --no-install-recommends curl tzdata \
+            && apt-get install -y --no-install-recommends curl tzdata python3-venv \
             && rm -rf /var/lib/apt/lists/*
         fi
+        SEMGREP_VER="$$(/opt/solv-semgrep/bin/semgrep --version 2>/dev/null || true)"
+        if [ ! -x /opt/solv-semgrep/bin/semgrep ] || [ "$$SEMGREP_VER" != "1.186.0" ]; then
+          echo "[dev] instalando semgrep==1.186.0 en el volumen solv_semgrep_venv"
+          python3 -m venv /opt/solv-semgrep \
+            && /opt/solv-semgrep/bin/pip install --no-cache-dir semgrep==1.186.0
+        fi
+        ln -sf /opt/solv-semgrep/bin/semgrep /usr/local/bin/semgrep
         exec /go/bin/air -c /app/.air.toml
     environment:
       # El binario se compila en /tmp, fuera de /app: las migraciones se
       # resuelven por variable de entorno, igual que en producción.
       MIGRATIONS_DIR: /app/migrations
+      SOLV_EVAL_TMP_DIR: /tmp/solv-eval
     volumes:
       # Código en vivo: acá está .air.toml, cmd/api y migrations. El watcher de
       # air escucha este bind, así que guardar un .go dispara la recompilación.
@@ -56,6 +65,8 @@ services:
       - solv_go_build_cache:/root/.cache/go-build
       # Binario de air: se instala una sola vez, no en cada arranque.
       - solv_air_bin:/go/bin
+      # Entorno de semgrep fijado para el pre-chequeo AST.
+      - solv_semgrep_venv:/opt/solv-semgrep
     healthcheck:
       test: ["CMD", "curl", "-fsS", "http://127.0.0.1:3000/api/v1/version"]
       interval: 30s
@@ -80,3 +91,5 @@ volumes:
     name: solv_go_build_cache
   solv_air_bin:
     name: solv_air_bin
+  solv_semgrep_venv:
+    name: solv_semgrep_venv
