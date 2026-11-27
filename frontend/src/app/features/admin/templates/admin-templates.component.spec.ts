@@ -916,5 +916,42 @@ describe('AdminTemplatesComponent Spec', () => {
     );
   });
 
+  it('pagina el catálogo oficial y las rechazadas en lotes de 9 tarjetas para alinear la grilla de 3 columnas', () => {
+    const approved: AdminTemplateItem[] = Array.from({ length: 13 }, (_, index) => ({
+      id: `tpl-cat-${index + 1}`,
+      name: `Plantilla ${index + 1}`,
+      docker_image: `solv-local/stack:${index + 1}`,
+      base_ram_mb: 512,
+      status: 'APROBADA',
+      target_environment: 'IDE_PERSISTENTE',
+      created_at: '2026-09-23T00:00:00Z'
+    }));
+    const rejected: AdminTemplateItem[] = Array.from({ length: 10 }, (_, index) => ({
+      id: `tpl-rej-${index + 1}`,
+      name: `Rechazada ${index + 1}`,
+      docker_image: `solv-local/rej:${index + 1}`,
+      base_ram_mb: 512,
+      status: 'RECHAZADA',
+      target_environment: 'IDE_PERSISTENTE',
+      created_at: '2026-09-23T00:00:00Z'
+    }));
+
+    component.allTemplates.set([...approved, ...rejected]);
+
+    expect(component.pageSize()).toBe(9);
+    expect(component.totalCatalogPages()).toBe(2);
+    expect(component.paginatedCatalogTemplates()).toHaveLength(9);
+
+    component.catalogPage.set(2);
+    expect(component.paginatedCatalogTemplates()).toHaveLength(4);
+
+    expect(component.rejectedPageSize()).toBe(9);
+    expect(component.totalRejectedPages()).toBe(2);
+    expect(component.paginatedRejectedTemplates()).toHaveLength(9);
+
+    component.rejectedPage.set(2);
+    expect(component.paginatedRejectedTemplates()).toHaveLength(1);
+  });
+
 });
 

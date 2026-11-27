@@ -197,9 +197,9 @@ export class AdminTemplatesComponent implements OnInit, OnDestroy {
   }
 
   catalogPage = signal<number>(1);
-  pageSize = signal<number>(8);
+  pageSize = signal<number>(9);
   rejectedPage = signal<number>(1);
-  rejectedPageSize = signal<number>(8);
+  rejectedPageSize = signal<number>(9);
 
   allTemplates = signal<AdminTemplateItem[]>([]);
   techCatalog = signal<TemplateComponent[]>([]);
