@@ -56,7 +56,7 @@ describe('Guías del Catálogo de Entornos y Solicitud (Docente)', () => {
     usesCount.set(1);
     expect(stepUses?.check?.isComplete()).toBe(true);
 
-    // Paso 4: Nombre, materia y nota
+    // Paso 4: Nombre y nota
     const stepPractice = step('describe-practice');
     expect(stepPractice).toBeDefined();
     expect(stepPractice?.selector).toBe('[data-tour="template-request-practice"]');

@@ -2941,3 +2941,21 @@ acompaña a la excepción.
   bloquea la publicación.
 - `POST /api/v1/teacher/courses/{courseId}/exercises/{exerciseId}/ide` devuelve también
   `memory_limit_mb`, `memory_profile_mb` y `cpu_millis` del entorno del docente.
+
+---
+
+## Validación de compatibilidad de complementos
+
+Al crear o previsualizar una solicitud de entorno, el compositor valida la
+matriz `compatible_runtimes` de los complementos con la misma regla del selector
+manual:
+
+- Un complemento sin runtimes declarados, o con `universal` / `any`, aplica a
+  cualquier runtime.
+- Las familias activas son la unión en minúsculas de `universal` con el slug,
+  el id, el `icon_key` y los `compatible_runtimes` del runtime; en un entorno
+  de desarrollo full-stack se suman `node`, `web` y los de la plataforma web.
+- Sin intersección, `POST /api/v1/teacher/environment-requests` y su `preview`
+  responden `422 incompatible_addon` con el complemento y el runtime activo.
+  Una pieza que no existe en el catálogo sigue tratándose como faltante, no como
+  incompatibilidad.

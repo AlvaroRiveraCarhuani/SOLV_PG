@@ -41,11 +41,12 @@ import {
 } from '@lucide/angular';
 import { AdminTemplatesService } from '@features/admin/services/admin-templates.service';
 import { TemplateComponent } from '@features/admin/models/admin-templates.models';
-import { TechLogoComponent } from '@features/admin/templates/components/tech-logo/tech-logo.component';
+import {
+  KNOWN_TECH_ICON_KEYS,
+  TechLogoComponent
+} from '@features/admin/templates/components/tech-logo/tech-logo.component';
 import { matchesRuntimeEcosystem } from '@features/admin/templates/components/model-library/model-library.utils';
-import { ComboboxComponent, ComboboxOption } from '@shared/components/combobox/combobox.component';
 import { AiProgressIndicatorComponent } from '@shared/components/ai-progress-indicator/ai-progress-indicator.component';
-import { TeacherDashboardService } from '../../services/teacher-dashboard.service';
 import { EnvironmentRequestService } from '../../services/environment-request.service';
 import {
   EnvironmentMissingComponent,
@@ -59,6 +60,9 @@ interface SelectedChip {
   name: string;
   layer: string;
   iconKey?: string;
+  /** El chip repite el mismo ícono que el selector: logo o Lucide funcional. */
+  usesLogo?: boolean;
+  functionalIconKey?: string;
   missing?: boolean;
 }
 
@@ -99,6 +103,28 @@ const ADDON_FAMILY_LABELS: Record<string, string> = {
   universal: 'Generales'
 };
 
+/**
+ * Claves de ícono que son logo de ecosistema o relleno, no de la herramienta.
+ * Un complemento que las declare se dibuja con ícono funcional: el logo de
+ * Python en «Ciencia de Datos» no dice nada que el nombre no diga.
+ */
+const GENERIC_ADDON_ICON_KEYS = new Set<string>([
+  'docker',
+  'python',
+  'c',
+  'cpp',
+  'java',
+  'go',
+  'rust',
+  'php',
+  'dotnet',
+  'node',
+  'nodejs'
+]);
+
+/** Complementos con logo de ecosistema que esconden su función real. */
+const ADDON_FUNCTIONAL_ONLY_SLUGS = new Set<string>(['spring-maven']);
+
 const ADDON_FAMILY_ORDER = [
   'python',
   'node',
@@ -121,15 +147,34 @@ const ADDON_FAMILY_ORDER = [
  * Un complemento futuro cae en `tool` sin tocar código ni subir un SVG.
  */
 const ADDON_ICON_RULES: { key: string; terms: string[] }[] = [
+  // La depuración manda antes que cualquier kit: «Depuración y Memoria»
+  // describe «estructuras de datos» y sin esta prioridad caía en BarChart3.
+  { key: 'debug', terms: ['gdb', 'valgrind', 'depura', 'debug'] },
+  // Los kits de datos se reconocen antes que las pruebas: "Ciencia de Datos"
+  // trae pytest en sus herramientas y sin esta prioridad caía en FlaskConical.
+  {
+    key: 'analytics',
+    terms: [
+      'numpy',
+      'pandas',
+      'scikit',
+      'machine learning',
+      'ciencia de datos',
+      'analisis de datos',
+      'análisis de datos',
+      'data science',
+      'dataframe',
+      'ia',
+      'ml'
+    ]
+  },
   { key: 'testing', terms: ['prueba', 'test', 'junit', 'pytest', 'xunit', 'vitest', 'jest', 'phpunit', 'googletest'] },
-  { key: 'debug', terms: ['depura', 'debug', 'gdb', 'valgrind'] },
   { key: 'quality', terms: ['linter', 'linte', 'calidad', 'clippy', 'ruff', 'golangci', 'fmt'] },
   {
     key: 'database',
     terms: ['sql', 'jdbc', 'pdo', 'mongo', 'redis', 'conect', 'driver', 'prisma', 'typeorm', 'gorm', 'hibernate', 'ef core']
   },
-  { key: 'concurrency', terms: ['concurren', 'openmp', 'pthread', 'paralel'] },
-  { key: 'analytics', terms: ['numpy', 'pandas', 'scikit', 'machine learning', 'datos', 'dataframe'] }
+  { key: 'concurrency', terms: ['concurren', 'openmp', 'pthread', 'paralel'] }
 ];
 
 type PickerCategoryId = 'all' | 'languages' | 'web' | 'addons' | 'databases';
@@ -152,10 +197,10 @@ interface PickerGroup {
 /**
  * Pedido de entorno del docente.
  *
- * Una sola pantalla: qué van a hacer los estudiantes, cómo lo van a usar y en
- * qué materia. El docente nunca escribe una imagen, una RAM ni un puerto: el
- * backend arma la receta con el catálogo y el panel lateral muestra, en las
- * mismas palabras, lo que va a recibir el administrador.
+ * Una sola pantalla: qué van a hacer los estudiantes y cómo lo van a usar. El
+ * entorno es institucional y reutilizable en cualquier materia, así que el
+ * docente no lo ata a una: nunca escribe una imagen, una RAM ni un puerto, y el
+ * backend arma la receta con el catálogo.
  */
 @Component({
   selector: 'template-request-modal',
@@ -163,7 +208,6 @@ interface PickerGroup {
   imports: [
     CommonModule,
     FormsModule,
-    ComboboxComponent,
     AiProgressIndicatorComponent,
     LucideAlertCircle,
     LucideArrowLeft,
@@ -198,12 +242,9 @@ interface PickerGroup {
 })
 export class TemplateRequestModalComponent implements OnInit {
   private templatesService = inject(AdminTemplatesService);
-  private dashboardService = inject(TeacherDashboardService);
   private requestService = inject(EnvironmentRequestService);
   private draftService = inject(EnvironmentRequestDraftService);
 
-  subjectId = input<string>('');
-  subjectName = input<string>('');
   /**
    * Entorno del que parte una variante. Se muestra como contexto: la práctica
    * la sigue escribiendo el docente, porque el pedido es qué van a hacer los
@@ -235,8 +276,6 @@ export class TemplateRequestModalComponent implements OnInit {
   descriptionTouched = signal<boolean>(false);
   title = signal<string>('');
   titleTouched = signal<boolean>(false);
-  subjectIdSelected = signal<string>('');
-  subjectNameSelected = signal<string>('');
 
   // Ayuda de IA. La llamada vive en la raíz: cerrar el modal no la aborta y el
   // resultado queda esperando para cuando el docente vuelva.
@@ -280,8 +319,6 @@ export class TemplateRequestModalComponent implements OnInit {
     this.descriptionTouched.set(draft.descriptionTouched);
     this.title.set(draft.title);
     this.titleTouched.set(draft.titleTouched);
-    this.subjectIdSelected.set(draft.subjectId);
-    this.subjectNameSelected.set(draft.subjectName);
     this.uses.set(draft.uses.length ? draft.uses : ['practice']);
     this.runtimeId.set(draft.runtimeId);
     this.webPlatformId.set(draft.webPlatformId);
@@ -297,8 +334,6 @@ export class TemplateRequestModalComponent implements OnInit {
         descriptionTouched: this.descriptionTouched(),
         title: this.title(),
         titleTouched: this.titleTouched(),
-        subjectId: this.subjectIdSelected(),
-        subjectName: this.subjectNameSelected(),
         uses: this.uses(),
         runtimeId: this.runtimeId(),
         webPlatformId: this.webPlatformId(),
@@ -341,18 +376,6 @@ export class TemplateRequestModalComponent implements OnInit {
     this.catalog().filter(item => item.layer === 'runtime' && item.sub_category === 'web')
   );
 
-  readonly subjects = computed(() => this.dashboardService.courses());
-
-  /** Materias del docente para el combobox compartido. */
-  readonly subjectOptions = computed<ComboboxOption[]>(() =>
-    this.subjects().map(course => ({
-      id: course.id,
-      label: course.name,
-      value: course.id,
-      meta: course.code
-    }))
-  );
-
   /** Piezas elegidas, con el nombre que el docente reconoce. */
   readonly chips = computed<SelectedChip[]>(() => {
     const items = this.catalog();
@@ -372,7 +395,12 @@ export class TemplateRequestModalComponent implements OnInit {
         id: found.id,
         name: found.name,
         layer: found.layer,
-        iconKey: found.icon_key
+        iconKey: found.icon_key,
+        // El chip repite el dibujo del selector: los logos de lenguaje, web y
+        // base de datos siguen siendo su logo; los complementos respetan la
+        // regla híbrida (logo de marca o Lucide funcional).
+        usesLogo: found.layer === 'addon' ? this.addonUsesLogo(found) : true,
+        functionalIconKey: found.layer === 'addon' ? this.addonIconKey(found) : undefined
       });
     };
 
@@ -621,13 +649,39 @@ export class TemplateRequestModalComponent implements OnInit {
     return index === -1 ? ADDON_FAMILY_ORDER.length : index;
   }
 
+  /**
+   * Regla híbrida del selector manual: un complemento con logo propio se dibuja
+   * con su marca, salvo que esa clave sea solo el ecosistema (Python, Node,
+   * C/C++…) o un complemento donde el logo esconde la función (Maven).
+   * En el resto manda el ícono funcional de Lucide.
+   */
+  addonUsesLogo(item: TemplateComponent): boolean {
+    if (item.layer !== 'addon') {
+      return false;
+    }
+    const key = (item.icon_key || '').trim().toLowerCase();
+    if (!key || !KNOWN_TECH_ICON_KEYS.has(key)) {
+      return false;
+    }
+    if (GENERIC_ADDON_ICON_KEYS.has(key)) {
+      return false;
+    }
+    if (ADDON_FUNCTIONAL_ONLY_SLUGS.has((item.slug || '').trim().toLowerCase())) {
+      return false;
+    }
+    return true;
+  }
+
   /** Clave de ícono para un complemento; cualquier valor nuevo cae en `tool`. */
   addonIconKey(item: TemplateComponent): string {
-    if (item.sub_category === 'framework') {
-      return 'framework';
-    }
-    if (item.sub_category === 'orm') {
-      return 'orm';
+    const functionalOnly = ADDON_FUNCTIONAL_ONLY_SLUGS.has((item.slug || '').trim().toLowerCase());
+    if (!functionalOnly) {
+      if (item.sub_category === 'framework') {
+        return 'framework';
+      }
+      if (item.sub_category === 'orm') {
+        return 'orm';
+      }
     }
     const haystack = [
       item.name,
@@ -637,8 +691,22 @@ export class TemplateRequestModalComponent implements OnInit {
     ]
       .join(' ')
       .toLowerCase();
-    const rule = ADDON_ICON_RULES.find(entry => entry.terms.some(term => haystack.includes(term)));
+    const rule = ADDON_ICON_RULES.find(entry =>
+      entry.terms.some(term => this.matchesIconTerm(haystack, term))
+    );
     return rule ? rule.key : 'tool';
+  }
+
+  /**
+   * Coincidencia del clasificador de íconos. Las siglas cortas («ia», «ml») se
+   * buscan como palabra completa: dentro de «memoria» o «html» darían un falso
+   * positivo. El resto son raíces y se buscan como subcadena.
+   */
+  private matchesIconTerm(haystack: string, term: string): boolean {
+    if (term.length <= 2) {
+      return new RegExp(`(^|[^a-z0-9])${term}([^a-z0-9]|$)`).test(haystack);
+    }
+    return haystack.includes(term);
   }
 
   /** Línea secundaria de la tarjeta: la descripción real del catálogo. */
@@ -689,16 +757,6 @@ export class TemplateRequestModalComponent implements OnInit {
   });
 
   ngOnInit(): void {
-    if (this.subjectId()) {
-      this.subjectIdSelected.set(this.subjectId());
-      this.subjectNameSelected.set(this.subjectName());
-    }
-    if (!this.subjects().length) {
-      this.dashboardService.loadDashboardData().subscribe({ next: () => this.syncSubjectName(), error: () => undefined });
-    } else {
-      this.syncSubjectName();
-    }
-
     this.templatesService.getTechCatalog().subscribe({
       next: list => {
         this.catalog.set(list || []);
@@ -801,23 +859,6 @@ export class TemplateRequestModalComponent implements OnInit {
     const named = runtimes.filter(item => item.name.toLowerCase().includes(language));
     const candidates = prefixed.length ? prefixed : named;
     return candidates.find(item => item.sub_category !== 'web') || candidates[0];
-  }
-
-  private syncSubjectName(): void {
-    if (this.subjectNameSelected()) {
-      return;
-    }
-    const id = this.subjectIdSelected();
-    const match = this.subjects().find(course => course.id === id);
-    if (match) {
-      this.subjectNameSelected.set(match.name);
-    }
-  }
-
-  onSubjectChange(value: string): void {
-    const match = this.subjects().find(course => course.id === value);
-    this.subjectIdSelected.set(match ? match.id : '');
-    this.subjectNameSelected.set(match ? match.name : '');
   }
 
   toggleUse(use: EnvironmentRequestUse): void {
@@ -1164,9 +1205,7 @@ export class TemplateRequestModalComponent implements OnInit {
         teacher_text: '',
         uses: this.uses(),
         stack_config: this.stackConfig(),
-        missing_components: this.missingFromAI(),
-        subject_id: this.subjectIdSelected() || undefined,
-        subject_name: this.subjectNameSelected() || undefined
+        missing_components: this.missingFromAI()
       })
       .subscribe({
         next: created => {
@@ -1204,10 +1243,6 @@ export class TemplateRequestModalComponent implements OnInit {
     this.uses.set(['practice']);
     this.preview.set(null);
     this.formError.set(null);
-    if (!this.subjectId()) {
-      this.subjectIdSelected.set('');
-      this.subjectNameSelected.set('');
-    }
   }
 
   close(): void {

@@ -584,6 +584,23 @@
       color: var(--text-primary);
     }
   }
+
+  /* Complemento sin logo de marca: mismo Lucide que el selector, sin el fondo
+     de tarjeta que sí tiene el ícono dentro de la lista. */
+  .chip-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex: 0 0 auto;
+    width: 18px;
+    height: 18px;
+    color: var(--text-secondary);
+
+    svg {
+      width: 18px;
+      height: 18px;
+    }
+  }
 }
 
 /* La lista ocupa el mismo panel del modal, con su encabezado y su pie: no hay
@@ -1106,17 +1123,6 @@
   }
 }
 
-.field-grid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: var(--space-3);
-}
-
-.subject-field {
-  position: relative;
-  z-index: 2;
-}
-
 .pre-submit-alerts {
   display: flex;
   flex-direction: column;
@@ -1308,8 +1314,7 @@
     padding: var(--space-3) var(--space-4);
   }
 
-  .use-grid,
-  .field-grid {
+  .use-grid {
     grid-template-columns: minmax(0, 1fr);
   }
 }
