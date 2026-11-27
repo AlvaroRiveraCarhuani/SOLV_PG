@@ -63,6 +63,10 @@ func (h *EnvironmentRequestHandler) Create(w http.ResponseWriter, r *http.Reques
 	}
 	created, err := h.service.Create(r.Context(), getTenantFromCtx(r), getUserIDFromCtx(r), dto)
 	if err != nil {
+		if errors.Is(err, domain.ErrIncompatibleAddon) {
+			SendError(w, http.StatusUnprocessableEntity, "incompatible_addon", err.Error())
+			return
+		}
 		if errors.Is(err, domain.ErrEnvironmentRequestInvalid) {
 			SendError(w, http.StatusUnprocessableEntity, "invalid_request", err.Error())
 			return

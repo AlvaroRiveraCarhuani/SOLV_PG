@@ -361,6 +361,11 @@ func (s *EnvironmentRequestService) compose(
 	}
 	plan, err := s.composer.Compose(ctx, tenantID, env, cfg)
 	if err != nil {
+		// La incompatibilidad real de piezas sí invalida el pedido: el docente
+		// eligió un complemento que no aplica al runtime activo y debe corregirlo.
+		if errors.Is(err, domain.ErrIncompatibleAddon) {
+			return nil, err
+		}
 		// Un docente puede nombrar una pieza que ya no está en el catálogo. Eso
 		// no invalida el pedido: se guarda como faltante y el administrador
 		// decide. Solo se propaga el error si no hay nada que guardar.

@@ -44,6 +44,7 @@ var (
 	ErrComponentSystemLocked  = errors.New("system technology components cannot be deleted")
 	ErrComponentInUse         = errors.New("technology component is referenced by existing environments")
 	ErrComponentReadOnly      = errors.New("technology component belongs to another tenant catalog and is read-only")
+	ErrIncompatibleAddon      = errors.New("complemento incompatible con el runtime activo")
 	ErrInvalidPackageName     = errors.New("invalid package name: only alphanumeric characters and @_./=->< are allowed")
 	ErrInvalidExtensionID     = errors.New("invalid extension ID: expected format publisher.name (e.g. golang.go)")
 	packageNameAllowlistRegex = regexp.MustCompile(`^[a-zA-Z0-9@_./=<>-]+$`)
