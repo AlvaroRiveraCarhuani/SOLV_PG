@@ -27,7 +27,26 @@ export class PracticeEnvTestService {
         `/api/v1/teacher/courses/${courseId}/exercises/${exerciseId}/env-test`,
         {}
       )
-      .pipe(map(res => res.data));
+      .pipe(
+        map(res => res.data),
+        catchError(err => throwError(() => new Error(this.startErrorMessage(err))))
+      );
+  }
+
+  /**
+   * Mensaje de la prueba en palabras: un nodo cerca de su capacidad o con un
+   * build en curso no es un fallo del entorno ni obliga a calcular memoria.
+   */
+  startErrorMessage(err: unknown): string {
+    const status = (err as { status?: number } | null)?.status;
+    const serverMessage = (err as { error?: { message?: string } } | null)?.error?.message;
+    if (status === 503) {
+      return 'El servidor está cerca de su capacidad con laboratorios activos; intenta de nuevo en unos minutos.';
+    }
+    if (status === 429) {
+      return 'El servidor está construyendo otra imagen en este momento; intenta de nuevo en unos minutos.';
+    }
+    return serverMessage || 'No se pudo iniciar la prueba de entorno.';
   }
 
   latest(exerciseId: string): Observable<PracticeEnvTestJob | null> {

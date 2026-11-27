@@ -91,7 +91,12 @@
             <div class="bp-metric-card">
               <span class="bp-label">Capacidad aula</span>
               @if (hasSelectedStack()) {
-                @if (nominalConcurrentStudents(); as nominal) {
+                @if (capacityImpact(); as impact) {
+                  <strong class="bp-metric-value">~<span machineData>{{ impact.estimated_concurrent_students }}</span></strong>
+                  <span class="bp-metric-note">
+                    {{ targetEnvironment() === 'JUEZ_EFIMERO' ? 'evaluaciones simultáneas' : 'estudiantes simultáneos' }}
+                  </span>
+                } @else if (nominalConcurrentStudents(); as nominal) {
                   <strong class="bp-metric-value">~<span machineData>{{ nominal }}</span></strong>
                   <span class="bp-metric-note">
                     {{ targetEnvironment() === 'JUEZ_EFIMERO' ? 'evaluaciones simultáneas' : 'estudiantes simultáneos' }}
@@ -105,6 +110,20 @@
             </div>
           </div>
         </div>
+
+        @if (capacityImpact(); as impact) {
+          <div class="bp-block bp-capacity is-{{ impact.level }}">
+            <div class="bp-capacity-head">
+              <span class="bp-label">Capacidad del servidor</span>
+              <span class="bp-capacity-pill">{{ capacityLevelLabel() }}</span>
+            </div>
+            <p class="bp-capacity-summary">{{ impact.summary }}</p>
+            <span class="bp-capacity-note">
+              Quedan <span machineData>{{ impact.currently_available_students }}</span> lugares libres de
+              <span machineData>{{ impact.estimated_concurrent_students }}</span> en el servidor actual.
+            </span>
+          </div>
+        }
 
         <div class="bp-block">
           <span class="bp-label">Programas Incluidos</span>

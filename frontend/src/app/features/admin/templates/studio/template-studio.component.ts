@@ -19,6 +19,7 @@ import {
 import { EnvTestJob, EnvTestJobService } from '../../services/env-test-job.service';
 import { EnvironmentRequestService } from '@features/teacher/services/environment-request.service';
 import {
+  CapacityImpact,
   EnvironmentRequest,
   EnvironmentRequestStackConfig
 } from '@features/teacher/templates/environment-request.models';
@@ -694,6 +695,65 @@ export class TemplateStudioComponent implements OnInit, OnDestroy {
     })
   );
 
+  /**
+   * Impacto de capacidad que informa el servidor para la receta armada. Se
+   * pide al mismo compose que resuelve la imagen y trae la frase humana; el
+   * panel nunca calcula megabytes a mano ni asume un tamaño de host.
+   */
+  readonly capacityImpact = signal<CapacityImpact | null>(null);
+  private capacityTimer: ReturnType<typeof setTimeout> | null = null;
+  private capacityRequestId = 0;
+
+  /** Receta mínima para pedir el impacto: la misma que arma la imagen. */
+  private readonly capacityComposeConfig = computed<{ target: TargetEnvironment; stack: StackConfig } | null>(() => {
+    if (!this.hasSelectedStack()) {
+      return null;
+    }
+    return {
+      target: this.targetEnvironment(),
+      stack: {
+        mode: this.studioMode(),
+        runtime_id: this.selectedRuntimeId() || undefined,
+        web_platform_id: this.selectedWebPlatformId() || undefined,
+        addon_ids: [...this.selectedAddonIds()],
+        database_id: this.selectedDatabaseId()
+      }
+    };
+  });
+
+  /**
+   * Pide el impacto de capacidad al servidor cada vez que cambia la receta. Se
+   * agrupa con un retardo corto para no pedir un compose por cada clic, y las
+   * respuestas viejas se descartan por número de pedido.
+   */
+  private readonly capacityEffect = effect(() => {
+    const config = this.capacityComposeConfig();
+    if (this.capacityTimer) {
+      clearTimeout(this.capacityTimer);
+      this.capacityTimer = null;
+    }
+    if (!config) {
+      this.capacityRequestId++;
+      this.capacityImpact.set(null);
+      return;
+    }
+    this.capacityTimer = setTimeout(() => {
+      const requestId = ++this.capacityRequestId;
+      this.templatesService.composeTemplatePreview(config.target, config.stack).subscribe({
+        next: plan => {
+          if (requestId === this.capacityRequestId) {
+            this.capacityImpact.set(plan.capacity_impact ?? null);
+          }
+        },
+        error: () => {
+          if (requestId === this.capacityRequestId) {
+            this.capacityImpact.set(null);
+          }
+        }
+      });
+    }, 350);
+  });
+
   readonly capacityOptions = computed<CapacityOption[]>(() => {
     if (!this.hasSelectedStack()) return [];
     const isJudge = this.targetEnvironment() === 'JUEZ_EFIMERO';
@@ -811,6 +871,10 @@ export class TemplateStudioComponent implements OnInit, OnDestroy {
   ngOnDestroy(): void {
     this.help.unregisterGuides(STUDIO_HELP_KEY);
     this.help.unregisterScreen(STUDIO_HELP_KEY);
+    if (this.capacityTimer) {
+      clearTimeout(this.capacityTimer);
+      this.capacityTimer = null;
+    }
     this.pollSub?.unsubscribe();
     this.sub.unsubscribe();
   }

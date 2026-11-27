@@ -4,8 +4,10 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"runtime"
 	"strconv"
 
+	"github.com/shirou/gopsutil/v3/load"
 	"github.com/shirou/gopsutil/v3/mem"
 	"solv-backend/internal/core/domain"
 )
@@ -23,6 +25,29 @@ func NewGopsutilHostMonitor(minFreePct float64) domain.HostMonitor {
 	return &GopsutilHostMonitor{
 		minFreePct: minFreePct,
 	}
+}
+
+// HostLoadAverage1Min devuelve el load average de 1 minuto del nodo. La
+// admisión lo usa como compuerta conservadora para operaciones pesadas
+// (builds y previews): con el load saturado no se arranca otra.
+func HostLoadAverage1Min() (float64, error) {
+	average, err := load.Avg()
+	if err != nil || average == nil {
+		return 0, fmt.Errorf("failed to read load average via gopsutil: %w", err)
+	}
+	return average.Load1, nil
+}
+
+// HostHeavyOperationAllowed aplica la compuerta de carga con los núcleos del
+// nodo como referencia. Es la misma política que aplica el dominio.
+func HostHeavyOperationAllowed(load1 float64) bool {
+	return domain.HeavyOperationAllowed(load1, runtime.NumCPU())
+}
+
+// HostDiskAlertRecommended avisa de forma preventiva cuando el disco se
+// acerca al piso duro del 5% que bloquea altas.
+func HostDiskAlertRecommended(freePct float64) bool {
+	return domain.DiskAlertRecommended(freePct)
 }
 
 // HostTotalRAMMB devuelve la RAM total del host en MB. Es la base para

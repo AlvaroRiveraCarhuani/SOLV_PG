@@ -273,6 +273,25 @@
       }
     </section>
 
+    <!-- Capacidad del servidor en palabras: cuántos estudiantes caben -->
+    @if (capacityImpact(); as impact) {
+      <section class="drawer-section" data-tour="requests-capacity">
+        <h3 class="section-title">Capacidad del servidor</h3>
+        <div class="capacity-card is-{{ impact.level }}">
+          <div class="capacity-head">
+            <span class="capacity-pill">{{ capacityLabel(impact) }}</span>
+            <span class="capacity-free font-mono">
+              {{ impact.currently_available_students }} de {{ impact.estimated_concurrent_students }} lugares libres
+            </span>
+          </div>
+          <p class="capacity-summary">{{ impact.summary }}</p>
+          <p class="capacity-hint">
+            Estimado en vivo con la memoria del servidor y los entornos abiertos.
+          </p>
+        </div>
+      </section>
+    }
+
     <!-- Bloque de resolución abierta (EN_REVISION o NECESITA_CAMBIO) -->
     @if (canReview(req)) {
       <section class="drawer-section resolution-section">

@@ -489,6 +489,65 @@
   }
 }
 
+/* Capacidad en palabras: la pill cambia de tono sin jerga de memoria. */
+.capacity-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-4);
+  background-color: var(--bg-surface-subtle);
+  border: 1px solid var(--border-subtle);
+  border-left-width: 3px;
+  border-radius: var(--radius-md);
+
+  &.is-comfortable {
+    border-left-color: var(--color-success);
+  }
+
+  &.is-moderate {
+    border-left-color: var(--color-warning);
+  }
+
+  &.is-tight {
+    border-left-color: var(--color-error);
+  }
+}
+
+.capacity-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.capacity-pill {
+  padding: var(--space-1) var(--space-2);
+  font-size: var(--text-xs);
+  font-weight: 600;
+  color: var(--text-primary);
+  background-color: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-full);
+}
+
+.capacity-free {
+  font-size: var(--text-xs);
+  color: var(--text-secondary);
+}
+
+.capacity-summary {
+  margin: 0;
+  font-size: var(--text-sm);
+  color: var(--text-primary);
+  line-height: var(--leading-normal);
+}
+
+.capacity-hint {
+  margin: 0;
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+}
+
 .drawer-section {
   display: flex;
   flex-direction: column;

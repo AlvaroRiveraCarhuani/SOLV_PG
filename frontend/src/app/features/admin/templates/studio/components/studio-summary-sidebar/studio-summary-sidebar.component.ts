@@ -15,6 +15,10 @@ import { CodeEditorComponent } from '@shared/components/code-editor/code-editor.
 import { AiProgressIndicatorComponent } from '@shared/components/ai-progress-indicator/ai-progress-indicator.component';
 import { MachineDataDirective } from '@shared/directives/machine-data.directive';
 import { TargetEnvironment, TemplateComponent } from '@features/admin/models/admin-templates.models';
+import {
+  CapacityImpact,
+  capacityLevelLabel
+} from '@features/teacher/templates/environment-request.models';
 import { EnvTestJob } from '../../../../services/env-test-job.service';
 import { TechLogoComponent } from '../../../components/tech-logo/tech-logo.component';
 import { StudioActionBlocker } from '../../template-studio.utils';
@@ -55,6 +59,8 @@ export class StudioSummarySidebarComponent {
   readonly hasSelectedStack = input<boolean>(false);
   readonly baseRamMB = input<number>(512);
   readonly nominalConcurrentStudents = input<number | null>(null);
+  /** Capacidad en lenguaje humano medida por el servidor para esta receta. */
+  readonly capacityImpact = input<CapacityImpact | null>(null);
   readonly toolsList = input<string[]>([]);
   readonly activeEnvTestJob = input<EnvTestJob | null>(null);
   readonly isConfigModifiedAfterVerification = input<boolean>(false);
@@ -68,6 +74,9 @@ export class StudioSummarySidebarComponent {
   readonly aiEnabled = input<boolean>(false);
   readonly isRepairingWithAi = input<boolean>(false);
   readonly repairElapsedSeconds = input<string>('0.0');
+
+  /** Etiqueta de la pill de capacidad: nunca muestra megabytes a mano. */
+  readonly capacityLevelLabel = computed<string>(() => capacityLevelLabel(this.capacityImpact()?.level));
 
   readonly displayDockerImage = computed<string>(() => {
     const raw = this.dockerImage().trim();

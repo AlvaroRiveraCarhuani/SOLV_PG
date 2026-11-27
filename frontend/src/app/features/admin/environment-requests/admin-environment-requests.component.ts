@@ -33,12 +33,14 @@ import { InteractiveTutorialService } from '@shared/help/interactive-tutorial.se
 import { environmentCovers } from '@shared/constants/environment-types.constants';
 import { EnvironmentRequestService } from '@features/teacher/services/environment-request.service';
 import {
+  CapacityImpact,
   ENVIRONMENT_REQUEST_STATUS_LABEL,
   ENVIRONMENT_REQUEST_STATUS_TONE,
   EnvironmentMissingComponent,
   EnvironmentRequest,
   EnvironmentRequestComponent,
   EnvironmentRequestStatus,
+  capacityLevelLabel,
   environmentLayerLabel
 } from '@features/teacher/templates/environment-request.models';
 import { AdminTemplatesService } from '../services/admin-templates.service';
@@ -249,6 +251,29 @@ export class AdminEnvironmentRequestsComponent implements OnInit, OnDestroy {
     this.selectedTemplateId.set(request.resolved_template_id || '');
     this.reviewNote.set('');
     this.error.set(null);
+    // La ficha completa trae el impacto de capacidad medido en el servidor
+    // actual; el listado no lo incluye para no repetirlo por fila.
+    if (!request.capacity_impact) {
+      this.requestService.getAdminRequest(request.id).subscribe({
+        next: full => {
+          const current = this.selected();
+          if (current && current.id === full.id) {
+            this.selected.set({ ...current, capacity_impact: full.capacity_impact });
+          }
+        },
+        error: () => undefined
+      });
+    }
+  }
+
+  /** Nivel de capacidad de la solicitud abierta, si el servidor pudo medirlo. */
+  capacityImpact(): CapacityImpact | null {
+    return this.selected()?.capacity_impact ?? null;
+  }
+
+  /** Etiqueta de la pill de capacidad: nunca muestra megabytes ni cgroups. */
+  capacityLabel(impact: CapacityImpact | null): string {
+    return capacityLevelLabel(impact?.level);
   }
 
   closeDrawer(): void {

@@ -66,7 +66,7 @@ func writeReviewEnvironmentError(w http.ResponseWriter, err error) {
 	case errors.Is(err, domain.ErrReviewEnvironmentStarting):
 		SendError(w, http.StatusConflict, "review_environment_starting", "El entorno de prueba se está iniciando; esperá unos segundos y reintentá")
 	case errors.Is(err, domain.ErrReviewEnvironmentHostMemory):
-		SendError(w, http.StatusServiceUnavailable, "oom_guard", "El nodo no tiene memoria disponible para abrir el entorno de prueba. Cerrá otros laboratorios e intentá de nuevo")
+		SendError(w, http.StatusServiceUnavailable, "oom_guard", "El servidor está cerca de su capacidad con laboratorios activos; intenta de nuevo en unos minutos")
 	case errors.Is(err, domain.ErrReviewEnvironmentNotReady):
 		SendError(w, http.StatusBadGateway, "app_not_ready", "El contenedor arrancó pero la aplicación no quedó escuchando en el puerto declarado. Revisá el comando de arranque")
 	case errors.Is(err, domain.ErrReviewEnvironmentStartFailed):

@@ -307,6 +307,14 @@ func (h *AdminAcademicHandler) WarmTemplate(w http.ResponseWriter, r *http.Reque
 			SendError(w, http.StatusNotFound, "template_not_found", "plantilla no encontrada")
 			return
 		}
+		if errors.Is(err, services.ErrBuildBusy) {
+			SendError(w, http.StatusTooManyRequests, "build_busy", "El servidor está construyendo otra imagen en este momento; intenta de nuevo en unos minutos")
+			return
+		}
+		if errors.Is(err, services.ErrHostCPUSaturated) {
+			SendError(w, http.StatusServiceUnavailable, "host_cpu_saturated", "El servidor está procesando muchas tareas a la vez; intenta de nuevo en unos minutos")
+			return
+		}
 		SendError(w, http.StatusInternalServerError, "warming_failed", err.Error())
 		return
 	}

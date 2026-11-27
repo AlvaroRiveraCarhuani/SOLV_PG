@@ -26,6 +26,18 @@ type AdminGovernanceService struct {
 	// auditWorker permite adelantar la auditoría técnica desde el panel sin
 	// esperar el tick del reconciliador. Se inyecta en main.go.
 	auditWorker *TemplateAuditWorker
+	// admission aporta la foto del nodo para armar capacity_impact. Se
+	// inyecta en main.go.
+	admission *PracticeEnvironmentService
+}
+
+// SetAdmission conecta el presupuesto del nodo para armar capacity_impact.
+func (s *AdminGovernanceService) SetAdmission(admission *PracticeEnvironmentService) *AdminGovernanceService {
+	if s == nil {
+		return s
+	}
+	s.admission = admission
+	return s
 }
 
 func NewAdminGovernanceService(

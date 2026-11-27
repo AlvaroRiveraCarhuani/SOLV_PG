@@ -192,6 +192,9 @@ type ComposedTemplatePlan struct {
 	DefaultEntrypoint string         `json:"default_entrypoint"`
 	RecommendedRamMB  int            `json:"recommended_ram_mb"`
 	ServicesConfig    ServicesConfig `json:"services_config"`
+	// CapacityImpact es la capacidad en lenguaje humano para esta receta en
+	// el servidor actual; lo calculan los servicios con acceso al nodo.
+	CapacityImpact *CapacityImpact `json:"capacity_impact,omitempty"`
 }
 
 // ValidatePackageNames verifica que cada nombre de paquete cumpla con la allowlist estricta sin metacaracteres de shell.

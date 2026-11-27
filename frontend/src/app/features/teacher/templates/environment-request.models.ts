@@ -41,6 +41,17 @@ export interface EnvironmentRequestSubject {
   added_at: string;
 }
 
+/**
+ * Capacidad en lenguaje humano: cuántos estudiantes simultáneos caben con un
+ * entorno en el servidor actual, calculado en vivo por el backend.
+ */
+export interface CapacityImpact {
+  estimated_concurrent_students: number;
+  currently_available_students: number;
+  level: 'comfortable' | 'moderate' | 'tight';
+  summary: string;
+}
+
 export interface EnvironmentRequest {
   id: string;
   tenant_id: string;
@@ -61,8 +72,10 @@ export interface EnvironmentRequest {
   review_note: string;
   reviewed_by?: string;
   reviewed_at?: string;
-  resolved_template_id?: string;
+  	  resolved_template_id?: string;
   resolved_template_name?: string;
+  /** Bloque vivo del servidor: no se persiste con la solicitud. */
+  capacity_impact?: CapacityImpact;
   created_at: string;
   updated_at: string;
 }
@@ -87,8 +100,21 @@ export interface EnvironmentRequestPreview {
   signature: string;
   components: EnvironmentRequestPreviewComponent[];
   missing_components: EnvironmentMissingComponent[];
-  duplicate_request?: EnvironmentRequestDuplicate;
-  existing_template?: EnvironmentRequestTemplateRef;
+  	duplicate_request?: EnvironmentRequestDuplicate;
+	existing_template?: EnvironmentRequestTemplateRef;
+	capacity_impact?: CapacityImpact;
+}
+
+/** Etiqueta corta del nivel de capacidad para la pill discreta del panel. */
+export const CAPACITY_LEVEL_LABEL: Record<CapacityImpact['level'], string> = {
+	comfortable: 'Holgado',
+	moderate: 'Ajustado',
+	tight: 'Al límite'
+};
+
+export function capacityLevelLabel(level?: string | null): string {
+	const key = (level || '').trim().toLowerCase() as CapacityImpact['level'];
+	return CAPACITY_LEVEL_LABEL[key] || 'Sin medición';
 }
 
 export interface EnvironmentRequestStackConfig {

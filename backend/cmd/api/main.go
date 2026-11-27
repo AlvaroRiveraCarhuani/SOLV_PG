@@ -175,8 +175,13 @@ func main() {
 	qosWorker := services.NewQoSOrchestratorWorker(environmentRepo, dockerClient, hostMonitor, 15*time.Minute, 10*time.Second)
 
 	// Preview efímero de SpeedGrader: el QoS worker es su único dueño temporal.
+	// La admisión unificada lo conecta al presupuesto de los laboratorios: un
+	// preview compite con la clase por la misma RAM del nodo.
 	reviewEnvRepo := postgres.NewPostgresReviewEnvironmentRepository(db.GetDB())
 	reviewEnvService := services.NewReviewEnvironmentService(reviewEnvRepo, teacherRepo, dockerClient, hostMonitor)
+	reviewEnvService.SetAdmissionService(environmentService)
+	// La compuerta de CPU frena builds y previews con el nodo saturado.
+	services.SetHostLoadProbe(system.HostLoadAverage1Min)
 	qosWorker.SetReviewEnvironmentReaper(reviewEnvService.ReapExpired)
 
 	// El techo de concurrencia por defecto se deriva de la RAM total medida: un
@@ -408,6 +413,7 @@ func main() {
 	teacherHandler.SetTerminalAuthorizer(teacherService)
 	teacherHandler.SetReviewEnvironmentService(reviewEnvService)
 	govService := services.NewAdminGovernanceService(subjectRepo, govRepo)
+	govService.SetAdmission(environmentService)
 	govService.SetAuditRepo(auditLogRepo)
 
 	// Padrón de la materia: lectura, alta individual y nómina sobre la misma
@@ -422,6 +428,7 @@ func main() {
 	environmentRequestRepo := postgres.NewPostgresEnvironmentRequestRepository(db.GetDB())
 	environmentRequestService := services.NewEnvironmentRequestService(environmentRequestRepo, govRepo)
 	environmentRequestService.SetTemplateLookup(govRepo)
+	environmentRequestService.SetAdmission(environmentService)
 	environmentRequestHandler := httpdelivery.NewEnvironmentRequestHandler(environmentRequestService)
 	// Submódulo 14.7 (ADR-032): executors de docker-prune y reset-pools.
 	govService.SetDockerPruner(dockerClient.PruneOrphans)
@@ -545,6 +552,7 @@ func main() {
 			SetupTimeout:      5 * time.Minute,
 		},
 	)
+	practiceEnvTestService.SetAdmissionService(environmentService)
 	envTestHandler := httpdelivery.NewEnvTestHandler(envTestService).SetPracticeService(practiceEnvTestService)
 
 	// Juez de ejercicios: perfiles de lenguaje versionados y auditoría

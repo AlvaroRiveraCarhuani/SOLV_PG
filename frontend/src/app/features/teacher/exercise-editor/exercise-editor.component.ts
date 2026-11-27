@@ -644,7 +644,9 @@ export class ExerciseEditorComponent implements OnInit, OnDestroy {
       },
       error: err => {
         this.isEnvTestRunning.set(false);
-        this.envTestError.set(err?.error?.message || 'No se pudo iniciar la prueba de entorno.');
+        this.envTestError.set(
+          err?.message || err?.error?.message || 'No se pudo iniciar la prueba de entorno.'
+        );
       }
     });
   }

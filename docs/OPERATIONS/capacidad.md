@@ -194,6 +194,44 @@ como techo de admisión pero el panel sigue informando los entornos vivos.
 Si el host se queda sin memoria, primero se baja el techo y se hibernan entornos;
 el procedimiento de emergencia está en `docs/OPERATIONS/incident-runbook.md` §6.
 
+## 7.1 Admisión unificada: laboratorios, previews y builds
+
+La cuota de un entorno no se decide en tres lugares distintos. Laboratorios de
+práctica, previews de entrega (`ReviewEnvironmentService.Start`) y pruebas de
+entorno (`PracticeEnvTestService`) reservan y liberan memoria del **mismo
+presupuesto en vuelo** (`reserveAdmissionQuota`), con el techo de seguridad y la
+reserva de motores satélite ya descritos:
+
+| Operación | Qué aparta | Cuándo libera |
+|---|---|---|
+| Abrir laboratorio | Cuota base más préstamo | Al terminar el alta (el registro pasa a contar) |
+| Preview de entrega | RAM de la plantilla, mínimo 512 MB | Al morir el preview: el QoS lo apaga por inactividad |
+| Prueba de entorno | RAM de la plantilla | Al terminar el job, con éxito, fallo o cancelación |
+
+Sin presupuesto libre, las tres responden `503` con un mensaje humano: «El
+servidor está cerca de su capacidad con laboratorios activos; intenta de nuevo
+en unos minutos». Ninguna operación tumba un laboratorio activo para entrar.
+
+### Un solo build por nodo
+
+Todas las construcciones de imagen (`BuildLocalStackImage` desde la prueba de
+entorno y desde el calentamiento de plantillas) comparten un semáforo global de
+concurrencia `1`: nunca corren dos `docker build` simultáneos en el mismo host.
+El segundo pedido no espera en cola infinitamente: recibe `429` con «El
+servidor está construyendo otra imagen en este momento; intenta de nuevo en
+unos minutos».
+
+### Compuerta de CPU y aviso de disco
+
+Además del semáforo, las operaciones pesadas leen el **load average de 1
+minuto** del nodo y lo comparan con `runtime.NumCPU()`: con más de 1,5 veces los
+núcleos ocupados la operación se frena con `503` («El servidor está procesando
+muchas tareas a la vez»). En reposo la compuerta deja pasar todo.
+
+El disco conserva el piso duro del 5% (`503 host_disk_exhausted`) y suma un
+aviso preventivo entre el 5% y el 15% libre: en esa franja el panel puede avisar
+antes de que las altas se bloqueen.
+
 ## 8. Préstamo de memoria cuando el nodo tiene hueco
 
 La cuota de un entorno no es un número fijo. La admisión toma la base que fijan
@@ -219,6 +257,35 @@ en ejecución.
 Lo que no cambia: si ni la base entra, el entorno se rechaza con
 `host_memory_exhausted`, y el techo por contenedor sigue siendo 4096 MB, que es
 el perfil Intensivo que el administrador ya podía definir en una plantilla.
+
+## 8.1 Capacidad en lenguaje humano (`capacity_impact`)
+
+El administrador no calcula megabytes: el backend traduce el presupuesto a
+estudiantes simultáneos con la RAM total medida y el techo de seguridad vigente.
+El bloque viaja en el preview de la solicitud de entorno, en el detalle de la
+solicitud para el administrador y en el preview del Constructor
+(`POST /api/v1/admin/templates/compose-preview`):
+
+```json
+"capacity_impact": {
+  "estimated_concurrent_students": 217,
+  "currently_available_students": 43,
+  "level": "moderate",
+  "summary": "Con este entorno caben aprox. 217 estudiantes a la vez en tu servidor actual"
+}
+```
+
+- `estimated_concurrent_students` = `RAM total × techo% ÷ RAM recomendada del
+  entorno`. Es el tamaño total de una clase con ese entorno en este servidor.
+- `currently_available_students` descuenta lo ya comprometido: entornos
+  abiertos, previews en vuelo y la reserva de motores satélite del nodo.
+- `level` sale de la fracción libre: `comfortable` con al menos 80%, `moderate`
+  desde 40% y `tight` por debajo.
+- `summary` es la frase corta para un administrador no técnico.
+
+Sin medición del host no se inventa capacidad: el bloque no se envía y la
+interfaz muestra su estado sin medición. El cálculo vive en
+`domain.BuildCapacityImpact` y no conoce ningún tamaño de servidor fijo.
 
 ## 9. Disco: cuánto ocupa un laboratorio y qué pasa cuando se llena
 

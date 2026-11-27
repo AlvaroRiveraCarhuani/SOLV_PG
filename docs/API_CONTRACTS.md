@@ -2959,3 +2959,75 @@ manual:
   responden `422 incompatible_addon` con el complemento y el runtime activo.
   Una pieza que no existe en el catálogo sigue tratándose como faltante, no como
   incompatibilidad.
+
+---
+
+## Admisión unificada y capacidad en lenguaje humano
+
+Esta sección documenta el contrato de admisión que comparten laboratorios de
+práctica, previews de entrega y pruebas de entorno, y el bloque `capacity_impact`
+que consumen el panel de solicitudes y el Constructor.
+
+Fuera de este bloque, el contrato del backend conserva lo ya documentado en
+§12 (creación de entornos) y §13 (edición y publicación de prácticas).
+
+### Un solo presupuesto en vuelo
+
+- `POST /api/v1/environments/start` y `POST /api/v1/teacher/courses/{courseId}/exercises/{exerciseId}/ide`
+  reservan su cuota con `reserveAdmissionQuota` (RAM total × techo de seguridad −
+  comprometido − satélites).
+- `POST /api/v1/teacher/submissions/{id}/test-environment` (preview de una
+  entrega) y `POST /api/v1/teacher/courses/{courseId}/exercises/{exerciseId}/env-test`
+  (prueba de entorno) reservan del **mismo** presupuesto. El preview queda
+  apartado hasta que el QoS lo apaga; la prueba, hasta que el job termina.
+- Sin hueco, las cuatro rutas responden `503` con un mensaje humano y no tocan
+  ningún entorno activo:
+
+  ```json
+  { "error": "oom_guard", "message": "El servidor está cerca de su capacidad con laboratorios activos; intenta de nuevo en unos minutos" }
+  ```
+
+### Semáforo de construcción y compuerta de CPU
+
+- Todas las construcciones de imagen comparten un semáforo global de
+  concurrencia `1`: nunca hay dos `docker build` simultáneos en el nodo.
+- Si ya hay un build en curso:
+  - `POST /api/v1/teacher/courses/{courseId}/exercises/{exerciseId}/env-test` → `429 build_busy`.
+  - `POST /api/v1/admin/templates/{id}/warm` → `429 build_busy`.
+  - En los jobs asíncronos (`POST /api/v1/jobs/env-test`), el job termina en
+    `failed` con el mismo mensaje.
+- Con el load average de 1 minuto por encima de `1,5 × núcleos`, el calentamiento
+  de plantillas responde `503 host_cpu_saturated`. El resto de rutas no cambia.
+
+### `capacity_impact`
+
+El bloque aparece en tres respuestas, siempre calculado en vivo con la RAM total
+medida del nodo y el techo de seguridad vigente (`host_safety_ceiling_pct`):
+
+| Ruta | Dónde |
+|---|---|
+| `POST /api/v1/teacher/environment-requests/preview` | raíz de la respuesta |
+| `GET /api/v1/admin/environment-requests/{id}` | raíz de la ficha |
+| `POST /api/v1/admin/templates/compose-preview` | raíz del plan |
+
+```json
+{
+  "capacity_impact": {
+    "estimated_concurrent_students": 217,
+    "currently_available_students": 43,
+    "level": "moderate",
+    "summary": "Con este entorno caben aprox. 217 estudiantes a la vez en tu servidor actual"
+  }
+}
+```
+
+| Campo | Tipo | Significado |
+|---|---|---|
+| `estimated_concurrent_students` | int | Estudiantes simultáneos que caben con ese entorno en este servidor. |
+| `currently_available_students` | int | Cuántos caben ahora, descontando entornos abiertos, reservas en vuelo y satélites. |
+| `level` | `comfortable` \| `moderate` \| `tight` | Fracción de hueco libre: ≥80%, ≥40%, menos. |
+| `summary` | string | Frase corta en español para un administrador no técnico. |
+
+El bloque se omite cuando el host no se pudo medir: no hay capacidad inventada.
+`capacity_impact` no se persiste con la solicitud ni con la plantilla; es una
+lectura del estado del servidor en el momento de la consulta.
