@@ -368,6 +368,35 @@
                 }
               </div>
 
+              <!-- Descarga del proyecto para correrlo fuera de SOLV -->
+              <div class="operative-action-export">
+                <button
+                  type="button"
+                  class="btn-secondary btn-block"
+                  data-testid="btn-export-project"
+                  [disabled]="!canExportProject()"
+                  (click)="exportProject()"
+                >
+                  @if (isExportingProject()) {
+                    <svg lucideLoader2 class="btn-icon motion-spin"></svg>
+                    <span>Generando paquete…</span>
+                  } @else {
+                    <svg lucideDownload class="btn-icon"></svg>
+                    <span>Exportar para mi PC</span>
+                  }
+                </button>
+                @if (!exportEnvironmentId()) {
+                  <p class="field-hint" data-testid="export-needs-environment">Abre el entorno al menos una vez para exportar tu código.</p>
+                } @else if (isExamProject() && !canExportProject()) {
+                  <p class="field-hint">Disponible cuando termine el examen.</p>
+                } @else {
+                  <p class="field-hint">Su código con Docker, base de datos y una guía para correrlo sin SOLV.</p>
+                }
+                @if (exportError()) {
+                  <div class="error-notice" role="alert">{{ exportError() }}</div>
+                }
+              </div>
+
               @if (hasProjectSubmission()) {
                 <div class="submission-registered-box">
                   <svg lucideCheckCircle2 class="box-icon"></svg>

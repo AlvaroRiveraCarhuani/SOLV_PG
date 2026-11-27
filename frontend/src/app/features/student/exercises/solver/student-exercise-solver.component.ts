@@ -13,6 +13,7 @@ import {
   LucideClock,
   LucideColumns2,
   LucideCopy,
+  LucideDownload,
   LucideExternalLink,
   LucideFileCode,
   LucideFileText,
@@ -127,6 +128,7 @@ export function formatCPUQuota(cpuMillis: number): string {
     LucideClock,
     LucideColumns2,
     LucideCopy,
+    LucideDownload,
     LucideExternalLink,
     LucideFileCode,
     LucideFileText,
@@ -190,10 +192,14 @@ export class StudentExerciseSolverComponent implements OnInit {
 
   // IDE Persistente
   readonly environment = signal<PracticeEnvironment | null>(null);
+  /** Entorno que el alumno ya creó para esta práctica, aunque esté hibernado. */
+  readonly previousEnvironment = signal<PracticeEnvironment | null>(null);
   readonly isStartingEnvironment = signal<boolean>(false);
   readonly environmentError = signal<string | null>(null);
   readonly isSubmittingProject = signal<boolean>(false);
   readonly projectError = signal<string | null>(null);
+  readonly isExportingProject = signal<boolean>(false);
+  readonly exportError = signal<string | null>(null);
   readonly projectSubmission = signal<PracticeEnvironmentProjectSubmissionDTO | null>(null);
   readonly projectSubmittedAt = signal<Date | null>(null);
   readonly examSubmitPending = signal<boolean>(false);
@@ -377,6 +383,24 @@ export class StudentExerciseSolverComponent implements OnInit {
       return false;
     }
     return true;
+  });
+
+  /**
+   * Id con el que se descarga el proyecto: sirve el entorno abierto en esta
+   * sesión o el que el alumno creó antes, aunque esté hibernado. Así la
+   * descarga no obliga a levantar un contenedor solo para obtener el .zip.
+   */
+  readonly exportEnvironmentId = computed<string | null>(
+    () => this.environment()?.id ?? this.previousEnvironment()?.id ?? null
+  );
+
+  readonly canExportProject = computed<boolean>(() => {
+    if (!this.exportEnvironmentId() || this.isExportingProject()) {
+      return false;
+    }
+    // El backend bloquea la exportación durante un examen abierto: no se
+    // ofrece un botón que va a terminar en 403.
+    return !this.isExamProject() || this.examClosed() || this.environmentState() === 'closed';
   });
 
   readonly timeLimitLabel = computed<string>(() => {
@@ -590,6 +614,9 @@ export class StudentExerciseSolverComponent implements OnInit {
     // Si es IDE_PERSISTENTE, cargar rúbrica oficial
     if (this.isIdeExercise()) {
       void this.studentService.getExerciseRubric(id).then(r => this.rubric.set(r));
+      // El entorno pudo quedar de otra sesión: saber que existe habilita la
+      // descarga sin abrir el contenedor.
+      void this.loadPreviousEnvironment();
       return;
     }
 
@@ -791,6 +818,61 @@ export class StudentExerciseSolverComponent implements OnInit {
       this.projectError.set('No se pudo registrar la entrega del proyecto.');
     } finally {
       this.isSubmittingProject.set(false);
+    }
+  }
+
+  /**
+   * Busca el entorno que el alumno ya creó para esta práctica. La consulta no
+   * arranca el contenedor: solo permite exportar el código desde el inicio.
+   */
+  async loadPreviousEnvironment(): Promise<void> {
+    const exercise = this.exercise();
+    if (!exercise?.id || !exercise.subject_id || !this.isIdeExercise()) {
+      return;
+    }
+    try {
+      this.previousEnvironment.set(
+        await this.studentService.getPracticeEnvironmentForExercise(exercise.subject_id, exercise.id)
+      );
+    } catch {
+      this.previousEnvironment.set(null);
+    }
+  }
+
+  /**
+   * Descarga el proyecto del entorno como .zip para correrlo fuera de SOLV.
+   * El paquete lo genera el servidor: código, Dockerfile local, compose con
+   * los servicios de la plantilla y un README en español.
+   */
+  async exportProject(): Promise<void> {
+    const environmentId = this.exportEnvironmentId();
+    if (!environmentId || this.isExportingProject()) return;
+
+    this.isExportingProject.set(true);
+    this.exportError.set(null);
+
+    try {
+      const { blob, filename } = await this.studentService.exportPracticeEnvironment(environmentId);
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = filename;
+      link.rel = 'noopener';
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(url);
+    } catch (error) {
+      // El backend distingue el paquete demasiado grande del resto: repetir la
+      // descarga nunca va a resolver ese caso.
+      const status = (error as { status?: number } | null)?.status;
+      this.exportError.set(
+        status === 413
+          ? 'El proyecto es demasiado grande para descargarlo. Borre archivos generados y vuelva a intentar.'
+          : 'No se pudo generar el paquete para su PC. Intente de nuevo en unos segundos.'
+      );
+    } finally {
+      this.isExportingProject.set(false);
     }
   }
 

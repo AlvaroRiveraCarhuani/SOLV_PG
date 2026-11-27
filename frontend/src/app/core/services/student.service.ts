@@ -345,6 +345,57 @@ export class StudentService {
     return resp && 'data' in resp && resp.data ? resp.data : (resp as PracticeEnvironmentProjectSubmissionDTO);
   }
 
+  /**
+   * Descarga el proyecto del entorno como un .zip reproducible para la
+   * computadora del alumno. Los archivos los arma el backend; acá solo se
+   * entrega el archivo con el nombre que indica el servidor.
+   */
+  async exportPracticeEnvironment(environmentId: string): Promise<{ blob: Blob; filename: string }> {
+    const resp = await firstValueFrom(
+      this.http.get(`/api/v1/student/environments/${environmentId}/export`, {
+        observe: 'response',
+        responseType: 'blob',
+        withCredentials: true
+      })
+    );
+    const disposition = resp.headers.get('Content-Disposition') ?? '';
+    const match = /filename="?([^";]+)"?/i.exec(disposition);
+    return {
+      blob: resp.body ?? new Blob([], { type: 'application/zip' }),
+      filename: match?.[1] ?? 'proyecto-solv.zip'
+    };
+  }
+
+  /**
+   * Consulta si el alumno ya creó su entorno para una práctica. Es solo
+   * lectura: el backend no arranca el contenedor, así que sirve para ofrecer
+   * la descarga del proyecto sin abrir el laboratorio.
+   */
+  async getPracticeEnvironmentForExercise(
+    subjectId: string,
+    exerciseId: string
+  ): Promise<PracticeEnvironment | null> {
+    const resp = await firstValueFrom(
+      this.http.get<
+        | { data?: { environment?: PracticeEnvironment | null } }
+        | { environment?: PracticeEnvironment | null }
+      >('/api/v1/student/environments', {
+        params: { subject_id: subjectId, exercise_id: exerciseId },
+        withCredentials: true
+      })
+    );
+    const raw =
+      resp && 'data' in resp && resp.data
+        ? resp.data.environment
+        : (resp as { environment?: PracticeEnvironment | null }).environment;
+    if (!raw) return null;
+    return {
+      ...raw,
+      id: raw.id || raw.environment_id || '',
+      last_activity_at: raw.last_activity_at || raw.last_heartbeat_at
+    };
+  }
+
   async pauseEnvironment(environmentId: string): Promise<void> {
     await firstValueFrom(
       this.http.post(`/api/v1/environments/${environmentId}/pause`, {})
