@@ -42,5 +42,6 @@ docs/UI/solv-*.html
 docs/UI/capturas-2026-11/
 .solv-run/
 *.log
+!docs/CAPACITY/evidencia-campana-v2/**/*.log
 *.zip
 

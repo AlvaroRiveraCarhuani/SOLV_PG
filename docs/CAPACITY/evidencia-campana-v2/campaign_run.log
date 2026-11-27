@@ -1,0 +1,616 @@
+[2026-11-27T11:05:40Z] campaign_v2_boot commit=6ea0589c0ccdc78ce291dd8ebe23dcee1f62f268 host=asus-server
+[2026-11-27T11:05:40Z] host_baseline=raw/host_baseline.txt (capturado antes de la siembra)
+[2026-11-27T11:06:10Z] stage=seed start_utc=2026-11-27T11:06:10Z (materia + 10 prácticas + 3 proyectos IDE + 41 estudiantes temporales)
+[2026-11-27T11:06:12Z] stage=seed end_utc=2026-11-27T11:06:12Z exit=0
+[2026-11-27T11:06:20Z] stage=tokens start_utc=2026-11-27T11:06:20Z
+[2026-11-27T11:06:21Z] stage=tokens end_utc=2026-11-27T11:06:21Z exit=0 (40 tokens de aula + 1 token IDE)
+[2026-11-27T11:07:10Z] environment_prep=semgrep: el binario no existía en solv_backend y toda evaluación devolvía HTTP 500 "exec: semgrep: executable file not found in $PATH". Se instaló semgrep==1.186.0 (misma versión que la campaña v1) dentro del contenedor en ejecución. Log: raw/environment_prep_semgrep.log
+[2026-11-27T11:07:58Z] environment_prep_check=https://127.0.0.1/api/v1/evaluations http=200 total=17.857757s verdict=RE (python: can't open file '/runner/solution.py')
+[2026-11-27T11:08:40Z] smoke=lectura 200 en 26.9 ms; entrega 201 en 124.6 ms con recibo de evaluación
+[2026-11-27T11:10:36Z] stage=e6_dryrun start_utc=2026-11-27T11:10:36Z (1 corrida fría + reanudaciones de validación)
+[2026-11-27T11:11:01Z] stage=e6_dryrun end_utc=2026-11-27T11:11:01Z exit=0 (frío 7348.66 ms; pausa 241.30 ms; reanudación 298.88 ms)
+[2026-11-27T11:11:25Z] campaign_v2_boot commit=6ea0589c0ccdc78ce291dd8ebe23dcee1f62f268 host=asus-server kernel=6.8.0-151-generic
+[2026-11-27T11:11:25Z] stage=baseline start_utc=2026-11-27T11:11:25Z
+# host_baseline — campaña experimental v2 (SOLV)
+captured_at_utc: 2026-11-27T11:11:25Z
+repo: /home/alrivera/SOLV_PG
+commit: 6ea0589c0ccdc78ce291dd8ebe23dcee1f62f268
+commit_subject: Merge pull request #1 from AlvaroRiveraCarhuani/feat/student-export-and-recipes
+branch: main
+dirty_worktree: 1 archivos modificados
+
+## uname
+Linux asus-server 6.8.0-151-generic #151-Ubuntu SMP PREEMPT_DYNAMIC Wed Nov 11 01:28:36 UTC 2026 x86_64 x86_64 x86_64 GNU/Linux
+
+## cpu
+8
+CPU(s):                                  8
+Model name:                              Intel(R) Core(TM) i7-6700HQ CPU @ 2.60GHz
+Thread(s) per core:                      2
+Core(s) per socket:                      4
+Socket(s):                               1
+CPU(s) scaling MHz:                      77%
+
+## memoria (free -m)
+               total        used        free      shared  buff/cache   available
+Mem:           11852        3441        3218         371        5910        8410
+Swap:           4095         323        3772
+
+## loadavg / uptime (reposo)
+3.60 3.06 2.62 3/1114 939983
+ 11:11:26 up 1 day, 17:00,  4 users,  load average: 3.60, 3.06, 2.62
+
+## disco (df -h /)
+Filesystem                         Size  Used Avail Use% Mounted on
+/dev/mapper/ubuntu--vg-ubuntu--lv  914G   91G  786G  11% /
+
+## temperatura y frecuencia (reposo)
+/sys/class/thermal/thermal_zone0/temp: 65000 m°C
+/sys/class/thermal/thermal_zone1/temp: 20000 m°C
+/sys/class/thermal/thermal_zone2/temp: 50 m°C
+/sys/class/thermal/thermal_zone3/temp: 50 m°C
+/sys/class/thermal/thermal_zone4/temp: 50 m°C
+/sys/class/thermal/thermal_zone5/temp: 50 m°C
+/sys/class/thermal/thermal_zone6/temp: 45000 m°C
+/sys/class/thermal/thermal_zone7/temp: 67000 m°C
+/sys/class/thermal/thermal_zone8/temp: 68000 m°C
+/sys/class/thermal/thermal_zone9/temp: 52000 m°C
+sensors: no instalado
+
+## docker ps
+NAMES                                                         IMAGE                           STATUS                  PORTS
+solv-environment-dcc0fa1f-3cde-4af5-8607-84cd953683f8         solv-local/stack:49bf80831f63   Up 47 seconds           127.0.0.1:43929->3000/tcp
+solv-environment-b4fb3748-1def-4bc9-b2ae-3ac646789a17-proxy   alpine/socat:1.8.0.0            Up 40 hours             127.0.0.1:41897->3000/tcp
+solv-environment-b4fb3748-1def-4bc9-b2ae-3ac646789a17         solv-local/stack:a4ff75197065   Up 40 hours             3000/tcp
+solv-sat-postgres                                             postgres:18-alpine              Up 40 hours             5432/tcp
+solv_backend                                                  golang:1.25-bookworm            Up 41 hours (healthy)   127.0.0.1:3000->3000/tcp
+solv_frontend                                                 solv-frontend:dev               Up 41 hours (healthy)   80/tcp
+solv_seaweedfs                                                chrislusf/seaweedfs:4.51        Up 41 hours             7333/tcp, 8080/tcp, 8888/tcp, 9333/tcp, 18080/tcp, 18888/tcp, 19333/tcp, 127.0.0.1:8333->8333/tcp
+solv_db                                                       postgres:18-alpine              Up 41 hours (healthy)   127.0.0.1:5432->5432/tcp
+solv_traefik                                                  traefik:v3.7.8                  Up 41 hours             0.0.0.0:80->80/tcp, [::]:80->80/tcp, 0.0.0.0:443->443/tcp, [::]:443->443/tcp, 0.0.0.0:443->443/udp, [::]:443->443/udp
+solv_dev_db                                                   postgres:18-alpine              Up 41 hours             127.0.0.1:5433->5432/tcp
+
+## docker version
+client=29.3.1 server=29.3.1
+
+## contenedores / volumenes / redes
+containers_running: 10
+containers_total: 40
+volumes_total: 199
+bridge	bridge
+host	host
+none	null
+solv-dev_default	bridge
+solv-e2e-ci_default	bridge
+solv-exam-net	bridge
+solv-exam-satellites-net	bridge
+solv-satellites-net	bridge
+solv-traefik-net	bridge
+solv-traefik-net-test	bridge
+solv_default	bridge
+solv_net	bridge
+
+## procesos del backend (VmRSS del proceso Go dentro del contenedor)
+pid=1
+VmHWM:	   16224 kB
+VmRSS:	    9516 kB
+
+## limites del rate limiter declarados en .env
+RATE_LIMIT_IP_PER_MINUTE=120000
+RATE_LIMIT_IP_BURST=10000
+
+## topologia de redes de examen
+solv-exam-net internal=true driver=bridge
+[2026-11-27T11:11:26Z] stage=baseline end_utc=2026-11-27T11:11:26Z exit=0
+[2026-11-27T11:11:26Z] host_baseline=raw/host_baseline.txt bytes=4341
+[2026-11-27T11:11:26Z] stage=seed start_utc=2026-11-27T11:11:26Z
+BEGIN
+NOTICE:  campaña v2 sembrada: subject d0000000-0000-0000-0000-0000000000a1 / ide d0000000-0000-0000-0000-0000000000b1 / template df7c9b79-88c7-4525-9e3f-dea7ebe49c32
+DO
+COMMIT
+[2026-11-27T11:11:26Z] stage=seed end_utc=2026-11-27T11:11:26Z exit=0
+[2026-11-27T11:11:26Z] stage=tokens start_utc=2026-11-27T11:11:26Z
+tokens firmados: 40 estudiantes de aula + ide=sí
+[2026-11-27T11:11:27Z] stage=tokens end_utc=2026-11-27T11:11:27Z exit=0
+[2026-11-27T11:11:27Z] stage=smoke start_utc=2026-11-27T11:11:27Z
+smoke_read_http=200 time=0.017504
+[2026-11-27T11:11:27Z] stage=smoke end_utc=2026-11-27T11:11:27Z
+[2026-11-27T11:11:27Z] stage=e6 start_utc=2026-11-27T11:11:27Z
+e6_start_utc=2026-11-27T11:11:27Z image_cached=True
+e6 cold n=1 block=1 http=200 ms=2495.26 vol=removed_before_run start=2026-11-27T11:11:34Z end=2026-11-27T11:11:37Z
+e6 cold n=2 block=1 http=200 ms=2826.2 vol=removed_before_run start=2026-11-27T11:11:44Z end=2026-11-27T11:11:47Z
+e6 cold n=3 block=1 http=200 ms=2591.28 vol=removed_before_run start=2026-11-27T11:11:54Z end=2026-11-27T11:11:57Z
+e6 cold n=4 block=1 http=200 ms=2359.58 vol=removed_before_run start=2026-11-27T11:12:04Z end=2026-11-27T11:12:06Z
+e6_cold_block_gap=30s at 2026-11-27T11:12:06Z
+e6 cold n=5 block=2 http=200 ms=3165.12 vol=removed_before_run start=2026-11-27T11:12:43Z end=2026-11-27T11:12:46Z
+e6 cold n=6 block=2 http=200 ms=2461.57 vol=removed_before_run start=2026-11-27T11:12:54Z end=2026-11-27T11:12:56Z
+e6 cold n=7 block=2 http=200 ms=2268.92 vol=removed_before_run start=2026-11-27T11:13:04Z end=2026-11-27T11:13:06Z
+e6 cold n=8 block=2 http=200 ms=2461.41 vol=removed_before_run start=2026-11-27T11:13:13Z end=2026-11-27T11:13:16Z
+e6_cold_block_gap=30s at 2026-11-27T11:13:16Z
+e6 cold n=9 block=3 http=200 ms=2738.52 vol=removed_before_run start=2026-11-27T11:13:54Z end=2026-11-27T11:13:56Z
+e6 cold n=10 block=3 http=200 ms=2455.48 vol=removed_before_run start=2026-11-27T11:14:04Z end=2026-11-27T11:14:06Z
+e6 cold n=11 block=3 http=200 ms=2918.2 vol=removed_before_run start=2026-11-27T11:14:14Z end=2026-11-27T11:14:17Z
+e6 cold n=12 block=3 http=200 ms=2586.1 vol=removed_before_run start=2026-11-27T11:14:24Z end=2026-11-27T11:14:27Z
+e6 warm_prepare http=200 at 2026-11-27T11:14:27Z
+e6 warm n=1 block=1 pause_http=200 pause_ms=136.84 state=true|paused resume_http=200 resume_ms=268.41
+e6 warm n=2 block=1 pause_http=200 pause_ms=140.82 state=true|paused resume_http=200 resume_ms=307.77
+e6 warm n=3 block=1 pause_http=200 pause_ms=157.94 state=true|paused resume_http=200 resume_ms=266.55
+e6 warm n=4 block=1 pause_http=200 pause_ms=176.04 state=true|paused resume_http=200 resume_ms=279.4
+e6_warm_block_gap=30s at 2026-11-27T11:14:50Z
+e6 warm n=5 block=2 pause_http=200 pause_ms=155.12 state=true|paused resume_http=200 resume_ms=287.52
+e6 warm n=6 block=2 pause_http=200 pause_ms=148.56 state=true|paused resume_http=200 resume_ms=285.08
+e6 warm n=7 block=2 pause_http=200 pause_ms=150.53 state=true|paused resume_http=200 resume_ms=245.2
+e6 warm n=8 block=2 pause_http=200 pause_ms=171.14 state=true|paused resume_http=200 resume_ms=278.77
+e6_warm_block_gap=30s at 2026-11-27T11:15:43Z
+e6 warm n=9 block=3 pause_http=200 pause_ms=137.54 state=true|paused resume_http=200 resume_ms=495.85
+e6 warm n=10 block=3 pause_http=200 pause_ms=130.65 state=true|paused resume_http=200 resume_ms=237.74
+e6 warm n=11 block=3 pause_http=200 pause_ms=138.78 state=true|paused resume_http=200 resume_ms=269.67
+e6 warm n=12 block=3 pause_http=200 pause_ms=167.72 state=true|paused resume_http=200 resume_ms=271.74
+e6_done_utc=2026-11-27T11:16:36Z
+[2026-11-27T11:16:36Z] stage=e6 end_utc=2026-11-27T11:16:36Z exit=0
+[2026-11-27T11:16:36Z] stage=e1 start_utc=2026-11-27T11:16:36Z
+e1_start_utc=2026-11-27T11:16:36Z
+e1 level=10 replica=1 start_utc=2026-11-27T11:16:36Z
+e1 level=10 replica=1 end_utc=2026-11-27T11:18:06Z exit=0
+e1 cooldown=30s start_utc=2026-11-27T11:18:06Z
+e1 cooldown_end_utc=2026-11-27T11:18:36Z
+e1 level=10 replica=2 start_utc=2026-11-27T11:18:36Z
+e1 level=10 replica=2 end_utc=2026-11-27T11:20:06Z exit=0
+e1 cooldown=30s start_utc=2026-11-27T11:20:06Z
+e1 cooldown_end_utc=2026-11-27T11:20:36Z
+e1 level=10 replica=3 start_utc=2026-11-27T11:20:36Z
+e1 level=10 replica=3 end_utc=2026-11-27T11:22:06Z exit=0
+e1 level=20 replica=1 start_utc=2026-11-27T11:22:06Z
+e1 level=20 replica=1 end_utc=2026-11-27T11:23:37Z exit=0
+e1 cooldown=30s start_utc=2026-11-27T11:23:37Z
+e1 cooldown_end_utc=2026-11-27T11:24:07Z
+e1 level=20 replica=2 start_utc=2026-11-27T11:24:07Z
+e1 level=20 replica=2 end_utc=2026-11-27T11:25:37Z exit=0
+e1 cooldown=30s start_utc=2026-11-27T11:25:37Z
+e1 cooldown_end_utc=2026-11-27T11:26:07Z
+e1 level=20 replica=3 start_utc=2026-11-27T11:26:07Z
+e1 level=20 replica=3 end_utc=2026-11-27T11:27:40Z exit=0
+e1 level=35 replica=1 start_utc=2026-11-27T11:27:40Z
+e1 level=35 replica=1 end_utc=2026-11-27T11:29:11Z exit=0
+e1 cooldown=30s start_utc=2026-11-27T11:29:11Z
+e1 cooldown_end_utc=2026-11-27T11:29:41Z
+e1 level=35 replica=2 start_utc=2026-11-27T11:29:41Z
+e1 level=35 replica=2 end_utc=2026-11-27T11:31:12Z exit=0
+e1 cooldown=30s start_utc=2026-11-27T11:31:12Z
+e1 cooldown_end_utc=2026-11-27T11:31:42Z
+e1 level=35 replica=3 start_utc=2026-11-27T11:31:42Z
+e1 level=35 replica=3 end_utc=2026-11-27T11:33:13Z exit=0
+e1_done_utc=2026-11-27T11:33:13Z
+[2026-11-27T11:33:13Z] stage=e1 end_utc=2026-11-27T11:33:13Z exit=0
+[2026-11-27T11:33:13Z] stage=breakpoint start_utc=2026-11-27T11:33:13Z
+time="2026-11-27T11:34:13Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+time="2026-11-27T11:34:14Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+time="2026-11-27T11:34:14Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+time="2026-11-27T11:34:15Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+time="2026-11-27T11:34:15Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+time="2026-11-27T11:34:16Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+time="2026-11-27T11:34:16Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+time="2026-11-27T11:34:17Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+time="2026-11-27T11:34:17Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+time="2026-11-27T11:34:18Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+time="2026-11-27T11:34:18Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+time="2026-11-27T11:34:19Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+time="2026-11-27T11:34:19Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+time="2026-11-27T11:34:20Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+time="2026-11-27T11:34:20Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+time="2026-11-27T11:34:21Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+time="2026-11-27T11:34:21Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+time="2026-11-27T11:34:22Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+time="2026-11-27T11:34:22Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+time="2026-11-27T11:34:23Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+time="2026-11-27T11:34:23Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+time="2026-11-27T11:34:24Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+time="2026-11-27T11:34:24Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+time="2026-11-27T11:34:25Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+time="2026-11-27T11:34:25Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+time="2026-11-27T11:34:26Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+time="2026-11-27T11:34:26Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+time="2026-11-27T11:34:27Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+time="2026-11-27T11:34:27Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+time="2026-11-27T11:34:28Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+time="2026-11-27T11:34:28Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+time="2026-11-27T11:34:29Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+time="2026-11-27T11:34:29Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+time="2026-11-27T11:34:30Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+time="2026-11-27T11:34:30Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+time="2026-11-27T11:34:31Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+time="2026-11-27T11:34:31Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+time="2026-11-27T11:34:32Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+time="2026-11-27T11:34:32Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+time="2026-11-27T11:34:33Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+time="2026-11-27T11:35:16Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+time="2026-11-27T11:35:17Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+time="2026-11-27T11:35:17Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+time="2026-11-27T11:35:17Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+time="2026-11-27T11:35:18Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+time="2026-11-27T11:35:19Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+time="2026-11-27T11:35:19Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+time="2026-11-27T11:35:20Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+time="2026-11-27T11:35:20Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+time="2026-11-27T11:35:20Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+time="2026-11-27T11:35:21Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+time="2026-11-27T11:35:21Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+time="2026-11-27T11:35:22Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+time="2026-11-27T11:35:22Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+time="2026-11-27T11:35:22Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+time="2026-11-27T11:35:22Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+time="2026-11-27T11:35:23Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+time="2026-11-27T11:35:23Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+time="2026-11-27T11:35:23Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+time="2026-11-27T11:35:24Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+time="2026-11-27T11:35:25Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+time="2026-11-27T11:35:25Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+time="2026-11-27T11:35:25Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+time="2026-11-27T11:35:25Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+time="2026-11-27T11:35:26Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+time="2026-11-27T11:35:26Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+time="2026-11-27T11:35:27Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+time="2026-11-27T11:35:27Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+time="2026-11-27T11:35:27Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+time="2026-11-27T11:35:27Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+time="2026-11-27T11:35:28Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+time="2026-11-27T11:35:29Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+time="2026-11-27T11:35:29Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+time="2026-11-27T11:35:29Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+time="2026-11-27T11:35:29Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+time="2026-11-27T11:35:30Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+time="2026-11-27T11:35:30Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+time="2026-11-27T11:35:31Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+time="2026-11-27T11:35:31Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+time="2026-11-27T11:35:32Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+time="2026-11-27T11:35:32Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+time="2026-11-27T11:35:33Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+time="2026-11-27T11:35:33Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+time="2026-11-27T11:35:33Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+time="2026-11-27T11:35:34Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+time="2026-11-27T11:35:34Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+time="2026-11-27T11:35:34Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+time="2026-11-27T11:35:34Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+time="2026-11-27T11:35:35Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+time="2026-11-27T11:35:35Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+time="2026-11-27T11:35:36Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+time="2026-11-27T11:35:36Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+time="2026-11-27T11:35:37Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+time="2026-11-27T11:35:39Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+time="2026-11-27T11:35:40Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+time="2026-11-27T11:35:42Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+time="2026-11-27T11:35:43Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+time="2026-11-27T11:35:45Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+time="2026-11-27T11:35:46Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+time="2026-11-27T11:35:48Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+time="2026-11-27T11:36:19Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+time="2026-11-27T11:36:19Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+time="2026-11-27T11:36:20Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+time="2026-11-27T11:36:21Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+time="2026-11-27T11:36:21Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+time="2026-11-27T11:36:22Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+time="2026-11-27T11:36:22Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+time="2026-11-27T11:36:22Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+time="2026-11-27T11:36:23Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+time="2026-11-27T11:36:23Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+time="2026-11-27T11:36:23Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+time="2026-11-27T11:36:23Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+time="2026-11-27T11:36:25Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+time="2026-11-27T11:36:25Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+time="2026-11-27T11:36:25Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+time="2026-11-27T11:36:26Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+time="2026-11-27T11:36:26Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+time="2026-11-27T11:36:26Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+time="2026-11-27T11:36:27Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+time="2026-11-27T11:36:27Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+time="2026-11-27T11:36:28Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+time="2026-11-27T11:36:28Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+time="2026-11-27T11:36:28Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+time="2026-11-27T11:36:28Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+time="2026-11-27T11:36:29Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+time="2026-11-27T11:36:30Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+time="2026-11-27T11:36:30Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+time="2026-11-27T11:36:30Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+time="2026-11-27T11:36:31Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+time="2026-11-27T11:36:31Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+time="2026-11-27T11:36:32Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+time="2026-11-27T11:36:32Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+time="2026-11-27T11:36:32Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+time="2026-11-27T11:36:32Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+time="2026-11-27T11:36:32Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+time="2026-11-27T11:36:33Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+time="2026-11-27T11:36:34Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+time="2026-11-27T11:36:34Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+time="2026-11-27T11:36:34Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+time="2026-11-27T11:36:34Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+time="2026-11-27T11:36:35Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+time="2026-11-27T11:36:35Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+time="2026-11-27T11:36:36Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+time="2026-11-27T11:36:36Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+time="2026-11-27T11:36:36Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+time="2026-11-27T11:36:36Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+time="2026-11-27T11:36:36Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+time="2026-11-27T11:36:36Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+time="2026-11-27T11:36:37Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+time="2026-11-27T11:36:37Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+time="2026-11-27T11:36:37Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+time="2026-11-27T11:36:37Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+time="2026-11-27T11:36:37Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+time="2026-11-27T11:36:38Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+time="2026-11-27T11:36:38Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+time="2026-11-27T11:36:38Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+time="2026-11-27T11:36:38Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+time="2026-11-27T11:36:39Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+time="2026-11-27T11:36:40Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+time="2026-11-27T11:36:41Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+time="2026-11-27T11:36:41Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+time="2026-11-27T11:36:42Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+time="2026-11-27T11:36:43Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+time="2026-11-27T11:36:43Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+time="2026-11-27T11:36:44Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+time="2026-11-27T11:36:44Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+time="2026-11-27T11:36:45Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+time="2026-11-27T11:36:45Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+time="2026-11-27T11:36:46Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+time="2026-11-27T11:36:46Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+time="2026-11-27T11:36:47Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+time="2026-11-27T11:36:48Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+time="2026-11-27T11:36:48Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+time="2026-11-27T11:36:49Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+time="2026-11-27T11:36:49Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+time="2026-11-27T11:36:50Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+time="2026-11-27T11:36:50Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+time="2026-11-27T11:36:51Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+time="2026-11-27T11:36:52Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+time="2026-11-27T11:36:53Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+time="2026-11-27T11:36:54Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+time="2026-11-27T11:36:55Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+time="2026-11-27T11:36:56Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+time="2026-11-27T11:36:57Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+time="2026-11-27T11:36:58Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+time="2026-11-27T11:36:59Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+time="2026-11-27T11:37:00Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+time="2026-11-27T11:37:01Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+time="2026-11-27T11:37:02Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+time="2026-11-27T11:37:03Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+time="2026-11-27T11:37:05Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+time="2026-11-27T11:37:06Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+time="2026-11-27T11:37:07Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+time="2026-11-27T11:37:08Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+time="2026-11-27T11:37:09Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+time="2026-11-27T11:37:10Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+time="2026-11-27T11:37:11Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+time="2026-11-27T11:37:12Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+time="2026-11-27T11:37:13Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+time="2026-11-27T11:37:19Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+time="2026-11-27T11:37:23Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+time="2026-11-27T11:37:23Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+time="2026-11-27T11:37:23Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+time="2026-11-27T11:37:24Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+time="2026-11-27T11:37:25Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+time="2026-11-27T11:37:25Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+time="2026-11-27T11:37:26Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+time="2026-11-27T11:37:26Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+time="2026-11-27T11:37:26Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+time="2026-11-27T11:37:27Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+time="2026-11-27T11:37:27Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+time="2026-11-27T11:37:28Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+time="2026-11-27T11:37:28Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+time="2026-11-27T11:37:28Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+time="2026-11-27T11:37:29Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+time="2026-11-27T11:37:29Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+time="2026-11-27T11:37:30Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+time="2026-11-27T11:37:30Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+time="2026-11-27T11:37:30Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+time="2026-11-27T11:37:31Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+time="2026-11-27T11:37:31Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+time="2026-11-27T11:37:31Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+time="2026-11-27T11:37:31Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+time="2026-11-27T11:37:31Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+time="2026-11-27T11:37:32Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+time="2026-11-27T11:37:32Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+time="2026-11-27T11:37:33Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+time="2026-11-27T11:37:33Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+time="2026-11-27T11:37:34Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+time="2026-11-27T11:37:34Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+time="2026-11-27T11:37:34Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+time="2026-11-27T11:37:35Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+time="2026-11-27T11:37:36Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+time="2026-11-27T11:37:36Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+time="2026-11-27T11:37:37Z" level=warning msg="Request Failed" error="Post \"https://127.0.0.1/api/v1/evaluations\": request timeout"
+[2026-11-27T11:37:44Z] stage=breakpoint end_utc=2026-11-27T11:37:44Z exit=0
+[2026-11-27T11:37:44Z] settling_after_breakpoint=60s start_utc=2026-11-27T11:37:44Z
+[2026-11-27T11:38:45Z] settling_after_breakpoint done_utc=2026-11-27T11:38:44Z containers_running=9
+[2026-11-27T11:38:45Z] stage=soak start_utc=2026-11-27T11:38:45Z
+soak_start_utc=2026-11-27T11:38:45Z
+ide f1000000-0000-0000-0000-000000000001 http=HTTP=200 TIME=14.869170
+ide f1000000-0000-0000-0000-000000000002 http=HTTP=200 TIME=5.993464
+ide f1000000-0000-0000-0000-000000000003 http=HTTP=503 TIME=0.089045
+soak_sampler_pid=995785 start_utc=2026-11-27T11:39:18Z
+[2026-11-27T11:40:01Z] environment_prep=soak_sampler: se corrigió la detección del proceso Go (pgrep -x solv-api-dev en vez de air) y el muestreador se reanudó en modo append sobre el mismo CSV
+soak_k6_end_utc=2026-11-27T12:09:29Z exit=0
+soak_sampler_end_utc=2026-11-27T12:09:29Z
+soak_done_utc=2026-11-27T12:09:29Z
+[2026-11-27T12:09:29Z] stage=soak end_utc=2026-11-27T12:09:29Z exit=0
+[2026-11-27T12:09:29Z] stage=summarize start_utc=2026-11-27T12:09:29Z
+== E1 por nivel (3 réplicas agregadas) ==
+10 VUs · lectura: n=30 · 13.26±12.62 ms · p50 8.98 · p95 30.37 · p99 72.66 · mín 6.43 · máx 72.66
+10 VUs · envío:   n=0
+20 VUs · lectura: n=60 · 20.73±28.99 ms · p50 11.21 · p95 45.91 · p99 207.5 · mín 6.98 · máx 207.5
+20 VUs · envío:   n=0
+35 VUs · lectura: n=105 · 17.82±12.69 ms · p50 16.29 · p95 32.76 · p99 66.17 · mín 6.45 · máx 103.55
+35 VUs · envío:   n=0
+
+== E1 por réplica (HTTP) ==
+L10 r1 lectura {'total': 10, 'ok': 10, 'ok_pct': 100.0, 'codes': {'200': 10}} envío {}
+L10 r2 lectura {'total': 10, 'ok': 10, 'ok_pct': 100.0, 'codes': {'200': 10}} envío {}
+L10 r3 lectura {'total': 10, 'ok': 10, 'ok_pct': 100.0, 'codes': {'200': 10}} envío {}
+L20 r1 lectura {'total': 20, 'ok': 20, 'ok_pct': 100.0, 'codes': {'200': 20}} envío {}
+L20 r2 lectura {'total': 20, 'ok': 20, 'ok_pct': 100.0, 'codes': {'200': 20}} envío {}
+L20 r3 lectura {'total': 20, 'ok': 20, 'ok_pct': 100.0, 'codes': {'200': 20}} envío {}
+L35 r1 lectura {'total': 35, 'ok': 35, 'ok_pct': 100.0, 'codes': {'200': 35}} envío {}
+L35 r2 lectura {'total': 35, 'ok': 35, 'ok_pct': 100.0, 'codes': {'200': 35}} envío {}
+L35 r3 lectura {'total': 35, 'ok': 35, 'ok_pct': 100.0, 'codes': {'200': 35}} envío {}
+
+== Punto de quiebre ==
+{"read": {"total": 306, "ok": 306, "ok_pct": 100.0, "codes": {"200": 306}}, "evaluation": {"total": 235, "ok": 0, "ok_pct": 0.0, "codes": {"0": 235}}}
+
+== E6 ==
+{
+  "cold": {
+    "stats": {
+      "n": 12,
+      "mean": 2610.64,
+      "stddev": 257.17,
+      "p50": 2495.26,
+      "p95": 3165.12,
+      "p99": 3165.12,
+      "min": 2268.92,
+      "max": 3165.12
+    },
+    "http": {
+      "200": 12
+    },
+    "image_cached": {
+      "True": 12
+    },
+    "volume_state": {
+      "removed_before_run": 12
+    }
+  },
+  "warm": {
+    "resume": {
+      "n": 12,
+      "mean": 291.14,
+      "stddev": 67.04,
+      "p50": 271.74,
+      "p95": 495.85,
+      "p99": 495.85,
+      "min": 237.74,
+      "max": 495.85
+    },
+    "pause": {
+      "n": 12,
+      "mean": 150.97,
+      "stddev": 14.87,
+      "p50": 148.56,
+      "p95": 176.04,
+      "p99": 176.04,
+      "min": 130.65,
+      "max": 176.04
+    },
+    "http": {
+      "200": 12
+    },
+    "pause_http": {
+      "200": 12
+    },
+    "docker_state": {
+      "true|paused": 12
+    }
+  }
+}
+
+== Soak ==
+{
+  "cuts": [
+    {
+      "minute": 0.0,
+      "timestamp_utc": "2026-11-27T11:39:18Z",
+      "mem_available_mb": 8439,
+      "backend_vmrss_mb": 6.79,
+      "load1": 47.53,
+      "disk_free_gb": 843.01,
+      "containers_running": 11,
+      "env_containers": 4
+    },
+    {
+      "minute": 9.77,
+      "timestamp_utc": "2026-11-27T11:49:04Z",
+      "mem_available_mb": 8067,
+      "backend_vmrss_mb": 56.21,
+      "load1": 12.25,
+      "disk_free_gb": 843.0,
+      "containers_running": 12,
+      "env_containers": 4
+    },
+    {
+      "minute": 19.83,
+      "timestamp_utc": "2026-11-27T11:59:08Z",
+      "mem_available_mb": 8317,
+      "backend_vmrss_mb": 54.02,
+      "load1": 12.78,
+      "disk_free_gb": 843.0,
+      "containers_running": 9,
+      "env_containers": 2
+    },
+    {
+      "minute": 29.93,
+      "timestamp_utc": "2026-11-27T12:09:13Z",
+      "mem_available_mb": 8355,
+      "backend_vmrss_mb": 52.97,
+      "load1": 13.46,
+      "disk_free_gb": 842.99,
+      "containers_running": 12,
+      "env_containers": 2
+    }
+  ],
+  "vmrss": {
+    "n": 27,
+    "mean": 54.13,
+    "stddev": 1.63,
+    "p50": 54.38,
+    "p95": 56.21,
+    "p99": 56.3,
+    "min": 51.05,
+    "max": 56.3
+  },
+  "mem_available": {
+    "n": 28,
+    "mean": 8290.18,
+    "stddev": 115.43,
+    "p50": 8333,
+    "p95": 8386,
+    "p99": 8439,
+    "min": 8048,
+    "max": 8439
+  },
+  "min_mem_available_mb": 8048,
+  "max_vmrss_mb": 56.3,
+  "growth_vmrss_mb": 0.01,
+  "k6": {
+    "http": {
+      "read": {
+        "total": 344,
+        "ok": 344,
+        "ok_pct": 100.0,
+        "codes": {
+          "200": 344
+        }
+      },
+      "evaluation": {
+        "total": 331,
+        "ok": 0,
+        "ok_pct": 0.0,
+        "codes": {
+          "0": 331
+        }
+      }
+    },
+    "read": {
+      "n": 344,
+      "mean": 19.27,
+      "stddev": 13.29,
+      "p50": 16.96,
+      "p95": 34.54,
+      "p99": 60.33,
+      "min": 6.83,
+      "max": 193.39
+    },
+    "submit": {
+      "n": 0
+    }
+  }
+}
+[2026-11-27T12:09:30Z] stage=summarize end_utc=2026-11-27T12:09:30Z exit=0
+[2026-11-27T12:09:30Z] campaign_v2_done_utc=2026-11-27T12:09:30Z
