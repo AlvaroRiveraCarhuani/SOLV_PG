@@ -592,6 +592,12 @@ func registerPracticeEnvironmentRoutes(mux *http.ServeMux, h *PracticeEnvironmen
 		mux.Handle("POST /api/v1/environments/{id}/heartbeat", tenantMiddleware(http.HandlerFunc(h.Heartbeat)))
 		mux.Handle("POST /api/v1/environments/{id}/restart", tenantMiddleware(http.HandlerFunc(h.RestartPracticeEnvironment)))
 		mux.Handle("POST /api/v1/environments/{id}/submit", tenantMiddleware(WithAuth(http.HandlerFunc(h.SubmitPracticeEnvironmentProject))))
+		// Exportación del proyecto del alumno: un .zip reproducible para su PC.
+		// Lleva el rate limit del alta porque arma el paquete en memoria.
+		mux.Handle("GET /api/v1/student/environments/{id}/export", tenantMiddleware(rateLimitMiddleware(http.HandlerFunc(h.ExportPracticeEnvironment))))
+		// Lectura liviana del entorno previo: habilita la descarga sin arrancar
+		// el contenedor.
+		mux.Handle("GET /api/v1/student/environments", tenantMiddleware(http.HandlerFunc(h.GetStudentPracticeEnvironment)))
 	} else {
 		mux.Handle("POST /api/v1/environments/start", WithAuth(rateLimitMiddleware(http.HandlerFunc(h.StartPracticeEnvironment))))
 		mux.Handle("POST /api/v1/environments/{id}/pause", WithAuth(http.HandlerFunc(h.PausePracticeEnvironment)))
@@ -601,6 +607,8 @@ func registerPracticeEnvironmentRoutes(mux *http.ServeMux, h *PracticeEnvironmen
 		mux.Handle("POST /api/v1/environments/{id}/heartbeat", WithAuth(http.HandlerFunc(h.Heartbeat)))
 		mux.Handle("POST /api/v1/environments/{id}/restart", WithAuth(http.HandlerFunc(h.RestartPracticeEnvironment)))
 		mux.Handle("POST /api/v1/environments/{id}/submit", WithAuth(http.HandlerFunc(h.SubmitPracticeEnvironmentProject)))
+		mux.Handle("GET /api/v1/student/environments/{id}/export", rateLimitMiddleware(http.HandlerFunc(h.ExportPracticeEnvironment)))
+		mux.Handle("GET /api/v1/student/environments", WithAuth(http.HandlerFunc(h.GetStudentPracticeEnvironment)))
 	}
 }
 

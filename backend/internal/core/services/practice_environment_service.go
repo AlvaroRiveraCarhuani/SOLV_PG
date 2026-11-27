@@ -113,6 +113,11 @@ type PracticeEnvironmentService struct {
 	// fijen el tamaño del host: el préstamo no puede depender de la máquina que
 	// corre la prueba.
 	hostTotalMBFn func() (int, bool)
+
+	// exportMu protege exportInFlight: las exportaciones arman el .zip en
+	// memoria y no deben competir con los builds ni con los laboratorios.
+	exportMu       sync.Mutex
+	exportInFlight int
 }
 
 func NewPracticeEnvironmentService(repo domain.PracticeEnvironmentRepository, docker domain.PracticeEnvironmentOrchestrator, hostMonitor domain.HostMonitor) *PracticeEnvironmentService {

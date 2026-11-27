@@ -2430,6 +2430,49 @@ La entrega del proyecto de un examen cierra solo el volumen de ese alumno (ADR-0
 - `404` si el entorno no existe, y `403` si pertenece a otro alumno. Un entorno ausente no es un fallo del servidor: la entrega responde lo mismo que cualquier otro recurso que no está.
 - La respuesta de la entrega no cambia; el cierre se ve en el laboratorio (`status: "frozen"` y `frozen_at`).
 
+### Consulta del entorno de la práctica: `GET /api/v1/student/environments?subject_id=&exercise_id=`
+
+Lectura liviana que responde si el alumno ya creó su entorno para esa práctica. **No arranca, reanuda ni toca el contenedor**: la pantalla la usa al cargar la práctica para habilitar «Exportar para mi PC» cuando el volumen ya existe, aunque esté hibernado o detenido.
+
+```json
+{ "data": { "environment": { "environment_id": "uuid", "exercise_id": "uuid", "status": "hibernated", "environment_profile": "practice" } }, "error": "", "message": "Consulta del espacio de práctica" }
+```
+
+Sin entorno previo, `environment` viaja en `null` y la pantalla pide abrirlo al menos una vez. `400 missing_practice` si falta `subject_id` o `exercise_id`; `401` sin identidad de alumno. La consulta filtra por tenant y por la terna alumno/materia/práctica: un id de otra práctica no devuelve el entorno de nadie.
+
+### Exportación del proyecto: `GET /api/v1/student/environments/{id}/export`
+
+Descarga el espacio de práctica del alumno como un `.zip` reproducible para correrlo en su propia computadora (rompe el efecto «caja negra»). La respuesta es un archivo, no JSON:
+
+```
+Content-Type: application/zip
+Content-Disposition: attachment; filename="solv-practica-3-listas-1a2b3c4d.zip"
+Cache-Control: no-store
+X-Content-Type-Options: nosniff
+```
+
+El paquete contiene:
+
+- El código del volumen `solv_workspace_<alumno>_<materia>_<práctica>` con las mismas exclusiones de la entrega (`.git`, `node_modules`, `__pycache__`, `.venv`) más las cachés que la preparación de dependencias crea dentro del árbol (`.solv-cache`, `.solv-home`) y el directorio de metadatos del aula (`.solv_workspace`). Esas cachés son regenerables y pesan cientos de MB: sin excluirlas, un proyecto Go, Rust o Java superaba el tope de lectura y la descarga fallaba con `413` aunque su código fuera pequeño.
+- `Dockerfile`: derivado del `stack_config.dockerfile_content` de la plantilla, sin las capas de OpenVSCode Server ni sus extensiones, con `WORKDIR /home/workspace` y `COPY . /home/workspace` y, si el stack declara perfil de dependencias, su comando de instalación.
+- `compose.yml`: la aplicación más los motores satélite declarados en `services_config`, con imágenes públicas, credenciales locales de ejemplo y volúmenes propios. Nunca apunta a los satélites del aula.
+- `.env.example`: puerto de la app (`app_port` del ejercicio o 3000), comando de arranque declarado (`app_run_command`) y las URLs locales de cada servicio.
+- `README.md` en español con tres bloques: qué incluye el entorno y qué configuraba SOLV, opción A con Docker y opción B sin Docker (instalación derivada del `dependency_profile` del stack).
+
+Reglas y errores:
+
+| Situación | Respuesta |
+| --- | --- |
+| El alumno ya tiene `Dockerfile`, `compose.yml`, `docker-compose.yml`, `.env.example`, `README.md` o una carpeta `solv-local/` | Los archivos de SOLV van a `solv-local/` (o `solv-local-2`, …) y el README lo explica. Nunca se sobrescribe el trabajo del alumno. |
+| Examen abierto (volumen sin congelar) | `403 export_blocked_exam`. Un examen cerrado (`frozen`) sí se exporta. |
+| Volumen vacío | `409 export_empty`. |
+| Proyecto por encima de los topes (600 archivos, 2 MB por archivo, 24 MB en total, 32 MB comprimido) | `413 export_too_large`, sin recortar el paquete. |
+| Más de dos exportaciones en curso en el nodo | `429 export_busy`; el cliente reintenta en unos segundos. |
+| El orquestador no puede leer volúmenes | `503 export_unavailable`. |
+| Laboratorio de otro alumno | `403 environment_forbidden`. |
+
+Funciona con el entorno corriendo, pausado o hibernado: la lectura usa un contenedor efímero sobre el volumen y no depende del contenedor del laboratorio. La ruta lleva el mismo rate limit que el alta porque arma el `.zip` en memoria.
+
 ### `PATCH /api/v1/teacher/sessions/{id}/close`
 
 El cierre del aula conserva su contrato y suma `freeze_report` cuando el aula era un examen:
