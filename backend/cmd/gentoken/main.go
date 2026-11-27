@@ -70,20 +70,29 @@ func main() {
 					fmt.Fprintf(os.Stderr, "Usuario resuelto desde BD: %s (%s) [Rol: %s]\n", userEmail, currentUserID, currentRole)
 				}
 			} else if currentUserID == "" {
-				// No se encontro: aprovisionar usuario dev en la BD para que /api/v1/users/me nunca retorne 404
-				if userEmail == "" {
-					switch currentRole {
-					case "teacher":
-						userEmail = "docente.dev@uab.edu.bo"
-					case "student":
-						userEmail = "estudiante.dev@uab.edu.bo"
-					default:
-						userEmail = "admin.dev@uab.edu.bo"
+				// No se encontro: aprovisionar usuario institucional en la BD para que /api/v1/users/me nunca retorne 404
+				var firstName, lastName string
+				switch currentRole {
+				case "teacher":
+					if userEmail == "" {
+						userEmail = "carlos.mendoza@uab.edu.bo"
 					}
+					firstName = "Carlos"
+					lastName = "Mendoza Ríos"
+				case "student":
+					if userEmail == "" {
+						userEmail = "valeria.flores@uab.edu.bo"
+					}
+					firstName = "Valeria"
+					lastName = "Flores Mamani"
+				default:
+					if userEmail == "" {
+						userEmail = "roberto.paredes@uab.edu.bo"
+					}
+					firstName = "Roberto"
+					lastName = "Paredes"
 				}
 
-				firstName := strings.ToUpper(currentRole[:1]) + currentRole[1:]
-				lastName := "Dev"
 				insQuery := `
 					INSERT INTO users (id, first_name, last_name, email, role, tenant_id, status)
 					VALUES (gen_random_uuid(), $1, $2, $3, $4, $5, 'active')
@@ -113,11 +122,11 @@ func main() {
 	if userEmail == "" {
 		switch currentRole {
 		case "teacher":
-			userEmail = "docente@solv.edu.bo"
+			userEmail = "carlos.mendoza@uab.edu.bo"
 		case "student":
-			userEmail = "estudiante@solv.edu.bo"
+			userEmail = "valeria.flores@uab.edu.bo"
 		default:
-			userEmail = "admin@solv.edu.bo"
+			userEmail = "roberto.paredes@uab.edu.bo"
 		}
 	}
 

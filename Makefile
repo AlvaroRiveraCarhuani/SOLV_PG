@@ -44,6 +44,10 @@ upgrade:
 token:
 	@./scripts/gen-token.sh
 
+.PHONY: seed-demo
+seed-demo:
+	@./scripts/seed-demo.sh
+
 CHECK_SUITES ?= gates asset-validation build backend-unit frontend-unit
 
 # Bucle rápido: plan contra HEAD y solo las suites de desarrollo que el plan
