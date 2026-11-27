@@ -1,0 +1,10 @@
+NAMES                                                         IMAGE                           STATUS
+solv-environment-b4fb3748-1def-4bc9-b2ae-3ac646789a17-proxy   alpine/socat:1.8.0.0            Up 41 hours
+solv-environment-b4fb3748-1def-4bc9-b2ae-3ac646789a17         solv-local/stack:a4ff75197065   Up 41 hours
+solv-sat-postgres                                             postgres:18-alpine              Up 41 hours
+solv_backend                                                  golang:1.25-bookworm            Up 42 hours (healthy)
+solv_frontend                                                 solv-frontend:dev               Up 42 hours (healthy)
+solv_seaweedfs                                                chrislusf/seaweedfs:4.51        Up 42 hours
+solv_db                                                       postgres:18-alpine              Up 42 hours (healthy)
+solv_traefik                                                  traefik:v3.7.8                  Up 42 hours
+solv_dev_db                                                   postgres:18-alpine              Up 42 hours

@@ -1,0 +1,92 @@
+[2026-11-27T11:11:25Z] stage=baseline start_utc=2026-11-27T11:11:25Z
+# host_baseline — campaña experimental v2 (SOLV)
+captured_at_utc: 2026-11-27T11:11:25Z
+repo: /home/alrivera/SOLV_PG
+commit: 6ea0589c0ccdc78ce291dd8ebe23dcee1f62f268
+commit_subject: Merge pull request #1 from AlvaroRiveraCarhuani/feat/student-export-and-recipes
+branch: main
+dirty_worktree: 1 archivos modificados
+
+## uname
+Linux asus-server 6.8.0-151-generic #151-Ubuntu SMP PREEMPT_DYNAMIC Wed Nov 11 01:28:36 UTC 2026 x86_64 x86_64 x86_64 GNU/Linux
+
+## cpu
+8
+CPU(s):                                  8
+Model name:                              Intel(R) Core(TM) i7-6700HQ CPU @ 2.60GHz
+Thread(s) per core:                      2
+Core(s) per socket:                      4
+Socket(s):                               1
+CPU(s) scaling MHz:                      77%
+
+## memoria (free -m)
+               total        used        free      shared  buff/cache   available
+Mem:           11852        3441        3218         371        5910        8410
+Swap:           4095         323        3772
+
+## loadavg / uptime (reposo)
+3.60 3.06 2.62 3/1114 939983
+ 11:11:26 up 1 day, 17:00,  4 users,  load average: 3.60, 3.06, 2.62
+
+## disco (df -h /)
+Filesystem                         Size  Used Avail Use% Mounted on
+/dev/mapper/ubuntu--vg-ubuntu--lv  914G   91G  786G  11% /
+
+## temperatura y frecuencia (reposo)
+/sys/class/thermal/thermal_zone0/temp: 65000 m°C
+/sys/class/thermal/thermal_zone1/temp: 20000 m°C
+/sys/class/thermal/thermal_zone2/temp: 50 m°C
+/sys/class/thermal/thermal_zone3/temp: 50 m°C
+/sys/class/thermal/thermal_zone4/temp: 50 m°C
+/sys/class/thermal/thermal_zone5/temp: 50 m°C
+/sys/class/thermal/thermal_zone6/temp: 45000 m°C
+/sys/class/thermal/thermal_zone7/temp: 67000 m°C
+/sys/class/thermal/thermal_zone8/temp: 68000 m°C
+/sys/class/thermal/thermal_zone9/temp: 52000 m°C
+sensors: no instalado
+
+## docker ps
+NAMES                                                         IMAGE                           STATUS                  PORTS
+solv-environment-dcc0fa1f-3cde-4af5-8607-84cd953683f8         solv-local/stack:49bf80831f63   Up 47 seconds           127.0.0.1:43929->3000/tcp
+solv-environment-b4fb3748-1def-4bc9-b2ae-3ac646789a17-proxy   alpine/socat:1.8.0.0            Up 40 hours             127.0.0.1:41897->3000/tcp
+solv-environment-b4fb3748-1def-4bc9-b2ae-3ac646789a17         solv-local/stack:a4ff75197065   Up 40 hours             3000/tcp
+solv-sat-postgres                                             postgres:18-alpine              Up 40 hours             5432/tcp
+solv_backend                                                  golang:1.25-bookworm            Up 41 hours (healthy)   127.0.0.1:3000->3000/tcp
+solv_frontend                                                 solv-frontend:dev               Up 41 hours (healthy)   80/tcp
+solv_seaweedfs                                                chrislusf/seaweedfs:4.51        Up 41 hours             7333/tcp, 8080/tcp, 8888/tcp, 9333/tcp, 18080/tcp, 18888/tcp, 19333/tcp, 127.0.0.1:8333->8333/tcp
+solv_db                                                       postgres:18-alpine              Up 41 hours (healthy)   127.0.0.1:5432->5432/tcp
+solv_traefik                                                  traefik:v3.7.8                  Up 41 hours             0.0.0.0:80->80/tcp, [::]:80->80/tcp, 0.0.0.0:443->443/tcp, [::]:443->443/tcp, 0.0.0.0:443->443/udp, [::]:443->443/udp
+solv_dev_db                                                   postgres:18-alpine              Up 41 hours             127.0.0.1:5433->5432/tcp
+
+## docker version
+client=29.3.1 server=29.3.1
+
+## contenedores / volumenes / redes
+containers_running: 10
+containers_total: 40
+volumes_total: 199
+bridge	bridge
+host	host
+none	null
+solv-dev_default	bridge
+solv-e2e-ci_default	bridge
+solv-exam-net	bridge
+solv-exam-satellites-net	bridge
+solv-satellites-net	bridge
+solv-traefik-net	bridge
+solv-traefik-net-test	bridge
+solv_default	bridge
+solv_net	bridge
+
+## procesos del backend (VmRSS del proceso Go dentro del contenedor)
+pid=1
+VmHWM:	   16224 kB
+VmRSS:	    9516 kB
+
+## limites del rate limiter declarados en .env
+RATE_LIMIT_IP_PER_MINUTE=120000
+RATE_LIMIT_IP_BURST=10000
+
+## topologia de redes de examen
+solv-exam-net internal=true driver=bridge
+[2026-11-27T11:11:26Z] stage=baseline end_utc=2026-11-27T11:11:26Z exit=0

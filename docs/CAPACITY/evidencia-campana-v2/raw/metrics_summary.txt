@@ -1,0 +1,259 @@
+== E1 por nivel (3 réplicas agregadas) ==
+10 VUs · lectura:    n=30 · 13.26±12.62 ms · p50 8.98 · p95 30.37 · p99 72.66 · mín 6.43 · máx 72.66
+10 VUs · evaluación: n=30 · 60000.69±0.35 ms · p50 60000.72 · p95 60001.2 · p99 60001.31 · mín 60000.04 · máx 60001.31
+10 VUs · envío:      n=0
+10 VUs · http: {"read": {"total": 30, "ok": 30, "ok_pct": 100.0, "codes": {"200": 30}}, "evaluation": {"total": 30, "ok": 0, "ok_pct": 0.0, "codes": {"0": 30}}}
+20 VUs · lectura:    n=60 · 20.73±28.99 ms · p50 11.21 · p95 45.91 · p99 207.5 · mín 6.98 · máx 207.5
+20 VUs · evaluación: n=60 · 60000.67±0.33 ms · p50 60000.65 · p95 60001.15 · p99 60001.3 · mín 60000.08 · máx 60001.3
+20 VUs · envío:      n=0
+20 VUs · http: {"read": {"total": 60, "ok": 60, "ok_pct": 100.0, "codes": {"200": 60}}, "evaluation": {"total": 60, "ok": 0, "ok_pct": 0.0, "codes": {"0": 60}}}
+35 VUs · lectura:    n=105 · 17.82±12.69 ms · p50 16.29 · p95 32.76 · p99 66.17 · mín 6.45 · máx 103.55
+35 VUs · evaluación: n=105 · 60000.63±0.33 ms · p50 60000.62 · p95 60001.11 · p99 60001.16 · mín 60000.03 · máx 60001.8
+35 VUs · envío:      n=0
+35 VUs · http: {"read": {"total": 105, "ok": 105, "ok_pct": 100.0, "codes": {"200": 105}}, "evaluation": {"total": 105, "ok": 0, "ok_pct": 0.0, "codes": {"0": 105}}}
+
+== E1 por réplica (HTTP) ==
+L10 r1 lectura {'total': 10, 'ok': 10, 'ok_pct': 100.0, 'codes': {'200': 10}} envío {}
+L10 r2 lectura {'total': 10, 'ok': 10, 'ok_pct': 100.0, 'codes': {'200': 10}} envío {}
+L10 r3 lectura {'total': 10, 'ok': 10, 'ok_pct': 100.0, 'codes': {'200': 10}} envío {}
+L20 r1 lectura {'total': 20, 'ok': 20, 'ok_pct': 100.0, 'codes': {'200': 20}} envío {}
+L20 r2 lectura {'total': 20, 'ok': 20, 'ok_pct': 100.0, 'codes': {'200': 20}} envío {}
+L20 r3 lectura {'total': 20, 'ok': 20, 'ok_pct': 100.0, 'codes': {'200': 20}} envío {}
+L35 r1 lectura {'total': 35, 'ok': 35, 'ok_pct': 100.0, 'codes': {'200': 35}} envío {}
+L35 r2 lectura {'total': 35, 'ok': 35, 'ok_pct': 100.0, 'codes': {'200': 35}} envío {}
+L35 r3 lectura {'total': 35, 'ok': 35, 'ok_pct': 100.0, 'codes': {'200': 35}} envío {}
+
+== Punto de quiebre ==
+{"read": {"total": 306, "ok": 306, "ok_pct": 100.0, "codes": {"200": 306}}, "evaluation": {"total": 235, "ok": 0, "ok_pct": 0.0, "codes": {"0": 235}}}
+
+== E6 ==
+{
+  "cold": {
+    "stats": {
+      "n": 12,
+      "mean": 2610.64,
+      "stddev": 257.17,
+      "p50": 2495.26,
+      "p95": 3165.12,
+      "p99": 3165.12,
+      "min": 2268.92,
+      "max": 3165.12
+    },
+    "http": {
+      "200": 12
+    },
+    "image_cached": {
+      "True": 12
+    },
+    "volume_state": {
+      "removed_before_run": 12
+    }
+  },
+  "warm": {
+    "resume": {
+      "n": 12,
+      "mean": 291.14,
+      "stddev": 67.04,
+      "p50": 271.74,
+      "p95": 495.85,
+      "p99": 495.85,
+      "min": 237.74,
+      "max": 495.85
+    },
+    "pause": {
+      "n": 12,
+      "mean": 150.97,
+      "stddev": 14.87,
+      "p50": 148.56,
+      "p95": 176.04,
+      "p99": 176.04,
+      "min": 130.65,
+      "max": 176.04
+    },
+    "http": {
+      "200": 12
+    },
+    "pause_http": {
+      "200": 12
+    },
+    "docker_state": {
+      "true|paused": 12
+    }
+  }
+}
+
+== Soak ==
+{
+  "cuts": [
+    {
+      "minute": 0.0,
+      "timestamp_utc": "2026-11-27T11:39:18Z",
+      "mem_available_mb": 8439,
+      "backend_vmrss_mb": null,
+      "vmrss_valid": false,
+      "load1": 47.53,
+      "disk_free_gb": 843.01,
+      "containers_running": 11,
+      "env_containers": 4
+    },
+    {
+      "minute": 9.77,
+      "timestamp_utc": "2026-11-27T11:49:04Z",
+      "mem_available_mb": 8067,
+      "backend_vmrss_mb": 56.21,
+      "vmrss_valid": true,
+      "load1": 12.25,
+      "disk_free_gb": 843.0,
+      "containers_running": 12,
+      "env_containers": 4
+    },
+    {
+      "minute": 19.83,
+      "timestamp_utc": "2026-11-27T11:59:08Z",
+      "mem_available_mb": 8317,
+      "backend_vmrss_mb": 54.02,
+      "vmrss_valid": true,
+      "load1": 12.78,
+      "disk_free_gb": 843.0,
+      "containers_running": 9,
+      "env_containers": 2
+    },
+    {
+      "minute": 29.93,
+      "timestamp_utc": "2026-11-27T12:09:13Z",
+      "mem_available_mb": 8355,
+      "backend_vmrss_mb": 52.97,
+      "vmrss_valid": true,
+      "load1": 13.46,
+      "disk_free_gb": 842.99,
+      "containers_running": 12,
+      "env_containers": 2
+    }
+  ],
+  "vmrss": {
+    "n": 28,
+    "mean": 53.99,
+    "stddev": 1.75,
+    "p50": 54.3,
+    "p95": 56.21,
+    "p99": 56.3,
+    "min": 50.3,
+    "max": 56.3
+  },
+  "mem_available": {
+    "n": 29,
+    "mean": 8293.45,
+    "stddev": 114.71,
+    "p50": 8344,
+    "p95": 8386,
+    "p99": 8439,
+    "min": 8048,
+    "max": 8439
+  },
+  "min_mem_available_mb": 8048,
+  "max_vmrss_mb": 56.3,
+  "growth_vmrss_mb": -2.66,
+  "k6": {
+    "http": {
+      "read": {
+        "total": 344,
+        "ok": 344,
+        "ok_pct": 100.0,
+        "codes": {
+          "200": 344
+        }
+      },
+      "evaluation": {
+        "total": 331,
+        "ok": 0,
+        "ok_pct": 0.0,
+        "codes": {
+          "0": 331
+        }
+      }
+    },
+    "read": {
+      "n": 344,
+      "mean": 19.27,
+      "stddev": 13.29,
+      "p50": 16.96,
+      "p95": 34.54,
+      "p99": 60.33,
+      "min": 6.83,
+      "max": 193.39
+    },
+    "submit": {
+      "n": 0
+    }
+  }
+}
+
+== Calibración de tiempo de espera ==
+{
+  "L10_timeout240": {
+    "http": {
+      "read": {
+        "total": 20,
+        "ok": 20,
+        "ok_pct": 100.0,
+        "codes": {
+          "200": 20
+        }
+      },
+      "evaluation": {
+        "total": 11,
+        "ok": 11,
+        "ok_pct": 100.0,
+        "codes": {
+          "200": 11
+        }
+      },
+      "submission": {
+        "total": 11,
+        "ok": 11,
+        "ok_pct": 100.0,
+        "codes": {
+          "201": 11
+        }
+      },
+      "submission_status": {
+        "total": 11,
+        "ok": 11,
+        "ok_pct": 100.0,
+        "codes": {
+          "200": 11
+        }
+      }
+    },
+    "read": {
+      "n": 20,
+      "mean": 20.6,
+      "stddev": 10.55,
+      "p50": 16.17,
+      "p95": 32.5,
+      "p99": 57.28,
+      "min": 9.4,
+      "max": 57.28
+    },
+    "evaluation": {
+      "n": 11,
+      "mean": 111725.44,
+      "stddev": 10587.33,
+      "p50": 115696.83,
+      "p95": 121697.24,
+      "p99": 121697.24,
+      "min": 83361.96,
+      "max": 121697.24
+    },
+    "submit": {
+      "n": 11,
+      "mean": 154.61,
+      "stddev": 111.21,
+      "p50": 122.8,
+      "p95": 330.64,
+      "p99": 330.64,
+      "min": 35.18,
+      "max": 330.64
+    }
+  }
+}

@@ -1,0 +1,46 @@
+# E8 — ciclo de apagado por inactividad observado durante el soak (N = 2)
+#
+# A.1.4 declara no ejecutado el "ciclo completo de apagado por inactividad de
+# 16 a 20 minutos". La campaña v2 no lo planificó como escenario propio, pero
+# quedó medido de forma oportunista: los entornos IDE abiertos para el soak no
+# recibieron tráfico y el recolector de QoS los hibernó solo.
+#
+# Este archivo NO es una corrida controlada de E8: es la observación de un
+# ciclo real, con N = 2. Se documenta aparte para no presentarlo como ensayo.
+
+## Apertura de entornos IDE para el soak (raw/soak_ide_environments.txt)
+
+exercise=f1000000-0000-0000-0000-000000000001 start_utc=2026-11-27T11:38:55Z end_utc=2026-11-27T11:39:12Z HTTP=200 TIME=14.869170
+exercise=f1000000-0000-0000-0000-000000000002 start_utc=2026-11-27T11:39:12Z end_utc=2026-11-27T11:39:18Z HTTP=200 TIME=5.993464
+exercise=f1000000-0000-0000-0000-000000000003 start_utc=2026-11-27T11:39:18Z end_utc=2026-11-27T11:39:18Z HTTP=503 TIME=0.089045
+
+El tercer entorno fue rechazado por la política de admisión en 89 ms: el nodo
+ya sostenía 2 entornos IDE de la campaña más el entorno heredado de la v1 y la
+carga de evaluación del soak. La condición del soak se cumplió con 2 entornos
+activos (el rango pedido era 2 a 3).
+
+## Hibernación por inactividad (docker logs solv_backend)
+
+{"time":"2026-11-27T11:54:16.346012791Z","level":"INFO","msg":"[QoS Hibernation] Hibernating container 929dd13888879f58df223a55bf9406e845fe66b724513fd09b316a77dd0d434f (PracticeEnvironment 55389f8d-9501-483e-8161-cec8f33022a5). Reason: IntentionTimeout=true, RealityTimeout=true"}
+{"time":"2026-11-27T11:54:46.687582449Z","level":"INFO","msg":"[QoS Hibernation] Hibernating container 7f6160a4a57698cc848f949fc3cf7663dd305e55bdfbd6b0b581553b9ffaa37c (PracticeEnvironment 2d1c5941-76cd-43b5-a29d-c92a63daa189). Reason: IntentionTimeout=true, RealityTimeout=true"}
+{"time":"2026-11-27T11:55:20.684634535Z","level":"INFO","msg":"[State Reconciler] PracticeEnvironment 2d1c5941-76cd-43b5-a29d-c92a63daa189 container exited with OOM (exit 137): oom_killed"}
+
+## Lectura
+
+- Tiempo desde la apertura hasta la hibernación: 15 min 01 s (entorno 1) y
+  15 min 29 s (entorno 2). Cae dentro de la ventana de 16 a 20 minutos que
+  A.1.4 dejó pendiente, medida desde el alta y no desde el último heartbeat.
+- El estado en PostgreSQL quedó en `hibernated` para ambos entornos.
+- Un minuto después de la hibernación, el reconciliador registró el contenedor
+  del segundo entorno como `oom_killed` (exit 137). Es decir, el apagado por
+  inactividad no es un `docker pause` limpio en este nodo: termina en un
+  contenedor marcado como OOM, lo que debe considerarse al leer la tasa de
+  OOMKilled de la plataforma y al reanudar ese entorno.
+- El tercer entorno nunca llegó a existir: la admisión lo rechazó antes de
+  crear contenedor.
+
+## Estado posterior (consulta a PostgreSQL)
+
+exercise_id                          | status     | container_id (12) | updated_at
+f1000000-0000-0000-0000-000000000001 | hibernated | 929dd1388887      | 2026-11-27 11:54:46.430134+00
+f1000000-0000-0000-0000-000000000002 | hibernated | 7f6160a4a576      | 2026-11-27 11:55:21.765258+00
