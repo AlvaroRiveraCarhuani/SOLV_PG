@@ -327,7 +327,14 @@ func (s *AdminGovernanceService) ComposeTemplatePreview(
 		return nil, err
 	}
 	composer := NewTemplateComposerServiceFromRepo(repo)
-	return composer.Compose(ctx, tenantID, targetEnvironment, cfg)
+	plan, err := composer.Compose(ctx, tenantID, targetEnvironment, cfg)
+	if err != nil {
+		return nil, err
+	}
+	if plan != nil && s.admission != nil && plan.RecommendedRamMB > 0 {
+		plan.CapacityImpact = s.admission.capacityImpact(ctx, nil, int64(plan.RecommendedRamMB))
+	}
+	return plan, nil
 }
 
 func (s *AdminGovernanceService) UpdateOfficialTemplate(

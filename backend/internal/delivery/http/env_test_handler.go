@@ -87,6 +87,10 @@ func (h *EnvTestHandler) StartPracticeEnvTest(w http.ResponseWriter, r *http.Req
 	})
 	if err != nil {
 		switch {
+		case errors.Is(err, services.ErrHostMemoryExhausted):
+			SendError(w, http.StatusServiceUnavailable, "host_memory_exhausted", "El servidor está cerca de su capacidad con laboratorios activos; intenta de nuevo en unos minutos")
+		case errors.Is(err, services.ErrBuildBusy):
+			SendError(w, http.StatusTooManyRequests, "build_busy", "El servidor está construyendo otra imagen en este momento; intenta de nuevo en unos minutos")
 		case errors.Is(err, services.ErrPracticeTestForbidden):
 			SendError(w, http.StatusForbidden, "forbidden", err.Error())
 		case errors.Is(err, services.ErrPracticeTestRequiresIDE):

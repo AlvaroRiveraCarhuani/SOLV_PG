@@ -111,13 +111,26 @@ func (s *TemplateCacheService) WarmTemplate(ctx context.Context, tenantID, templ
 			log.Printf("[CacheWarmer] Rebuilding local stack image %q for template %q (%s)...", template.DockerImage, template.Name, template.ID)
 			buildCtx, cancel := context.WithTimeout(ctx, 10*time.Minute)
 			defer cancel()
-			if err := s.imageBuilder.BuildLocalStackImage(buildCtx, template.DockerImage, template.StackConfig.DockerfileContent, func(action string) {
-				log.Printf("[CacheWarmer] Building local stack image %s: %s", template.DockerImage, action)
-			}); err != nil {
+			// Un solo `docker build` por nodo: si otro servicio ya construye,
+			// este calentamiento espera su turno con un error limpio.
+			releaseBuild, slotErr := acquireBuildSlot(buildCtx)
+			if slotErr != nil {
 				status.IsCached = false
 				status.Status = "failed"
-				status.ErrorMessage = err.Error()
-				return status, fmt.Errorf("failed to rebuild local stack image %q: %w", template.DockerImage, err)
+				status.ErrorMessage = slotErr.Error()
+				return status, fmt.Errorf("failed to rebuild local stack image %q: %w", template.DockerImage, slotErr)
+			}
+			buildErr := func() error {
+				defer releaseBuild()
+				return s.imageBuilder.BuildLocalStackImage(buildCtx, template.DockerImage, template.StackConfig.DockerfileContent, func(action string) {
+					log.Printf("[CacheWarmer] Building local stack image %s: %s", template.DockerImage, action)
+				})
+			}()
+			if buildErr != nil {
+				status.IsCached = false
+				status.Status = "failed"
+							status.ErrorMessage = buildErr.Error()
+			return status, fmt.Errorf("failed to rebuild local stack image %q: %w", template.DockerImage, buildErr)
 			}
 		} else {
 			status.IsCached = false
@@ -189,7 +202,14 @@ func (s *TemplateCacheService) WarmAllActiveTemplates(ctx context.Context, tenan
 			if s.imageBuilder != nil && t.StackConfig.DockerfileContent != "" {
 				log.Printf("[CacheWarmer] Rebuilding local stack template %q (image: %s)...", t.Name, t.DockerImage)
 				buildCtx, cancel := context.WithTimeout(ctx, 10*time.Minute)
-				buildErr := s.imageBuilder.BuildLocalStackImage(buildCtx, t.DockerImage, t.StackConfig.DockerfileContent, nil)
+				releaseBuild, slotErr := acquireBuildSlot(buildCtx)
+				buildErr := slotErr
+				if buildErr == nil {
+					func() {
+						defer releaseBuild()
+						buildErr = s.imageBuilder.BuildLocalStackImage(buildCtx, t.DockerImage, t.StackConfig.DockerfileContent, nil)
+					}()
+				}
 				cancel()
 
 				if buildErr != nil {

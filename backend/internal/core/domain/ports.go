@@ -42,6 +42,9 @@ type Template struct {
 	BaseRamMB      int            `db:"base_ram_mb" json:"base_ram_mb"`
 	ServicesConfig ServicesConfig `db:"services_config" json:"services_config"`
 	SetupScript    string         `db:"setup_script" json:"setup_script"`
+	// StackConfig guarda el Dockerfile y los componentes del Constructor. La
+	// exportación lo usa para derivar un Dockerfile local reproducible.
+	StackConfig StackConfig `db:"stack_config" json:"stack_config"`
 }
 
 type TemplateRepository interface {

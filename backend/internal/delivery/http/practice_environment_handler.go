@@ -3,10 +3,12 @@ package httpdelivery
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"net/http"
 	"path"
 	"strings"
+	"time"
 
 	"github.com/go-playground/validator/v10"
 
@@ -581,4 +583,104 @@ func (h *PracticeEnvironmentHandler) SubmitPracticeEnvironmentProject(w http.Res
 		"verdict_origin": submission.VerdictOrigin,
 		"score":          submission.Score,
 	}, "Proyecto entregado correctamente")
+}
+
+// StudentPracticeEnvironmentSummary es la lectura mínima para habilitar la
+// descarga del proyecto sin abrir el laboratorio: no expone contenedor, URLs ni
+// cuotas, solo lo que la pantalla necesita para decidir.
+type StudentPracticeEnvironmentSummary struct {
+	EnvironmentID      string     `json:"environment_id"`
+	ExerciseID         string     `json:"exercise_id,omitempty"`
+	Status             string     `json:"status"`
+	EnvironmentProfile string     `json:"environment_profile,omitempty"`
+	FrozenAt           *time.Time `json:"frozen_at,omitempty"`
+}
+
+// GetStudentPracticeEnvironment responde si el alumno ya creó su entorno para
+// una práctica. Es solo lectura: no arranca, reanuda ni toca el contenedor, y
+// permite ofrecer la descarga del código desde la primera pantalla.
+// GET /api/v1/student/environments?subject_id=...&exercise_id=...
+func (h *PracticeEnvironmentHandler) GetStudentPracticeEnvironment(w http.ResponseWriter, r *http.Request) {
+	subjectID := strings.TrimSpace(r.URL.Query().Get("subject_id"))
+	exerciseID := strings.TrimSpace(r.URL.Query().Get("exercise_id"))
+	if subjectID == "" || exerciseID == "" {
+		SendError(w, http.StatusBadRequest, "missing_practice", "Los campos subject_id y exercise_id son obligatorios")
+		return
+	}
+
+	studentID := resolveRequestStudentID(r)
+	if studentID == "" {
+		SendError(w, http.StatusUnauthorized, "Missing student identity", "No se pudo resolver la identidad del alumno desde la sesión")
+		return
+	}
+
+	environment, err := h.service.FindPracticeEnvironmentForExercise(r.Context(), studentID, subjectID, exerciseID)
+	if err != nil {
+		SendError(w, http.StatusInternalServerError, "environment_lookup_failed", "No se pudo consultar tu espacio de práctica")
+		return
+	}
+
+	var summary *StudentPracticeEnvironmentSummary
+	if environment != nil {
+		summary = &StudentPracticeEnvironmentSummary{
+			EnvironmentID:      environment.ID,
+			Status:             environment.Status,
+			EnvironmentProfile: string(environment.EnvironmentProfile),
+			FrozenAt:           environment.FrozenAt,
+		}
+		if environment.ExerciseID != nil {
+			summary.ExerciseID = *environment.ExerciseID
+		}
+	}
+
+	SendJSON(w, http.StatusOK, map[string]any{"environment": summary}, "Consulta del espacio de práctica")
+}
+
+// ExportPracticeEnvironment entrega un .zip con el proyecto del alumno para que
+// lo corra en su propia computadora: su código, un Dockerfile local, un
+// compose.yml con los servicios de la plantilla y un README que explica qué
+// configuraba SOLV por él. La respuesta es un archivo, no JSON.
+func (h *PracticeEnvironmentHandler) ExportPracticeEnvironment(w http.ResponseWriter, r *http.Request) {
+	environmentID := strings.TrimSpace(r.PathValue("id"))
+	if environmentID == "" {
+		SendError(w, http.StatusBadRequest, "missing_environment_id", "Se requiere el ID del entorno")
+		return
+	}
+
+	studentID := resolveRequestStudentID(r)
+	if studentID == "" {
+		SendError(w, http.StatusUnauthorized, "Missing student identity", "No se pudo resolver la identidad del alumno desde la sesión")
+		return
+	}
+
+	bundle, err := h.service.ExportPracticeEnvironment(r.Context(), environmentID, studentID)
+	if err != nil {
+		switch {
+		case errors.Is(err, domain.ErrNotFound):
+			SendError(w, http.StatusNotFound, "environment_not_found", "El entorno no existe o ya fue eliminado")
+		case errors.Is(err, services.ErrPracticeEnvironmentForbidden):
+			SendError(w, http.StatusForbidden, "environment_forbidden", "No tiene permisos para exportar este entorno")
+		case errors.Is(err, services.ErrPracticeEnvironmentExportExamActive):
+			SendError(w, http.StatusForbidden, "export_blocked_exam", "No se puede exportar durante un examen activo. Podrá descargar su trabajo cuando el examen termine.")
+		case errors.Is(err, services.ErrPracticeEnvironmentExportBusy):
+			SendError(w, http.StatusTooManyRequests, "export_busy", "Ya se están generando otros paquetes. Intente de nuevo en unos segundos.")
+		case errors.Is(err, domain.ErrExportBundleEmpty):
+			SendError(w, http.StatusConflict, "export_empty", "Su entorno todavía no tiene archivos para exportar")
+		case errors.Is(err, domain.ErrExportBundleTooLarge), errors.Is(err, domain.ErrPracticeEnvironmentSnapshotTooLarge):
+			SendError(w, http.StatusRequestEntityTooLarge, "export_too_large", "El proyecto excede el tamaño máximo para exportar. Elimine archivos generados y vuelva a intentar.")
+		case errors.Is(err, services.ErrPracticeEnvironmentVolumeUnavailable):
+			SendError(w, http.StatusServiceUnavailable, "export_unavailable", "La exportación no está disponible en este momento")
+		default:
+			SendError(w, http.StatusInternalServerError, "export_failed", "No se pudo generar el paquete del proyecto")
+		}
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/zip")
+	w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=%q", bundle.Filename))
+	w.Header().Set("Cache-Control", "no-store")
+	w.Header().Set("X-Content-Type-Options", "nosniff")
+	w.Header().Set("Content-Length", fmt.Sprintf("%d", len(bundle.Content)))
+	w.WriteHeader(http.StatusOK)
+	_, _ = w.Write(bundle.Content)
 }

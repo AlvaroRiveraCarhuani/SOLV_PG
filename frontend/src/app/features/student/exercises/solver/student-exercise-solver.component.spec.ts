@@ -34,6 +34,8 @@ describe('StudentExerciseSolverComponent', () => {
   let projectSubmitCalls: string[] = [];
   let projectSubmitPayloads: unknown[] = [];
   let startEnvironmentCalls: string[][] = [];
+  let exportCalls: string[] = [];
+  let environmentLookupCalls: string[][] = [];
 
   const mockStudentService = {
     getPublicExercise: () =>
@@ -76,6 +78,17 @@ describe('StudentExerciseSolverComponent', () => {
         exercise_id: 'ex-101',
         verdict: 'PENDING'
       });
+    },
+    exportPracticeEnvironment: (environmentId: string) => {
+      exportCalls.push(environmentId);
+      return Promise.resolve({
+        blob: new Blob(['zip'], { type: 'application/zip' }),
+        filename: 'solv-practica.zip'
+      });
+    },
+    getPracticeEnvironmentForExercise: (subjectId: string, exerciseId: string) => {
+      environmentLookupCalls.push([subjectId, exerciseId]);
+      return Promise.resolve(null as PracticeEnvironment | null);
     },
     startEnvironment: (subjectId: string, exerciseId: string) => {
       startEnvironmentCalls.push([subjectId, exerciseId]);
@@ -127,6 +140,8 @@ describe('StudentExerciseSolverComponent', () => {
     projectSubmitCalls = [];
     projectSubmitPayloads = [];
     startEnvironmentCalls = [];
+    exportCalls = [];
+    environmentLookupCalls = [];
     mockNotices.pending.set([]);
 
     await TestBed.configureTestingModule({
@@ -187,6 +202,120 @@ describe('StudentExerciseSolverComponent', () => {
 
     expect(projectSubmitCalls).toEqual(['ws-1']);
     expect(projectSubmitPayloads).toEqual([{ exercise_id: 'ex-101' }]);
+  });
+
+  it('exporta el proyecto del entorno abierto para correrlo fuera de SOLV', async () => {
+    const current = component.exercise();
+    component.exercise.set({
+      ...current!,
+      type: 'project',
+      environment_type: 'IDE_PERSISTENTE'
+    });
+    component.environment.set({ id: 'ws-1', status: 'running' } as unknown as PracticeEnvironment);
+    fixture.detectChanges();
+
+    const createObjectURL = vi.fn(() => 'blob:mock');
+    const revokeObjectURL = vi.fn();
+    Object.defineProperty(URL, 'createObjectURL', { value: createObjectURL, configurable: true });
+    Object.defineProperty(URL, 'revokeObjectURL', { value: revokeObjectURL, configurable: true });
+
+    expect(component.canExportProject()).toBe(true);
+    await component.exportProject();
+
+    expect(exportCalls).toEqual(['ws-1']);
+    expect(component.isExportingProject()).toBe(false);
+    expect(component.exportError()).toBeNull();
+    expect(createObjectURL).toHaveBeenCalledTimes(1);
+    expect(revokeObjectURL).toHaveBeenCalledWith('blob:mock');
+  });
+
+  it('habilita exportar cuando ya existe un entorno previo sin abrirlo', async () => {
+    const current = component.exercise();
+    component.exercise.set({
+      ...current!,
+      type: 'project',
+      environment_type: 'IDE_PERSISTENTE'
+    });
+    fixture.detectChanges();
+
+    const service = TestBed.inject(StudentService) as unknown as {
+      getPracticeEnvironmentForExercise: (
+        subjectId: string,
+        exerciseId: string
+      ) => Promise<PracticeEnvironment | null>;
+    };
+    const original = service.getPracticeEnvironmentForExercise;
+    service.getPracticeEnvironmentForExercise = (subjectId, exerciseId) => {
+      environmentLookupCalls.push([subjectId, exerciseId]);
+      return Promise.resolve({ id: 'ws-old', status: 'hibernated' } as PracticeEnvironment);
+    };
+    try {
+      await component.loadPreviousEnvironment();
+
+      expect(environmentLookupCalls[environmentLookupCalls.length - 1]).toEqual(['subj-101', 'ex-101']);
+      expect(component.canExportProject()).toBe(true);
+      expect(component.environment()).toBeNull();
+    } finally {
+      service.getPracticeEnvironmentForExercise = original;
+    }
+  });
+
+  it('pide abrir el entorno una vez cuando no hay entorno previo', async () => {
+    const current = component.exercise();
+    component.exercise.set({
+      ...current!,
+      type: 'project',
+      environment_type: 'IDE_PERSISTENTE'
+    });
+    fixture.detectChanges();
+
+    await component.loadPreviousEnvironment();
+
+    expect(component.canExportProject()).toBe(false);
+    expect(fixture.nativeElement.textContent).toContain(
+      'Abre el entorno al menos una vez para exportar tu código'
+    );
+  });
+
+  it('explica cuando el proyecto excede el tamaño del paquete', async () => {
+    const current = component.exercise();
+    component.exercise.set({
+      ...current!,
+      type: 'project',
+      environment_type: 'IDE_PERSISTENTE'
+    });
+    component.environment.set({ id: 'ws-1', status: 'running' } as unknown as PracticeEnvironment);
+    fixture.detectChanges();
+
+    const service = TestBed.inject(StudentService) as unknown as {
+      exportPracticeEnvironment: (environmentId: string) => Promise<{ blob: Blob; filename: string }>;
+    };
+    const original = service.exportPracticeEnvironment;
+    service.exportPracticeEnvironment = () => Promise.reject({ status: 413 });
+    try {
+      await component.exportProject();
+
+      expect(component.isExportingProject()).toBe(false);
+      expect(component.exportError()).toContain('demasiado grande');
+    } finally {
+      service.exportPracticeEnvironment = original;
+    }
+  });
+
+  it('no ofrece exportar mientras se rinde un examen', () => {
+    const current = component.exercise();
+    component.exercise.set({
+      ...current!,
+      purpose: 'exam',
+      type: 'project',
+      environment_type: 'IDE_PERSISTENTE'
+    });
+    component.environment.set({ id: 'ws-1', status: 'running', state: 'ready' } as unknown as PracticeEnvironment);
+    fixture.detectChanges();
+
+    expect(component.canExportProject()).toBe(false);
+    const button = fixture.nativeElement.querySelector('[data-testid="btn-export-project"]') as HTMLButtonElement | null;
+    expect(button?.disabled).toBe(true);
   });
 
   it('muestra los tres estados del examen y recuerda que la práctica sigue intacta', () => {

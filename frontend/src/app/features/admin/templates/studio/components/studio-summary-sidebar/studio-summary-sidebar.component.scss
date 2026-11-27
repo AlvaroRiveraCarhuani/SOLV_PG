@@ -752,3 +752,56 @@
   line-height: var(--leading-snug);
 }
 
+
+// Capacidad en palabras: el nivel se lee por el borde izquierdo, sin jerga de
+// memoria ni números de cgroups en la cara del administrador.
+.bp-capacity {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  border-left: 3px solid var(--border-subtle);
+  padding-left: var(--space-3);
+
+  &.is-comfortable {
+    border-left-color: var(--color-success);
+  }
+
+  &.is-moderate {
+    border-left-color: var(--color-warning);
+  }
+
+  &.is-tight {
+    border-left-color: var(--color-error);
+  }
+}
+
+.bp-capacity-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+
+.bp-capacity-pill {
+  padding: 0 var(--space-2);
+  font-size: var(--text-2xs);
+  font-weight: 600;
+  color: var(--text-secondary);
+  background-color: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-full);
+}
+
+.bp-capacity-summary {
+  margin: 0;
+  font-size: var(--text-xs);
+  color: var(--text-primary);
+  line-height: var(--leading-snug);
+}
+
+.bp-capacity-note {
+  font-size: var(--text-2xs);
+  color: var(--text-muted);
+  line-height: var(--leading-snug);
+}

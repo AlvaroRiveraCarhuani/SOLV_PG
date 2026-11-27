@@ -1,4 +1,39 @@
 <div class="request-overlay" role="dialog" aria-modal="true" aria-labelledby="request-title" (click)="close()">
+  <!-- Ícono funcional de un complemento: el selector y los chips dibujan el
+       mismo Lucide cuando la pieza no merece logo de marca. -->
+  <ng-template #functionalAddonIcon let-iconKey let-cssClass="cssClass">
+    <span [class]="cssClass" aria-hidden="true">
+      @switch (iconKey) {
+        @case ('framework') {
+          <svg lucideGlobe></svg>
+        }
+        @case ('orm') {
+          <svg lucideDatabase></svg>
+        }
+        @case ('testing') {
+          <svg lucideFlaskConical></svg>
+        }
+        @case ('debug') {
+          <svg lucideBug></svg>
+        }
+        @case ('quality') {
+          <svg lucideShieldCheck></svg>
+        }
+        @case ('database') {
+          <svg lucideDatabase></svg>
+        }
+        @case ('concurrency') {
+          <svg lucideCpu></svg>
+        }
+        @case ('analytics') {
+          <svg lucideBarChart3></svg>
+        }
+        @default {
+          <svg lucideWrench></svg>
+        }
+      }
+    </span>
+  </ng-template>
   <section class="request-panel" (click)="$event.stopPropagation(); closePicker()">
     <header class="request-header">
       <span class="header-mark" aria-hidden="true">
@@ -77,7 +112,13 @@
                   @for (chip of chips(); track chip.id) {
                     <span class="chip" [class.missing]="chip.missing">
                       @if (!chip.missing) {
-                        <tech-logo [iconType]="chip.iconKey || 'docker'" [size]="22" />
+                        @if (chip.usesLogo) {
+                          <tech-logo [iconType]="chip.iconKey || 'docker'" [size]="22" />
+                        } @else {
+                          <ng-container
+                            *ngTemplateOutlet="functionalAddonIcon; context: { $implicit: chip.functionalIconKey, cssClass: 'chip-icon' }"
+                          ></ng-container>
+                        }
                       }
                       <span class="chip-name">{{ chip.name }}</span>
                       @if (chip.missing) {
@@ -242,51 +283,32 @@
             </div>
           </section>
 
-          <!-- 3. Nombre, nota y materia -->
+          <!-- 3. Nombre y nota -->
           <section class="block">
             <div class="block-heading">
               <span class="block-step">3</span>
               <div class="block-copy">
-                <h3>Nombre, nota y materia</h3>
+                <h3>Nombre y nota</h3>
                 <p>
                   El nombre sugerido se ajusta con tus herramientas. Agrega una nota si solicitas piezas fuera de catálogo.
                 </p>
               </div>
             </div>
 
-            <div class="field-grid">
-              <label class="field">
-                <span class="form-label">
-                  Nombre del entorno
-                  <span class="label-hint">opcional</span>
-                </span>
-                <input
-                  type="text"
-                  class="form-input"
-                  maxlength="160"
-                  [placeholder]="preview()?.suggested_name || 'Ej: Laboratorio de Python + PostgreSQL'"
-                  [ngModel]="title()"
-                  (ngModelChange)="onTitleChange($event)"
-                />
-              </label>
-
-              <div class="field subject-field">
-                <span class="form-label">
-                  Materia de referencia
-                  <span class="label-hint">opcional</span>
-                </span>
-                <combobox
-                  [options]="subjectOptions()"
-                  [value]="subjectIdSelected()"
-                  (valueChange)="onSubjectChange($event)"
-                  [compact]="true"
-                  [showSearchIcon]="false"
-                  [allowClear]="true"
-                  placeholder="Sin materia asignada"
-                  inputAriaLabel="Materia de referencia para el entorno"
-                />
-              </div>
-            </div>
+            <label class="field">
+              <span class="form-label">
+                Nombre del entorno
+                <span class="label-hint">opcional</span>
+              </span>
+              <input
+                type="text"
+                class="form-input"
+                maxlength="160"
+                [placeholder]="preview()?.suggested_name || 'Ej: Laboratorio de Python + PostgreSQL'"
+                [ngModel]="title()"
+                (ngModelChange)="onTitleChange($event)"
+              />
+            </label>
 
             <div class="field" data-tour="template-request-practice">
               <label class="form-label" for="practice-text">
@@ -380,7 +402,7 @@
                   @if (duplicate.subjects.length) {
                     <span>Ya la pidieron para {{ duplicate.subjects.join(', ') }}.</span>
                   }
-                  <span>Al enviar, sumamos tu materia a esa solicitud en lugar de abrir otra.</span>
+                  <span>Al enviar, tu pedido se suma a esa solicitud en lugar de abrir otra.</span>
                 </div>
               }
             </div>
@@ -491,37 +513,13 @@
                     (click)="addPiece(item)"
                   >
                     @if (group.category === 'addons') {
-                      <span class="picker-icon" aria-hidden="true">
-                        @switch (addonIconKey(item)) {
-                          @case ('framework') {
-                            <svg lucideGlobe></svg>
-                          }
-                          @case ('orm') {
-                            <svg lucideDatabase></svg>
-                          }
-                          @case ('testing') {
-                            <svg lucideFlaskConical></svg>
-                          }
-                          @case ('debug') {
-                            <svg lucideBug></svg>
-                          }
-                          @case ('quality') {
-                            <svg lucideShieldCheck></svg>
-                          }
-                          @case ('database') {
-                            <svg lucideDatabase></svg>
-                          }
-                          @case ('concurrency') {
-                            <svg lucideCpu></svg>
-                          }
-                          @case ('analytics') {
-                            <svg lucideBarChart3></svg>
-                          }
-                          @default {
-                            <svg lucideWrench></svg>
-                          }
-                        }
-                      </span>
+                      @if (addonUsesLogo(item)) {
+                        <tech-logo [iconType]="item.icon_key" [size]="20" />
+                      } @else {
+                        <ng-container
+                          *ngTemplateOutlet="functionalAddonIcon; context: { $implicit: addonIconKey(item), cssClass: 'picker-icon' }"
+                        ></ng-container>
+                      }
                     } @else {
                       <tech-logo [iconType]="item.icon_key || 'docker'" [size]="24" />
                     }

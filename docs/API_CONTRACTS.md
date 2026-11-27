@@ -2430,6 +2430,49 @@ La entrega del proyecto de un examen cierra solo el volumen de ese alumno (ADR-0
 - `404` si el entorno no existe, y `403` si pertenece a otro alumno. Un entorno ausente no es un fallo del servidor: la entrega responde lo mismo que cualquier otro recurso que no está.
 - La respuesta de la entrega no cambia; el cierre se ve en el laboratorio (`status: "frozen"` y `frozen_at`).
 
+### Consulta del entorno de la práctica: `GET /api/v1/student/environments?subject_id=&exercise_id=`
+
+Lectura liviana que responde si el alumno ya creó su entorno para esa práctica. **No arranca, reanuda ni toca el contenedor**: la pantalla la usa al cargar la práctica para habilitar «Exportar para mi PC» cuando el volumen ya existe, aunque esté hibernado o detenido.
+
+```json
+{ "data": { "environment": { "environment_id": "uuid", "exercise_id": "uuid", "status": "hibernated", "environment_profile": "practice" } }, "error": "", "message": "Consulta del espacio de práctica" }
+```
+
+Sin entorno previo, `environment` viaja en `null` y la pantalla pide abrirlo al menos una vez. `400 missing_practice` si falta `subject_id` o `exercise_id`; `401` sin identidad de alumno. La consulta filtra por tenant y por la terna alumno/materia/práctica: un id de otra práctica no devuelve el entorno de nadie.
+
+### Exportación del proyecto: `GET /api/v1/student/environments/{id}/export`
+
+Descarga el espacio de práctica del alumno como un `.zip` reproducible para correrlo en su propia computadora (rompe el efecto «caja negra»). La respuesta es un archivo, no JSON:
+
+```
+Content-Type: application/zip
+Content-Disposition: attachment; filename="solv-practica-3-listas-1a2b3c4d.zip"
+Cache-Control: no-store
+X-Content-Type-Options: nosniff
+```
+
+El paquete contiene:
+
+- El código del volumen `solv_workspace_<alumno>_<materia>_<práctica>` con las mismas exclusiones de la entrega (`.git`, `node_modules`, `__pycache__`, `.venv`) más las cachés que la preparación de dependencias crea dentro del árbol (`.solv-cache`, `.solv-home`) y el directorio de metadatos del aula (`.solv_workspace`). Esas cachés son regenerables y pesan cientos de MB: sin excluirlas, un proyecto Go, Rust o Java superaba el tope de lectura y la descarga fallaba con `413` aunque su código fuera pequeño.
+- `Dockerfile`: derivado del `stack_config.dockerfile_content` de la plantilla, sin las capas de OpenVSCode Server ni sus extensiones, con `WORKDIR /home/workspace` y `COPY . /home/workspace` y, si el stack declara perfil de dependencias, su comando de instalación.
+- `compose.yml`: la aplicación más los motores satélite declarados en `services_config`, con imágenes públicas, credenciales locales de ejemplo y volúmenes propios. Nunca apunta a los satélites del aula.
+- `.env.example`: puerto de la app (`app_port` del ejercicio o 3000), comando de arranque declarado (`app_run_command`) y las URLs locales de cada servicio.
+- `README.md` en español con tres bloques: qué incluye el entorno y qué configuraba SOLV, opción A con Docker y opción B sin Docker (instalación derivada del `dependency_profile` del stack).
+
+Reglas y errores:
+
+| Situación | Respuesta |
+| --- | --- |
+| El alumno ya tiene `Dockerfile`, `compose.yml`, `docker-compose.yml`, `.env.example`, `README.md` o una carpeta `solv-local/` | Los archivos de SOLV van a `solv-local/` (o `solv-local-2`, …) y el README lo explica. Nunca se sobrescribe el trabajo del alumno. |
+| Examen abierto (volumen sin congelar) | `403 export_blocked_exam`. Un examen cerrado (`frozen`) sí se exporta. |
+| Volumen vacío | `409 export_empty`. |
+| Proyecto por encima de los topes (600 archivos, 2 MB por archivo, 24 MB en total, 32 MB comprimido) | `413 export_too_large`, sin recortar el paquete. |
+| Más de dos exportaciones en curso en el nodo | `429 export_busy`; el cliente reintenta en unos segundos. |
+| El orquestador no puede leer volúmenes | `503 export_unavailable`. |
+| Laboratorio de otro alumno | `403 environment_forbidden`. |
+
+Funciona con el entorno corriendo, pausado o hibernado: la lectura usa un contenedor efímero sobre el volumen y no depende del contenedor del laboratorio. La ruta lleva el mismo rate limit que el alta porque arma el `.zip` en memoria.
+
 ### `PATCH /api/v1/teacher/sessions/{id}/close`
 
 El cierre del aula conserva su contrato y suma `freeze_report` cuando el aula era un examen:
@@ -2898,3 +2941,93 @@ acompaña a la excepción.
   bloquea la publicación.
 - `POST /api/v1/teacher/courses/{courseId}/exercises/{exerciseId}/ide` devuelve también
   `memory_limit_mb`, `memory_profile_mb` y `cpu_millis` del entorno del docente.
+
+---
+
+## Validación de compatibilidad de complementos
+
+Al crear o previsualizar una solicitud de entorno, el compositor valida la
+matriz `compatible_runtimes` de los complementos con la misma regla del selector
+manual:
+
+- Un complemento sin runtimes declarados, o con `universal` / `any`, aplica a
+  cualquier runtime.
+- Las familias activas son la unión en minúsculas de `universal` con el slug,
+  el id, el `icon_key` y los `compatible_runtimes` del runtime; en un entorno
+  de desarrollo full-stack se suman `node`, `web` y los de la plataforma web.
+- Sin intersección, `POST /api/v1/teacher/environment-requests` y su `preview`
+  responden `422 incompatible_addon` con el complemento y el runtime activo.
+  Una pieza que no existe en el catálogo sigue tratándose como faltante, no como
+  incompatibilidad.
+
+---
+
+## Admisión unificada y capacidad en lenguaje humano
+
+Esta sección documenta el contrato de admisión que comparten laboratorios de
+práctica, previews de entrega y pruebas de entorno, y el bloque `capacity_impact`
+que consumen el panel de solicitudes y el Constructor.
+
+Fuera de este bloque, el contrato del backend conserva lo ya documentado en
+§12 (creación de entornos) y §13 (edición y publicación de prácticas).
+
+### Un solo presupuesto en vuelo
+
+- `POST /api/v1/environments/start` y `POST /api/v1/teacher/courses/{courseId}/exercises/{exerciseId}/ide`
+  reservan su cuota con `reserveAdmissionQuota` (RAM total × techo de seguridad −
+  comprometido − satélites).
+- `POST /api/v1/teacher/submissions/{id}/test-environment` (preview de una
+  entrega) y `POST /api/v1/teacher/courses/{courseId}/exercises/{exerciseId}/env-test`
+  (prueba de entorno) reservan del **mismo** presupuesto. El preview queda
+  apartado hasta que el QoS lo apaga; la prueba, hasta que el job termina.
+- Sin hueco, las cuatro rutas responden `503` con un mensaje humano y no tocan
+  ningún entorno activo:
+
+  ```json
+  { "error": "oom_guard", "message": "El servidor está cerca de su capacidad con laboratorios activos; intenta de nuevo en unos minutos" }
+  ```
+
+### Semáforo de construcción y compuerta de CPU
+
+- Todas las construcciones de imagen comparten un semáforo global de
+  concurrencia `1`: nunca hay dos `docker build` simultáneos en el nodo.
+- Si ya hay un build en curso:
+  - `POST /api/v1/teacher/courses/{courseId}/exercises/{exerciseId}/env-test` → `429 build_busy`.
+  - `POST /api/v1/admin/templates/{id}/warm` → `429 build_busy`.
+  - En los jobs asíncronos (`POST /api/v1/jobs/env-test`), el job termina en
+    `failed` con el mismo mensaje.
+- Con el load average de 1 minuto por encima de `1,5 × núcleos`, el calentamiento
+  de plantillas responde `503 host_cpu_saturated`. El resto de rutas no cambia.
+
+### `capacity_impact`
+
+El bloque aparece en tres respuestas, siempre calculado en vivo con la RAM total
+medida del nodo y el techo de seguridad vigente (`host_safety_ceiling_pct`):
+
+| Ruta | Dónde |
+|---|---|
+| `POST /api/v1/teacher/environment-requests/preview` | raíz de la respuesta |
+| `GET /api/v1/admin/environment-requests/{id}` | raíz de la ficha |
+| `POST /api/v1/admin/templates/compose-preview` | raíz del plan |
+
+```json
+{
+  "capacity_impact": {
+    "estimated_concurrent_students": 217,
+    "currently_available_students": 43,
+    "level": "moderate",
+    "summary": "Con este entorno caben aprox. 217 estudiantes a la vez en tu servidor actual"
+  }
+}
+```
+
+| Campo | Tipo | Significado |
+|---|---|---|
+| `estimated_concurrent_students` | int | Estudiantes simultáneos que caben con ese entorno en este servidor. |
+| `currently_available_students` | int | Cuántos caben ahora, descontando entornos abiertos, reservas en vuelo y satélites. |
+| `level` | `comfortable` \| `moderate` \| `tight` | Fracción de hueco libre: ≥80%, ≥40%, menos. |
+| `summary` | string | Frase corta en español para un administrador no técnico. |
+
+El bloque se omite cuando el host no se pudo medir: no hay capacidad inventada.
+`capacity_impact` no se persiste con la solicitud ni con la plantilla; es una
+lectura del estado del servidor en el momento de la consulta.

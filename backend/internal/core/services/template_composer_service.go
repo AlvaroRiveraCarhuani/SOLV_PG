@@ -140,6 +140,29 @@ func (s *TemplateComposerService) Compose(
 		}
 	}
 
+	// Familias activas: la misma semántica que el selector del Studio
+	// (computeCompatibleAddonsForSelection). Un complemento vacío, "universal" o
+	// "any" aplica a cualquier runtime; el resto necesita intersección.
+	activeFamilies := map[string]bool{"universal": true}
+	addFamily := func(values ...string) {
+		for _, value := range values {
+			key := strings.ToLower(strings.TrimSpace(value))
+			if key != "" {
+				activeFamilies[key] = true
+			}
+		}
+	}
+	addFamily(rt.Slug, rt.ID, rt.IconKey)
+	addFamily(rt.CompatibleRuntimes...)
+	if !requiresJudge && webComp != nil {
+		addFamily("node", "web", webComp.Slug, webComp.ID, webComp.IconKey)
+		addFamily(webComp.CompatibleRuntimes...)
+	}
+	activeRuntimeLabel := strings.TrimSpace(rt.Name)
+	if activeRuntimeLabel == "" {
+		activeRuntimeLabel = strings.TrimSpace(rt.Slug)
+	}
+
 	// 3. Complementos (Addons) ordenados deterministamente por ID/Slug
 	sortedAddonIDs := make([]string, 0, len(cfg.AddonIDs))
 	seenAddon := make(map[string]bool)
@@ -157,6 +180,12 @@ func (s *TemplateComposerService) Compose(
 		addon, errAddon := s.lookup.GetComponent(ctx, tenantID, addonID)
 		if errAddon != nil || addon == nil {
 			continue
+		}
+		if !isAddonCompatible(addon, activeFamilies) {
+			return nil, fmt.Errorf(
+				"%w: el complemento %q no aplica al runtime activo %q",
+				domain.ErrIncompatibleAddon, addon.Name, activeRuntimeLabel,
+			)
 		}
 		selectedAddons = append(selectedAddons, addon)
 		nameParts = append(nameParts, addon.Name)
@@ -286,6 +315,30 @@ func (s *TemplateComposerService) Compose(
 		RecommendedRamMB:  recommendedRam,
 		ServicesConfig:    servicesCfg,
 	}, nil
+}
+
+// isAddonCompatible replica la regla del selector manual: sin runtimes
+// declarados, o con "universal"/"any", el complemento aplica a cualquiera.
+func isAddonCompatible(addon *domain.TemplateComponent, activeFamilies map[string]bool) bool {
+	if addon == nil {
+		return true
+	}
+	if len(addon.CompatibleRuntimes) == 0 {
+		return true
+	}
+	for _, candidate := range addon.CompatibleRuntimes {
+		key := strings.ToLower(strings.TrimSpace(candidate))
+		if key == "" {
+			continue
+		}
+		if key == "universal" || key == "any" {
+			return true
+		}
+		if activeFamilies[key] {
+			return true
+		}
+	}
+	return false
 }
 
 func isLightRuntime(rt *domain.TemplateComponent) bool {

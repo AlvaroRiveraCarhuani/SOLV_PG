@@ -299,11 +299,26 @@ export class SpeedGraderComponent implements OnInit, OnDestroy {
         if (tab && !tab.closed) {
           tab.close();
         }
-        this.liveAppError.set(
-          err?.error?.message || 'No se pudo abrir el entorno de prueba. Revisá la configuración del laboratorio.'
-        );
+        this.liveAppError.set(this.reviewEnvironmentErrorMessage(err));
       }
     });
+  }
+
+  /**
+   * Mensaje del preview en palabras: un nodo cerca de su capacidad o con un
+   * build en curso no es un error del laboratorio, y el docente no tiene que
+   * adivinar qué pasó ni calcular memoria.
+   */
+  private reviewEnvironmentErrorMessage(err: unknown): string {
+    const status = (err as { status?: number } | null)?.status;
+    const serverMessage = (err as { error?: { message?: string } } | null)?.error?.message;
+    if (status === 503) {
+      return 'El servidor está cerca de su capacidad con laboratorios activos; intenta de nuevo en unos minutos.';
+    }
+    if (status === 429) {
+      return 'El servidor está construyendo otra imagen en este momento; intenta de nuevo en unos minutos.';
+    }
+    return serverMessage || 'No se pudo abrir el entorno de prueba. Revisá la configuración del laboratorio.';
   }
 
   private openTab(url: string): void {

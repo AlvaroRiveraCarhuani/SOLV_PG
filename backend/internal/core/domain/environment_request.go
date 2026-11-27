@@ -59,6 +59,8 @@ type EnvironmentRequestMissingComponent struct {
 }
 
 // EnvironmentRequest es la solicitud tal como se persiste y se muestra.
+// CapacityImpact no se persiste: el servicio lo calcula en vivo al armar la
+// ficha del administrador, con la RAM medida del servidor actual.
 type EnvironmentRequest struct {
 	ID                   string                               `json:"id"`
 	TenantID             string                               `json:"tenant_id"`
@@ -80,6 +82,7 @@ type EnvironmentRequest struct {
 	ReviewedAt           *time.Time                           `json:"reviewed_at,omitempty"`
 	ResolvedTemplateID   string                               `json:"resolved_template_id,omitempty"`
 	ResolvedTemplateName string                               `json:"resolved_template_name,omitempty"`
+	CapacityImpact        *CapacityImpact                     `json:"capacity_impact,omitempty"`
 	CreatedAt            time.Time                            `json:"created_at"`
 	UpdatedAt            time.Time                            `json:"updated_at"`
 }
@@ -133,7 +136,8 @@ type EnvironmentRequestDuplicate struct {
 	RequestedByMe bool     `json:"requested_by_me"`
 }
 
-// EnvironmentRequestPreview es el resultado de armar la receta.
+// EnvironmentRequestPreview es el resultado de armar la receta. Incluye el
+// impacto de capacidad en lenguaje humano para el servidor actual.
 type EnvironmentRequestPreview struct {
 	SuggestedName     string                               `json:"suggested_name"`
 	TargetEnvironment string                               `json:"target_environment"`
@@ -143,6 +147,7 @@ type EnvironmentRequestPreview struct {
 	MissingComponents []EnvironmentRequestMissingComponent `json:"missing_components"`
 	DuplicateRequest  *EnvironmentRequestDuplicate         `json:"duplicate_request,omitempty"`
 	ExistingTemplate  *EnvironmentRequestTemplateRef       `json:"existing_template,omitempty"`
+	CapacityImpact    *CapacityImpact                      `json:"capacity_impact,omitempty"`
 }
 
 // EnvironmentRequestCreated es la respuesta del envío: si se sumó a una

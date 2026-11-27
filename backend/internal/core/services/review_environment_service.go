@@ -25,6 +25,10 @@ type ReviewEnvironmentService struct {
 	orchestrator domain.ReviewEnvironmentOrchestrator
 	hostMonitor  domain.HostMonitor
 
+	// admission comparte el presupuesto en vuelo con los laboratorios de
+	// práctica: un preview compite con la clase por la misma RAM del nodo.
+	admission *PracticeEnvironmentService
+
 	idleTimeout  time.Duration
 	startTimeout time.Duration
 	waitForPort  func(ctx context.Context, hostPort string, timeout time.Duration) error
@@ -32,6 +36,9 @@ type ReviewEnvironmentService struct {
 	locksMu sync.Mutex
 	locks   map[string]*sync.Mutex
 	reapMu  sync.Mutex
+
+	reservMu   sync.Mutex
+	reservations map[string]func()
 }
 
 func NewReviewEnvironmentService(
@@ -52,7 +59,18 @@ func NewReviewEnvironmentService(
 		startTimeout: domain.ReviewEnvironmentStartTimeout,
 		waitForPort:  waitForTCPPort,
 		locks:        make(map[string]*sync.Mutex),
+		reservations: make(map[string]func()),
 	}
+}
+
+// SetAdmissionService conecta el presupuesto compartido con los laboratorios.
+// Sin esta conexión el preview solo consulta la memoria viva por fuera.
+func (s *ReviewEnvironmentService) SetAdmissionService(admission *PracticeEnvironmentService) *ReviewEnvironmentService {
+	if s == nil {
+		return s
+	}
+	s.admission = admission
+	return s
 }
 
 // SetTimeouts ajusta la ventana de inactividad y la espera de arranque. Se usa en
@@ -142,7 +160,23 @@ func (s *ReviewEnvironmentService) Start(ctx context.Context, tenantID, teacherI
 	if memoryMB < domain.ReviewEnvironmentMinMemoryMB {
 		memoryMB = domain.ReviewEnvironmentMinMemoryMB
 	}
+
+	// Admisión unificada: el preview aparta memoria del mismo presupuesto en
+	// vuelo que los laboratorios. Sin margen responde host memory y no tumba
+	// ningún entorno activo.
+	var releasePreview func()
+	if s.admission != nil {
+		grantedMB, release, grantErr := s.admission.ReservePreviewQuota(workCtx, memoryMB)
+		if grantErr != nil {
+			return nil, domain.ErrReviewEnvironmentHostMemory
+		}
+		releasePreview = release
+		memoryMB = grantedMB
+	}
 	if !s.hostMonitor.CanAllocateMemory(memoryMB) {
+		if releasePreview != nil {
+			releasePreview()
+		}
 		return nil, domain.ErrReviewEnvironmentHostMemory
 	}
 
@@ -176,7 +210,15 @@ func (s *ReviewEnvironmentService) Start(ctx context.Context, tenantID, teacherI
 		UpdatedAt:      now,
 	}
 	if err := s.repo.Create(workCtx, env); err != nil {
+		if releasePreview != nil {
+			releasePreview()
+		}
 		return nil, err
+	}
+	// La reserva vive en memoria hasta que el preview termina: el registro ya
+	// tiene su fila y cuenta como comprometido.
+	if releasePreview != nil {
+		s.rememberReservation(env.ID, releasePreview)
 	}
 
 	if err := s.orchestrator.EnsureVolumeExists(workCtx, volumeName); err != nil {
@@ -320,12 +362,51 @@ func (s *ReviewEnvironmentService) expire(ctx context.Context, env *domain.Revie
 	}
 }
 
+// rememberReservation guarda la liberación del presupuesto compartido hasta
+// que el preview muera: mientras vive cuenta como comprometido.
+func (s *ReviewEnvironmentService) rememberReservation(envID string, release func()) {
+	if s == nil || release == nil || envID == "" {
+		return
+	}
+	s.reservMu.Lock()
+	defer s.reservMu.Unlock()
+	if s.reservations == nil {
+		s.reservations = make(map[string]func())
+	}
+	if previous, exists := s.reservations[envID]; exists && previous != nil {
+		previous()
+	}
+	s.reservations[envID] = release
+}
+
+// releaseReservation devuelve la memoria apartada al presupuesto compartido.
+func (s *ReviewEnvironmentService) releaseReservation(envID string) {
+	if s == nil || envID == "" {
+		return
+	}
+	s.reservMu.Lock()
+	release := s.reservations[envID]
+	delete(s.reservations, envID)
+	s.reservMu.Unlock()
+	if release != nil {
+		release()
+	}
+}
+
 // release retira el contenedor y el volumen del preview. Devuelve false si el
 // contenedor sigue vivo, para no marcar expirado un recurso que aún consume RAM.
 func (s *ReviewEnvironmentService) release(ctx context.Context, env *domain.ReviewEnvironment) bool {
 	if env == nil {
 		return true
 	}
+	// El presupuesto compartido se libera solo con el recurso: mientras el
+	// contenedor viva, el preview sigue ocupando su lugar en el presupuesto.
+	released := false
+	defer func() {
+		if released {
+			s.releaseReservation(env.ID)
+		}
+	}()
 	if env.ContainerID != nil && strings.TrimSpace(*env.ContainerID) != "" {
 		if err := s.orchestrator.StopAndRemoveContainer(ctx, *env.ContainerID); err != nil {
 			log.Printf("[Review Environment] No se pudo detener %s: %v", env.ID, err)
@@ -338,6 +419,7 @@ func (s *ReviewEnvironmentService) release(ctx context.Context, env *domain.Revi
 			return false
 		}
 	}
+	released = true
 	return true
 }
 

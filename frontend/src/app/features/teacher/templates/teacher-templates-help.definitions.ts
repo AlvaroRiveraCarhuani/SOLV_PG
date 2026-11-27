@@ -120,7 +120,7 @@ export function buildTeacherTemplateRequestTutorial(
       },
       {
         id: 'describe-practice',
-        title: 'Nombre, materia y nota',
+        title: 'Nombre y nota',
         body:
           'Si ya elegiste herramientas del catálogo, la nota para administración es opcional. Si faltan piezas fuera del catálogo, explica en pocas palabras qué necesitan los estudiantes.',
         selector: '[data-tour="template-request-practice"]',

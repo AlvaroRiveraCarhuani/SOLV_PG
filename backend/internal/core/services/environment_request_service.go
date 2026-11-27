@@ -24,6 +24,8 @@ type EnvironmentRequestService struct {
 	composer       *TemplateComposerService
 	templateLookup domain.EnvironmentRequestTemplateLookup
 	now            func() time.Time
+	// admission aporta la foto del nodo para armar capacity_impact en vivo.
+	admission *PracticeEnvironmentService
 }
 
 func NewEnvironmentRequestService(
@@ -39,6 +41,13 @@ func NewEnvironmentRequestService(
 		svc.composer = NewTemplateComposerServiceFromRepo(compRepo)
 	}
 	return svc
+}
+
+// SetAdmission conecta el presupuesto del nodo para armar capacity_impact.
+// Sin esta conexión los previews no traen el bloque humano de capacidad.
+func (s *EnvironmentRequestService) SetAdmission(admission *PracticeEnvironmentService) *EnvironmentRequestService {
+	s.admission = admission
+	return s
 }
 
 // SetTemplateLookup conecta el catálogo de plantillas. Sin este puerto no se
@@ -106,6 +115,8 @@ func (s *EnvironmentRequestService) Preview(
 			preview.ExistingTemplate = ref
 		}
 	}
+
+	preview.CapacityImpact = s.capacityImpactForPreview(ctx, plan)
 
 	return preview, nil
 }
@@ -256,6 +267,7 @@ func (s *EnvironmentRequestService) GetForAdmin(
 	if request == nil {
 		return nil, domain.ErrEnvironmentRequestNotFound
 	}
+	request.CapacityImpact = s.capacityImpactForRequest(ctx, request)
 	return request, nil
 }
 
@@ -361,6 +373,11 @@ func (s *EnvironmentRequestService) compose(
 	}
 	plan, err := s.composer.Compose(ctx, tenantID, env, cfg)
 	if err != nil {
+		// La incompatibilidad real de piezas sí invalida el pedido: el docente
+		// eligió un complemento que no aplica al runtime activo y debe corregirlo.
+		if errors.Is(err, domain.ErrIncompatibleAddon) {
+			return nil, err
+		}
 		// Un docente puede nombrar una pieza que ya no está en el catálogo. Eso
 		// no invalida el pedido: se guarda como faltante y el administrador
 		// decide. Solo se propaga el error si no hay nada que guardar.
@@ -547,4 +564,38 @@ func dedupeMissingComponents(items []domain.EnvironmentRequestMissingComponent) 
 		})
 	}
 	return result
+}
+
+// capacityImpactForPreview arma el bloque humano desde la RAM recomendada de
+// la receta. Sin conexión al nodo o sin receta armada no hay bloque.
+func (s *EnvironmentRequestService) capacityImpactForPreview(ctx context.Context, plan *domain.ComposedTemplatePlan) *domain.CapacityImpact {
+	if s == nil || s.admission == nil || plan == nil || plan.RecommendedRamMB <= 0 {
+		return nil
+	}
+	return s.admission.capacityImpact(ctx, nil, int64(plan.RecommendedRamMB))
+}
+
+// capacityImpactForRequest arma el bloque humano de la ficha del administrador.
+// Con plantilla resuelta usa su RAM base; en revisión compone la receta para
+// obtener la recomendación del Constructor. Sin RAM no hay bloque.
+func (s *EnvironmentRequestService) capacityImpactForRequest(ctx context.Context, request *domain.EnvironmentRequest) *domain.CapacityImpact {
+	if s == nil || s.admission == nil || request == nil {
+		return nil
+	}
+	ramMB := int64(0)
+	if strings.TrimSpace(request.ResolvedTemplateID) != "" && s.templateLookup != nil {
+		if tpl, err := s.templateLookup.GetTemplateByID(ctx, strings.TrimSpace(request.ResolvedTemplateID)); err == nil && tpl != nil && tpl.BaseRamMB > 0 {
+			ramMB = int64(tpl.BaseRamMB)
+		}
+	}
+	if ramMB <= 0 {
+		plan, err := s.compose(ctx, request.TenantID, request.TargetEnvironment, request.StackConfig)
+		if err == nil && plan != nil && plan.RecommendedRamMB > 0 {
+			ramMB = int64(plan.RecommendedRamMB)
+		}
+	}
+	if ramMB <= 0 {
+		return nil
+	}
+	return s.admission.capacityImpact(ctx, nil, ramMB)
 }

@@ -14,8 +14,6 @@ export interface EnvironmentRequestDraft {
   descriptionTouched: boolean;
   title: string;
   titleTouched: boolean;
-  subjectId: string;
-  subjectName: string;
   uses: EnvironmentRequestUse[];
   runtimeId: string;
   webPlatformId: string;
@@ -31,8 +29,6 @@ const EMPTY_DRAFT: EnvironmentRequestDraft = {
   descriptionTouched: false,
   title: '',
   titleTouched: false,
-  subjectId: '',
-  subjectName: '',
   uses: ['practice'],
   runtimeId: '',
   webPlatformId: '',
@@ -66,7 +62,7 @@ export class EnvironmentRequestDraftService {
       draft.title.trim().length > 0 ||
       draft.addonIds.length > 0 ||
       draft.missingFromAI.length > 0 ||
-      Boolean(draft.runtimeId || draft.webPlatformId || draft.databaseId || draft.subjectId)
+      Boolean(draft.runtimeId || draft.webPlatformId || draft.databaseId)
     );
   }
 }

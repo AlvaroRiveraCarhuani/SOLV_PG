@@ -44,6 +44,7 @@ var (
 	ErrComponentSystemLocked  = errors.New("system technology components cannot be deleted")
 	ErrComponentInUse         = errors.New("technology component is referenced by existing environments")
 	ErrComponentReadOnly      = errors.New("technology component belongs to another tenant catalog and is read-only")
+	ErrIncompatibleAddon      = errors.New("complemento incompatible con el runtime activo")
 	ErrInvalidPackageName     = errors.New("invalid package name: only alphanumeric characters and @_./=->< are allowed")
 	ErrInvalidExtensionID     = errors.New("invalid extension ID: expected format publisher.name (e.g. golang.go)")
 	packageNameAllowlistRegex = regexp.MustCompile(`^[a-zA-Z0-9@_./=<>-]+$`)
@@ -191,6 +192,9 @@ type ComposedTemplatePlan struct {
 	DefaultEntrypoint string         `json:"default_entrypoint"`
 	RecommendedRamMB  int            `json:"recommended_ram_mb"`
 	ServicesConfig    ServicesConfig `json:"services_config"`
+	// CapacityImpact es la capacidad en lenguaje humano para esta receta en
+	// el servidor actual; lo calculan los servicios con acceso al nodo.
+	CapacityImpact *CapacityImpact `json:"capacity_impact,omitempty"`
 }
 
 // ValidatePackageNames verifica que cada nombre de paquete cumpla con la allowlist estricta sin metacaracteres de shell.

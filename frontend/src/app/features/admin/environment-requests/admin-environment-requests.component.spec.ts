@@ -18,6 +18,7 @@ describe('AdminEnvironmentRequestsComponent', () => {
   let fixture: ComponentFixture<AdminEnvironmentRequestsComponent>;
   let requestServiceMock: {
     listForReview: ReturnType<typeof vi.fn>;
+    getAdminRequest: ReturnType<typeof vi.fn>;
     review: ReturnType<typeof vi.fn>;
   };
   let templatesServiceMock: {
@@ -148,6 +149,10 @@ describe('AdminEnvironmentRequestsComponent', () => {
   beforeEach(async () => {
     requestServiceMock = {
       listForReview: vi.fn().mockReturnValue(of(mockRequests)),
+      // La ficha completa aporta la capacidad medida en el servidor actual.
+      getAdminRequest: vi.fn().mockImplementation((id: string) =>
+        of(mockRequests.find(r => r.id === id) ?? mockRequests[0])
+      ),
       review: vi.fn().mockImplementation((id, payload) =>
         of({
           ...mockRequests.find(r => r.id === id)!,

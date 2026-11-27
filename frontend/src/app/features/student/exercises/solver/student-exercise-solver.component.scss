@@ -627,6 +627,11 @@
     line-height: 1.35;
   }
 
+  // Descarga del proyecto: acción terciaria, separada de la entrega.
+  .operative-action-export {
+    margin-top: var(--space-2);
+  }
+
   .submission-registered-box {
     display: flex;
     align-items: center;

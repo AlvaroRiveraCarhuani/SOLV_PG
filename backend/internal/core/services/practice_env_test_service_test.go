@@ -415,3 +415,62 @@ func waitPracticeJob(t *testing.T, repo *memory.EnvTestJobMemoryRepository, id s
 	t.Fatalf("el job %s no terminó a tiempo", id)
 	return nil
 }
+
+// La prueba de entorno aparta su memoria del presupuesto compartido: con la
+// clase ocupando el nodo, el job ni siquiera se registra.
+func TestPracticeEnvTest_RespetaElPresupuestoCompartido(t *testing.T) {
+	svc, fixture := newPracticeTestService(t)
+
+	admission := services.NewPracticeEnvironmentService(nil, nil, nil).
+		WithHostTotalMemory(func() (int, bool) { return 8192, true })
+	svc.SetAdmissionService(admission)
+
+	// Ocupar el nodo: 4096 MB del primer preview y 2048 MB del segundo dejan
+	// 8192 × 85% − 6144 = 819 MB libres, menos que la base de la prueba.
+	if _, releaseFirst, err := admission.ReservePreviewQuota(context.Background(), 4096); err != nil {
+		t.Fatalf("la primera reserva debía entrar: %v", err)
+	} else {
+		defer releaseFirst()
+	}
+	if _, releaseSecond, err := admission.ReservePreviewQuota(context.Background(), 2048); err != nil {
+		t.Fatalf("la segunda reserva debía entrar: %v", err)
+	} else {
+		defer releaseSecond()
+	}
+
+	if _, err := svc.Start(context.Background(), fixture.startRequest()); !errors.Is(err, services.ErrHostMemoryExhausted) {
+		t.Fatalf("esperaba ErrHostMemoryExhausted con el nodo ocupado, obtuve %v", err)
+	}
+	if latest, err := fixture.repo.GetLatestByExercise(context.Background(), fixture.startRequest().ExerciseID); err == nil && latest != nil {
+		t.Fatalf("un job rechazado por capacidad no debe registrarse, quedó %s", latest.ID)
+	}
+}
+
+// Con hueco, la prueba reserva, corre y devuelve la memoria al terminar.
+func TestPracticeEnvTest_DevuelveLaReservaAlTerminar(t *testing.T) {
+	svc, fixture := newPracticeTestService(t)
+
+	admission := services.NewPracticeEnvironmentService(nil, nil, nil).
+		WithHostTotalMemory(func() (int, bool) { return 131072, true })
+	svc.SetAdmissionService(admission)
+
+	job, err := svc.Start(context.Background(), fixture.startRequest())
+	if err != nil {
+		t.Fatalf("inicio inesperado: %v", err)
+	}
+	finished := waitPracticeJob(t, fixture.repo, job.ID)
+	if finished.Status != domain.EnvTestStatusSuccess {
+		t.Fatalf("la prueba debía terminar en success, fue %s (%s)", finished.Status, finished.ErrorMessage)
+	}
+
+	// El job ya terminó: la prueba vuelve a reservar el nodo completo, lo que
+	// solo es posible si soltó lo que tenía apartado.
+	granted, release, err := admission.ReservePreviewQuota(context.Background(), 512)
+	if err != nil {
+		t.Fatalf("al terminar la prueba el presupuesto debía volver: %v", err)
+	}
+	release()
+	if granted <= 0 {
+		t.Fatalf("esperaba una cuota positiva, obtuve %d MB", granted)
+	}
+}

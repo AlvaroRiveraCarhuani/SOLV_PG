@@ -111,12 +111,21 @@ func (s *EnvTestService) executeJob(ctx context.Context, jobID, imageRef, docker
 				Percent:       25,
 				CurrentAction: "Integrando tecnologías seleccionadas en el servidor...",
 			})
-			buildErr := s.builder.BuildLocalStackImage(ctx, imageRef, dockerfileContent, func(action string) {
-				_ = s.repo.UpdateProgress(context.Background(), jobID, domain.EnvTestProgress{
-					Percent:       50,
-					CurrentAction: action,
+			// Semáforo global de construcción: un solo `docker build` por nodo.
+			releaseBuild, slotErr := acquireBuildSlot(ctx)
+			if slotErr != nil {
+				_ = s.repo.Fail(context.Background(), jobID, domain.EnvTestErrInternal, fmt.Sprintf("El servidor está construyendo otra imagen en este momento, inténtalo en unos minutos: %v", slotErr))
+				return
+			}
+			buildErr := func() error {
+				defer releaseBuild()
+				return s.builder.BuildLocalStackImage(ctx, imageRef, dockerfileContent, func(action string) {
+					_ = s.repo.UpdateProgress(context.Background(), jobID, domain.EnvTestProgress{
+						Percent:       50,
+						CurrentAction: action,
+					})
 				})
-			})
+			}()
 			if buildErr != nil {
 				if errors.Is(buildErr, context.Canceled) {
 					_ = s.repo.Cancel(context.Background(), jobID)

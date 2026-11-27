@@ -55,9 +55,15 @@ type PracticeEnvTestService struct {
 	databases  StudentPracticeDatabaseLister
 	config     PracticeEnvTestConfig
 
+	// admission comparte el presupuesto en vuelo con los laboratorios: una
+	// prueba de entorno no empuja a un alumno fuera del nodo.
+	admission *PracticeEnvironmentService
+
 	sem         chan struct{}
 	cancelMu    sync.Mutex
 	cancelFuncs map[string]context.CancelFunc
+	// reservations guarda la liberación pendiente de cada job en vuelo.
+	reservations map[string]func()
 }
 
 func NewPracticeEnvTestService(
@@ -81,18 +87,28 @@ func NewPracticeEnvTestService(
 		config.SetupTimeout = 5 * time.Minute
 	}
 	return &PracticeEnvTestService{
-		repo:        repo,
-		registry:    registry,
-		runner:      runner,
-		satellites:  satellites,
-		exercises:   exercises,
-		subjects:    subjects,
-		templates:   templates,
-		databases:   databases,
-		config:      config,
-		sem:         make(chan struct{}, config.MaxConcurrentJobs),
-		cancelFuncs: make(map[string]context.CancelFunc),
+		repo:         repo,
+		registry:     registry,
+		runner:       runner,
+		satellites:   satellites,
+		exercises:    exercises,
+		subjects:     subjects,
+		templates:    templates,
+		databases:    databases,
+		config:       config,
+		sem:          make(chan struct{}, config.MaxConcurrentJobs),
+		cancelFuncs:  make(map[string]context.CancelFunc),
+		reservations: make(map[string]func()),
 	}
+}
+
+// SetAdmissionService conecta el presupuesto compartido con los laboratorios.
+func (s *PracticeEnvTestService) SetAdmissionService(admission *PracticeEnvironmentService) *PracticeEnvTestService {
+	if s == nil {
+		return s
+	}
+	s.admission = admission
+	return s
 }
 
 // Start valida la práctica y despacha la prueba en segundo plano.
@@ -133,6 +149,18 @@ func (s *PracticeEnvTestService) Start(ctx context.Context, req PracticeEnvTestR
 		}
 	}
 
+	// Admisión unificada: la prueba aparta su memoria del mismo presupuesto
+	// en vuelo que los laboratorios antes de registrar el job.
+	var releaseQuota func()
+	if s.admission != nil {
+		grantedMB, release, grantErr := s.admission.ReservePracticeTestQuota(ctx, ramMB)
+		if grantErr != nil {
+			return nil, grantErr
+		}
+		releaseQuota = release
+		ramMB = grantedMB
+	}
+
 	jobID := uuid.NewString()
 	job := &domain.EnvTestJob{
 		ID:                jobID,
@@ -148,7 +176,15 @@ func (s *PracticeEnvTestService) Start(ctx context.Context, req PracticeEnvTestR
 		},
 	}
 	if err := s.repo.Save(ctx, job); err != nil {
+		if releaseQuota != nil {
+			releaseQuota()
+		}
 		return nil, fmt.Errorf("error al registrar la prueba de la práctica: %w", err)
+	}
+	if releaseQuota != nil {
+		s.cancelMu.Lock()
+		s.reservations[jobID] = releaseQuota
+		s.cancelMu.Unlock()
 	}
 
 	jobCtx, cancel := context.WithTimeout(context.Background(), s.config.TotalJobTimeout)
@@ -219,6 +255,10 @@ func (s *PracticeEnvTestService) execute(ctx context.Context, jobID string, exer
 	defer func() {
 		s.cancelMu.Lock()
 		delete(s.cancelFuncs, jobID)
+		if releaseQuota := s.reservations[jobID]; releaseQuota != nil {
+			releaseQuota()
+			delete(s.reservations, jobID)
+		}
 		s.cancelMu.Unlock()
 	}()
 
@@ -244,7 +284,17 @@ func (s *PracticeEnvTestService) execute(ctx context.Context, jobID string, exer
 		_ = s.repo.UpdateProgress(ctx, jobID, domain.EnvTestProgress{
 			CurrentAction: "Descargando la imagen de la práctica...",
 		})
-		pullErr := s.registry.PullImage(ctx, image, func(doneBytes, totalBytes int64, currentLayer, totalLayers int, action string) {
+		// La descarga comparte el semáforo global de construcción: con una
+		// imagen construyéndose en el nodo, la prueba espera su turno con un
+		// fallo claro en vez de competir por disco y red.
+		releaseBuild, slotErr := acquireBuildSlot(ctx)
+		if slotErr != nil {
+			_ = s.repo.Fail(context.Background(), jobID, domain.EnvTestErrInternal, fmt.Sprintf("El servidor está construyendo otra imagen en este momento, inténtalo en unos minutos: %v", slotErr))
+			return
+		}
+		pullErr := func() error {
+			defer releaseBuild()
+			return s.registry.PullImage(ctx, image, func(doneBytes, totalBytes int64, currentLayer, totalLayers int, action string) {
 			percent := float64(0)
 			if totalBytes > 0 {
 				percent = float64(doneBytes) / float64(totalBytes) * 100
@@ -252,15 +302,16 @@ func (s *PracticeEnvTestService) execute(ctx context.Context, jobID string, exer
 					percent = 100
 				}
 			}
-			_ = s.repo.UpdateProgress(context.Background(), jobID, domain.EnvTestProgress{
-				BytesDone:     doneBytes,
-				BytesTotal:    totalBytes,
-				LayerCurrent:  currentLayer,
-				LayersTotal:   totalLayers,
-				Percent:       percent,
-				CurrentAction: action,
+				_ = s.repo.UpdateProgress(context.Background(), jobID, domain.EnvTestProgress{
+					BytesDone:     doneBytes,
+					BytesTotal:    totalBytes,
+					LayerCurrent:  currentLayer,
+					LayersTotal:   totalLayers,
+					Percent:       percent,
+					CurrentAction: action,
+				})
 			})
-		})
+		}()
 		if pullErr != nil {
 			if errors.Is(pullErr, context.Canceled) {
 				_ = s.repo.Cancel(context.Background(), jobID)

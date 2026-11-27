@@ -1,3 +1,5 @@
+import { CapacityImpact } from '@features/teacher/templates/environment-request.models';
+
 export type TargetEnvironment = 'IDE_PERSISTENTE' | 'JUEZ_EFIMERO' | 'AMBOS';
 
 export interface ImageSuggestion {
@@ -295,6 +297,8 @@ export interface ComposedTemplatePlan {
   default_entrypoint: string;
   recommended_ram_mb: number;
   services_config: ServicesConfig;
+  /** Capacidad en lenguaje humano para esta receta en el servidor actual. */
+  capacity_impact?: CapacityImpact;
 }
 
 export interface ReviewTemplateDTO {
